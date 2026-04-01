@@ -3,6 +3,8 @@ export type HandFilter = Hand | 'both';
 export type TrackAssignment = Hand | 'both' | 'ignore';
 export type NoteJudgement = 'pending' | 'perfect' | 'good' | 'ok' | 'miss';
 export type SessionMode = 'piano-hero' | 'learning' | 'performance' | 'free-play';
+export type HandSize = 'small' | 'medium' | 'large';
+export type FingeringDisplayMode = 'always' | 'learning-only' | 'never';
 
 export interface LoopRange {
   startMeasure: number;
@@ -16,6 +18,8 @@ export interface SessionConfig {
   loopRange: LoopRange | null;
   waitForInput: boolean;
   metronomeEnabled: boolean;
+  handSize: HandSize;
+  fingeringDisplayMode: FingeringDisplayMode;
 }
 
 export interface ParsedTrack {
@@ -49,6 +53,7 @@ export interface ParsedSong {
 
 export interface ScheduledNote extends ParsedNote {
   effectiveHand: Hand;
+  finger?: number;
 }
 
 export interface VisibleNote {
@@ -57,6 +62,7 @@ export interface VisibleNote {
   label: string;
   hand: Hand;
   judgement: NoteJudgement;
+  finger?: number;
   xRatio: number;
   widthRatio: number;
   topRatio: number;
@@ -101,6 +107,6 @@ export interface PlaybackSnapshot {
   hitLineRatio: number;
   visibleNotes: VisibleNote[];
   activeInputNotes: number[];
-  upcomingNotes: Array<{ midi: number; hand: Hand }>;
+  upcomingNotes: Array<{ midi: number; hand: Hand; finger?: number }>;
   score: ScoreSnapshot;
 }

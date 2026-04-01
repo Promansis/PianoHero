@@ -151,6 +151,33 @@ export function LibraryScreen({ onStartSession, onStartFreePlay, onOpenSetupGuid
     await refreshLibrary();
   };
 
+  const handleExportLibrary = async () => {
+    if (!window.appBridge) {
+      return;
+    }
+
+    const filePath = await window.appBridge.exportLibrary();
+    if (filePath) {
+      setStatusMessage(`Library exported to ${filePath}.`);
+    }
+  };
+
+  const handleImportLibrary = async () => {
+    if (!window.appBridge) {
+      return;
+    }
+
+    const result = await window.appBridge.importLibrary();
+    if (!result) {
+      return;
+    }
+
+    await refreshLibrary();
+    setStatusMessage(
+      `Imported ${result.songsImported} songs, ${result.foldersImported} folders, and ${result.playlistsImported} playlists.`,
+    );
+  };
+
   const handleSaveMetadata = async () => {
     if (!window.appBridge || !selectedSong || !draft) {
       return;
@@ -230,6 +257,12 @@ export function LibraryScreen({ onStartSession, onStartFreePlay, onOpenSetupGuid
           </button>
           <button className="secondary-button" onClick={onStartFreePlay}>
             Free Play
+          </button>
+          <button className="secondary-button" onClick={() => void handleExportLibrary()}>
+            Export Library
+          </button>
+          <button className="secondary-button" onClick={() => void handleImportLibrary()}>
+            Import Library
           </button>
           <button className="secondary-button" onClick={() => void refreshLibrary()} disabled={isLoading}>
             Refresh

@@ -19,7 +19,7 @@ import type {
 import { parseMidiFile } from '../../lib/midi/midiFileParser';
 import { MidiInputService } from '../../lib/midi/midiInputService';
 import type { MidiInputDevice } from '../../lib/midi/types';
-import type { SongRow, UserStatsRow } from '../../shared/dbTypes';
+import type { FingeringRow, SongRow, UserStatsRow } from '../../shared/dbTypes';
 import { ControlBar } from './ControlBar';
 import { FallingNotesCanvas } from './FallingNotesCanvas';
 import { PianoKeyboard } from './PianoKeyboard';
@@ -114,6 +114,7 @@ function buildTempSong(filePath: string, title: string): SongRow {
     timesPlayed: 0,
     tags: [],
     isFavorite: false,
+    folderId: null,
     trackAssignments: {},
   };
 }
@@ -122,9 +123,17 @@ interface SessionToolbarProps {
   sessionConfig: SessionConfig;
   totalMeasures: number;
   onRebuild: (next: SessionConfig) => void;
+  onHandSizeChange: (value: SessionConfig['handSize']) => void;
+  onFingeringDisplayModeChange: (value: SessionConfig['fingeringDisplayMode']) => void;
 }
 
-function SessionToolbar({ sessionConfig, totalMeasures, onRebuild }: SessionToolbarProps) {
+function SessionToolbar({
+  sessionConfig,
+  totalMeasures,
+  onRebuild,
+  onHandSizeChange,
+  onFingeringDisplayModeChange,
+}: SessionToolbarProps) {
   const [loopStart, setLoopStart] = useState(sessionConfig.loopRange ? sessionConfig.loopRange.startMeasure + 1 : 1);
   const [loopEnd, setLoopEnd] = useState(
     sessionConfig.loopRange ? sessionConfig.loopRange.endMeasure + 1 : Math.max(1, totalMeasures),
@@ -215,6 +224,33 @@ function SessionToolbar({ sessionConfig, totalMeasures, onRebuild }: SessionTool
           </>
         )}
       </div>
+
+      <div className="session-chip-group">
+        <label>
+          <span>Hand Size</span>
+          <select
+            value={sessionConfig.handSize}
+            onChange={(event) => onHandSizeChange(event.target.value as SessionConfig['handSize'])}
+          >
+            <option value="small">Small</option>
+            <option value="medium">Medium</option>
+            <option value="large">Large</option>
+          </select>
+        </label>
+        <label>
+          <span>Fingering</span>
+          <select
+            value={sessionConfig.fingeringDisplayMode}
+            onChange={(event) =>
+              onFingeringDisplayModeChange(event.target.value as SessionConfig['fingeringDisplayMode'])
+            }
+          >
+            <option value="always">Always</option>
+            <option value="learning-only">Learning Only</option>
+            <option value="never">Never</option>
+          </select>
+        </label>
+      </div>
     </section>
   );
 }
@@ -242,6 +278,7 @@ export function GameScreen({
   const [statusMessage, setStatusMessage] = useState('Loading song from the library.');
   const [reminderFrequencyMinutes, setReminderFrequencyMinutes] = useState<number | null>(null);
   const [showReminder, setShowReminder] = useState(false);
+  const [customFingerings, setCustomFingerings] = useState<FingeringRow[]>([]);
 
   useEffect(() => {
     setSessionConfig(initialSessionConfig);
@@ -324,16 +361,35 @@ export function GameScreen({
       }
 
       currentSongRef.current = song;
-      baselineStatsRef.current = await window.appBridge.getUserStats(song.id);
+      const [baselineStats, reminderValue, handSizeValue, displayModeValue, fingerings] = await Promise.all([
+        window.appBridge.getUserStats(song.id),
+        window.appBridge.getSetting('practice', 'postureReminderMinutes'),
+        window.appBridge.getSetting('fingering', 'handSize'),
+        window.appBridge.getSetting('fingering', 'displayMode'),
+        window.appBridge.getCustomFingerings(song.id),
+      ]);
+      baselineStatsRef.current = baselineStats;
+      setReminderFrequencyMinutes(reminderValue && reminderValue !== 'off' ? Number(reminderValue) || null : null);
+      setCustomFingerings(fingerings);
 
-      const reminderValue = await window.appBridge.getSetting('practice', 'postureReminderMinutes');
-      setReminderFrequencyMinutes(
-        reminderValue && reminderValue !== 'off' ? Number(reminderValue) || null : null,
-      );
+      const nextSessionConfig: SessionConfig = {
+        ...initialSessionConfig,
+        handSize:
+          handSizeValue === 'small' || handSizeValue === 'medium' || handSizeValue === 'large'
+            ? handSizeValue
+            : initialSessionConfig.handSize,
+        fingeringDisplayMode:
+          displayModeValue === 'always' ||
+          displayModeValue === 'learning-only' ||
+          displayModeValue === 'never'
+            ? displayModeValue
+            : initialSessionConfig.fingeringDisplayMode,
+      };
+      setSessionConfig(nextSessionConfig);
 
       try {
         const bytes = await window.appBridge.loadMidiFileData(song.filePath);
-        await loadSongFromBytes(toArrayBuffer(bytes), song, initialSessionConfig);
+        await loadSongFromBytes(toArrayBuffer(bytes), song, nextSessionConfig, fingerings);
       } catch (error) {
         setStatusMessage(`Unable to load song: ${(error as Error).message}`);
       }
@@ -367,10 +423,11 @@ export function GameScreen({
   const mountSession = async (
     nextSourceSong: ParsedSong,
     nextSessionConfig: SessionConfig,
+    nextCustomFingerings: FingeringRow[],
     options: { keepTime?: boolean; currentTimeSec?: number } = {},
   ) => {
     const filteredSong = composeSessionSong(nextSourceSong, nextSessionConfig);
-    const nextGame = new GameSession(filteredSong, nextSessionConfig);
+    const nextGame = new GameSession(filteredSong, nextSessionConfig, nextCustomFingerings);
     const now = performance.now();
     if (options.keepTime && typeof options.currentTimeSec === 'number') {
       nextGame.seek(options.currentTimeSec, now);
@@ -388,6 +445,7 @@ export function GameScreen({
     arrayBuffer: ArrayBuffer,
     songRecord: SongRow,
     nextSessionConfig: SessionConfig,
+    nextCustomFingerings: FingeringRow[],
   ) => {
     const parsedSong = parseMidiFile(arrayBuffer, {
       songId: songRecord.id,
@@ -401,7 +459,7 @@ export function GameScreen({
       noteCount: hydratedSong.notes.length,
       trackAssignments: getTrackAssignments(hydratedSong),
     };
-    await mountSession(hydratedSong, nextSessionConfig);
+    await mountSession(hydratedSong, nextSessionConfig, nextCustomFingerings);
     setStatusMessage(
       `Loaded ${hydratedSong.title} with ${hydratedSong.notes.length} notes across ${hydratedSong.tracks.length} tracks.`,
     );
@@ -418,7 +476,7 @@ export function GameScreen({
     const now = performance.now();
     const currentTime = previousGame.getCurrentTimeSec(now);
     const wasPlaying = previousGame.isTransportPlaying();
-    await mountSession(currentSourceSong, nextSessionConfig, {
+    await mountSession(currentSourceSong, nextSessionConfig, customFingerings, {
       keepTime: true,
       currentTimeSec: currentTime,
     });
@@ -446,7 +504,8 @@ export function GameScreen({
     tempSong.id = nextSongId;
     currentSongRef.current = tempSong;
     baselineStatsRef.current = null;
-    await loadSongFromBytes(toArrayBuffer(picked.data), tempSong, sessionConfig);
+    setCustomFingerings([]);
+    await loadSongFromBytes(toArrayBuffer(picked.data), tempSong, sessionConfig, []);
   };
 
   const handleDroppedFile = async (file: File) => {
@@ -457,7 +516,8 @@ export function GameScreen({
     tempSong.id = nextSongId;
     currentSongRef.current = tempSong;
     baselineStatsRef.current = null;
-    await loadSongFromBytes(bytes, tempSong, sessionConfig);
+    setCustomFingerings([]);
+    await loadSongFromBytes(bytes, tempSong, sessionConfig, []);
   };
 
   const handlePlayPause = async () => {
@@ -563,7 +623,8 @@ export function GameScreen({
     const now = performance.now();
     const currentTime = previousGame?.getCurrentTimeSec(now) ?? 0;
     const wasPlaying = previousGame?.isTransportPlaying() ?? false;
-    await mountSession(updatedSourceSong, sessionConfig, {
+    setCustomFingerings([]);
+    await mountSession(updatedSourceSong, sessionConfig, [], {
       keepTime: true,
       currentTimeSec: currentTime,
     });
@@ -574,6 +635,7 @@ export function GameScreen({
     }
 
     if (window.appBridge && !updatedSongRecord.id.startsWith('temp-')) {
+      await window.appBridge.clearCustomFingerings(updatedSongRecord.id);
       await window.appBridge.updateSong(updatedSongRecord.id, {
         title: updatedSongRecord.title,
         filePath: updatedSongRecord.filePath,
@@ -643,6 +705,18 @@ export function GameScreen({
         sessionConfig={sessionConfig}
         totalMeasures={sessionSong ? getMeasureCount(sessionSong) : 0}
         onRebuild={(next) => void rebuildForSessionConfig(next)}
+        onHandSizeChange={(handSize) => {
+          const nextConfig = { ...sessionConfig, handSize };
+          setSessionConfig(nextConfig);
+          void window.appBridge?.setSetting('fingering', 'handSize', handSize);
+          void rebuildForSessionConfig(nextConfig);
+        }}
+        onFingeringDisplayModeChange={(fingeringDisplayMode) => {
+          const nextConfig = { ...sessionConfig, fingeringDisplayMode };
+          setSessionConfig(nextConfig);
+          void window.appBridge?.setSetting('fingering', 'displayMode', fingeringDisplayMode);
+          void rebuildForSessionConfig(nextConfig);
+        }}
       />
 
       {showReminder && (
@@ -686,6 +760,3 @@ export function GameScreen({
     </main>
   );
 }
-
-
-

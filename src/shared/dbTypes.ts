@@ -14,7 +14,53 @@ export interface SongRow {
   timesPlayed: number;
   tags: string[];
   isFavorite: boolean;
+  folderId: string | null;
   trackAssignments: Record<string, TrackAssignment>;
+}
+
+export interface FolderRow {
+  id: string;
+  name: string;
+  sortOrder: number;
+  createdAt: string;
+}
+
+export interface PlaylistRow {
+  id: string;
+  name: string;
+  description: string;
+  createdAt: string;
+  updatedAt: string;
+  songCount?: number;
+}
+
+export interface FingeringRow {
+  songId: string;
+  noteIndex: number;
+  finger: number;
+  hand: 'left' | 'right';
+}
+
+export interface SettingRow {
+  category: string;
+  key: string;
+  value: string;
+}
+
+export interface LibraryBackup {
+  version: 1;
+  exportedAt: string;
+  songs: SongRow[];
+  folders: FolderRow[];
+  playlists: Array<PlaylistRow & { songIds: string[] }>;
+  fingerings: FingeringRow[];
+  settings: SettingRow[];
+}
+
+export interface LibraryImportResult {
+  songsImported: number;
+  foldersImported: number;
+  playlistsImported: number;
 }
 
 export interface UserStatsRow {
@@ -54,6 +100,7 @@ export interface AddSongPayload {
   bpm: number;
   noteCount: number;
   tags: string[];
+  folderId?: string | null;
   trackAssignments: Record<string, TrackAssignment>;
 }
 

@@ -1,4 +1,6 @@
 import type { MidiMessageEvent } from '../midi/types';
+import type { FingeringRow } from '../../shared/dbTypes';
+import { computeFingering } from './fingeringAlgorithm';
 import { ScoringEngine } from './ScoringEngine';
 import { buildScheduledNotes, getLoopRangeSeconds, getMeasureIndexForTime } from './songUtils';
 import type {
@@ -34,10 +36,12 @@ export class GameSession {
   private physicalInputNotes = new Set<number>();
   private activeInputNotes = new Set<number>();
   private sessionConfig: SessionConfig;
+  private customFingerings: FingeringRow[];
 
-  constructor(song: ParsedSong, sessionConfig: SessionConfig) {
+  constructor(song: ParsedSong, sessionConfig: SessionConfig, customFingerings: FingeringRow[] = []) {
     this.song = song;
     this.sessionConfig = sessionConfig;
+    this.customFingerings = customFingerings;
     this.scoringEngine = new ScoringEngine(0);
     this.resetScheduledNotes();
     this.currentTimeSec = this.getLoopStartSec();
@@ -59,6 +63,12 @@ export class GameSession {
     this.currentTimeSec = Math.max(this.getLoopStartSec(), Math.min(currentTime, this.getLoopEndSec()));
     this.playbackAnchorSec = this.currentTimeSec;
     this.playbackAnchorMs = nowMs;
+    this.resetScheduledNotes();
+  }
+
+  setCustomFingerings(customFingerings: FingeringRow[]): void {
+    this.customFingerings = customFingerings;
+    this.resetScheduledNotes();
   }
 
   play(nowMs: number): void {
@@ -223,12 +233,25 @@ export class GameSession {
 
   private resetScheduledNotes(): void {
     const { startSec, endSec } = getLoopRangeSeconds(this.song, this.sessionConfig.loopRange);
-    this.scheduledNotes = buildScheduledNotes(this.song)
+    const scheduledNotes = buildScheduledNotes(this.song)
       .filter((note) => note.startSec >= startSec && note.startSec < endSec)
       .map((note) => ({
         ...note,
         judgement: 'pending' as NoteJudgement,
       }));
+    const computedFingerings = computeFingering(scheduledNotes, this.sessionConfig.handSize);
+    const overrides = new Map(this.customFingerings.map((row) => [row.noteIndex, row]));
+
+    this.scheduledNotes = scheduledNotes.map((note, noteIndex) => {
+      const override = overrides.get(noteIndex);
+      return {
+        ...note,
+        finger:
+          override && override.hand === note.effectiveHand
+            ? override.finger
+            : computedFingerings.get(noteIndex),
+      };
+    });
     this.scoringEngine.reset(this.scheduledNotes.length);
   }
 
@@ -320,6 +343,7 @@ export class GameSession {
           label: note.name,
           hand: note.effectiveHand,
           judgement: note.judgement,
+          finger: this.shouldDisplayFingering() ? note.finger : undefined,
           xRatio,
           widthRatio,
           topRatio,
@@ -329,9 +353,9 @@ export class GameSession {
       .filter((note) => note.topRatio < 1 && note.topRatio + note.heightRatio > 0);
   }
 
-  private buildUpcomingNotes(currentTimeSec: number): Array<{ midi: number; hand: 'left' | 'right' }> {
+  private buildUpcomingNotes(currentTimeSec: number): Array<{ midi: number; hand: 'left' | 'right'; finger?: number }> {
     const horizon = currentTimeSec + 1.6;
-    const upcoming = new Map<number, 'left' | 'right'>();
+    const upcoming = new Map<number, { hand: 'left' | 'right'; finger?: number }>();
 
     for (const note of this.scheduledNotes) {
       if (note.judgement === 'miss') {
@@ -344,12 +368,27 @@ export class GameSession {
         break;
       }
 
-      upcoming.set(note.midi, note.effectiveHand);
+      upcoming.set(note.midi, {
+        hand: note.effectiveHand,
+        finger: this.shouldDisplayFingering() ? note.finger : undefined,
+      });
     }
 
     return [...upcoming.entries()]
-      .map(([midi, hand]) => ({ midi, hand }))
+      .map(([midi, value]) => ({ midi, hand: value.hand, finger: value.finger }))
       .sort((left, right) => left.midi - right.midi);
+  }
+
+  private shouldDisplayFingering(): boolean {
+    if (this.sessionConfig.fingeringDisplayMode === 'never') {
+      return false;
+    }
+
+    if (this.sessionConfig.fingeringDisplayMode === 'learning-only') {
+      return this.sessionConfig.mode === 'learning';
+    }
+
+    return true;
   }
 
   private getBlockingTimeSec(): number | null {

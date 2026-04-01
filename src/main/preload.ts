@@ -16,8 +16,39 @@ const appBridge: AppBridge = {
   getGameResults: (songId) => ipcRenderer.invoke('results:for-song', songId),
   getUserStats: (songId) => ipcRenderer.invoke('stats:get', songId),
 
+  getCustomFingerings: (songId) => ipcRenderer.invoke('fingerings:get', songId),
+  saveCustomFingering: (songId, noteIndex, finger, hand) =>
+    ipcRenderer.invoke('fingerings:save', songId, noteIndex, finger, hand),
+  clearCustomFingerings: (songId) => ipcRenderer.invoke('fingerings:clear', songId),
+
+  getAllFolders: () => ipcRenderer.invoke('folders:get-all'),
+  createFolder: (name) => ipcRenderer.invoke('folders:create', name),
+  renameFolder: (folderId, name) => ipcRenderer.invoke('folders:rename', folderId, name),
+  deleteFolder: (folderId) => ipcRenderer.invoke('folders:delete', folderId),
+  moveSongToFolder: (songId, folderId) => ipcRenderer.invoke('folders:move-song', songId, folderId),
+
+  getAllPlaylists: () => ipcRenderer.invoke('playlists:get-all'),
+  createPlaylist: (name) => ipcRenderer.invoke('playlists:create', name),
+  updatePlaylist: (playlistId, updates) => ipcRenderer.invoke('playlists:update', playlistId, updates),
+  deletePlaylist: (playlistId) => ipcRenderer.invoke('playlists:delete', playlistId),
+  getPlaylistSongs: (playlistId) => ipcRenderer.invoke('playlists:get-songs', playlistId),
+  addSongToPlaylist: (playlistId, songId) => ipcRenderer.invoke('playlists:add-song', playlistId, songId),
+  removeSongFromPlaylist: (playlistId, songId) =>
+    ipcRenderer.invoke('playlists:remove-song', playlistId, songId),
+  reorderPlaylistSong: (playlistId, songId, newOrder) =>
+    ipcRenderer.invoke('playlists:reorder-song', playlistId, songId, newOrder),
+
+  bulkDeleteSongs: (songIds) => ipcRenderer.invoke('bulk:delete-songs', songIds),
+  bulkMoveSongsToFolder: (songIds, folderId) =>
+    ipcRenderer.invoke('bulk:move-songs-to-folder', songIds, folderId),
+  bulkAddTag: (songIds, tag) => ipcRenderer.invoke('bulk:add-tag', songIds, tag),
+  bulkRemoveTag: (songIds, tag) => ipcRenderer.invoke('bulk:remove-tag', songIds, tag),
+  bulkAddToPlaylist: (songIds, playlistId) => ipcRenderer.invoke('bulk:add-to-playlist', songIds, playlistId),
+
   getSetting: (category, key) => ipcRenderer.invoke('settings:get', category, key),
   setSetting: (category, key, value) => ipcRenderer.invoke('settings:set', category, key, value),
+  exportLibrary: () => ipcRenderer.invoke('library:export'),
+  importLibrary: () => ipcRenderer.invoke('library:import'),
 
   loadMidiFileData: (filePath) => ipcRenderer.invoke('file:load-midi', filePath),
   saveMidiFile: (suggestedName, data) => ipcRenderer.invoke('file:save-midi', suggestedName, data),

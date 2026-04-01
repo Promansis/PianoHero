@@ -131,6 +131,11 @@ function drawNotes(
     context.font = '12px "Alegreya Sans", "Trebuchet MS", sans-serif';
     context.textAlign = 'center';
     context.fillText(note.label, x + noteWidth / 2, y + Math.min(18, noteHeight - 4));
+
+    if (note.finger !== undefined) {
+      context.font = 'bold 11px "Alegreya Sans", "Trebuchet MS", sans-serif';
+      context.fillText(String(note.finger), x + noteWidth / 2, y + Math.min(32, noteHeight - 4));
+    }
   }
 }
 

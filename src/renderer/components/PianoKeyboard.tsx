@@ -2,7 +2,7 @@ import type { Hand } from '../../lib/game/types';
 
 interface PianoKeyboardProps {
   activeNotes: number[];
-  upcomingNotes: Array<{ midi: number; hand: Hand }>;
+  upcomingNotes: Array<{ midi: number; hand: Hand; finger?: number }>;
 }
 
 interface KeyLayout {
@@ -79,8 +79,10 @@ function midiToLabel(midi: number): string {
   return `${pitchNames[midi % 12]}${Math.floor(midi / 12) - 1}`;
 }
 
-function upcomingMap(upcomingNotes: Array<{ midi: number; hand: Hand }>): Map<number, Hand> {
-  return new Map(upcomingNotes.map((note) => [note.midi, note.hand]));
+function upcomingMap(
+  upcomingNotes: Array<{ midi: number; hand: Hand; finger?: number }>,
+): Map<number, { hand: Hand; finger?: number }> {
+  return new Map(upcomingNotes.map((note) => [note.midi, { hand: note.hand, finger: note.finger }]));
 }
 
 export function PianoKeyboard({ activeNotes, upcomingNotes }: PianoKeyboardProps) {
@@ -107,11 +109,12 @@ export function PianoKeyboard({ activeNotes, upcomingNotes }: PianoKeyboardProps
             return (
               <div
                 key={key.midi}
-                className={`white-key ${isActive ? 'active' : ''} ${cue ? `cue-${cue}` : ''}`}
+                className={`white-key ${isActive ? 'active' : ''} ${cue ? `cue-${cue.hand}` : ''}`}
                 style={{ width: `${WHITE_KEY_WIDTH}%` }}
                 title={key.note}
               >
                 <span>{key.note.startsWith('C') ? key.note : ''}</span>
+                {cue?.finger !== undefined && <strong className="key-finger">{cue.finger}</strong>}
               </div>
             );
           })}
@@ -124,10 +127,12 @@ export function PianoKeyboard({ activeNotes, upcomingNotes }: PianoKeyboardProps
             return (
               <div
                 key={key.midi}
-                className={`black-key ${isActive ? 'active' : ''} ${cue ? `cue-${cue}` : ''}`}
+                className={`black-key ${isActive ? 'active' : ''} ${cue ? `cue-${cue.hand}` : ''}`}
                 style={{ left: `${key.left}%` }}
                 title={key.note}
-              />
+              >
+                {cue?.finger !== undefined && <strong className="key-finger black">{cue.finger}</strong>}
+              </div>
             );
           })}
         </div>

@@ -48,6 +48,8 @@ const DEFAULT_SESSION: SessionConfig = {
   loopRange: null,
   waitForInput: false,
   metronomeEnabled: false,
+  handSize: 'medium',
+  fingeringDisplayMode: 'always',
 };
 
 describe('GameSession', () => {

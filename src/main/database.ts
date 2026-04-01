@@ -2,14 +2,22 @@ import Database from 'better-sqlite3';
 import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
-import type { TrackAssignment } from '../lib/game/types';
+import type { Hand, TrackAssignment } from '../lib/game/types';
 import type {
   AddSongPayload,
+  FingeringRow,
+  FolderRow,
   GameResultRow,
+  LibraryBackup,
+  LibraryImportResult,
+  PlaylistRow,
   SaveGameResultPayload,
+  SettingRow,
   SongRow,
   UserStatsRow,
 } from '../shared/dbTypes';
+
+type DbRow = Record<string, unknown>;
 
 export class AppDatabase {
   private db: Database.Database;
@@ -73,15 +81,64 @@ export class AppDatabase {
         PRIMARY KEY (category, key)
       );
 
+      CREATE TABLE IF NOT EXISTS fingerings (
+        song_id TEXT NOT NULL REFERENCES songs(id) ON DELETE CASCADE,
+        note_index INTEGER NOT NULL,
+        finger INTEGER NOT NULL CHECK(finger BETWEEN 1 AND 5),
+        hand TEXT NOT NULL CHECK(hand IN ('left', 'right')),
+        PRIMARY KEY (song_id, note_index)
+      );
+
+      CREATE TABLE IF NOT EXISTS folders (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+
+      CREATE TABLE IF NOT EXISTS playlists (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+
+      CREATE TABLE IF NOT EXISTS playlist_songs (
+        playlist_id TEXT NOT NULL REFERENCES playlists(id) ON DELETE CASCADE,
+        song_id TEXT NOT NULL REFERENCES songs(id) ON DELETE CASCADE,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (playlist_id, song_id)
+      );
+    `);
+
+    this.ensureSongFolderColumn();
+
+    this.db.exec(`
       CREATE INDEX IF NOT EXISTS idx_game_results_song_id ON game_results(song_id);
       CREATE INDEX IF NOT EXISTS idx_game_results_timestamp ON game_results(timestamp);
       CREATE INDEX IF NOT EXISTS idx_songs_date_added ON songs(date_added);
       CREATE INDEX IF NOT EXISTS idx_songs_title ON songs(title COLLATE NOCASE);
+      CREATE INDEX IF NOT EXISTS idx_songs_folder_id ON songs(folder_id);
+      CREATE INDEX IF NOT EXISTS idx_playlist_songs_playlist_id ON playlist_songs(playlist_id, sort_order);
+      CREATE INDEX IF NOT EXISTS idx_folders_sort_order ON folders(sort_order, name COLLATE NOCASE);
+      CREATE INDEX IF NOT EXISTS idx_playlists_name ON playlists(name COLLATE NOCASE);
     `);
 
     this.db.prepare(`UPDATE songs SET tags = '[]' WHERE tags = '' OR tags IS NULL`).run();
     this.db.prepare(`UPDATE songs SET track_assignments = '{}' WHERE track_assignments = '' OR track_assignments IS NULL`).run();
     this.db.prepare(`UPDATE game_results SET mode = 'piano-hero' WHERE mode = 'normal' OR mode = '' OR mode IS NULL`).run();
+    this.db
+      .prepare(`INSERT OR IGNORE INTO settings (category, key, value) VALUES ('fingering', 'handSize', 'medium')`)
+      .run();
+  }
+
+  private ensureSongFolderColumn(): void {
+    const columns = this.db.prepare(`PRAGMA table_info(songs)`).all() as Array<{ name: string }>;
+    const hasFolderId = columns.some((column) => column.name === 'folder_id');
+    if (!hasFolderId) {
+      this.db.prepare(`ALTER TABLE songs ADD COLUMN folder_id TEXT`).run();
+    }
   }
 
   migrateFromJson(userDataPath: string): void {
@@ -138,12 +195,12 @@ export class AppDatabase {
   }
 
   getAllSongs(): SongRow[] {
-    const rows = this.db.prepare('SELECT * FROM songs ORDER BY date_added DESC').all() as Record<string, unknown>[];
+    const rows = this.db.prepare('SELECT * FROM songs ORDER BY date_added DESC').all() as DbRow[];
     return rows.map(rowToSong);
   }
 
   getSong(id: string): SongRow | null {
-    const row = this.db.prepare('SELECT * FROM songs WHERE id = ?').get(id) as Record<string, unknown> | undefined;
+    const row = this.db.prepare('SELECT * FROM songs WHERE id = ?').get(id) as DbRow | undefined;
     return row ? rowToSong(row) : null;
   }
 
@@ -151,9 +208,9 @@ export class AppDatabase {
     this.db
       .prepare(`
         INSERT OR IGNORE INTO songs
-          (id, title, artist, genre, file_path, difficulty, duration_sec, bpm, note_count, tags, track_assignments)
+          (id, title, artist, genre, file_path, difficulty, duration_sec, bpm, note_count, tags, track_assignments, folder_id)
         VALUES
-          (@id, @title, @artist, @genre, @filePath, @difficulty, @durationSec, @bpm, @noteCount, @tags, @trackAssignments)
+          (@id, @title, @artist, @genre, @filePath, @difficulty, @durationSec, @bpm, @noteCount, @tags, @trackAssignments, @folderId)
       `)
       .run({
         id: payload.id,
@@ -167,6 +224,7 @@ export class AppDatabase {
         noteCount: payload.noteCount,
         tags: JSON.stringify(payload.tags),
         trackAssignments: JSON.stringify(payload.trackAssignments),
+        folderId: payload.folderId ?? null,
       });
 
     return this.getSong(payload.id)!;
@@ -216,6 +274,10 @@ export class AppDatabase {
       fields.push('is_favorite = @isFavorite');
       params.isFavorite = updates.isFavorite ? 1 : 0;
     }
+    if (updates.folderId !== undefined) {
+      fields.push('folder_id = @folderId');
+      params.folderId = updates.folderId;
+    }
     if (updates.trackAssignments !== undefined) {
       fields.push('track_assignments = @trackAssignments');
       params.trackAssignments = JSON.stringify(updates.trackAssignments);
@@ -232,8 +294,250 @@ export class AppDatabase {
     this.db.prepare('DELETE FROM songs WHERE id = ?').run(id);
   }
 
+  bulkDeleteSongs(songIds: string[]): void {
+    const ids = dedupeIds(songIds);
+    if (ids.length === 0) {
+      return;
+    }
+
+    const removeMany = this.db.transaction((nextIds: string[]) => {
+      const stmt = this.db.prepare('DELETE FROM songs WHERE id = ?');
+      for (const songId of nextIds) {
+        stmt.run(songId);
+      }
+    });
+    removeMany(ids);
+  }
+
   toggleFavorite(id: string): void {
     this.db.prepare('UPDATE songs SET is_favorite = 1 - is_favorite WHERE id = ?').run(id);
+  }
+
+  moveSongToFolder(songId: string, folderId: string | null): void {
+    this.db.prepare('UPDATE songs SET folder_id = ? WHERE id = ?').run(folderId, songId);
+  }
+
+  bulkMoveSongsToFolder(songIds: string[], folderId: string | null): void {
+    const ids = dedupeIds(songIds);
+    if (ids.length === 0) {
+      return;
+    }
+
+    const moveMany = this.db.transaction((nextIds: string[]) => {
+      const stmt = this.db.prepare('UPDATE songs SET folder_id = ? WHERE id = ?');
+      for (const songId of nextIds) {
+        stmt.run(folderId, songId);
+      }
+    });
+    moveMany(ids);
+  }
+
+  bulkAddTag(songIds: string[], tag: string): void {
+    this.bulkUpdateTags(songIds, (tags) => {
+      const normalizedTag = normalizeTag(tag);
+      return normalizedTag && !tags.includes(normalizedTag) ? [...tags, normalizedTag] : tags;
+    });
+  }
+
+  bulkRemoveTag(songIds: string[], tag: string): void {
+    this.bulkUpdateTags(songIds, (tags) => tags.filter((entry) => entry !== normalizeTag(tag)));
+  }
+
+  private bulkUpdateTags(songIds: string[], updater: (tags: string[]) => string[]): void {
+    const ids = dedupeIds(songIds);
+    if (ids.length === 0) {
+      return;
+    }
+
+    const updateMany = this.db.transaction((nextIds: string[]) => {
+      const selectStmt = this.db.prepare('SELECT id, tags FROM songs WHERE id = ?');
+      const updateStmt = this.db.prepare('UPDATE songs SET tags = ? WHERE id = ?');
+      for (const songId of nextIds) {
+        const row = selectStmt.get(songId) as { id: string; tags: unknown } | undefined;
+        if (!row) {
+          continue;
+        }
+        updateStmt.run(JSON.stringify(updater(parseTags(row.tags))), songId);
+      }
+    });
+    updateMany(ids);
+  }
+
+  getCustomFingerings(songId: string): FingeringRow[] {
+    const rows = this.db
+      .prepare('SELECT * FROM fingerings WHERE song_id = ? ORDER BY note_index ASC')
+      .all(songId) as DbRow[];
+    return rows.map(rowToFingering);
+  }
+
+  saveCustomFingering(songId: string, noteIndex: number, finger: number, hand: Hand): void {
+    this.db
+      .prepare(`
+        INSERT INTO fingerings (song_id, note_index, finger, hand)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(song_id, note_index) DO UPDATE SET finger = excluded.finger, hand = excluded.hand
+      `)
+      .run(songId, noteIndex, finger, hand);
+  }
+
+  clearCustomFingerings(songId: string): void {
+    this.db.prepare('DELETE FROM fingerings WHERE song_id = ?').run(songId);
+  }
+
+  getAllFolders(): FolderRow[] {
+    const rows = this.db.prepare('SELECT * FROM folders ORDER BY sort_order ASC, name COLLATE NOCASE ASC').all() as DbRow[];
+    return rows.map(rowToFolder);
+  }
+
+  createFolder(name: string): FolderRow {
+    const id = randomUUID();
+    const sortOrder = this.getNextSortOrder('folders');
+    this.db.prepare('INSERT INTO folders (id, name, sort_order) VALUES (?, ?, ?)').run(id, name.trim(), sortOrder);
+    return this.getFolder(id)!;
+  }
+
+  renameFolder(folderId: string, name: string): void {
+    this.db.prepare('UPDATE folders SET name = ? WHERE id = ?').run(name.trim(), folderId);
+  }
+
+  deleteFolder(folderId: string): void {
+    const removeFolder = this.db.transaction((targetFolderId: string) => {
+      this.db.prepare('UPDATE songs SET folder_id = NULL WHERE folder_id = ?').run(targetFolderId);
+      this.db.prepare('DELETE FROM folders WHERE id = ?').run(targetFolderId);
+    });
+    removeFolder(folderId);
+  }
+
+  getAllPlaylists(): PlaylistRow[] {
+    const rows = this.db
+      .prepare(`
+        SELECT
+          playlists.*,
+          COUNT(playlist_songs.song_id) AS song_count
+        FROM playlists
+        LEFT JOIN playlist_songs ON playlist_songs.playlist_id = playlists.id
+        GROUP BY playlists.id
+        ORDER BY playlists.updated_at DESC, playlists.name COLLATE NOCASE ASC
+      `)
+      .all() as DbRow[];
+    return rows.map(rowToPlaylist);
+  }
+
+  createPlaylist(name: string): PlaylistRow {
+    const id = randomUUID();
+    this.db.prepare('INSERT INTO playlists (id, name, description) VALUES (?, ?, \'\')').run(id, name.trim());
+    return this.getPlaylist(id)!;
+  }
+
+  updatePlaylist(playlistId: string, updates: Partial<Pick<PlaylistRow, 'name' | 'description'>>): void {
+    const fields: string[] = ['updated_at = @updatedAt'];
+    const params: Record<string, unknown> = {
+      id: playlistId,
+      updatedAt: new Date().toISOString(),
+    };
+
+    if (updates.name !== undefined) {
+      fields.push('name = @name');
+      params.name = updates.name.trim();
+    }
+    if (updates.description !== undefined) {
+      fields.push('description = @description');
+      params.description = updates.description;
+    }
+
+    this.db.prepare(`UPDATE playlists SET ${fields.join(', ')} WHERE id = @id`).run(params);
+  }
+
+  deletePlaylist(playlistId: string): void {
+    this.db.prepare('DELETE FROM playlists WHERE id = ?').run(playlistId);
+  }
+
+  getPlaylistSongs(playlistId: string): SongRow[] {
+    const rows = this.db
+      .prepare(`
+        SELECT songs.*
+        FROM playlist_songs
+        INNER JOIN songs ON songs.id = playlist_songs.song_id
+        WHERE playlist_songs.playlist_id = ?
+        ORDER BY playlist_songs.sort_order ASC, songs.title COLLATE NOCASE ASC
+      `)
+      .all(playlistId) as DbRow[];
+    return rows.map(rowToSong);
+  }
+
+  addSongToPlaylist(playlistId: string, songId: string): void {
+    const addSong = this.db.transaction((nextPlaylistId: string, nextSongId: string) => {
+      const current = this.db
+        .prepare('SELECT 1 FROM playlist_songs WHERE playlist_id = ? AND song_id = ?')
+        .get(nextPlaylistId, nextSongId);
+      if (current) {
+        return;
+      }
+
+      this.db
+        .prepare('INSERT INTO playlist_songs (playlist_id, song_id, sort_order) VALUES (?, ?, ?)')
+        .run(nextPlaylistId, nextSongId, this.getNextPlaylistSortOrder(nextPlaylistId));
+      this.touchPlaylist(nextPlaylistId);
+    });
+    addSong(playlistId, songId);
+  }
+
+  bulkAddToPlaylist(songIds: string[], playlistId: string): void {
+    const ids = dedupeIds(songIds);
+    if (ids.length === 0) {
+      return;
+    }
+
+    const addMany = this.db.transaction((nextIds: string[], nextPlaylistId: string) => {
+      for (const songId of nextIds) {
+        const exists = this.db
+          .prepare('SELECT 1 FROM playlist_songs WHERE playlist_id = ? AND song_id = ?')
+          .get(nextPlaylistId, songId);
+        if (exists) {
+          continue;
+        }
+        this.db
+          .prepare('INSERT INTO playlist_songs (playlist_id, song_id, sort_order) VALUES (?, ?, ?)')
+          .run(nextPlaylistId, songId, this.getNextPlaylistSortOrder(nextPlaylistId));
+      }
+      this.touchPlaylist(nextPlaylistId);
+    });
+    addMany(ids, playlistId);
+  }
+
+  removeSongFromPlaylist(playlistId: string, songId: string): void {
+    const removeSong = this.db.transaction((nextPlaylistId: string, nextSongId: string) => {
+      this.db.prepare('DELETE FROM playlist_songs WHERE playlist_id = ? AND song_id = ?').run(nextPlaylistId, nextSongId);
+      this.normalizePlaylistSortOrder(nextPlaylistId);
+      this.touchPlaylist(nextPlaylistId);
+    });
+    removeSong(playlistId, songId);
+  }
+
+  reorderPlaylistSong(playlistId: string, songId: string, newOrder: number): void {
+    const reorder = this.db.transaction((nextPlaylistId: string, nextSongId: string, nextOrder: number) => {
+      const rows = this.db
+        .prepare('SELECT song_id FROM playlist_songs WHERE playlist_id = ? ORDER BY sort_order ASC, song_id ASC')
+        .all(nextPlaylistId) as Array<{ song_id: string }>;
+      const songIds = rows.map((row) => row.song_id);
+      const currentIndex = songIds.indexOf(nextSongId);
+      if (currentIndex === -1) {
+        return;
+      }
+
+      songIds.splice(currentIndex, 1);
+      const clampedIndex = Math.max(0, Math.min(nextOrder, songIds.length));
+      songIds.splice(clampedIndex, 0, nextSongId);
+
+      const updateStmt = this.db.prepare(
+        'UPDATE playlist_songs SET sort_order = ? WHERE playlist_id = ? AND song_id = ?',
+      );
+      songIds.forEach((entrySongId, index) => {
+        updateStmt.run(index, nextPlaylistId, entrySongId);
+      });
+      this.touchPlaylist(nextPlaylistId);
+    });
+    reorder(playlistId, songId, newOrder);
   }
 
   saveGameResult(payload: SaveGameResultPayload): void {
@@ -268,7 +572,7 @@ export class AppDatabase {
 
       const existing = this.db
         .prepare('SELECT * FROM user_stats WHERE song_id = ?')
-        .get(payload.songId) as Record<string, unknown> | undefined;
+        .get(payload.songId) as DbRow | undefined;
 
       if (!existing) {
         this.db
@@ -317,14 +621,12 @@ export class AppDatabase {
   getGameResults(songId: string): GameResultRow[] {
     const rows = this.db
       .prepare('SELECT * FROM game_results WHERE song_id = ? ORDER BY timestamp DESC')
-      .all(songId) as Record<string, unknown>[];
+      .all(songId) as DbRow[];
     return rows.map(rowToGameResult);
   }
 
   getUserStats(songId: string): UserStatsRow | null {
-    const row = this.db
-      .prepare('SELECT * FROM user_stats WHERE song_id = ?')
-      .get(songId) as Record<string, unknown> | undefined;
+    const row = this.db.prepare('SELECT * FROM user_stats WHERE song_id = ?').get(songId) as DbRow | undefined;
     return row ? rowToUserStats(row) : null;
   }
 
@@ -335,15 +637,229 @@ export class AppDatabase {
     return row?.value ?? null;
   }
 
+  getAllSettings(): SettingRow[] {
+    return this.db.prepare('SELECT category, key, value FROM settings ORDER BY category, key').all() as SettingRow[];
+  }
+
   setSetting(category: string, key: string, value: string): void {
-    this.db
-      .prepare('INSERT OR REPLACE INTO settings (category, key, value) VALUES (?, ?, ?)')
-      .run(category, key, value);
+    this.db.prepare('INSERT OR REPLACE INTO settings (category, key, value) VALUES (?, ?, ?)').run(category, key, value);
+  }
+
+  exportLibraryData(): LibraryBackup {
+    const playlists = this.getAllPlaylists().map((playlist) => ({
+      ...playlist,
+      songIds: (
+        this.db
+          .prepare('SELECT song_id FROM playlist_songs WHERE playlist_id = ? ORDER BY sort_order ASC')
+          .all(playlist.id) as Array<{ song_id: string }>
+      ).map((row) => row.song_id),
+    }));
+    const fingerings = this.db.prepare('SELECT * FROM fingerings ORDER BY song_id, note_index').all() as DbRow[];
+
+    return {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      songs: this.getAllSongs(),
+      folders: this.getAllFolders(),
+      playlists,
+      fingerings: fingerings.map(rowToFingering),
+      settings: this.getAllSettings(),
+    };
+  }
+
+  importLibraryData(backup: LibraryBackup): LibraryImportResult {
+    const importTransaction = this.db.transaction((nextBackup: LibraryBackup) => {
+      const folderIdMap = new Map<string, string | null>();
+      let foldersImported = 0;
+      let playlistsImported = 0;
+
+      for (const folder of nextBackup.folders) {
+        const existingByName = this.db.prepare('SELECT id FROM folders WHERE name = ?').get(folder.name) as
+          | { id: string }
+          | undefined;
+        const targetId = existingByName?.id ?? folder.id;
+        this.db
+          .prepare(`
+            INSERT INTO folders (id, name, sort_order, created_at)
+            VALUES (@id, @name, @sortOrder, @createdAt)
+            ON CONFLICT(id) DO UPDATE SET
+              name = excluded.name,
+              sort_order = excluded.sort_order,
+              created_at = excluded.created_at
+          `)
+          .run({
+            id: targetId,
+            name: folder.name,
+            sortOrder: folder.sortOrder,
+            createdAt: folder.createdAt,
+          });
+        folderIdMap.set(folder.id, targetId);
+        foldersImported += 1;
+      }
+
+      for (const song of nextBackup.songs) {
+        const targetFolderId = song.folderId ? folderIdMap.get(song.folderId) ?? null : null;
+        this.db
+          .prepare(`
+            INSERT INTO songs
+              (id, title, artist, genre, file_path, difficulty, duration_sec, bpm, note_count, date_added,
+               times_played, tags, is_favorite, folder_id, track_assignments)
+            VALUES
+              (@id, @title, @artist, @genre, @filePath, @difficulty, @durationSec, @bpm, @noteCount, @dateAdded,
+               @timesPlayed, @tags, @isFavorite, @folderId, @trackAssignments)
+            ON CONFLICT(id) DO UPDATE SET
+              title = excluded.title,
+              artist = excluded.artist,
+              genre = excluded.genre,
+              file_path = excluded.file_path,
+              difficulty = excluded.difficulty,
+              duration_sec = excluded.duration_sec,
+              bpm = excluded.bpm,
+              note_count = excluded.note_count,
+              date_added = excluded.date_added,
+              times_played = excluded.times_played,
+              tags = excluded.tags,
+              is_favorite = excluded.is_favorite,
+              folder_id = excluded.folder_id,
+              track_assignments = excluded.track_assignments
+          `)
+          .run({
+            id: song.id,
+            title: song.title,
+            artist: song.artist,
+            genre: song.genre,
+            filePath: song.filePath,
+            difficulty: song.difficulty,
+            durationSec: song.durationSec,
+            bpm: song.bpm,
+            noteCount: song.noteCount,
+            dateAdded: song.dateAdded,
+            timesPlayed: song.timesPlayed,
+            tags: JSON.stringify(song.tags),
+            isFavorite: song.isFavorite ? 1 : 0,
+            folderId: targetFolderId,
+            trackAssignments: JSON.stringify(song.trackAssignments),
+          });
+      }
+
+      for (const fingering of nextBackup.fingerings) {
+        const songExists = this.db.prepare('SELECT 1 FROM songs WHERE id = ?').get(fingering.songId);
+        if (!songExists) {
+          continue;
+        }
+        this.saveCustomFingering(fingering.songId, fingering.noteIndex, fingering.finger, fingering.hand);
+      }
+
+      for (const setting of nextBackup.settings) {
+        this.setSetting(setting.category, setting.key, setting.value);
+      }
+
+      for (const playlist of nextBackup.playlists) {
+        const existingByName = this.db.prepare('SELECT id FROM playlists WHERE name = ?').get(playlist.name) as
+          | { id: string }
+          | undefined;
+        const targetId = existingByName?.id ?? playlist.id;
+        this.db
+          .prepare(`
+            INSERT INTO playlists (id, name, description, created_at, updated_at)
+            VALUES (@id, @name, @description, @createdAt, @updatedAt)
+            ON CONFLICT(id) DO UPDATE SET
+              name = excluded.name,
+              description = excluded.description,
+              created_at = excluded.created_at,
+              updated_at = excluded.updated_at
+          `)
+          .run({
+            id: targetId,
+            name: playlist.name,
+            description: playlist.description,
+            createdAt: playlist.createdAt,
+            updatedAt: playlist.updatedAt,
+          });
+
+        this.db.prepare('DELETE FROM playlist_songs WHERE playlist_id = ?').run(targetId);
+        playlist.songIds.forEach((songId, index) => {
+          const songExists = this.db.prepare('SELECT 1 FROM songs WHERE id = ?').get(songId);
+          if (!songExists) {
+            return;
+          }
+          this.db
+            .prepare('INSERT INTO playlist_songs (playlist_id, song_id, sort_order) VALUES (?, ?, ?)')
+            .run(targetId, songId, index);
+        });
+        this.touchPlaylist(targetId, playlist.updatedAt);
+        playlistsImported += 1;
+      }
+
+      return {
+        songsImported: nextBackup.songs.length,
+        foldersImported,
+        playlistsImported,
+      };
+    });
+
+    return importTransaction(backup);
   }
 
   close(): void {
     this.db.close();
   }
+
+  private getFolder(id: string): FolderRow | null {
+    const row = this.db.prepare('SELECT * FROM folders WHERE id = ?').get(id) as DbRow | undefined;
+    return row ? rowToFolder(row) : null;
+  }
+
+  private getPlaylist(id: string): PlaylistRow | null {
+    const row = this.db
+      .prepare(`
+        SELECT playlists.*, COUNT(playlist_songs.song_id) AS song_count
+        FROM playlists
+        LEFT JOIN playlist_songs ON playlist_songs.playlist_id = playlists.id
+        WHERE playlists.id = ?
+        GROUP BY playlists.id
+      `)
+      .get(id) as DbRow | undefined;
+    return row ? rowToPlaylist(row) : null;
+  }
+
+  private getNextSortOrder(tableName: 'folders'): number {
+    const row = this.db.prepare(`SELECT COALESCE(MAX(sort_order), -1) + 1 AS nextOrder FROM ${tableName}`).get() as {
+      nextOrder: number;
+    };
+    return row.nextOrder;
+  }
+
+  private getNextPlaylistSortOrder(playlistId: string): number {
+    const row = this.db
+      .prepare('SELECT COALESCE(MAX(sort_order), -1) + 1 AS nextOrder FROM playlist_songs WHERE playlist_id = ?')
+      .get(playlistId) as { nextOrder: number };
+    return row.nextOrder;
+  }
+
+  private normalizePlaylistSortOrder(playlistId: string): void {
+    const rows = this.db
+      .prepare('SELECT song_id FROM playlist_songs WHERE playlist_id = ? ORDER BY sort_order ASC, song_id ASC')
+      .all(playlistId) as Array<{ song_id: string }>;
+    const updateStmt = this.db.prepare(
+      'UPDATE playlist_songs SET sort_order = ? WHERE playlist_id = ? AND song_id = ?',
+    );
+    rows.forEach((row, index) => {
+      updateStmt.run(index, playlistId, row.song_id);
+    });
+  }
+
+  private touchPlaylist(playlistId: string, timestamp = new Date().toISOString()): void {
+    this.db.prepare('UPDATE playlists SET updated_at = ? WHERE id = ?').run(timestamp, playlistId);
+  }
+}
+
+function dedupeIds(ids: string[]): string[] {
+  return [...new Set(ids.filter((id) => id.trim() !== ''))];
+}
+
+function normalizeTag(tag: string): string {
+  return tag.trim();
 }
 
 function parseTags(value: unknown): string[] {
@@ -387,7 +903,7 @@ function parseTrackAssignments(value: unknown): Record<string, TrackAssignment> 
   }
 }
 
-function rowToSong(row: Record<string, unknown>): SongRow {
+function rowToSong(row: DbRow): SongRow {
   return {
     id: row.id as string,
     title: row.title as string,
@@ -402,11 +918,41 @@ function rowToSong(row: Record<string, unknown>): SongRow {
     timesPlayed: row.times_played as number,
     tags: parseTags(row.tags),
     isFavorite: (row.is_favorite as number) === 1,
+    folderId: (row.folder_id as string | null | undefined) ?? null,
     trackAssignments: parseTrackAssignments(row.track_assignments),
   };
 }
 
-function rowToGameResult(row: Record<string, unknown>): GameResultRow {
+function rowToFolder(row: DbRow): FolderRow {
+  return {
+    id: row.id as string,
+    name: row.name as string,
+    sortOrder: row.sort_order as number,
+    createdAt: row.created_at as string,
+  };
+}
+
+function rowToPlaylist(row: DbRow): PlaylistRow {
+  return {
+    id: row.id as string,
+    name: row.name as string,
+    description: row.description as string,
+    createdAt: row.created_at as string,
+    updatedAt: row.updated_at as string,
+    songCount: row.song_count as number | undefined,
+  };
+}
+
+function rowToFingering(row: DbRow): FingeringRow {
+  return {
+    songId: row.song_id as string,
+    noteIndex: row.note_index as number,
+    finger: row.finger as number,
+    hand: row.hand as Hand,
+  };
+}
+
+function rowToGameResult(row: DbRow): GameResultRow {
   return {
     id: row.id as string,
     songId: row.song_id as string,
@@ -424,7 +970,7 @@ function rowToGameResult(row: Record<string, unknown>): GameResultRow {
   };
 }
 
-function rowToUserStats(row: Record<string, unknown>): UserStatsRow {
+function rowToUserStats(row: DbRow): UserStatsRow {
   return {
     songId: row.song_id as string,
     playCount: row.play_count as number,

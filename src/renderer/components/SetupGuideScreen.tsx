@@ -1,6 +1,8 @@
 interface SetupGuideScreenProps {
   reminderFrequency: string;
+  handSize: 'small' | 'medium' | 'large';
   onReminderFrequencyChange: (value: string) => void;
+  onHandSizeChange: (value: 'small' | 'medium' | 'large') => void;
   onStartPractice: () => void;
   onSkip: () => void;
 }
@@ -26,7 +28,9 @@ const CHECKLIST = [
 
 export function SetupGuideScreen({
   reminderFrequency,
+  handSize,
   onReminderFrequencyChange,
+  onHandSizeChange,
   onStartPractice,
   onSkip,
 }: SetupGuideScreenProps) {
@@ -72,6 +76,17 @@ export function SetupGuideScreen({
             <option value="10">Every 10 minutes</option>
             <option value="20">Every 20 minutes</option>
             <option value="30">Every 30 minutes</option>
+          </select>
+        </label>
+        <label>
+          <span>Hand Size</span>
+          <select
+            value={handSize}
+            onChange={(event) => onHandSizeChange(event.target.value as 'small' | 'medium' | 'large')}
+          >
+            <option value="small">Small</option>
+            <option value="medium">Medium</option>
+            <option value="large">Large</option>
           </select>
         </label>
         <p className="panel-copy">

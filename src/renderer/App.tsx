@@ -37,6 +37,8 @@ function buildSessionConfig(mode: SessionMode, overrides: Partial<SessionConfig>
     loopRange: null,
     waitForInput: mode === 'learning',
     metronomeEnabled: false,
+    handSize: 'medium',
+    fingeringDisplayMode: 'learning-only',
     ...overrides,
   };
 }
@@ -47,6 +49,7 @@ export function App() {
   const [midiReady, setMidiReady] = useState(false);
   const [settingsReady, setSettingsReady] = useState(false);
   const [reminderFrequency, setReminderFrequency] = useState('20');
+  const [handSize, setHandSize] = useState<'small' | 'medium' | 'large'>('medium');
   const [currentScreen, setCurrentScreen] = useState<AppScreen>({ screen: 'library' });
 
   useEffect(() => {
@@ -74,12 +77,16 @@ export function App() {
         return;
       }
 
-      const [setupComplete, reminder] = await Promise.all([
+      const [setupComplete, reminder, savedHandSize] = await Promise.all([
         window.appBridge.getSetting('onboarding', 'setupComplete'),
         window.appBridge.getSetting('practice', 'postureReminderMinutes'),
+        window.appBridge.getSetting('fingering', 'handSize'),
       ]);
       if (reminder) {
         setReminderFrequency(reminder);
+      }
+      if (savedHandSize === 'small' || savedHandSize === 'medium' || savedHandSize === 'large') {
+        setHandSize(savedHandSize);
       }
       setCurrentScreen({ screen: setupComplete === 'true' ? 'library' : 'setup' });
       setSettingsReady(true);
@@ -108,6 +115,7 @@ export function App() {
     await Promise.all([
       window.appBridge.setSetting('onboarding', 'setupComplete', setupComplete ? 'true' : 'false'),
       window.appBridge.setSetting('practice', 'postureReminderMinutes', reminderFrequency),
+      window.appBridge.setSetting('fingering', 'handSize', handSize),
     ]);
   };
 
@@ -118,6 +126,7 @@ export function App() {
       sessionConfig: buildSessionConfig(mode, {
         loopRange,
         waitForInput: mode === 'learning',
+        handSize,
       }),
     });
   };
@@ -136,7 +145,9 @@ export function App() {
     case 'setup':
       return (
         <SetupGuideScreen
+          handSize={handSize}
           reminderFrequency={reminderFrequency}
+          onHandSizeChange={setHandSize}
           onReminderFrequencyChange={setReminderFrequency}
           onSkip={() => {
             void persistSetupState(true);

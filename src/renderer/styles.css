@@ -365,6 +365,22 @@ select {
   background: rgba(220, 91, 53, 0.2);
 }
 
+.key-finger {
+  position: absolute;
+  top: 12px;
+  right: 10px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: rgba(31, 61, 122, 0.86);
+  z-index: 1;
+}
+
+.key-finger.black {
+  top: 8px;
+  right: 6px;
+  color: rgba(255, 248, 241, 0.92);
+}
+
 .library-screen,
 .results-screen {
   align-content: start;
@@ -642,7 +658,7 @@ select {
 }
 
 .session-toolbar {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   align-items: center;
 }
 
@@ -650,6 +666,11 @@ select {
   grid-auto-flow: column;
   justify-content: flex-start;
   align-items: center;
+}
+
+.session-chip-group label {
+  display: grid;
+  gap: 8px;
 }
 
 .loop-label {

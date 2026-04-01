@@ -138,14 +138,58 @@ class AppDatabase {
         PRIMARY KEY (category, key)
       );
 
+      CREATE TABLE IF NOT EXISTS fingerings (
+        song_id TEXT NOT NULL REFERENCES songs(id) ON DELETE CASCADE,
+        note_index INTEGER NOT NULL,
+        finger INTEGER NOT NULL CHECK(finger BETWEEN 1 AND 5),
+        hand TEXT NOT NULL CHECK(hand IN ('left', 'right')),
+        PRIMARY KEY (song_id, note_index)
+      );
+
+      CREATE TABLE IF NOT EXISTS folders (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+
+      CREATE TABLE IF NOT EXISTS playlists (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+
+      CREATE TABLE IF NOT EXISTS playlist_songs (
+        playlist_id TEXT NOT NULL REFERENCES playlists(id) ON DELETE CASCADE,
+        song_id TEXT NOT NULL REFERENCES songs(id) ON DELETE CASCADE,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (playlist_id, song_id)
+      );
+    `);
+    this.ensureSongFolderColumn();
+    this.db.exec(`
       CREATE INDEX IF NOT EXISTS idx_game_results_song_id ON game_results(song_id);
       CREATE INDEX IF NOT EXISTS idx_game_results_timestamp ON game_results(timestamp);
       CREATE INDEX IF NOT EXISTS idx_songs_date_added ON songs(date_added);
       CREATE INDEX IF NOT EXISTS idx_songs_title ON songs(title COLLATE NOCASE);
+      CREATE INDEX IF NOT EXISTS idx_songs_folder_id ON songs(folder_id);
+      CREATE INDEX IF NOT EXISTS idx_playlist_songs_playlist_id ON playlist_songs(playlist_id, sort_order);
+      CREATE INDEX IF NOT EXISTS idx_folders_sort_order ON folders(sort_order, name COLLATE NOCASE);
+      CREATE INDEX IF NOT EXISTS idx_playlists_name ON playlists(name COLLATE NOCASE);
     `);
     this.db.prepare(`UPDATE songs SET tags = '[]' WHERE tags = '' OR tags IS NULL`).run();
     this.db.prepare(`UPDATE songs SET track_assignments = '{}' WHERE track_assignments = '' OR track_assignments IS NULL`).run();
     this.db.prepare(`UPDATE game_results SET mode = 'piano-hero' WHERE mode = 'normal' OR mode = '' OR mode IS NULL`).run();
+    this.db.prepare(`INSERT OR IGNORE INTO settings (category, key, value) VALUES ('fingering', 'handSize', 'medium')`).run();
+  }
+  ensureSongFolderColumn() {
+    const columns = this.db.prepare(`PRAGMA table_info(songs)`).all();
+    const hasFolderId = columns.some((column) => column.name === "folder_id");
+    if (!hasFolderId) {
+      this.db.prepare(`ALTER TABLE songs ADD COLUMN folder_id TEXT`).run();
+    }
   }
   migrateFromJson(userDataPath) {
     const jsonPath = join(userDataPath, "song-metadata.json");
@@ -192,9 +236,9 @@ class AppDatabase {
   addSong(payload) {
     this.db.prepare(`
         INSERT OR IGNORE INTO songs
-          (id, title, artist, genre, file_path, difficulty, duration_sec, bpm, note_count, tags, track_assignments)
+          (id, title, artist, genre, file_path, difficulty, duration_sec, bpm, note_count, tags, track_assignments, folder_id)
         VALUES
-          (@id, @title, @artist, @genre, @filePath, @difficulty, @durationSec, @bpm, @noteCount, @tags, @trackAssignments)
+          (@id, @title, @artist, @genre, @filePath, @difficulty, @durationSec, @bpm, @noteCount, @tags, @trackAssignments, @folderId)
       `).run({
       id: payload.id,
       title: payload.title,
@@ -206,7 +250,8 @@ class AppDatabase {
       bpm: payload.bpm,
       noteCount: payload.noteCount,
       tags: JSON.stringify(payload.tags),
-      trackAssignments: JSON.stringify(payload.trackAssignments)
+      trackAssignments: JSON.stringify(payload.trackAssignments),
+      folderId: payload.folderId ?? null
     });
     return this.getSong(payload.id);
   }
@@ -253,6 +298,10 @@ class AppDatabase {
       fields.push("is_favorite = @isFavorite");
       params.isFavorite = updates.isFavorite ? 1 : 0;
     }
+    if (updates.folderId !== void 0) {
+      fields.push("folder_id = @folderId");
+      params.folderId = updates.folderId;
+    }
     if (updates.trackAssignments !== void 0) {
       fields.push("track_assignments = @trackAssignments");
       params.trackAssignments = JSON.stringify(updates.trackAssignments);
@@ -265,8 +314,201 @@ class AppDatabase {
   deleteSong(id) {
     this.db.prepare("DELETE FROM songs WHERE id = ?").run(id);
   }
+  bulkDeleteSongs(songIds) {
+    const ids = dedupeIds(songIds);
+    if (ids.length === 0) {
+      return;
+    }
+    const removeMany = this.db.transaction((nextIds) => {
+      const stmt = this.db.prepare("DELETE FROM songs WHERE id = ?");
+      for (const songId of nextIds) {
+        stmt.run(songId);
+      }
+    });
+    removeMany(ids);
+  }
   toggleFavorite(id) {
     this.db.prepare("UPDATE songs SET is_favorite = 1 - is_favorite WHERE id = ?").run(id);
+  }
+  moveSongToFolder(songId, folderId) {
+    this.db.prepare("UPDATE songs SET folder_id = ? WHERE id = ?").run(folderId, songId);
+  }
+  bulkMoveSongsToFolder(songIds, folderId) {
+    const ids = dedupeIds(songIds);
+    if (ids.length === 0) {
+      return;
+    }
+    const moveMany = this.db.transaction((nextIds) => {
+      const stmt = this.db.prepare("UPDATE songs SET folder_id = ? WHERE id = ?");
+      for (const songId of nextIds) {
+        stmt.run(folderId, songId);
+      }
+    });
+    moveMany(ids);
+  }
+  bulkAddTag(songIds, tag) {
+    this.bulkUpdateTags(songIds, (tags) => {
+      const normalizedTag = normalizeTag(tag);
+      return normalizedTag && !tags.includes(normalizedTag) ? [...tags, normalizedTag] : tags;
+    });
+  }
+  bulkRemoveTag(songIds, tag) {
+    this.bulkUpdateTags(songIds, (tags) => tags.filter((entry) => entry !== normalizeTag(tag)));
+  }
+  bulkUpdateTags(songIds, updater) {
+    const ids = dedupeIds(songIds);
+    if (ids.length === 0) {
+      return;
+    }
+    const updateMany = this.db.transaction((nextIds) => {
+      const selectStmt = this.db.prepare("SELECT id, tags FROM songs WHERE id = ?");
+      const updateStmt = this.db.prepare("UPDATE songs SET tags = ? WHERE id = ?");
+      for (const songId of nextIds) {
+        const row = selectStmt.get(songId);
+        if (!row) {
+          continue;
+        }
+        updateStmt.run(JSON.stringify(updater(parseTags(row.tags))), songId);
+      }
+    });
+    updateMany(ids);
+  }
+  getCustomFingerings(songId) {
+    const rows = this.db.prepare("SELECT * FROM fingerings WHERE song_id = ? ORDER BY note_index ASC").all(songId);
+    return rows.map(rowToFingering);
+  }
+  saveCustomFingering(songId, noteIndex, finger, hand) {
+    this.db.prepare(`
+        INSERT INTO fingerings (song_id, note_index, finger, hand)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(song_id, note_index) DO UPDATE SET finger = excluded.finger, hand = excluded.hand
+      `).run(songId, noteIndex, finger, hand);
+  }
+  clearCustomFingerings(songId) {
+    this.db.prepare("DELETE FROM fingerings WHERE song_id = ?").run(songId);
+  }
+  getAllFolders() {
+    const rows = this.db.prepare("SELECT * FROM folders ORDER BY sort_order ASC, name COLLATE NOCASE ASC").all();
+    return rows.map(rowToFolder);
+  }
+  createFolder(name) {
+    const id = randomUUID();
+    const sortOrder = this.getNextSortOrder("folders");
+    this.db.prepare("INSERT INTO folders (id, name, sort_order) VALUES (?, ?, ?)").run(id, name.trim(), sortOrder);
+    return this.getFolder(id);
+  }
+  renameFolder(folderId, name) {
+    this.db.prepare("UPDATE folders SET name = ? WHERE id = ?").run(name.trim(), folderId);
+  }
+  deleteFolder(folderId) {
+    const removeFolder = this.db.transaction((targetFolderId) => {
+      this.db.prepare("UPDATE songs SET folder_id = NULL WHERE folder_id = ?").run(targetFolderId);
+      this.db.prepare("DELETE FROM folders WHERE id = ?").run(targetFolderId);
+    });
+    removeFolder(folderId);
+  }
+  getAllPlaylists() {
+    const rows = this.db.prepare(`
+        SELECT
+          playlists.*,
+          COUNT(playlist_songs.song_id) AS song_count
+        FROM playlists
+        LEFT JOIN playlist_songs ON playlist_songs.playlist_id = playlists.id
+        GROUP BY playlists.id
+        ORDER BY playlists.updated_at DESC, playlists.name COLLATE NOCASE ASC
+      `).all();
+    return rows.map(rowToPlaylist);
+  }
+  createPlaylist(name) {
+    const id = randomUUID();
+    this.db.prepare("INSERT INTO playlists (id, name, description) VALUES (?, ?, '')").run(id, name.trim());
+    return this.getPlaylist(id);
+  }
+  updatePlaylist(playlistId, updates) {
+    const fields = ["updated_at = @updatedAt"];
+    const params = {
+      id: playlistId,
+      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    if (updates.name !== void 0) {
+      fields.push("name = @name");
+      params.name = updates.name.trim();
+    }
+    if (updates.description !== void 0) {
+      fields.push("description = @description");
+      params.description = updates.description;
+    }
+    this.db.prepare(`UPDATE playlists SET ${fields.join(", ")} WHERE id = @id`).run(params);
+  }
+  deletePlaylist(playlistId) {
+    this.db.prepare("DELETE FROM playlists WHERE id = ?").run(playlistId);
+  }
+  getPlaylistSongs(playlistId) {
+    const rows = this.db.prepare(`
+        SELECT songs.*
+        FROM playlist_songs
+        INNER JOIN songs ON songs.id = playlist_songs.song_id
+        WHERE playlist_songs.playlist_id = ?
+        ORDER BY playlist_songs.sort_order ASC, songs.title COLLATE NOCASE ASC
+      `).all(playlistId);
+    return rows.map(rowToSong);
+  }
+  addSongToPlaylist(playlistId, songId) {
+    const addSong = this.db.transaction((nextPlaylistId, nextSongId) => {
+      const current = this.db.prepare("SELECT 1 FROM playlist_songs WHERE playlist_id = ? AND song_id = ?").get(nextPlaylistId, nextSongId);
+      if (current) {
+        return;
+      }
+      this.db.prepare("INSERT INTO playlist_songs (playlist_id, song_id, sort_order) VALUES (?, ?, ?)").run(nextPlaylistId, nextSongId, this.getNextPlaylistSortOrder(nextPlaylistId));
+      this.touchPlaylist(nextPlaylistId);
+    });
+    addSong(playlistId, songId);
+  }
+  bulkAddToPlaylist(songIds, playlistId) {
+    const ids = dedupeIds(songIds);
+    if (ids.length === 0) {
+      return;
+    }
+    const addMany = this.db.transaction((nextIds, nextPlaylistId) => {
+      for (const songId of nextIds) {
+        const exists = this.db.prepare("SELECT 1 FROM playlist_songs WHERE playlist_id = ? AND song_id = ?").get(nextPlaylistId, songId);
+        if (exists) {
+          continue;
+        }
+        this.db.prepare("INSERT INTO playlist_songs (playlist_id, song_id, sort_order) VALUES (?, ?, ?)").run(nextPlaylistId, songId, this.getNextPlaylistSortOrder(nextPlaylistId));
+      }
+      this.touchPlaylist(nextPlaylistId);
+    });
+    addMany(ids, playlistId);
+  }
+  removeSongFromPlaylist(playlistId, songId) {
+    const removeSong = this.db.transaction((nextPlaylistId, nextSongId) => {
+      this.db.prepare("DELETE FROM playlist_songs WHERE playlist_id = ? AND song_id = ?").run(nextPlaylistId, nextSongId);
+      this.normalizePlaylistSortOrder(nextPlaylistId);
+      this.touchPlaylist(nextPlaylistId);
+    });
+    removeSong(playlistId, songId);
+  }
+  reorderPlaylistSong(playlistId, songId, newOrder) {
+    const reorder = this.db.transaction((nextPlaylistId, nextSongId, nextOrder) => {
+      const rows = this.db.prepare("SELECT song_id FROM playlist_songs WHERE playlist_id = ? ORDER BY sort_order ASC, song_id ASC").all(nextPlaylistId);
+      const songIds = rows.map((row) => row.song_id);
+      const currentIndex = songIds.indexOf(nextSongId);
+      if (currentIndex === -1) {
+        return;
+      }
+      songIds.splice(currentIndex, 1);
+      const clampedIndex = Math.max(0, Math.min(nextOrder, songIds.length));
+      songIds.splice(clampedIndex, 0, nextSongId);
+      const updateStmt = this.db.prepare(
+        "UPDATE playlist_songs SET sort_order = ? WHERE playlist_id = ? AND song_id = ?"
+      );
+      songIds.forEach((entrySongId, index) => {
+        updateStmt.run(index, nextPlaylistId, entrySongId);
+      });
+      this.touchPlaylist(nextPlaylistId);
+    });
+    reorder(playlistId, songId, newOrder);
   }
   saveGameResult(payload) {
     const id = randomUUID();
@@ -343,12 +585,184 @@ class AppDatabase {
     const row = this.db.prepare("SELECT value FROM settings WHERE category = ? AND key = ?").get(category, key);
     return row?.value ?? null;
   }
+  getAllSettings() {
+    return this.db.prepare("SELECT category, key, value FROM settings ORDER BY category, key").all();
+  }
   setSetting(category, key, value) {
     this.db.prepare("INSERT OR REPLACE INTO settings (category, key, value) VALUES (?, ?, ?)").run(category, key, value);
+  }
+  exportLibraryData() {
+    const playlists = this.getAllPlaylists().map((playlist) => ({
+      ...playlist,
+      songIds: this.db.prepare("SELECT song_id FROM playlist_songs WHERE playlist_id = ? ORDER BY sort_order ASC").all(playlist.id).map((row) => row.song_id)
+    }));
+    const fingerings = this.db.prepare("SELECT * FROM fingerings ORDER BY song_id, note_index").all();
+    return {
+      version: 1,
+      exportedAt: (/* @__PURE__ */ new Date()).toISOString(),
+      songs: this.getAllSongs(),
+      folders: this.getAllFolders(),
+      playlists,
+      fingerings: fingerings.map(rowToFingering),
+      settings: this.getAllSettings()
+    };
+  }
+  importLibraryData(backup) {
+    const importTransaction = this.db.transaction((nextBackup) => {
+      const folderIdMap = /* @__PURE__ */ new Map();
+      let foldersImported = 0;
+      let playlistsImported = 0;
+      for (const folder of nextBackup.folders) {
+        const existingByName = this.db.prepare("SELECT id FROM folders WHERE name = ?").get(folder.name);
+        const targetId = existingByName?.id ?? folder.id;
+        this.db.prepare(`
+            INSERT INTO folders (id, name, sort_order, created_at)
+            VALUES (@id, @name, @sortOrder, @createdAt)
+            ON CONFLICT(id) DO UPDATE SET
+              name = excluded.name,
+              sort_order = excluded.sort_order,
+              created_at = excluded.created_at
+          `).run({
+          id: targetId,
+          name: folder.name,
+          sortOrder: folder.sortOrder,
+          createdAt: folder.createdAt
+        });
+        folderIdMap.set(folder.id, targetId);
+        foldersImported += 1;
+      }
+      for (const song of nextBackup.songs) {
+        const targetFolderId = song.folderId ? folderIdMap.get(song.folderId) ?? null : null;
+        this.db.prepare(`
+            INSERT INTO songs
+              (id, title, artist, genre, file_path, difficulty, duration_sec, bpm, note_count, date_added,
+               times_played, tags, is_favorite, folder_id, track_assignments)
+            VALUES
+              (@id, @title, @artist, @genre, @filePath, @difficulty, @durationSec, @bpm, @noteCount, @dateAdded,
+               @timesPlayed, @tags, @isFavorite, @folderId, @trackAssignments)
+            ON CONFLICT(id) DO UPDATE SET
+              title = excluded.title,
+              artist = excluded.artist,
+              genre = excluded.genre,
+              file_path = excluded.file_path,
+              difficulty = excluded.difficulty,
+              duration_sec = excluded.duration_sec,
+              bpm = excluded.bpm,
+              note_count = excluded.note_count,
+              date_added = excluded.date_added,
+              times_played = excluded.times_played,
+              tags = excluded.tags,
+              is_favorite = excluded.is_favorite,
+              folder_id = excluded.folder_id,
+              track_assignments = excluded.track_assignments
+          `).run({
+          id: song.id,
+          title: song.title,
+          artist: song.artist,
+          genre: song.genre,
+          filePath: song.filePath,
+          difficulty: song.difficulty,
+          durationSec: song.durationSec,
+          bpm: song.bpm,
+          noteCount: song.noteCount,
+          dateAdded: song.dateAdded,
+          timesPlayed: song.timesPlayed,
+          tags: JSON.stringify(song.tags),
+          isFavorite: song.isFavorite ? 1 : 0,
+          folderId: targetFolderId,
+          trackAssignments: JSON.stringify(song.trackAssignments)
+        });
+      }
+      for (const fingering of nextBackup.fingerings) {
+        const songExists = this.db.prepare("SELECT 1 FROM songs WHERE id = ?").get(fingering.songId);
+        if (!songExists) {
+          continue;
+        }
+        this.saveCustomFingering(fingering.songId, fingering.noteIndex, fingering.finger, fingering.hand);
+      }
+      for (const setting of nextBackup.settings) {
+        this.setSetting(setting.category, setting.key, setting.value);
+      }
+      for (const playlist of nextBackup.playlists) {
+        const existingByName = this.db.prepare("SELECT id FROM playlists WHERE name = ?").get(playlist.name);
+        const targetId = existingByName?.id ?? playlist.id;
+        this.db.prepare(`
+            INSERT INTO playlists (id, name, description, created_at, updated_at)
+            VALUES (@id, @name, @description, @createdAt, @updatedAt)
+            ON CONFLICT(id) DO UPDATE SET
+              name = excluded.name,
+              description = excluded.description,
+              created_at = excluded.created_at,
+              updated_at = excluded.updated_at
+          `).run({
+          id: targetId,
+          name: playlist.name,
+          description: playlist.description,
+          createdAt: playlist.createdAt,
+          updatedAt: playlist.updatedAt
+        });
+        this.db.prepare("DELETE FROM playlist_songs WHERE playlist_id = ?").run(targetId);
+        playlist.songIds.forEach((songId, index) => {
+          const songExists = this.db.prepare("SELECT 1 FROM songs WHERE id = ?").get(songId);
+          if (!songExists) {
+            return;
+          }
+          this.db.prepare("INSERT INTO playlist_songs (playlist_id, song_id, sort_order) VALUES (?, ?, ?)").run(targetId, songId, index);
+        });
+        this.touchPlaylist(targetId, playlist.updatedAt);
+        playlistsImported += 1;
+      }
+      return {
+        songsImported: nextBackup.songs.length,
+        foldersImported,
+        playlistsImported
+      };
+    });
+    return importTransaction(backup);
   }
   close() {
     this.db.close();
   }
+  getFolder(id) {
+    const row = this.db.prepare("SELECT * FROM folders WHERE id = ?").get(id);
+    return row ? rowToFolder(row) : null;
+  }
+  getPlaylist(id) {
+    const row = this.db.prepare(`
+        SELECT playlists.*, COUNT(playlist_songs.song_id) AS song_count
+        FROM playlists
+        LEFT JOIN playlist_songs ON playlist_songs.playlist_id = playlists.id
+        WHERE playlists.id = ?
+        GROUP BY playlists.id
+      `).get(id);
+    return row ? rowToPlaylist(row) : null;
+  }
+  getNextSortOrder(tableName) {
+    const row = this.db.prepare(`SELECT COALESCE(MAX(sort_order), -1) + 1 AS nextOrder FROM ${tableName}`).get();
+    return row.nextOrder;
+  }
+  getNextPlaylistSortOrder(playlistId) {
+    const row = this.db.prepare("SELECT COALESCE(MAX(sort_order), -1) + 1 AS nextOrder FROM playlist_songs WHERE playlist_id = ?").get(playlistId);
+    return row.nextOrder;
+  }
+  normalizePlaylistSortOrder(playlistId) {
+    const rows = this.db.prepare("SELECT song_id FROM playlist_songs WHERE playlist_id = ? ORDER BY sort_order ASC, song_id ASC").all(playlistId);
+    const updateStmt = this.db.prepare(
+      "UPDATE playlist_songs SET sort_order = ? WHERE playlist_id = ? AND song_id = ?"
+    );
+    rows.forEach((row, index) => {
+      updateStmt.run(index, playlistId, row.song_id);
+    });
+  }
+  touchPlaylist(playlistId, timestamp = (/* @__PURE__ */ new Date()).toISOString()) {
+    this.db.prepare("UPDATE playlists SET updated_at = ? WHERE id = ?").run(timestamp, playlistId);
+  }
+}
+function dedupeIds(ids) {
+  return [...new Set(ids.filter((id) => id.trim() !== ""))];
+}
+function normalizeTag(tag) {
+  return tag.trim();
 }
 function parseTags(value) {
   if (Array.isArray(value)) {
@@ -395,7 +809,34 @@ function rowToSong(row) {
     timesPlayed: row.times_played,
     tags: parseTags(row.tags),
     isFavorite: row.is_favorite === 1,
+    folderId: row.folder_id ?? null,
     trackAssignments: parseTrackAssignments(row.track_assignments)
+  };
+}
+function rowToFolder(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    sortOrder: row.sort_order,
+    createdAt: row.created_at
+  };
+}
+function rowToPlaylist(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    songCount: row.song_count
+  };
+}
+function rowToFingering(row) {
+  return {
+    songId: row.song_id,
+    noteIndex: row.note_index,
+    finger: row.finger,
+    hand: row.hand
   };
 }
 function rowToGameResult(row) {
@@ -438,6 +879,13 @@ function toArrayBuffer(buffer) {
 function calculateDifficulty(noteCount, durationSec) {
   const safeDuration = Math.max(durationSec, 1);
   return Math.max(1, Math.min(10, Math.round(noteCount / safeDuration * 1.2)));
+}
+function isLibraryBackup(value) {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const backup = value;
+  return backup.version === 1 && Array.isArray(backup.songs) && Array.isArray(backup.folders) && Array.isArray(backup.playlists) && Array.isArray(backup.fingerings) && Array.isArray(backup.settings);
 }
 async function createMainWindow() {
   mainWindow = new BrowserWindow({
@@ -540,6 +988,51 @@ app.whenReady().then(async () => {
   });
   ipcMain.handle("results:for-song", (_event, songId) => db.getGameResults(songId));
   ipcMain.handle("stats:get", (_event, songId) => db.getUserStats(songId));
+  ipcMain.handle("fingerings:get", (_event, songId) => db.getCustomFingerings(songId));
+  ipcMain.handle(
+    "fingerings:save",
+    (_event, songId, noteIndex, finger, hand) => db.saveCustomFingering(songId, noteIndex, finger, hand)
+  );
+  ipcMain.handle("fingerings:clear", (_event, songId) => db.clearCustomFingerings(songId));
+  ipcMain.handle("folders:get-all", () => db.getAllFolders());
+  ipcMain.handle("folders:create", (_event, name) => db.createFolder(name));
+  ipcMain.handle("folders:rename", (_event, folderId, name) => db.renameFolder(folderId, name));
+  ipcMain.handle("folders:delete", (_event, folderId) => db.deleteFolder(folderId));
+  ipcMain.handle(
+    "folders:move-song",
+    (_event, songId, folderId) => db.moveSongToFolder(songId, folderId)
+  );
+  ipcMain.handle("playlists:get-all", () => db.getAllPlaylists());
+  ipcMain.handle("playlists:create", (_event, name) => db.createPlaylist(name));
+  ipcMain.handle(
+    "playlists:update",
+    (_event, playlistId, updates) => db.updatePlaylist(playlistId, updates)
+  );
+  ipcMain.handle("playlists:delete", (_event, playlistId) => db.deletePlaylist(playlistId));
+  ipcMain.handle("playlists:get-songs", (_event, playlistId) => db.getPlaylistSongs(playlistId));
+  ipcMain.handle(
+    "playlists:add-song",
+    (_event, playlistId, songId) => db.addSongToPlaylist(playlistId, songId)
+  );
+  ipcMain.handle(
+    "playlists:remove-song",
+    (_event, playlistId, songId) => db.removeSongFromPlaylist(playlistId, songId)
+  );
+  ipcMain.handle(
+    "playlists:reorder-song",
+    (_event, playlistId, songId, newOrder) => db.reorderPlaylistSong(playlistId, songId, newOrder)
+  );
+  ipcMain.handle("bulk:delete-songs", (_event, songIds) => db.bulkDeleteSongs(songIds));
+  ipcMain.handle(
+    "bulk:move-songs-to-folder",
+    (_event, songIds, folderId) => db.bulkMoveSongsToFolder(songIds, folderId)
+  );
+  ipcMain.handle("bulk:add-tag", (_event, songIds, tag) => db.bulkAddTag(songIds, tag));
+  ipcMain.handle("bulk:remove-tag", (_event, songIds, tag) => db.bulkRemoveTag(songIds, tag));
+  ipcMain.handle(
+    "bulk:add-to-playlist",
+    (_event, songIds, playlistId) => db.bulkAddToPlaylist(songIds, playlistId)
+  );
   ipcMain.handle(
     "settings:get",
     (_event, category, key) => db.getSetting(category, key)
@@ -548,6 +1041,34 @@ app.whenReady().then(async () => {
     "settings:set",
     (_event, category, key, value) => db.setSetting(category, key, value)
   );
+  ipcMain.handle("library:export", async () => {
+    const options = {
+      defaultPath: `pianohero-library-${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.json`,
+      filters: [{ name: "JSON Files", extensions: ["json"] }]
+    };
+    const result = mainWindow ? await dialog.showSaveDialog(mainWindow, options) : await dialog.showSaveDialog(options);
+    if (result.canceled || !result.filePath) {
+      return null;
+    }
+    const backup = db.exportLibraryData();
+    writeFileSync(result.filePath, JSON.stringify(backup, null, 2), "utf8");
+    return result.filePath;
+  });
+  ipcMain.handle("library:import", async () => {
+    const options = {
+      properties: ["openFile"],
+      filters: [{ name: "JSON Files", extensions: ["json"] }]
+    };
+    const result = mainWindow ? await dialog.showOpenDialog(mainWindow, options) : await dialog.showOpenDialog(options);
+    if (result.canceled || result.filePaths.length === 0) {
+      return null;
+    }
+    const raw = JSON.parse(await readFile(result.filePaths[0], "utf8"));
+    if (!isLibraryBackup(raw)) {
+      throw new Error("Invalid library backup file.");
+    }
+    return db.importLibraryData(raw);
+  });
   ipcMain.handle("file:load-midi", async (_event, selectedPath) => {
     const data = await readFile(selectedPath);
     return new Uint8Array(data);
