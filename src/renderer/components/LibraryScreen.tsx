@@ -432,6 +432,9 @@ export function LibraryScreen({ onStartSession, onStartFreePlay, onOpenSetupGuid
                   <button className="secondary-button" onClick={() => onStartSession(song, 'learning')}>
                     Learn
                   </button>
+                  <button className="secondary-button" onClick={() => onStartSession(song, 'performance')}>
+                    Perform
+                  </button>
                   <button className="secondary-button" onClick={() => setEditingSongId(song.id)}>
                     Edit Metadata
                   </button>

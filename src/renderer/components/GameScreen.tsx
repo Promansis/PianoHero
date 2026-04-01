@@ -5,6 +5,7 @@ import {
   applyTrackAssignments,
   filterSongByHand,
   getLoopRangeSeconds,
+  getMeasureCount,
   getTrackAssignments,
   setTrackAssignment,
 } from '../../lib/game/songUtils';
@@ -115,6 +116,107 @@ function buildTempSong(filePath: string, title: string): SongRow {
     isFavorite: false,
     trackAssignments: {},
   };
+}
+
+interface SessionToolbarProps {
+  sessionConfig: SessionConfig;
+  totalMeasures: number;
+  onRebuild: (next: SessionConfig) => void;
+}
+
+function SessionToolbar({ sessionConfig, totalMeasures, onRebuild }: SessionToolbarProps) {
+  const [loopStart, setLoopStart] = useState(sessionConfig.loopRange ? sessionConfig.loopRange.startMeasure + 1 : 1);
+  const [loopEnd, setLoopEnd] = useState(
+    sessionConfig.loopRange ? sessionConfig.loopRange.endMeasure + 1 : Math.max(1, totalMeasures),
+  );
+
+  const handleSetLoop = () => {
+    const startMeasure = Math.max(1, Math.min(loopStart, totalMeasures)) - 1;
+    const endMeasure = Math.max(startMeasure, Math.min(loopEnd, totalMeasures) - 1);
+    onRebuild({ ...sessionConfig, loopRange: { startMeasure, endMeasure } });
+  };
+
+  return (
+    <section className="panel session-toolbar">
+      <div className="session-chip-group">
+        <button
+          className={sessionConfig.mode === 'piano-hero' ? 'primary-button' : 'secondary-button'}
+          onClick={() => onRebuild({ ...sessionConfig, mode: 'piano-hero', waitForInput: false })}
+        >
+          Piano Hero
+        </button>
+        <button
+          className={sessionConfig.mode === 'learning' ? 'primary-button' : 'secondary-button'}
+          onClick={() => onRebuild({ ...sessionConfig, mode: 'learning', waitForInput: true })}
+        >
+          Learning
+        </button>
+        <button
+          className={sessionConfig.mode === 'performance' ? 'primary-button' : 'secondary-button'}
+          onClick={() => onRebuild({ ...sessionConfig, mode: 'performance', waitForInput: false })}
+        >
+          Performance
+        </button>
+      </div>
+
+      <div className="session-chip-group">
+        {(['both', 'left', 'right'] as const).map((handFilter) => (
+          <button
+            key={handFilter}
+            className={sessionConfig.handFilter === handFilter ? 'primary-button' : 'secondary-button'}
+            onClick={() => onRebuild({ ...sessionConfig, handFilter })}
+          >
+            {handFilter === 'both' ? 'Both Hands' : `${handFilter[0].toUpperCase()}${handFilter.slice(1)} Hand`}
+          </button>
+        ))}
+      </div>
+
+      <div className="session-chip-group loop-picker">
+        {sessionConfig.loopRange ? (
+          <>
+            <span className="loop-label">
+              Looping measures {sessionConfig.loopRange.startMeasure + 1}–{sessionConfig.loopRange.endMeasure + 1}
+            </span>
+            <button
+              className="secondary-button"
+              onClick={() => onRebuild({ ...sessionConfig, loopRange: null })}
+            >
+              Clear Loop
+            </button>
+          </>
+        ) : (
+          <>
+            <label className="loop-measure-label">
+              Loop
+              <input
+                className="loop-measure-input"
+                type="number"
+                min={1}
+                max={totalMeasures || 1}
+                value={loopStart}
+                onChange={(e) => setLoopStart(Number(e.target.value))}
+                aria-label="Loop start measure"
+              />
+              <span>–</span>
+              <input
+                className="loop-measure-input"
+                type="number"
+                min={1}
+                max={totalMeasures || 1}
+                value={loopEnd}
+                onChange={(e) => setLoopEnd(Number(e.target.value))}
+                aria-label="Loop end measure"
+              />
+              {totalMeasures > 0 && <span className="loop-total">/ {totalMeasures}</span>}
+            </label>
+            <button className="secondary-button" onClick={handleSetLoop} disabled={totalMeasures === 0}>
+              Set Loop
+            </button>
+          </>
+        )}
+      </div>
+    </section>
+  );
 }
 
 export function GameScreen({
@@ -509,7 +611,13 @@ export function GameScreen({
       <section className="status-strip">
         <div className="status-card">
           <span>Mode</span>
-          <strong>{sessionConfig.mode === 'piano-hero' ? 'Piano Hero' : 'Learning'}</strong>
+          <strong>
+            {sessionConfig.mode === 'piano-hero'
+              ? 'Piano Hero'
+              : sessionConfig.mode === 'performance'
+                ? 'Performance'
+                : 'Learning'}
+          </strong>
         </div>
         <div className="status-card">
           <span>Score</span>
@@ -531,50 +639,11 @@ export function GameScreen({
         </div>
       </section>
 
-      <section className="panel session-toolbar">
-        <div className="session-chip-group">
-          <button
-            className={sessionConfig.mode === 'piano-hero' ? 'primary-button' : 'secondary-button'}
-            onClick={() => void rebuildForSessionConfig({ ...sessionConfig, mode: 'piano-hero', waitForInput: false })}
-          >
-            Piano Hero
-          </button>
-          <button
-            className={sessionConfig.mode === 'learning' ? 'primary-button' : 'secondary-button'}
-            onClick={() => void rebuildForSessionConfig({ ...sessionConfig, mode: 'learning', waitForInput: true })}
-          >
-            Learning Mode
-          </button>
-        </div>
-        <div className="session-chip-group">
-          {(['both', 'left', 'right'] as const).map((handFilter) => (
-            <button
-              key={handFilter}
-              className={sessionConfig.handFilter === handFilter ? 'primary-button' : 'secondary-button'}
-              onClick={() => void rebuildForSessionConfig({ ...sessionConfig, handFilter })}
-            >
-              {handFilter === 'both' ? 'Both Hands' : `${handFilter[0].toUpperCase()}${handFilter.slice(1)} Hand`}
-            </button>
-          ))}
-        </div>
-        <div className="session-chip-group">
-          {sessionConfig.loopRange ? (
-            <>
-              <span className="loop-label">
-                Looping measures {sessionConfig.loopRange.startMeasure + 1}-{sessionConfig.loopRange.endMeasure + 1}
-              </span>
-              <button
-                className="secondary-button"
-                onClick={() => void rebuildForSessionConfig({ ...sessionConfig, loopRange: null })}
-              >
-                Clear Loop
-              </button>
-            </>
-          ) : (
-            <span className="loop-label">Full song session</span>
-          )}
-        </div>
-      </section>
+      <SessionToolbar
+        sessionConfig={sessionConfig}
+        totalMeasures={sessionSong ? getMeasureCount(sessionSong) : 0}
+        onRebuild={(next) => void rebuildForSessionConfig(next)}
+      />
 
       {showReminder && (
         <section className="panel reminder-overlay">
