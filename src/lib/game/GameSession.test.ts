@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { GameSession } from './GameSession';
-import type { ParsedSong } from './types';
+import type { ParsedSong, SessionConfig } from './types';
 
 const SONG: ParsedSong = {
   id: 'song-1',
@@ -41,9 +41,18 @@ const SONG: ParsedSong = {
   ],
 };
 
+const DEFAULT_SESSION: SessionConfig = {
+  mode: 'piano-hero',
+  tempoMultiplier: 1,
+  handFilter: 'both',
+  loopRange: null,
+  waitForInput: false,
+  metronomeEnabled: false,
+};
+
 describe('GameSession', () => {
   it('scores hits inside the timing window and tracks combo', () => {
-    const session = new GameSession(SONG);
+    const session = new GameSession(SONG, DEFAULT_SESSION);
     session.play(0);
     session.ingestMidiEvent({
       type: 'noteon',
@@ -54,21 +63,23 @@ describe('GameSession', () => {
     });
 
     const snapshot = session.getSnapshot(1000);
-    expect(snapshot.combo).toBe(1);
-    expect(snapshot.visibleNotes.some((note) => note.judgement === 'hit')).toBe(true);
+    expect(snapshot.score.combo).toBe(1);
+    expect(snapshot.score.perfectCount).toBe(1);
+    expect(snapshot.visibleNotes.some((note) => note.judgement === 'perfect')).toBe(true);
   });
 
-  it('marks pending notes as missed after the hit window', () => {
-    const session = new GameSession(SONG);
+  it('marks overdue notes as misses', () => {
+    const session = new GameSession(SONG, DEFAULT_SESSION);
     session.play(0);
 
     const snapshot = session.getSnapshot(1200);
-    expect(snapshot.combo).toBe(0);
+    expect(snapshot.score.combo).toBe(0);
+    expect(snapshot.score.missCount).toBe(1);
     expect(snapshot.visibleNotes.some((note) => note.judgement === 'miss')).toBe(true);
   });
 
   it('handles repeated same-pitch notes in order', () => {
-    const session = new GameSession(SONG);
+    const session = new GameSession(SONG, DEFAULT_SESSION);
     session.play(0);
 
     session.ingestMidiEvent({
@@ -87,7 +98,29 @@ describe('GameSession', () => {
     });
 
     const snapshot = session.getSnapshot(1500);
-    expect(snapshot.combo).toBe(2);
-    expect(snapshot.visibleNotes.filter((note) => note.judgement === 'hit')).toHaveLength(2);
+    expect(snapshot.score.combo).toBe(2);
+    expect(snapshot.score.maxCombo).toBe(2);
+    expect(snapshot.visibleNotes.filter((note) => note.judgement === 'perfect')).toHaveLength(2);
+  });
+
+  it('waits at the next note in learning mode until the correct note is played', () => {
+    const session = new GameSession(SONG, {
+      ...DEFAULT_SESSION,
+      mode: 'learning',
+      waitForInput: true,
+    });
+    session.play(0);
+
+    expect(session.getSnapshot(1300).currentTimeSec).toBe(1);
+
+    session.ingestMidiEvent({
+      type: 'noteon',
+      note: 60,
+      velocity: 0.8,
+      timestamp: 1300,
+      sourceId: 'device-1',
+    });
+
+    expect(session.getSnapshot(1600).currentTimeSec).toBeGreaterThan(1);
   });
 });

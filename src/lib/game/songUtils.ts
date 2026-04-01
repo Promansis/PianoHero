@@ -1,4 +1,12 @@
-import type { ParsedNote, ParsedSong, ParsedTrack, ScheduledNote, TrackAssignment } from './types';
+import type {
+  HandFilter,
+  LoopRange,
+  ParsedNote,
+  ParsedSong,
+  ParsedTrack,
+  ScheduledNote,
+  TrackAssignment,
+} from './types';
 
 const MIDI_NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
@@ -110,4 +118,53 @@ export function cloneTracksWithAssignments(
     ...track,
     assignment: assignments[track.id] ?? track.assignment,
   }));
+}
+
+export function filterSongByHand(song: ParsedSong, handFilter: HandFilter): ParsedSong {
+  if (handFilter === 'both') {
+    return song;
+  }
+
+  const filteredNotes = buildScheduledNotes(song)
+    .filter((note) => note.effectiveHand === handFilter)
+    .map(({ effectiveHand: _effectiveHand, ...note }) => note);
+
+  return {
+    ...song,
+    notes: filteredNotes,
+  };
+}
+
+export function getMeasureIndexForTime(song: ParsedSong, startSec: number): number {
+  const secPerBeat = 60 / Math.max(song.bpm, 1);
+  const secPerMeasure = secPerBeat * 4;
+  return Math.floor(startSec / secPerMeasure);
+}
+
+export function getMeasureCount(song: ParsedSong): number {
+  if (song.durationSec <= 0) {
+    return 1;
+  }
+
+  return getMeasureIndexForTime(song, song.durationSec) + 1;
+}
+
+export function getLoopRangeSeconds(song: ParsedSong, loopRange: LoopRange | null): {
+  startSec: number;
+  endSec: number;
+} {
+  if (!loopRange) {
+    return { startSec: 0, endSec: song.durationSec };
+  }
+
+  const secPerBeat = 60 / Math.max(song.bpm, 1);
+  const secPerMeasure = secPerBeat * 4;
+  const measureCount = Math.max(getMeasureCount(song), 1);
+  const startMeasure = Math.max(0, Math.min(loopRange.startMeasure, measureCount - 1));
+  const endMeasure = Math.max(startMeasure, Math.min(loopRange.endMeasure, measureCount - 1));
+
+  return {
+    startSec: startMeasure * secPerMeasure,
+    endSec: Math.min(song.durationSec, (endMeasure + 1) * secPerMeasure),
+  };
 }

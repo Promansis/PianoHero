@@ -7,13 +7,18 @@ interface FallingNotesCanvasProps {
 }
 
 function noteFill(note: VisibleNote): string {
-  if (note.judgement === 'hit') {
-    return '#40b56a';
+  switch (note.judgement) {
+    case 'perfect':
+      return '#f5c542';
+    case 'good':
+      return '#40b56a';
+    case 'ok':
+      return '#4a90d9';
+    case 'miss':
+      return '#bf5b44';
+    default:
+      return note.hand === 'left' ? '#3366cc' : '#dc5b35';
   }
-  if (note.judgement === 'miss') {
-    return '#bf5b44';
-  }
-  return note.hand === 'left' ? '#3366cc' : '#dc5b35';
 }
 
 export function FallingNotesCanvas({ snapshot, onFileDrop }: FallingNotesCanvasProps) {

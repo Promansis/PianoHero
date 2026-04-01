@@ -1,12 +1,29 @@
 import { app, BrowserWindow, dialog, ipcMain } from 'electron';
-import type { OpenDialogOptions } from 'electron';
+import type { OpenDialogOptions, SaveDialogOptions } from 'electron';
+import { copyFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { SongMetadataStore } from './songMetadataStore';
-import type { SongMetadata } from '../shared/ipc';
+import { getTrackAssignments } from '../lib/game/songUtils';
+import { parseMidiFile } from '../lib/midi/midiFileParser';
+import type { AddSongPayload, SaveGameResultPayload } from '../shared/dbTypes';
+import { AppDatabase } from './database';
 
 let mainWindow: BrowserWindow | null = null;
-let metadataStore: SongMetadataStore;
+let db: AppDatabase;
+
+async function createSongId(buffer: Buffer): Promise<string> {
+  const { createHash } = await import('node:crypto');
+  return createHash('sha256').update(buffer).digest('hex');
+}
+
+function toArrayBuffer(buffer: Buffer): ArrayBuffer {
+  return Uint8Array.from(buffer).buffer;
+}
+
+function calculateDifficulty(noteCount: number, durationSec: number): number {
+  const safeDuration = Math.max(durationSec, 1);
+  return Math.max(1, Math.min(10, Math.round((noteCount / safeDuration) * 1.2)));
+}
 
 async function createMainWindow(): Promise<void> {
   mainWindow = new BrowserWindow({
@@ -16,7 +33,7 @@ async function createMainWindow(): Promise<void> {
     minHeight: 780,
     backgroundColor: '#f2eadb',
     webPreferences: {
-      preload: join(__dirname, '../preload/preload.mjs'),
+      preload: join(__dirname, '../preload/preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
     },
@@ -24,26 +41,27 @@ async function createMainWindow(): Promise<void> {
 
   if (process.env.ELECTRON_RENDERER_URL) {
     await mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL);
-  } else {
-    await mainWindow.loadFile(join(__dirname, '../renderer/index.html'));
+    return;
   }
+
+  await mainWindow.loadFile(join(__dirname, '../renderer/index.html'));
 }
 
 app.whenReady().then(async () => {
   app.setAppUserModelId('com.pianohero.app');
-  metadataStore = new SongMetadataStore(app.getPath('userData'));
+
+  const userDataPath = app.getPath('userData');
+  const midiFilesDir = join(userDataPath, 'midi-files');
+  mkdirSync(midiFilesDir, { recursive: true });
+
+  db = new AppDatabase(join(userDataPath, 'pianohero.db'));
+  db.migrateFromJson(userDataPath);
 
   ipcMain.handle('dialog:pick-midi-file', async () => {
     const options: OpenDialogOptions = {
       properties: ['openFile'],
-      filters: [
-        {
-          name: 'MIDI Files',
-          extensions: ['mid', 'midi'],
-        },
-      ],
+      filters: [{ name: 'MIDI Files', extensions: ['mid', 'midi'] }],
     };
-
     const result = mainWindow
       ? await dialog.showOpenDialog(mainWindow, options)
       : await dialog.showOpenDialog(options);
@@ -52,19 +70,111 @@ app.whenReady().then(async () => {
       return null;
     }
 
-    const filePath = result.filePaths[0];
-    const data = new Uint8Array(await readFile(filePath));
-
+    const selectedPath = result.filePaths[0];
+    const data = new Uint8Array(await readFile(selectedPath));
     return {
-      name: filePath.split(/[\\/]/).pop() ?? 'Imported MIDI',
-      path: filePath,
+      name: selectedPath.split(/[\\/]/).pop() ?? 'Imported MIDI',
+      path: selectedPath,
       data,
     };
   });
 
-  ipcMain.handle('song-metadata:get', async (_event, songId: string) => metadataStore.get(songId));
-  ipcMain.handle('song-metadata:set', async (_event, songId: string, metadata: SongMetadata) => {
-    await metadataStore.set(songId, metadata);
+  ipcMain.handle('songs:get-all', () => db.getAllSongs());
+  ipcMain.handle('songs:get', (_event, songId: string) => db.getSong(songId));
+  ipcMain.handle('songs:add', (_event, payload: AddSongPayload) => db.addSong(payload));
+  ipcMain.handle(
+    'songs:update',
+    (_event, songId: string, updates: Partial<Omit<Parameters<AppDatabase['updateSong']>[1], never>>) =>
+      db.updateSong(songId, updates),
+  );
+  ipcMain.handle('songs:delete', (_event, songId: string) => db.deleteSong(songId));
+  ipcMain.handle('songs:toggle-favorite', (_event, songId: string) => db.toggleFavorite(songId));
+
+  ipcMain.handle('songs:import-midi-files', async () => {
+    const options: OpenDialogOptions = {
+      properties: ['openFile', 'multiSelections'],
+      filters: [{ name: 'MIDI Files', extensions: ['mid', 'midi'] }],
+    };
+    const result = mainWindow
+      ? await dialog.showOpenDialog(mainWindow, options)
+      : await dialog.showOpenDialog(options);
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return [];
+    }
+
+    const importedSongs = [];
+    for (const selectedPath of result.filePaths) {
+      const buffer = await readFile(selectedPath);
+      const songId = await createSongId(buffer);
+      const destPath = join(midiFilesDir, `${songId}.mid`);
+      const title = selectedPath.split(/[\\/]/).pop()?.replace(/\.(mid|midi)$/i, '') ?? 'Untitled';
+      const parsedSong = parseMidiFile(toArrayBuffer(buffer), { songId, title });
+      const difficulty = calculateDifficulty(parsedSong.notes.length, parsedSong.durationSec);
+
+      copyFileSync(selectedPath, destPath);
+      const row = db.addSong({
+        id: songId,
+        title,
+        artist: '',
+        genre: '',
+        filePath: destPath,
+        difficulty,
+        durationSec: parsedSong.durationSec,
+        bpm: parsedSong.bpm,
+        noteCount: parsedSong.notes.length,
+        tags: [],
+        trackAssignments: getTrackAssignments(parsedSong),
+      });
+
+      importedSongs.push({
+        songId,
+        destPath,
+        fileData: new Uint8Array(buffer),
+        title: row.title,
+        durationSec: row.durationSec,
+        bpm: row.bpm,
+        noteCount: row.noteCount,
+        difficulty: row.difficulty,
+      });
+    }
+
+    return importedSongs;
+  });
+
+  ipcMain.handle('results:save', (_event, payload: SaveGameResultPayload) => {
+    db.saveGameResult(payload);
+  });
+  ipcMain.handle('results:for-song', (_event, songId: string) => db.getGameResults(songId));
+  ipcMain.handle('stats:get', (_event, songId: string) => db.getUserStats(songId));
+
+  ipcMain.handle('settings:get', (_event, category: string, key: string) =>
+    db.getSetting(category, key),
+  );
+  ipcMain.handle('settings:set', (_event, category: string, key: string, value: string) =>
+    db.setSetting(category, key, value),
+  );
+
+  ipcMain.handle('file:load-midi', async (_event, selectedPath: string) => {
+    const data = await readFile(selectedPath);
+    return new Uint8Array(data);
+  });
+
+  ipcMain.handle('file:save-midi', async (_event, suggestedName: string, data: Uint8Array) => {
+    const options: SaveDialogOptions = {
+      defaultPath: suggestedName,
+      filters: [{ name: 'MIDI Files', extensions: ['mid'] }],
+    };
+    const result = mainWindow
+      ? await dialog.showSaveDialog(mainWindow, options)
+      : await dialog.showSaveDialog(options);
+
+    if (result.canceled || !result.filePath) {
+      return null;
+    }
+
+    writeFileSync(result.filePath, Buffer.from(data));
+    return result.filePath;
   });
 
   await createMainWindow();
@@ -79,5 +189,11 @@ app.whenReady().then(async () => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
+  }
+});
+
+app.on('before-quit', () => {
+  if (db) {
+    db.close();
   }
 });

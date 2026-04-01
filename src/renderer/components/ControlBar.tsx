@@ -11,6 +11,7 @@ interface ControlBarProps {
   onRestart: () => void;
   onTempoChange: (value: number) => void;
   onSeek: (progress: number) => void;
+  onBackToLibrary?: () => void;
 }
 
 export function ControlBar(props: ControlBarProps) {
@@ -18,11 +19,18 @@ export function ControlBar(props: ControlBarProps) {
     <section className="control-bar panel">
       <div className="control-row">
         <div>
-          <p className="eyebrow">Phase 1</p>
-          <h1>Piano Hero</h1>
-          <p className="song-title">{props.songTitle}</p>
+          <p className="eyebrow">Piano Hero</p>
+          <h1>{props.songTitle !== 'No song loaded' ? props.songTitle : 'Piano Hero'}</h1>
+          {props.songTitle !== 'No song loaded' && (
+            <p className="song-title">{props.songTitle}</p>
+          )}
         </div>
         <div className="transport-buttons">
+          {props.onBackToLibrary && (
+            <button className="secondary-button" onClick={props.onBackToLibrary}>
+              Library
+            </button>
+          )}
           <button className="secondary-button" onClick={props.onImport}>
             Import MIDI
           </button>
