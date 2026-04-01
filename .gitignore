@@ -1,2 +1,7 @@
 node_modules
 packaging
+.claude
+CLAUDE.md
+AGENTS.md
+out
+
