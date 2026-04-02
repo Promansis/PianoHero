@@ -65,16 +65,22 @@ interface FinishedGamePayload {
   playlistQueue: PlaylistQueue | null;
 }
 
-function buildSessionConfig(mode: SessionMode, overrides: Partial<SessionConfig> = {}): SessionConfig {
+function buildSessionConfig(
+  mode: SessionMode,
+  waitModeDefault: boolean,
+  latencyCompMs: number,
+  overrides: Partial<SessionConfig> = {},
+): SessionConfig {
   return {
     mode,
     tempoMultiplier: 1,
     handFilter: 'both',
     loopRange: null,
-    waitForInput: mode === 'learning',
+    waitForInput: waitModeDefault || mode === 'learning',
     metronomeEnabled: false,
     handSize: 'medium',
     fingeringDisplayMode: 'learning-only',
+    latencyCompMs,
     ...overrides,
   };
 }
@@ -96,6 +102,13 @@ export function App() {
   const [midiDevices, setMidiDevices] = useState<MidiInputDevice[]>([]);
   const [achievementToastQueue, setAchievementToastQueue] = useState<string[]>([]);
   const [currentScreen, setCurrentScreen] = useState<AppScreen>({ screen: 'library' });
+  const [colorBlindMode, setColorBlindMode] = useState(false);
+  const [noteLabels, setNoteLabels] = useState<'alphabetic' | 'symbols' | 'both' | 'none'>('alphabetic');
+  const [keyboardOverlaySize, setKeyboardOverlaySize] = useState<'small' | 'medium' | 'large'>('medium');
+  const [latencyCompMs, setLatencyCompMs] = useState(0);
+  const [waitModeDefault, setWaitModeDefault] = useState(false);
+  const [postureReminderMinutes, setPostureReminderMinutes] = useState<number | null>(null);
+  const [breakReminderMinutes, setBreakReminderMinutes] = useState<number | null>(null);
 
   useEffect(() => {
     const service = new MidiInputService();
@@ -139,6 +152,14 @@ export function App() {
         rawMasterVolume,
         rawMetronomeVolume,
         rawReverbLevel,
+        rawTheme,
+        rawColorBlind,
+        rawNoteLabels,
+        rawKeyboardSize,
+        rawLatencyComp,
+        rawWaitMode,
+        rawBreakReminder,
+        rawMidiDeviceId,
       ] = await Promise.all([
         window.appBridge.getSetting('onboarding', 'setupComplete'),
         window.appBridge.getSetting('practice', 'postureReminderMinutes'),
@@ -149,13 +170,54 @@ export function App() {
         window.appBridge.getSetting('audio', 'masterVolume'),
         window.appBridge.getSetting('audio', 'metronomeVolume'),
         window.appBridge.getSetting('audio', 'reverbLevel'),
+        window.appBridge.getSetting('visual', 'theme'),
+        window.appBridge.getSetting('visual', 'colorBlindMode'),
+        window.appBridge.getSetting('visual', 'noteLabels'),
+        window.appBridge.getSetting('visual', 'keyboardOverlaySize'),
+        window.appBridge.getSetting('audio', 'latencyCompMs'),
+        window.appBridge.getSetting('gameplay', 'waitModeDefault'),
+        window.appBridge.getSetting('practice', 'breakReminderMinutes'),
+        window.appBridge.getSetting('input', 'midiDeviceId'),
       ]);
 
       if (reminder) {
         setReminderFrequency(reminder);
+        const parsed = Number(reminder);
+        if (Number.isFinite(parsed) && parsed > 0) {
+          setPostureReminderMinutes(parsed);
+        }
       }
       if (savedHandSize === 'small' || savedHandSize === 'medium' || savedHandSize === 'large') {
         setHandSize(savedHandSize);
+      }
+
+      const theme = rawTheme === 'warm' ? 'warm' : 'light';
+      document.documentElement.dataset['theme'] = theme;
+
+      setColorBlindMode(rawColorBlind === 'true');
+
+      if (rawNoteLabels === 'alphabetic' || rawNoteLabels === 'symbols' || rawNoteLabels === 'both' || rawNoteLabels === 'none') {
+        setNoteLabels(rawNoteLabels);
+      }
+
+      if (rawKeyboardSize === 'small' || rawKeyboardSize === 'large') {
+        setKeyboardOverlaySize(rawKeyboardSize);
+      }
+
+      const parsedLatency = Number(rawLatencyComp);
+      if (Number.isFinite(parsedLatency)) {
+        setLatencyCompMs(parsedLatency);
+      }
+
+      setWaitModeDefault(rawWaitMode === 'true');
+
+      const parsedBreak = Number(rawBreakReminder);
+      if (Number.isFinite(parsedBreak) && parsedBreak > 0) {
+        setBreakReminderMinutes(parsedBreak);
+      }
+
+      if (rawMidiDeviceId && midiServiceRef.current) {
+        midiServiceRef.current.setDeviceFilter(rawMidiDeviceId);
       }
 
       const nextInputMode = parseInputMode(rawInputMode);
@@ -210,28 +272,63 @@ export function App() {
     void window.appBridge?.setSetting(INPUT_SETTINGS_CATEGORY, INPUT_MODE_SETTING_KEY, nextMode);
   };
 
-  const applyAudioSetting = (key: 'instrumentId' | 'masterVolume' | 'metronomeVolume' | 'reverbLevel', value: string) => {
-    if (key === 'instrumentId') {
-      void audioEngineRef.current.setInstrument(isInstrumentId(value) ? value : DEFAULT_INSTRUMENT_ID);
+  const applySettingChange = (category: string, key: string, value: string) => {
+    if (category === 'audio') {
+      if (key === 'instrumentId') {
+        void audioEngineRef.current.setInstrument(isInstrumentId(value) ? value : DEFAULT_INSTRUMENT_ID);
+        return;
+      }
+      const parsedValue = Number(value);
+      if (!Number.isFinite(parsedValue)) {
+        return;
+      }
+      if (key === 'masterVolume') {
+        audioEngineRef.current.setMasterVolume(parsedValue);
+      } else if (key === 'metronomeVolume') {
+        audioEngineRef.current.setMetronomeVolume(parsedValue);
+      } else if (key === 'reverbLevel') {
+        audioEngineRef.current.setReverbLevel(parsedValue);
+      } else if (key === 'latencyCompMs') {
+        setLatencyCompMs(parsedValue);
+      }
       return;
     }
 
-    const parsedValue = Number(value);
-    if (!Number.isFinite(parsedValue)) {
+    if (category === 'visual') {
+      if (key === 'theme') {
+        document.documentElement.dataset['theme'] = value === 'warm' ? 'warm' : 'light';
+      } else if (key === 'colorBlindMode') {
+        setColorBlindMode(value === 'true');
+      } else if (key === 'noteLabels' && (value === 'alphabetic' || value === 'symbols' || value === 'both' || value === 'none')) {
+        setNoteLabels(value);
+      } else if (key === 'keyboardOverlaySize' && (value === 'small' || value === 'medium' || value === 'large')) {
+        setKeyboardOverlaySize(value);
+      }
       return;
     }
 
-    if (key === 'masterVolume') {
-      audioEngineRef.current.setMasterVolume(parsedValue);
+    if (category === 'gameplay') {
+      if (key === 'waitModeDefault') {
+        setWaitModeDefault(value === 'true');
+      }
       return;
     }
 
-    if (key === 'metronomeVolume') {
-      audioEngineRef.current.setMetronomeVolume(parsedValue);
+    if (category === 'practice') {
+      if (key === 'postureReminderMinutes') {
+        setReminderFrequency(value);
+        const parsed = Number(value);
+        setPostureReminderMinutes(Number.isFinite(parsed) && parsed > 0 ? parsed : null);
+      } else if (key === 'breakReminderMinutes') {
+        const parsed = Number(value);
+        setBreakReminderMinutes(Number.isFinite(parsed) && parsed > 0 ? parsed : null);
+      }
       return;
     }
 
-    audioEngineRef.current.setReverbLevel(parsedValue);
+    if (category === 'input' && key === 'midiDeviceId') {
+      midiServiceRef.current?.setDeviceFilter(value || null);
+    }
   };
 
   const persistSetupState = async (setupComplete: boolean) => {
@@ -263,9 +360,8 @@ export function App() {
     setCurrentScreen({
       screen: 'game',
       song,
-      sessionConfig: buildSessionConfig(mode, {
+      sessionConfig: buildSessionConfig(mode, waitModeDefault, latencyCompMs, {
         loopRange,
-        waitForInput: mode === 'learning',
         handSize,
       }),
       playlistQueue,
@@ -472,6 +568,9 @@ export function App() {
           inputMode={inputMode}
           keyboardInputService={keyboardServiceRef.current}
           midiInputService={midiServiceRef.current}
+          keyboardOverlaySize={keyboardOverlaySize}
+          postureReminderMinutes={postureReminderMinutes}
+          breakReminderMinutes={breakReminderMinutes}
           onBackToLibrary={() => setCurrentScreen({ screen: 'library' })}
           onOpenKeyboardSetup={() => setCurrentScreen({ screen: 'keyboard-setup', returnTo: 'library' })}
         />
@@ -498,7 +597,7 @@ export function App() {
         <SettingsScreen
           inputMode={inputMode}
           midiDevices={midiDevices}
-          onAudioSettingChange={applyAudioSetting}
+          onSettingChange={applySettingChange}
           onInputModeChange={persistInputMode}
           onOpenKeyboardSetup={() => setCurrentScreen({ screen: 'keyboard-setup', returnTo: 'settings' })}
           onBack={() => setCurrentScreen({ screen: 'library' })}
@@ -566,6 +665,10 @@ export function App() {
           song={currentScreen.song}
           initialSessionConfig={currentScreen.sessionConfig}
           playlistQueue={currentScreen.playlistQueue}
+          colorBlindMode={colorBlindMode}
+          noteLabels={noteLabels}
+          keyboardOverlaySize={keyboardOverlaySize}
+          breakReminderMinutes={breakReminderMinutes}
           onBackToLibrary={() => setCurrentScreen({ screen: 'library' })}
           onGameFinished={handleGameFinished}
           onOpenKeyboardSetup={() => setCurrentScreen({ screen: 'keyboard-setup', returnTo: 'library' })}

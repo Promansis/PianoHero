@@ -6,10 +6,7 @@ import type { MidiInputDevice } from '../../lib/midi/types';
 interface SettingsScreenProps {
   inputMode: InputMode;
   midiDevices: MidiInputDevice[];
-  onAudioSettingChange: (
-    key: 'instrumentId' | 'masterVolume' | 'metronomeVolume' | 'reverbLevel',
-    value: string,
-  ) => void;
+  onSettingChange: (category: string, key: string, value: string) => void;
   onInputModeChange: (nextMode: InputMode) => void;
   onOpenKeyboardSetup: () => void;
   onBack: () => void;
@@ -54,7 +51,7 @@ function getSettingKey(category: string, key: string): string {
 export function SettingsScreen({
   inputMode,
   midiDevices,
-  onAudioSettingChange,
+  onSettingChange,
   onInputModeChange,
   onOpenKeyboardSetup,
   onBack,
@@ -105,9 +102,7 @@ export function SettingsScreen({
 
   const persistSetting = async (category: string, key: string, value: string) => {
     setValues((current) => ({ ...current, [getSettingKey(category, key)]: value }));
-    if (category === 'audio' && key !== 'latencyCompMs') {
-      onAudioSettingChange(key as 'instrumentId' | 'masterVolume' | 'metronomeVolume' | 'reverbLevel', value);
-    }
+    onSettingChange(category, key, value);
     setIsSaving(true);
     setStatusMessage('Saving settings...');
     await window.appBridge?.setSetting(category, key, value);

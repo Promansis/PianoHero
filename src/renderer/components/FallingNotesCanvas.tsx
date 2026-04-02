@@ -7,9 +7,21 @@ interface FallingNotesCanvasProps {
   fingeringEditEnabled?: boolean;
   selectedNoteId?: string | null;
   onNoteSelect?: (note: VisibleNote, anchorPoint: { x: number; y: number }) => void;
+  colorBlindMode?: boolean;
+  noteLabels?: 'alphabetic' | 'symbols' | 'both' | 'none';
 }
 
-function noteFill(note: VisibleNote): string {
+function noteFill(note: VisibleNote, colorBlindMode: boolean): string {
+  if (colorBlindMode) {
+    // Deuteranopia-safe palette: yellow/blue/cyan/pink instead of yellow/green/blue/red
+    switch (note.judgement) {
+      case 'perfect': return '#f5c542';
+      case 'good': return '#4477AA';
+      case 'ok': return '#66CCEE';
+      case 'miss': return '#EE6677';
+      default: return note.hand === 'left' ? '#4477AA' : '#EE6677';
+    }
+  }
   switch (note.judgement) {
     case 'perfect':
       return '#f5c542';
@@ -30,6 +42,8 @@ export function FallingNotesCanvas({
   fingeringEditEnabled = false,
   selectedNoteId = null,
   onNoteSelect,
+  colorBlindMode = false,
+  noteLabels = 'alphabetic',
 }: FallingNotesCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -58,7 +72,7 @@ export function FallingNotesCanvas({
 
     context.clearRect(0, 0, width, height);
     drawGrid(context, width, height, snapshot.hitLineRatio);
-    drawNotes(context, width, height, snapshot.visibleNotes, selectedNoteId);
+    drawNotes(context, width, height, snapshot.visibleNotes, selectedNoteId, colorBlindMode, noteLabels);
     drawHitLine(context, width, height, snapshot.hitLineRatio);
   }, [snapshot]);
 
@@ -142,6 +156,8 @@ function drawNotes(
   height: number,
   notes: VisibleNote[],
   selectedNoteId: string | null,
+  colorBlindMode: boolean,
+  noteLabels: 'alphabetic' | 'symbols' | 'both' | 'none',
 ): void {
   for (const note of notes) {
     const x = note.xRatio * width;
@@ -149,7 +165,7 @@ function drawNotes(
     const y = note.topRatio * height;
     const noteHeight = Math.max(note.heightRatio * height, 14);
 
-    context.fillStyle = noteFill(note);
+    context.fillStyle = noteFill(note, colorBlindMode);
     context.fillRect(x + 2, y, noteWidth - 4, noteHeight);
 
     if (selectedNoteId === note.id) {
@@ -158,13 +174,17 @@ function drawNotes(
       context.strokeRect(x + 1, y - 1, noteWidth - 2, noteHeight + 2);
     }
 
-    context.fillStyle = 'rgba(255, 250, 244, 0.96)';
-    context.font = '12px "Alegreya Sans", "Trebuchet MS", sans-serif';
-    context.textAlign = 'center';
-    context.fillText(note.label, x + noteWidth / 2, y + Math.min(18, noteHeight - 4));
+    if (noteLabels !== 'none') {
+      context.fillStyle = 'rgba(255, 250, 244, 0.96)';
+      context.font = '12px "Alegreya Sans", "Trebuchet MS", sans-serif';
+      context.textAlign = 'center';
+      context.fillText(note.label, x + noteWidth / 2, y + Math.min(18, noteHeight - 4));
+    }
 
     if (note.finger !== undefined) {
+      context.fillStyle = 'rgba(255, 250, 244, 0.96)';
       context.font = 'bold 11px "Alegreya Sans", "Trebuchet MS", sans-serif';
+      context.textAlign = 'center';
       context.fillText(String(note.finger), x + noteWidth / 2, y + Math.min(32, noteHeight - 4));
     }
   }

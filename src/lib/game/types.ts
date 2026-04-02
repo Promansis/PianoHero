@@ -20,6 +20,7 @@ export interface SessionConfig {
   metronomeEnabled: boolean;
   handSize: HandSize;
   fingeringDisplayMode: FingeringDisplayMode;
+  latencyCompMs: number;
 }
 
 export interface ParsedTrack {

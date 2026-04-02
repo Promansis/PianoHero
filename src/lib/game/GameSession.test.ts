@@ -50,6 +50,7 @@ const DEFAULT_SESSION: SessionConfig = {
   metronomeEnabled: false,
   handSize: 'medium',
   fingeringDisplayMode: 'always',
+  latencyCompMs: 0,
 };
 
 describe('GameSession', () => {

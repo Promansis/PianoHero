@@ -6,6 +6,7 @@ interface PianoKeyboardProps {
   highlightedNotes?: number[];
   highlightColor?: 'scale' | 'chord';
   chordLabel?: string | null;
+  size?: 'small' | 'medium' | 'large';
 }
 
 interface KeyLayout {
@@ -98,6 +99,7 @@ export function PianoKeyboard({
   highlightedNotes = [],
   highlightColor = 'scale',
   chordLabel = null,
+  size = 'medium',
 }: PianoKeyboardProps) {
   const activeSet = new Set(activeNotes);
   const upcoming = upcomingMap(upcomingNotes);
@@ -105,7 +107,7 @@ export function PianoKeyboard({
   const blackKeys = KEY_LAYOUT.filter((key) => key.isBlack);
 
   return (
-    <section className="keyboard-shell panel">
+    <section className={`keyboard-shell panel keyboard-size-${size}`}>
       <div className="panel-heading">
         <div>
           <p className="eyebrow">Keyboard</p>

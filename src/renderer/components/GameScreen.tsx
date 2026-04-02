@@ -75,6 +75,10 @@ interface GameScreenProps {
   song: SongRow;
   initialSessionConfig: SessionConfig;
   playlistQueue: { songs: SongRow[]; index: number } | null;
+  colorBlindMode: boolean;
+  noteLabels: 'alphabetic' | 'symbols' | 'both' | 'none';
+  keyboardOverlaySize: 'small' | 'medium' | 'large';
+  breakReminderMinutes: number | null;
   onGameFinished: (payload: FinishedGamePayload) => void;
   onBackToLibrary: () => void;
   onOpenKeyboardSetup: () => void;
@@ -296,6 +300,10 @@ export function GameScreen({
   song,
   initialSessionConfig,
   playlistQueue,
+  colorBlindMode,
+  noteLabels,
+  keyboardOverlaySize,
+  breakReminderMinutes,
   onGameFinished,
   onBackToLibrary,
   onOpenKeyboardSetup,
@@ -315,6 +323,7 @@ export function GameScreen({
   const [statusMessage, setStatusMessage] = useState('Loading song from the library.');
   const [reminderFrequencyMinutes, setReminderFrequencyMinutes] = useState<number | null>(null);
   const [showReminder, setShowReminder] = useState(false);
+  const [showBreakReminder, setShowBreakReminder] = useState(false);
   const [customFingerings, setCustomFingerings] = useState<FingeringRow[]>([]);
   const [keyboardOctaveShift, setKeyboardOctaveShift] = useState(keyboardInputService.getState().octaveShift);
   const [chordLabel, setChordLabel] = useState<string | null>(null);
@@ -531,6 +540,20 @@ export function GameScreen({
       window.clearInterval(interval);
     };
   }, [reminderFrequencyMinutes]);
+
+  useEffect(() => {
+    if (!breakReminderMinutes) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      setShowBreakReminder(true);
+    }, breakReminderMinutes * 60 * 1000);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [breakReminderMinutes]);
 
   const ensureAudioReady = async () => {
     try {
@@ -956,6 +979,19 @@ export function GameScreen({
         </section>
       )}
 
+      {showBreakReminder && (
+        <section className="panel reminder-overlay">
+          <div>
+            <p className="eyebrow">Break Reminder</p>
+            <h2>Time for a short break.</h2>
+            <p className="panel-copy">Step away for a few minutes to rest your hands and eyes before continuing.</p>
+          </div>
+          <button className="primary-button" onClick={() => setShowBreakReminder(false)}>
+            Dismiss
+          </button>
+        </section>
+      )}
+
       <section className="workspace-grid">
         <div className="fingering-editor-shell">
           <FallingNotesCanvas
@@ -966,6 +1002,8 @@ export function GameScreen({
             onFileDrop={(file) => {
               void handleDroppedFile(file);
             }}
+            colorBlindMode={colorBlindMode}
+            noteLabels={noteLabels}
           />
           {fingeringEditorState && (
             <FingeringEditor
@@ -1021,6 +1059,7 @@ export function GameScreen({
         highlightedNotes={snapshot.activeInputNotes}
         highlightColor="chord"
         chordLabel={chordLabel}
+        size={keyboardOverlaySize}
       />
     </main>
   );

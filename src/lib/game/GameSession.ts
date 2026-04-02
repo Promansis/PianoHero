@@ -157,7 +157,10 @@ export class GameSession {
   }
 
   ingestInputEvent(event: InputEvent): void {
-    const eventSongTime = this.getCurrentTimeSec(event.timestamp);
+    // Shift timestamp back by latency compensation so a user responding to late audio
+    // is credited at the note's intended time rather than their (late) reaction time.
+    const adjustedTimestamp = event.timestamp - this.sessionConfig.latencyCompMs;
+    const eventSongTime = this.getCurrentTimeSec(adjustedTimestamp);
 
     if (event.type === 'sustain') {
       this.handleSustain(event.sustainValue ?? 0);

@@ -64,6 +64,7 @@ describe('ResultsScreen', () => {
           metronomeEnabled: false,
           handSize: 'medium',
           fingeringDisplayMode: 'always',
+          latencyCompMs: 0,
         }}
         baselineStats={null}
         onRetry={vi.fn()}
@@ -124,6 +125,7 @@ describe('ResultsScreen', () => {
           metronomeEnabled: false,
           handSize: 'medium',
           fingeringDisplayMode: 'always',
+          latencyCompMs: 0,
         }}
         baselineStats={null}
         onRetry={vi.fn()}

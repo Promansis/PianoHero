@@ -17,6 +17,8 @@ export class MidiInputService {
 
   private deviceListeners = new Set<DeviceListener>();
 
+  private filterDeviceId: string | null = null;
+
   async init(): Promise<void> {
     if (!navigator.requestMIDIAccess) {
       throw new Error('Web MIDI API is not available in this environment.');
@@ -30,6 +32,10 @@ export class MidiInputService {
 
   getDevices(): MidiInputDevice[] {
     return [...this.devices];
+  }
+
+  setDeviceFilter(id: string | null): void {
+    this.filterDeviceId = id || null;
   }
 
   subscribe(listener: MidiListener): () => void {
@@ -88,6 +94,9 @@ export class MidiInputService {
 
     for (const input of this.access.inputs.values()) {
       input.onmidimessage = (event) => {
+        if (this.filterDeviceId && input.id !== this.filterDeviceId) {
+          return;
+        }
         const message = this.normalizeMessage(input.id, event);
         if (!message) {
           return;

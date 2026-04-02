@@ -25,6 +25,9 @@ interface FreePlayScreenProps {
   midiInputService: MidiInputService;
   keyboardInputService: ComputerKeyboardInputService;
   inputMode: InputMode;
+  keyboardOverlaySize: 'small' | 'medium' | 'large';
+  postureReminderMinutes: number | null;
+  breakReminderMinutes: number | null;
   onBackToLibrary: () => void;
   onOpenKeyboardSetup: () => void;
 }
@@ -45,10 +48,15 @@ export function FreePlayScreen({
   inputMode,
   keyboardInputService,
   midiInputService,
+  keyboardOverlaySize,
+  postureReminderMinutes,
+  breakReminderMinutes,
   onBackToLibrary,
   onOpenKeyboardSetup,
 }: FreePlayScreenProps) {
   const [devices, setDevices] = useState<MidiInputDevice[]>([]);
+  const [showPostureReminder, setShowPostureReminder] = useState(false);
+  const [showBreakReminder, setShowBreakReminder] = useState(false);
   const [activeNotes, setActiveNotes] = useState<number[]>([]);
   const [metronomeEnabled, setMetronomeEnabled] = useState(false);
   const [metronomeBpm, setMetronomeBpm] = useState(90);
@@ -209,6 +217,30 @@ export function FreePlayScreen({
     };
   }, [audioEngine, metronomeBpm, metronomeEnabled]);
 
+  useEffect(() => {
+    if (!postureReminderMinutes) {
+      return;
+    }
+    const interval = window.setInterval(() => {
+      setShowPostureReminder(true);
+    }, postureReminderMinutes * 60 * 1000);
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [postureReminderMinutes]);
+
+  useEffect(() => {
+    if (!breakReminderMinutes) {
+      return;
+    }
+    const interval = window.setInterval(() => {
+      setShowBreakReminder(true);
+    }, breakReminderMinutes * 60 * 1000);
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [breakReminderMinutes]);
+
   const recordingDuration = useMemo(() => {
     if (isRecording) {
       return recordingClock;
@@ -322,6 +354,31 @@ export function FreePlayScreen({
 
   return (
     <main className="app-shell free-play-screen" onPointerDownCapture={() => void audioEngine.init()}>
+      {showPostureReminder && (
+        <section className="panel reminder-overlay">
+          <div>
+            <p className="eyebrow">Posture Reminder</p>
+            <h2>Reset your body before continuing.</h2>
+            <p className="panel-copy">Relax the shoulders, level the wrists, and keep both feet planted.</p>
+          </div>
+          <button className="primary-button" onClick={() => setShowPostureReminder(false)}>
+            Dismiss
+          </button>
+        </section>
+      )}
+
+      {showBreakReminder && (
+        <section className="panel reminder-overlay">
+          <div>
+            <p className="eyebrow">Break Reminder</p>
+            <h2>Time for a short break.</h2>
+            <p className="panel-copy">Step away for a few minutes to rest your hands and eyes before continuing.</p>
+          </div>
+          <button className="primary-button" onClick={() => setShowBreakReminder(false)}>
+            Dismiss
+          </button>
+        </section>
+      )}
       <section className="panel free-play-hero">
         <div>
           <p className="eyebrow">Free Play</p>
@@ -402,7 +459,7 @@ export function FreePlayScreen({
         </div>
       </section>
 
-      <PianoKeyboard activeNotes={activeNotes} upcomingNotes={[]} highlightedNotes={activeNotes} highlightColor="chord" chordLabel={chordLabel} />
+      <PianoKeyboard activeNotes={activeNotes} upcomingNotes={[]} highlightedNotes={activeNotes} highlightColor="chord" chordLabel={chordLabel} size={keyboardOverlaySize} />
     </main>
   );
 }
