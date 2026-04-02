@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { AudioEngine } from '../lib/audio/audioEngine';
+import { DEFAULT_INSTRUMENT_ID, isInstrumentId } from '../lib/audio/instrumentCatalog';
 import type { GameResult, LoopRange, SessionConfig, SessionMode } from '../lib/game/types';
 import { ComputerKeyboardInputService } from '../lib/input/computerKeyboardInputService';
 import {
@@ -78,6 +79,11 @@ function buildSessionConfig(mode: SessionMode, overrides: Partial<SessionConfig>
   };
 }
 
+function parseStoredAudioNumber(value: string | null, fallback: number): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
 export function App() {
   const audioEngineRef = useRef(new AudioEngine());
   const midiServiceRef = useRef<MidiInputService | null>(null);
@@ -123,12 +129,26 @@ export function App() {
         return;
       }
 
-      const [setupComplete, reminder, savedHandSize, rawInputMode, rawKeyboardMapping] = await Promise.all([
+      const [
+        setupComplete,
+        reminder,
+        savedHandSize,
+        rawInputMode,
+        rawKeyboardMapping,
+        rawInstrumentId,
+        rawMasterVolume,
+        rawMetronomeVolume,
+        rawReverbLevel,
+      ] = await Promise.all([
         window.appBridge.getSetting('onboarding', 'setupComplete'),
         window.appBridge.getSetting('practice', 'postureReminderMinutes'),
         window.appBridge.getSetting('fingering', 'handSize'),
         window.appBridge.getSetting(INPUT_SETTINGS_CATEGORY, INPUT_MODE_SETTING_KEY),
         window.appBridge.getSetting(INPUT_SETTINGS_CATEGORY, INPUT_KEYBOARD_MAPPING_SETTING_KEY),
+        window.appBridge.getSetting('audio', 'instrumentId'),
+        window.appBridge.getSetting('audio', 'masterVolume'),
+        window.appBridge.getSetting('audio', 'metronomeVolume'),
+        window.appBridge.getSetting('audio', 'reverbLevel'),
       ]);
 
       if (reminder) {
@@ -152,6 +172,16 @@ export function App() {
           INPUT_KEYBOARD_MAPPING_SETTING_KEY,
           stringifyKeyboardMapping(parsedMapping),
         );
+      }
+
+      const initialInstrumentId = isInstrumentId(rawInstrumentId) ? rawInstrumentId : DEFAULT_INSTRUMENT_ID;
+      audioEngineRef.current.setMasterVolume(parseStoredAudioNumber(rawMasterVolume, 80));
+      audioEngineRef.current.setMetronomeVolume(parseStoredAudioNumber(rawMetronomeVolume, 65));
+      audioEngineRef.current.setReverbLevel(parseStoredAudioNumber(rawReverbLevel, 20));
+      void audioEngineRef.current.setInstrument(initialInstrumentId);
+
+      if (!rawInstrumentId) {
+        void window.appBridge.setSetting('audio', 'instrumentId', initialInstrumentId);
       }
 
       setCurrentScreen({ screen: setupComplete === 'true' ? 'library' : 'setup' });
@@ -178,6 +208,30 @@ export function App() {
   const persistInputMode = (nextMode: InputMode) => {
     setInputMode(nextMode);
     void window.appBridge?.setSetting(INPUT_SETTINGS_CATEGORY, INPUT_MODE_SETTING_KEY, nextMode);
+  };
+
+  const applyAudioSetting = (key: 'instrumentId' | 'masterVolume' | 'metronomeVolume' | 'reverbLevel', value: string) => {
+    if (key === 'instrumentId') {
+      void audioEngineRef.current.setInstrument(isInstrumentId(value) ? value : DEFAULT_INSTRUMENT_ID);
+      return;
+    }
+
+    const parsedValue = Number(value);
+    if (!Number.isFinite(parsedValue)) {
+      return;
+    }
+
+    if (key === 'masterVolume') {
+      audioEngineRef.current.setMasterVolume(parsedValue);
+      return;
+    }
+
+    if (key === 'metronomeVolume') {
+      audioEngineRef.current.setMetronomeVolume(parsedValue);
+      return;
+    }
+
+    audioEngineRef.current.setReverbLevel(parsedValue);
   };
 
   const persistSetupState = async (setupComplete: boolean) => {
@@ -444,6 +498,7 @@ export function App() {
         <SettingsScreen
           inputMode={inputMode}
           midiDevices={midiDevices}
+          onAudioSettingChange={applyAudioSetting}
           onInputModeChange={persistInputMode}
           onOpenKeyboardSetup={() => setCurrentScreen({ screen: 'keyboard-setup', returnTo: 'settings' })}
           onBack={() => setCurrentScreen({ screen: 'library' })}

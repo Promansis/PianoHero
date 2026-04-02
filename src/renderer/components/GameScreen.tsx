@@ -111,6 +111,13 @@ function loopStartForSong(song: ParsedSong | null, sessionConfig: SessionConfig)
   return getLoopRangeSeconds(song, sessionConfig.loopRange).startSec;
 }
 
+function loopEndForSong(song: ParsedSong | null, sessionConfig: SessionConfig): number | undefined {
+  if (!song || !sessionConfig.loopRange) {
+    return undefined;
+  }
+  return getLoopRangeSeconds(song, sessionConfig.loopRange).endSec;
+}
+
 function buildTempSong(filePath: string, title: string): SongRow {
   return {
     id: `temp-${title}`,
@@ -533,6 +540,10 @@ export function GameScreen({
     }
   };
 
+  const playSessionAudio = async (songToPlay: ParsedSong, startSec: number, config: SessionConfig) => {
+    await audioEngine.playSong(songToPlay, startSec, config.tempoMultiplier, loopEndForSong(songToPlay, config));
+  };
+
   const mountSession = async (
     nextSourceSong: ParsedSong,
     nextSessionConfig: SessionConfig,
@@ -599,7 +610,7 @@ export function GameScreen({
       const nextGame = gameSessionRef.current;
       const nextSong = composeSessionSong(currentSourceSong, nextSessionConfig);
       if (nextGame && nextSong) {
-        await audioEngine.playSong(nextSong, nextGame.getCurrentTimeSec(now), nextSessionConfig.tempoMultiplier);
+        await playSessionAudio(nextSong, nextGame.getCurrentTimeSec(now), nextSessionConfig);
         nextGame.play(now);
       }
     } else {
@@ -651,7 +662,7 @@ export function GameScreen({
 
     await ensureAudioReady();
     if (shouldAutoplayMode(sessionConfig.mode)) {
-      await audioEngine.playSong(currentSessionSong, game.getCurrentTimeSec(now), sessionConfig.tempoMultiplier);
+      await playSessionAudio(currentSessionSong, game.getCurrentTimeSec(now), sessionConfig);
     }
     game.play(now);
     setStatusMessage(
@@ -674,7 +685,7 @@ export function GameScreen({
     const wasPlaying = game.isTransportPlaying();
     game.restart(now);
     if (wasPlaying && shouldAutoplayMode(sessionConfig.mode)) {
-      await audioEngine.playSong(currentSessionSong, loopStartForSong(currentSessionSong, sessionConfig), sessionConfig.tempoMultiplier);
+      await playSessionAudio(currentSessionSong, loopStartForSong(currentSessionSong, sessionConfig), sessionConfig);
       game.play(now);
     } else {
       audioEngine.pauseSong();
@@ -698,7 +709,13 @@ export function GameScreen({
     const shouldResume = game.isTransportPlaying() && shouldAutoplayMode(nextSessionConfig.mode);
     game.updateSessionConfig(nextSessionConfig, now);
     game.setTempo(value, now);
-    await audioEngine.setTempo(currentSessionSong, currentTime, value, shouldResume);
+    await audioEngine.setTempo(
+      currentSessionSong,
+      currentTime,
+      value,
+      shouldResume,
+      loopEndForSong(currentSessionSong, nextSessionConfig),
+    );
   };
 
   const handleSeek = async (progress: number) => {
@@ -714,7 +731,7 @@ export function GameScreen({
     const shouldResume = game.isTransportPlaying() && shouldAutoplayMode(sessionConfig.mode);
     game.seek(targetSec, now);
     if (shouldResume) {
-      await audioEngine.playSong(currentSessionSong, targetSec, sessionConfig.tempoMultiplier);
+      await playSessionAudio(currentSessionSong, targetSec, sessionConfig);
       game.play(now);
     } else {
       audioEngine.seek();
@@ -747,7 +764,7 @@ export function GameScreen({
     });
 
     if (wasPlaying && shouldAutoplayMode(sessionConfig.mode) && gameSessionRef.current) {
-      await audioEngine.playSong(composeSessionSong(updatedSourceSong, sessionConfig), currentTime, sessionConfig.tempoMultiplier);
+      await playSessionAudio(composeSessionSong(updatedSourceSong, sessionConfig), currentTime, sessionConfig);
       gameSessionRef.current.play(now);
     }
 

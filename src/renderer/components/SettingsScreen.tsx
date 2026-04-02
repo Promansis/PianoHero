@@ -1,10 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
+import { DEFAULT_INSTRUMENT_ID, INSTRUMENTS } from '../../lib/audio/instrumentCatalog';
 import type { InputMode } from '../../lib/input/types';
 import type { MidiInputDevice } from '../../lib/midi/types';
 
 interface SettingsScreenProps {
   inputMode: InputMode;
   midiDevices: MidiInputDevice[];
+  onAudioSettingChange: (
+    key: 'instrumentId' | 'masterVolume' | 'metronomeVolume' | 'reverbLevel',
+    value: string,
+  ) => void;
   onInputModeChange: (nextMode: InputMode) => void;
   onOpenKeyboardSetup: () => void;
   onBack: () => void;
@@ -23,6 +28,7 @@ const TAB_LABELS: Record<SettingsTab, string> = {
 };
 
 const DEFAULT_SETTINGS: SettingsValues = {
+  'audio.instrumentId': DEFAULT_INSTRUMENT_ID,
   'audio.masterVolume': '80',
   'audio.metronomeVolume': '65',
   'audio.reverbLevel': '20',
@@ -48,6 +54,7 @@ function getSettingKey(category: string, key: string): string {
 export function SettingsScreen({
   inputMode,
   midiDevices,
+  onAudioSettingChange,
   onInputModeChange,
   onOpenKeyboardSetup,
   onBack,
@@ -98,6 +105,9 @@ export function SettingsScreen({
 
   const persistSetting = async (category: string, key: string, value: string) => {
     setValues((current) => ({ ...current, [getSettingKey(category, key)]: value }));
+    if (category === 'audio' && key !== 'latencyCompMs') {
+      onAudioSettingChange(key as 'instrumentId' | 'masterVolume' | 'metronomeVolume' | 'reverbLevel', value);
+    }
     setIsSaving(true);
     setStatusMessage('Saving settings...');
     await window.appBridge?.setSetting(category, key, value);
@@ -155,6 +165,19 @@ export function SettingsScreen({
           {activeTab === 'audio' && (
             <div className="settings-grid">
               <label>
+                <span>Instrument</span>
+                <select
+                  value={values['audio.instrumentId']}
+                  onChange={(event) => void persistSetting('audio', 'instrumentId', event.target.value)}
+                >
+                  {INSTRUMENTS.map((instrument) => (
+                    <option key={instrument.id} value={instrument.id}>
+                      {instrument.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
                 <span>Master Volume</span>
                 <input
                   type="range"
@@ -192,6 +215,13 @@ export function SettingsScreen({
                   onChange={(event) => void persistSetting('audio', 'latencyCompMs', event.target.value)}
                 />
               </label>
+              <article className="settings-note-card">
+                <span>Instrument Notes</span>
+                <strong>
+                  {INSTRUMENTS.find((instrument) => instrument.id === values['audio.instrumentId'])?.description ??
+                    'Choose a built-in voice for practice and playback.'}
+                </strong>
+              </article>
             </div>
           )}
 
