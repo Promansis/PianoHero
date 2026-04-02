@@ -3,6 +3,7 @@ interface SetupGuideScreenProps {
   handSize: 'small' | 'medium' | 'large';
   onReminderFrequencyChange: (value: string) => void;
   onHandSizeChange: (value: 'small' | 'medium' | 'large') => void;
+  onOpenKeyboardSetup: () => void;
   onStartPractice: () => void;
   onSkip: () => void;
 }
@@ -31,6 +32,7 @@ export function SetupGuideScreen({
   handSize,
   onReminderFrequencyChange,
   onHandSizeChange,
+  onOpenKeyboardSetup,
   onStartPractice,
   onSkip,
 }: SetupGuideScreenProps) {
@@ -48,6 +50,9 @@ export function SetupGuideScreen({
         <div className="setup-actions">
           <button className="secondary-button" onClick={onSkip}>
             Skip for now
+          </button>
+          <button className="secondary-button" onClick={onOpenKeyboardSetup}>
+            Keyboard Setup
           </button>
           <button className="primary-button" onClick={onStartPractice}>
             Start Practice

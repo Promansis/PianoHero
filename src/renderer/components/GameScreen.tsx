@@ -1,6 +1,8 @@
 import { startTransition, useEffect, useRef, useState } from 'react';
 import { AudioEngine } from '../../lib/audio/audioEngine';
 import { GameSession } from '../../lib/game/GameSession';
+import { ComputerKeyboardInputService } from '../../lib/input/computerKeyboardInputService';
+import type { InputEvent, InputMode } from '../../lib/input/types';
 import {
   applyTrackAssignments,
   filterSongByHand,
@@ -61,11 +63,14 @@ interface FinishedGamePayload {
 
 interface GameScreenProps {
   audioEngine: AudioEngine;
+  inputMode: InputMode;
+  keyboardInputService: ComputerKeyboardInputService;
   midiInputService: MidiInputService;
   song: SongRow;
   initialSessionConfig: SessionConfig;
   onGameFinished: (payload: FinishedGamePayload) => void;
   onBackToLibrary: () => void;
+  onOpenKeyboardSetup: () => void;
 }
 
 function formatTime(seconds: number): string {
@@ -257,11 +262,14 @@ function SessionToolbar({
 
 export function GameScreen({
   audioEngine,
+  inputMode,
+  keyboardInputService,
   midiInputService,
   song,
   initialSessionConfig,
   onGameFinished,
   onBackToLibrary,
+  onOpenKeyboardSetup,
 }: GameScreenProps) {
   const gameSessionRef = useRef<GameSession | null>(null);
   const rafRef = useRef<number | null>(null);
@@ -279,22 +287,34 @@ export function GameScreen({
   const [reminderFrequencyMinutes, setReminderFrequencyMinutes] = useState<number | null>(null);
   const [showReminder, setShowReminder] = useState(false);
   const [customFingerings, setCustomFingerings] = useState<FingeringRow[]>([]);
+  const [keyboardOctaveShift, setKeyboardOctaveShift] = useState(keyboardInputService.getState().octaveShift);
 
   useEffect(() => {
     setSessionConfig(initialSessionConfig);
   }, [initialSessionConfig]);
 
   useEffect(() => {
-    const unsubscribeDevices = midiInputService.subscribeDevices((nextDevices) => {
-      setDevices(nextDevices);
-    });
-    const unsubscribeMessages = midiInputService.subscribe(async (event) => {
+    const shouldHandleEvent = (event: InputEvent): boolean => {
+      if (inputMode === 'both') {
+        return true;
+      }
+      if (inputMode === 'midi') {
+        return event.source === 'midi';
+      }
+      return event.source === 'computer-keyboard';
+    };
+
+    const handleInputEvent = async (event: InputEvent) => {
+      if (!shouldHandleEvent(event)) {
+        return;
+      }
+
       const game = gameSessionRef.current;
       if (!game) {
         return;
       }
 
-      game.ingestMidiEvent(event);
+      game.ingestInputEvent(event);
       if (event.type === 'noteon' && typeof event.note === 'number') {
         await audioEngine.noteOn(event.note, event.velocity ?? 0.8);
       }
@@ -304,13 +324,28 @@ export function GameScreen({
       if (event.type === 'sustain') {
         audioEngine.setSustain((event.sustainValue ?? 0) >= 64);
       }
+    };
+
+    const unsubscribeDevices = midiInputService.subscribeDevices((nextDevices) => {
+      setDevices(nextDevices);
+    });
+    const unsubscribeMidi = midiInputService.subscribe((event) => {
+      void handleInputEvent(event);
+    });
+    const unsubscribeKeyboard = keyboardInputService.subscribe((event) => {
+      void handleInputEvent(event);
+    });
+    const unsubscribeKeyboardState = keyboardInputService.subscribeState((state) => {
+      setKeyboardOctaveShift(state.octaveShift);
     });
 
     return () => {
       unsubscribeDevices();
-      unsubscribeMessages();
+      unsubscribeMidi();
+      unsubscribeKeyboard();
+      unsubscribeKeyboardState();
     };
-  }, [audioEngine, midiInputService]);
+  }, [audioEngine, inputMode, keyboardInputService, midiInputService]);
 
   useEffect(() => {
     const frame = () => {
@@ -695,6 +730,14 @@ export function GameScreen({
           <span>Accuracy</span>
           <strong>{snapshot.score.accuracy.toFixed(1)}%</strong>
         </div>
+        <div className="status-card">
+          <span>Input Mode</span>
+          <strong>{inputMode === 'both' ? 'Both' : inputMode === 'midi' ? 'MIDI' : 'Computer Keyboard'}</strong>
+        </div>
+        <div className="status-card">
+          <span>Keyboard Octave</span>
+          <strong>{keyboardOctaveShift >= 0 ? `+${keyboardOctaveShift}` : keyboardOctaveShift}</strong>
+        </div>
         <div className="status-card wide">
           <span>Status</span>
           <strong>{statusMessage}</strong>
@@ -753,6 +796,12 @@ export function GameScreen({
           <strong>
             {devices.length > 0 ? devices.map((device) => device.name).join(', ') : 'No devices detected'}
           </strong>
+        </div>
+        <div className="status-card">
+          <span>Keyboard Mapping</span>
+          <button className="secondary-button" onClick={onOpenKeyboardSetup}>
+            Open Setup
+          </button>
         </div>
       </section>
 

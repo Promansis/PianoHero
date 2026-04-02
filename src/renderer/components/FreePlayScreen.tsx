@@ -1,6 +1,8 @@
 import { Midi } from '@tonejs/midi';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AudioEngine } from '../../lib/audio/audioEngine';
+import { ComputerKeyboardInputService } from '../../lib/input/computerKeyboardInputService';
+import type { InputEvent, InputMode } from '../../lib/input/types';
 import { MidiInputService } from '../../lib/midi/midiInputService';
 import type { MidiInputDevice } from '../../lib/midi/types';
 import { PianoKeyboard } from './PianoKeyboard';
@@ -20,7 +22,10 @@ interface SustainEvent {
 interface FreePlayScreenProps {
   audioEngine: AudioEngine;
   midiInputService: MidiInputService;
+  keyboardInputService: ComputerKeyboardInputService;
+  inputMode: InputMode;
   onBackToLibrary: () => void;
+  onOpenKeyboardSetup: () => void;
 }
 
 function formatDuration(seconds: number): string {
@@ -30,36 +35,64 @@ function formatDuration(seconds: number): string {
   return `${minutes}:${String(remainder).padStart(2, '0')}`;
 }
 
+function makeSourceNoteKey(sourceId: string, midi: number): string {
+  return `${sourceId}:${midi}`;
+}
+
 export function FreePlayScreen({
   audioEngine,
+  inputMode,
+  keyboardInputService,
   midiInputService,
   onBackToLibrary,
+  onOpenKeyboardSetup,
 }: FreePlayScreenProps) {
   const [devices, setDevices] = useState<MidiInputDevice[]>([]);
   const [activeNotes, setActiveNotes] = useState<number[]>([]);
   const [metronomeEnabled, setMetronomeEnabled] = useState(false);
   const [metronomeBpm, setMetronomeBpm] = useState(90);
-  const [statusMessage, setStatusMessage] = useState('Play your MIDI keyboard to begin free practice.');
+  const [statusMessage, setStatusMessage] = useState('Play with MIDI or your computer keyboard to begin free practice.');
   const [isRecording, setIsRecording] = useState(false);
   const [recordingStartedAt, setRecordingStartedAt] = useState<number | null>(null);
   const [recordedNotes, setRecordedNotes] = useState<RecordedNote[]>([]);
   const [sustainEvents, setSustainEvents] = useState<SustainEvent[]>([]);
   const [recordingClock, setRecordingClock] = useState(0);
   const [isPlayingRecording, setIsPlayingRecording] = useState(false);
-  const noteStartMapRef = useRef(new Map<number, { startTimeSec: number; velocity: number }>());
+  const [keyboardOctaveShift, setKeyboardOctaveShift] = useState(keyboardInputService.getState().octaveShift);
+  const noteStartMapRef = useRef(new Map<string, { startTimeSec: number; velocity: number; midi: number }>());
   const playbackTimeoutsRef = useRef<number[]>([]);
 
   useEffect(() => {
-    const unsubscribeDevices = midiInputService.subscribeDevices((nextDevices) => {
-      setDevices(nextDevices);
-    });
-    const unsubscribeMessages = midiInputService.subscribe(async (event) => {
+    const heldByNote = new Map<number, Set<string>>();
+    const shouldHandleEvent = (event: InputEvent): boolean => {
+      if (inputMode === 'both') {
+        return true;
+      }
+      if (inputMode === 'midi') {
+        return event.source === 'midi';
+      }
+      return event.source === 'computer-keyboard';
+    };
+
+    const handleInputEvent = async (event: InputEvent) => {
+      if (!shouldHandleEvent(event)) {
+        return;
+      }
+
       if (event.type === 'noteon' && typeof event.note === 'number') {
         const midi = event.note;
-        setActiveNotes((previous) => [...new Set([...previous, midi])].sort((left, right) => left - right));
-        await audioEngine.noteOn(midi, event.velocity ?? 0.8);
+        const heldSources = heldByNote.get(midi) ?? new Set<string>();
+        heldSources.add(event.sourceId);
+        heldByNote.set(midi, heldSources);
+        setActiveNotes([...heldByNote.keys()].sort((left, right) => left - right));
+
+        if (heldSources.size === 1) {
+          await audioEngine.noteOn(midi, event.velocity ?? 0.8);
+        }
+
         if (isRecording && recordingStartedAt !== null) {
-          noteStartMapRef.current.set(midi, {
+          noteStartMapRef.current.set(makeSourceNoteKey(event.sourceId, midi), {
+            midi,
             startTimeSec: (event.timestamp - recordingStartedAt) / 1000,
             velocity: event.velocity ?? 0.8,
           });
@@ -69,10 +102,18 @@ export function FreePlayScreen({
 
       if (event.type === 'noteoff' && typeof event.note === 'number') {
         const midi = event.note;
-        setActiveNotes((previous) => previous.filter((note) => note !== midi));
-        audioEngine.noteOff(midi);
+        const heldSources = heldByNote.get(midi);
+        if (heldSources) {
+          heldSources.delete(event.sourceId);
+          if (heldSources.size === 0) {
+            heldByNote.delete(midi);
+            audioEngine.noteOff(midi);
+          }
+          setActiveNotes([...heldByNote.keys()].sort((left, right) => left - right));
+        }
+
         if (isRecording && recordingStartedAt !== null) {
-          const started = noteStartMapRef.current.get(midi);
+          const started = noteStartMapRef.current.get(makeSourceNoteKey(event.sourceId, midi));
           if (started) {
             setRecordedNotes((previous) => [
               ...previous,
@@ -83,7 +124,7 @@ export function FreePlayScreen({
                 durationSec: Math.max(0.05, (event.timestamp - recordingStartedAt) / 1000 - started.startTimeSec),
               },
             ]);
-            noteStartMapRef.current.delete(midi);
+            noteStartMapRef.current.delete(makeSourceNoteKey(event.sourceId, midi));
           }
         }
         return;
@@ -99,15 +140,30 @@ export function FreePlayScreen({
           },
         ]);
       }
+    };
+
+    const unsubscribeDevices = midiInputService.subscribeDevices((nextDevices) => {
+      setDevices(nextDevices);
+    });
+    const unsubscribeMidi = midiInputService.subscribe((event) => {
+      void handleInputEvent(event);
+    });
+    const unsubscribeKeyboard = keyboardInputService.subscribe((event) => {
+      void handleInputEvent(event);
+    });
+    const unsubscribeKeyboardState = keyboardInputService.subscribeState((state) => {
+      setKeyboardOctaveShift(state.octaveShift);
     });
 
     return () => {
       unsubscribeDevices();
-      unsubscribeMessages();
+      unsubscribeMidi();
+      unsubscribeKeyboard();
+      unsubscribeKeyboardState();
       playbackTimeoutsRef.current.forEach((timeout) => window.clearTimeout(timeout));
       playbackTimeoutsRef.current = [];
     };
-  }, [audioEngine, isRecording, midiInputService, recordingStartedAt]);
+  }, [audioEngine, inputMode, isRecording, keyboardInputService, midiInputService, recordingStartedAt]);
 
   useEffect(() => {
     if (!isRecording || recordingStartedAt === null) {
@@ -159,17 +215,17 @@ export function FreePlayScreen({
     setRecordingClock(0);
     setRecordingStartedAt(performance.now());
     setIsRecording(true);
-    setStatusMessage('Recording MIDI input.');
+    setStatusMessage('Recording keyboard and MIDI input.');
   };
 
   const stopRecording = () => {
     const stoppedAt = performance.now();
     if (recordingStartedAt !== null) {
-      for (const [midi, started] of noteStartMapRef.current.entries()) {
+      for (const started of noteStartMapRef.current.values()) {
         setRecordedNotes((previous) => [
           ...previous,
           {
-            midi,
+            midi: started.midi,
             velocity: started.velocity,
             startTimeSec: started.startTimeSec,
             durationSec: Math.max(0.05, (stoppedAt - recordingStartedAt) / 1000 - started.startTimeSec),
@@ -264,13 +320,20 @@ export function FreePlayScreen({
           <button className="secondary-button" onClick={onBackToLibrary}>
             Library
           </button>
+          <button className="secondary-button" onClick={onOpenKeyboardSetup}>
+            Keyboard Setup
+          </button>
           <button className="secondary-button" onClick={() => setMetronomeEnabled((value) => !value)}>
             {metronomeEnabled ? 'Metronome On' : 'Metronome Off'}
           </button>
           <button className="secondary-button" onClick={isRecording ? stopRecording : startRecording}>
             {isRecording ? 'Stop Recording' : 'Record'}
           </button>
-          <button className="secondary-button" onClick={() => void playRecording()} disabled={isRecording || recordedNotes.length === 0 || isPlayingRecording}>
+          <button
+            className="secondary-button"
+            onClick={() => void playRecording()}
+            disabled={isRecording || recordedNotes.length === 0 || isPlayingRecording}
+          >
             Play Recording
           </button>
           <button className="primary-button" onClick={() => void exportRecording()} disabled={recordedNotes.length === 0}>
@@ -285,6 +348,14 @@ export function FreePlayScreen({
           <strong>
             {devices.length > 0 ? devices.map((device) => device.name).join(', ') : 'No devices detected'}
           </strong>
+        </div>
+        <div className="status-card">
+          <span>Input Mode</span>
+          <strong>{inputMode === 'both' ? 'Both' : inputMode === 'midi' ? 'MIDI' : 'Computer Keyboard'}</strong>
+        </div>
+        <div className="status-card">
+          <span>Keyboard Octave</span>
+          <strong>{keyboardOctaveShift >= 0 ? `+${keyboardOctaveShift}` : keyboardOctaveShift}</strong>
         </div>
         <div className="status-card">
           <span>Recording</span>
@@ -323,4 +394,3 @@ export function FreePlayScreen({
     </main>
   );
 }
-

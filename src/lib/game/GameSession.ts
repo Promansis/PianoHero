@@ -1,4 +1,4 @@
-import type { MidiMessageEvent } from '../midi/types';
+import type { InputEvent } from '../input/types';
 import type { FingeringRow } from '../../shared/dbTypes';
 import { computeFingering } from './fingeringAlgorithm';
 import { ScoringEngine } from './ScoringEngine';
@@ -33,8 +33,8 @@ export class GameSession {
   private playbackAnchorSec = 0;
   private scoringEngine: ScoringEngine;
   private sustainDown = false;
-  private physicalInputNotes = new Set<number>();
-  private activeInputNotes = new Set<number>();
+  private physicalInputNotes = new Map<number, Set<string>>();
+  private activeInputNotes = new Map<number, Set<string>>();
   private sessionConfig: SessionConfig;
   private customFingerings: FingeringRow[];
 
@@ -152,7 +152,11 @@ export class GameSession {
     return Math.min(nextTime, this.song.durationSec);
   }
 
-  ingestMidiEvent(event: MidiMessageEvent): void {
+  ingestMidiEvent(event: InputEvent): void {
+    this.ingestInputEvent(event);
+  }
+
+  ingestInputEvent(event: InputEvent): void {
     const eventSongTime = this.getCurrentTimeSec(event.timestamp);
 
     if (event.type === 'sustain') {
@@ -165,15 +169,15 @@ export class GameSession {
     }
 
     if (event.type === 'noteon') {
-      this.physicalInputNotes.add(event.note);
-      this.activeInputNotes.add(event.note);
+      this.addSourceToMap(this.physicalInputNotes, event.note, event.sourceId);
+      this.addSourceToMap(this.activeInputNotes, event.note, event.sourceId);
       this.matchNote(event.note, eventSongTime);
       return;
     }
 
-    this.physicalInputNotes.delete(event.note);
+    this.removeSourceFromMap(this.physicalInputNotes, event.note, event.sourceId);
     if (!this.sustainDown) {
-      this.activeInputNotes.delete(event.note);
+      this.removeSourceFromMap(this.activeInputNotes, event.note, event.sourceId);
     }
   }
 
@@ -200,7 +204,7 @@ export class GameSession {
       combo: scoreSnapshot.combo,
       hitLineRatio: HIT_LINE_RATIO,
       visibleNotes: this.buildVisibleNotes(currentTimeSec),
-      activeInputNotes: [...this.activeInputNotes].sort((left, right) => left - right),
+      activeInputNotes: [...this.activeInputNotes.keys()].sort((left, right) => left - right),
       upcomingNotes: this.buildUpcomingNotes(currentTimeSec),
       score: scoreSnapshot,
     };
@@ -261,10 +265,28 @@ export class GameSession {
       return;
     }
 
-    for (const note of [...this.activeInputNotes]) {
+    for (const note of [...this.activeInputNotes.keys()]) {
       if (!this.physicalInputNotes.has(note)) {
         this.activeInputNotes.delete(note);
       }
+    }
+  }
+
+  private addSourceToMap(map: Map<number, Set<string>>, note: number, sourceId: string): void {
+    const next = map.get(note) ?? new Set<string>();
+    next.add(sourceId);
+    map.set(note, next);
+  }
+
+  private removeSourceFromMap(map: Map<number, Set<string>>, note: number, sourceId: string): void {
+    const existing = map.get(note);
+    if (!existing) {
+      return;
+    }
+
+    existing.delete(sourceId);
+    if (existing.size === 0) {
+      map.delete(note);
     }
   }
 

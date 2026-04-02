@@ -818,3 +818,111 @@ select {
     grid-auto-flow: row;
   }
 }
+
+.keyboard-setup-screen {
+  align-content: start;
+}
+
+.keyboard-setup-hero,
+.keyboard-mode-panel,
+.keyboard-mapping-panel {
+  border-radius: 24px;
+  padding: 24px;
+}
+
+.keyboard-setup-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.keyboard-mode-panel {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+}
+
+.keyboard-mode-panel label {
+  display: grid;
+  gap: 8px;
+}
+
+.keyboard-mode-meta span {
+  display: block;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(36, 31, 26, 0.56);
+}
+
+.keyboard-mode-meta strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 1.05rem;
+}
+
+.keyboard-mapping-grid,
+.keyboard-control-grid {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.keyboard-mapping-row {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.keyboard-control-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.keyboard-bind-card {
+  border: 1px solid rgba(36, 31, 26, 0.1);
+  border-radius: 16px;
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.keyboard-bind-card span {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(36, 31, 26, 0.55);
+}
+
+.keyboard-bind-card strong {
+  font-size: 1rem;
+}
+
+.keyboard-bind-card small {
+  color: rgba(36, 31, 26, 0.65);
+}
+
+.status-card .secondary-button {
+  margin-top: 8px;
+}
+
+@media (max-width: 1180px) {
+  .keyboard-mapping-row,
+  .keyboard-control-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 780px) {
+  .keyboard-setup-hero,
+  .keyboard-mode-panel {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .keyboard-mapping-row,
+  .keyboard-control-grid {
+    grid-template-columns: 1fr;
+  }
+}

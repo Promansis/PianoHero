@@ -62,6 +62,7 @@ describe('GameSession', () => {
       velocity: 0.9,
       timestamp: 1000,
       sourceId: 'device-1',
+      source: 'midi',
     });
 
     const snapshot = session.getSnapshot(1000);
@@ -90,6 +91,7 @@ describe('GameSession', () => {
       velocity: 0.9,
       timestamp: 1000,
       sourceId: 'device-1',
+      source: 'midi',
     });
     session.ingestMidiEvent({
       type: 'noteon',
@@ -97,6 +99,7 @@ describe('GameSession', () => {
       velocity: 0.9,
       timestamp: 1500,
       sourceId: 'device-1',
+      source: 'midi',
     });
 
     const snapshot = session.getSnapshot(1500);
@@ -121,8 +124,54 @@ describe('GameSession', () => {
       velocity: 0.8,
       timestamp: 1300,
       sourceId: 'device-1',
+      source: 'midi',
     });
 
     expect(session.getSnapshot(1600).currentTimeSec).toBeGreaterThan(1);
   });
+
+  it('keeps a note active until all sources release it', () => {
+    const session = new GameSession(SONG, DEFAULT_SESSION);
+    session.play(0);
+
+    session.ingestInputEvent({
+      type: 'noteon',
+      note: 60,
+      velocity: 0.8,
+      timestamp: 900,
+      sourceId: 'midi-1',
+      source: 'midi',
+    });
+    session.ingestInputEvent({
+      type: 'noteon',
+      note: 60,
+      velocity: 0.8,
+      timestamp: 910,
+      sourceId: 'computer-keyboard',
+      source: 'computer-keyboard',
+    });
+
+    session.ingestInputEvent({
+      type: 'noteoff',
+      note: 60,
+      velocity: 0,
+      timestamp: 1000,
+      sourceId: 'midi-1',
+      source: 'midi',
+    });
+
+    expect(session.getSnapshot(1000).activeInputNotes).toEqual([60]);
+
+    session.ingestInputEvent({
+      type: 'noteoff',
+      note: 60,
+      velocity: 0,
+      timestamp: 1010,
+      sourceId: 'computer-keyboard',
+      source: 'computer-keyboard',
+    });
+
+    expect(session.getSnapshot(1010).activeInputNotes).toEqual([]);
+  });
+
 });

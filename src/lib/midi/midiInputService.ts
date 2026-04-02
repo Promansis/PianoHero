@@ -1,6 +1,7 @@
-import type { MidiInputDevice, MidiMessageEvent } from './types';
+import type { InputEvent } from '../input/types';
+import type { MidiInputDevice } from './types';
 
-type MidiListener = (event: MidiMessageEvent) => void;
+type MidiListener = (event: InputEvent) => void;
 type DeviceListener = (devices: MidiInputDevice[]) => void;
 
 function velocityFromMidi(value: number): number {
@@ -97,7 +98,7 @@ export class MidiInputService {
     }
   }
 
-  private normalizeMessage(sourceId: string, event: MIDIMessageEvent): MidiMessageEvent | null {
+  private normalizeMessage(sourceId: string, event: MIDIMessageEvent): InputEvent | null {
     if (!event.data) {
       return null;
     }
@@ -114,6 +115,7 @@ export class MidiInputService {
           velocity: 0,
           timestamp,
           sourceId,
+          source: 'midi',
         };
       }
 
@@ -123,6 +125,7 @@ export class MidiInputService {
         velocity: velocityFromMidi(data2),
         timestamp,
         sourceId,
+        source: 'midi',
       };
     }
 
@@ -133,6 +136,7 @@ export class MidiInputService {
         velocity: velocityFromMidi(data2),
         timestamp,
         sourceId,
+        source: 'midi',
       };
     }
 
@@ -142,6 +146,7 @@ export class MidiInputService {
         sustainValue: data2,
         timestamp,
         sourceId,
+        source: 'midi',
       };
     }
 

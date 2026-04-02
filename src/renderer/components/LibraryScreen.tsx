@@ -6,6 +6,7 @@ interface LibraryScreenProps {
   onStartSession: (song: SongRow, mode: SessionMode) => void;
   onStartFreePlay: () => void;
   onOpenSetupGuide: () => void;
+  onOpenKeyboardSetup: () => void;
 }
 
 type SortField = 'title' | 'date' | 'score' | 'difficulty' | 'plays' | 'lastPlayed';
@@ -64,7 +65,7 @@ function createDraft(song: SongRow): SongDraft {
   };
 }
 
-export function LibraryScreen({ onStartSession, onStartFreePlay, onOpenSetupGuide }: LibraryScreenProps) {
+export function LibraryScreen({ onStartSession, onStartFreePlay, onOpenSetupGuide, onOpenKeyboardSetup }: LibraryScreenProps) {
   const [songs, setSongs] = useState<SongRow[]>([]);
   const [statsBySongId, setStatsBySongId] = useState<Record<string, UserStatsRow | null>>({});
   const [searchQuery, setSearchQuery] = useState('');
@@ -257,6 +258,9 @@ export function LibraryScreen({ onStartSession, onStartFreePlay, onOpenSetupGuid
           </button>
           <button className="secondary-button" onClick={onStartFreePlay}>
             Free Play
+          </button>
+          <button className="secondary-button" onClick={onOpenKeyboardSetup}>
+            Keyboard Setup
           </button>
           <button className="secondary-button" onClick={() => void handleExportLibrary()}>
             Export Library
