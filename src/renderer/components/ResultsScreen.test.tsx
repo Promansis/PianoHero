@@ -54,6 +54,7 @@ describe('ResultsScreen', () => {
           folderId: null,
           trackAssignments: {},
         }}
+        songFilePath=""
         sessionConfig={{
           mode: 'piano-hero',
           tempoMultiplier: 1,
@@ -67,6 +68,7 @@ describe('ResultsScreen', () => {
         baselineStats={null}
         onRetry={vi.fn()}
         onPracticeSections={vi.fn()}
+        onStartTheoryPractice={vi.fn()}
         onMainMenu={vi.fn()}
         hasNextSong
         onNextSong={vi.fn()}
@@ -112,6 +114,7 @@ describe('ResultsScreen', () => {
           folderId: null,
           trackAssignments: {},
         }}
+        songFilePath=""
         sessionConfig={{
           mode: 'piano-hero',
           tempoMultiplier: 1,
@@ -125,6 +128,7 @@ describe('ResultsScreen', () => {
         baselineStats={null}
         onRetry={vi.fn()}
         onPracticeSections={vi.fn()}
+        onStartTheoryPractice={vi.fn()}
         onMainMenu={vi.fn()}
         hasNextSong
         onNextSong={onNextSong}

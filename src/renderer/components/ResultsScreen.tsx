@@ -1,16 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { LoopRange, SessionConfig } from '../../lib/game/types';
-import type { SongRow, UserStatsRow } from '../../shared/dbTypes';
 import type { GameResult } from '../../lib/game/types';
+import { parseMidiFile } from '../../lib/midi/midiFileParser';
+import type { SongTheoryAnalysis, TheorySuggestion } from '../../lib/theory/songAnalysis';
+import { analyzeSong } from '../../lib/theory/songAnalysis';
+import type { SongRow, UserStatsRow } from '../../shared/dbTypes';
 import { PerformanceGraph } from './PerformanceGraph';
 
 interface ResultsScreenProps {
   result: GameResult;
   song: SongRow;
+  songFilePath: string;
   sessionConfig: SessionConfig;
   baselineStats: UserStatsRow | null;
   onRetry: () => void;
   onPracticeSections: (loopRange: LoopRange) => void;
+  onStartTheoryPractice: (suggestion: TheorySuggestion) => void;
   onMainMenu: () => void;
   hasNextSong: boolean;
   onNextSong: () => void;
@@ -67,16 +72,20 @@ function buildFeedback(result: GameResult): string {
 export function ResultsScreen({
   result,
   song,
+  songFilePath,
   sessionConfig,
   baselineStats,
   onRetry,
   onPracticeSections,
+  onStartTheoryPractice,
   onMainMenu,
   hasNextSong,
   onNextSong,
 }: ResultsScreenProps) {
   const didPersistRef = useRef(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [analysis, setAnalysis] = useState<SongTheoryAnalysis | null>(null);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
   const grade = getGrade(result.accuracy);
   const stars = getStarCount(result.accuracy);
   const troubleSpots = result.measureAccuracy.filter((entry) => entry.accuracy < 70);
@@ -106,6 +115,28 @@ export function ResultsScreen({
         setSaveError((error as Error).message);
       });
   }, [result, song.id]);
+
+  useEffect(() => {
+    const loadAnalysis = async () => {
+      if (!window.appBridge || !songFilePath) {
+        return;
+      }
+
+      try {
+        const bytes = await window.appBridge.loadMidiFileData(songFilePath);
+        const parsedSong = parseMidiFile(bytes.slice().buffer, {
+          songId: song.id,
+          title: song.title,
+        });
+        setAnalysis(analyzeSong(parsedSong));
+        setAnalysisError(null);
+      } catch (error) {
+        setAnalysisError((error as Error).message);
+      }
+    };
+
+    void loadAnalysis();
+  }, [song.id, song.title, songFilePath]);
 
   const comparison = useMemo(() => {
     if (!baselineStats) {
@@ -259,6 +290,45 @@ export function ResultsScreen({
         </article>
       </section>
 
+      <section className="panel theory-connections-panel">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Theory Connections</p>
+            <h2>Practice from the song itself</h2>
+          </div>
+        </div>
+        {analysisError && <p className="panel-copy">Theory analysis unavailable: {analysisError}</p>}
+        {!analysis && !analysisError && <p className="panel-copy">Analyzing key center, harmony, and practice suggestions.</p>}
+        {analysis && (
+          <div className="theory-connections-grid">
+            <div className="result-stat">
+              <span>Detected Key</span>
+              <strong>{analysis.detectedKey.keyName}</strong>
+            </div>
+            <div className="result-stat">
+              <span>Chord Progression</span>
+              <strong>{analysis.chordProgression.slice(0, 4).map((chord) => chord.label).join(' • ') || 'No stable block chords detected'}</strong>
+            </div>
+            <div className="result-stat">
+              <span>Scales Used</span>
+              <strong>{analysis.scalesUsed.map((scale) => scale.name).join(', ')}</strong>
+            </div>
+            <div className="theory-suggestion-list">
+              {analysis.suggestedPractice.map((suggestion) => (
+                <button
+                  key={suggestion.label}
+                  className="secondary-button theory-suggestion-button"
+                  onClick={() => onStartTheoryPractice(suggestion)}
+                >
+                  <strong>{suggestion.label}</strong>
+                  <span>{suggestion.description}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
+
       <section className="results-actions">
         <button className="primary-button" onClick={onRetry}>
           Retry
@@ -279,6 +349,11 @@ export function ResultsScreen({
         >
           Practice Sections
         </button>
+        {analysis?.suggestedPractice[0] && (
+          <button className="secondary-button" onClick={() => onStartTheoryPractice(analysis.suggestedPractice[0])}>
+            Start Theory Practice
+          </button>
+        )}
         <button className="secondary-button" onClick={onMainMenu}>
           Main Menu
         </button>

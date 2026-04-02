@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { AudioEngine } from '../lib/audio/audioEngine';
+import type { GameResult, LoopRange, SessionConfig, SessionMode } from '../lib/game/types';
 import { ComputerKeyboardInputService } from '../lib/input/computerKeyboardInputService';
 import {
   INPUT_KEYBOARD_MAPPING_SETTING_KEY,
@@ -10,20 +11,28 @@ import {
   stringifyKeyboardMapping,
 } from '../lib/input/settings';
 import type { InputMode } from '../lib/input/types';
-import type { GameResult, LoopRange, SessionConfig, SessionMode } from '../lib/game/types';
 import { MidiInputService } from '../lib/midi/midiInputService';
+import type { TheorySuggestion } from '../lib/theory/songAnalysis';
 import type { SongRow, UserStatsRow } from '../shared/dbTypes';
 import { FreePlayScreen } from './components/FreePlayScreen';
 import { GameScreen } from './components/GameScreen';
+import { IntervalTrainerScreen } from './components/IntervalTrainerScreen';
 import { KeyboardSetupScreen } from './components/KeyboardSetupScreen';
 import { LibraryScreen } from './components/LibraryScreen';
 import { ResultsScreen } from './components/ResultsScreen';
+import { ScalePracticeScreen } from './components/ScalePracticeScreen';
 import { SetupGuideScreen } from './components/SetupGuideScreen';
+import { TheoryHubScreen } from './components/TheoryHubScreen';
+import { TheoryQuizScreen } from './components/TheoryQuizScreen';
 
 type AppScreen =
   | { screen: 'setup' }
   | { screen: 'library' }
   | { screen: 'free-play' }
+  | { screen: 'theory-hub' }
+  | { screen: 'scale-practice'; preset?: { root: number; scaleName: string } }
+  | { screen: 'interval-trainer'; preset?: { difficulty: string } }
+  | { screen: 'theory-quiz'; preset?: { quizType: string } }
   | { screen: 'keyboard-setup'; returnTo: 'setup' | 'library' }
   | { screen: 'game'; song: SongRow; sessionConfig: SessionConfig; playlistQueue: PlaylistQueue | null }
   | {
@@ -33,6 +42,7 @@ type AppScreen =
       result: GameResult;
       baselineStats: UserStatsRow | null;
       playlistQueue: PlaylistQueue | null;
+      songFilePath: string;
     };
 
 interface PlaylistQueue {
@@ -81,7 +91,7 @@ export function App() {
     service
       .init()
       .catch(() => {
-        // The individual screens surface device errors in their own status areas.
+        // Individual screens surface device errors locally.
       })
       .finally(() => {
         setMidiReady(true);
@@ -107,6 +117,7 @@ export function App() {
         window.appBridge.getSetting(INPUT_SETTINGS_CATEGORY, INPUT_MODE_SETTING_KEY),
         window.appBridge.getSetting(INPUT_SETTINGS_CATEGORY, INPUT_KEYBOARD_MAPPING_SETTING_KEY),
       ]);
+
       if (reminder) {
         setReminderFrequency(reminder);
       }
@@ -154,6 +165,8 @@ export function App() {
     );
   }
 
+  const resultsQueue = currentScreen.screen === 'results' ? currentScreen.playlistQueue : null;
+
   const persistSetupState = async (setupComplete: boolean) => {
     if (!window.appBridge) {
       return;
@@ -192,6 +205,7 @@ export function App() {
       result,
       baselineStats,
       playlistQueue,
+      songFilePath: song.filePath,
     });
   };
 
@@ -200,15 +214,7 @@ export function App() {
       return;
     }
 
-    startSongSession(
-      songs[0],
-      'piano-hero',
-      null,
-      {
-        songs,
-        index: 0,
-      },
-    );
+    startSongSession(songs[0], 'piano-hero', null, { songs, index: 0 });
   };
 
   const handleNextQueuedSong = () => {
@@ -222,15 +228,45 @@ export function App() {
       return;
     }
 
-    startSongSession(
-      nextSong,
-      'piano-hero',
-      null,
-      {
-        songs: currentScreen.playlistQueue.songs,
-        index: nextIndex,
+    startSongSession(nextSong, 'piano-hero', null, {
+      songs: currentScreen.playlistQueue.songs,
+      index: nextIndex,
+    });
+  };
+
+  const handleStartTheoryPractice = (suggestion?: TheorySuggestion) => {
+    if (!suggestion) {
+      setCurrentScreen({ screen: 'theory-hub' });
+      return;
+    }
+
+    if (suggestion.type === 'scale') {
+      setCurrentScreen({
+        screen: 'scale-practice',
+        preset: {
+          root: typeof suggestion.params.root === 'number' ? suggestion.params.root : 0,
+          scaleName: typeof suggestion.params.scaleName === 'string' ? suggestion.params.scaleName : 'Major',
+        },
+      });
+      return;
+    }
+
+    if (suggestion.type === 'interval') {
+      setCurrentScreen({
+        screen: 'interval-trainer',
+        preset: {
+          difficulty: typeof suggestion.params.difficulty === 'string' ? suggestion.params.difficulty : 'medium',
+        },
+      });
+      return;
+    }
+
+    setCurrentScreen({
+      screen: 'theory-quiz',
+      preset: {
+        quizType: typeof suggestion.params.quizType === 'string' ? suggestion.params.quizType : 'chord',
       },
-    );
+    });
   };
 
   switch (currentScreen.screen) {
@@ -259,6 +295,7 @@ export function App() {
           onOpenKeyboardSetup={() => setCurrentScreen({ screen: 'keyboard-setup', returnTo: 'library' })}
           onOpenSetupGuide={() => setCurrentScreen({ screen: 'setup' })}
           onStartFreePlay={() => setCurrentScreen({ screen: 'free-play' })}
+          onStartTheoryPractice={() => setCurrentScreen({ screen: 'theory-hub' })}
           onStartSession={(song, mode) => startSongSession(song, mode)}
           onStartPlaylistQueue={startPlaylistQueue}
         />
@@ -273,6 +310,49 @@ export function App() {
           midiInputService={midiServiceRef.current}
           onBackToLibrary={() => setCurrentScreen({ screen: 'library' })}
           onOpenKeyboardSetup={() => setCurrentScreen({ screen: 'keyboard-setup', returnTo: 'library' })}
+        />
+      );
+
+    case 'theory-hub':
+      return (
+        <TheoryHubScreen
+          onBack={() => setCurrentScreen({ screen: 'library' })}
+          onStartIntervalTrainer={(preset) => setCurrentScreen({ screen: 'interval-trainer', preset })}
+          onStartQuiz={(preset) => setCurrentScreen({ screen: 'theory-quiz', preset })}
+          onStartScalePractice={(preset) => setCurrentScreen({ screen: 'scale-practice', preset })}
+        />
+      );
+
+    case 'scale-practice':
+      return (
+        <ScalePracticeScreen
+          audioEngine={audioEngineRef.current}
+          inputMode={inputMode}
+          keyboardInputService={keyboardServiceRef.current}
+          midiInputService={midiServiceRef.current}
+          onBack={() => setCurrentScreen({ screen: 'theory-hub' })}
+          preset={currentScreen.preset}
+        />
+      );
+
+    case 'interval-trainer':
+      return (
+        <IntervalTrainerScreen
+          audioEngine={audioEngineRef.current}
+          inputMode={inputMode}
+          keyboardInputService={keyboardServiceRef.current}
+          midiInputService={midiServiceRef.current}
+          onBack={() => setCurrentScreen({ screen: 'theory-hub' })}
+          preset={currentScreen.preset}
+        />
+      );
+
+    case 'theory-quiz':
+      return (
+        <TheoryQuizScreen
+          audioEngine={audioEngineRef.current}
+          onBack={() => setCurrentScreen({ screen: 'theory-hub' })}
+          preset={currentScreen.preset}
         />
       );
 
@@ -309,8 +389,10 @@ export function App() {
           result={currentScreen.result}
           sessionConfig={currentScreen.sessionConfig}
           song={currentScreen.song}
+          songFilePath={currentScreen.songFilePath}
           onMainMenu={() => setCurrentScreen({ screen: 'library' })}
           onPracticeSections={(loopRange) => startSongSession(currentScreen.song, 'learning', loopRange)}
+          onStartTheoryPractice={handleStartTheoryPractice}
           onRetry={() =>
             startSongSession(
               currentScreen.song,
@@ -320,8 +402,7 @@ export function App() {
             )
           }
           hasNextSong={
-            Boolean(currentScreen.playlistQueue) &&
-            currentScreen.playlistQueue!.index < currentScreen.playlistQueue!.songs.length - 1
+            resultsQueue ? resultsQueue.index < resultsQueue.songs.length - 1 : false
           }
           onNextSong={handleNextQueuedSong}
         />

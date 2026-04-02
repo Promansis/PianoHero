@@ -12,8 +12,11 @@ import type {
   LibraryImportResult,
   PlaylistRow,
   SaveGameResultPayload,
+  SaveTheoryResultPayload,
   SettingRow,
   SongRow,
+  TheoryResultRow,
+  TheoryStatsRow,
   UserStatsRow,
 } from '../shared/dbTypes';
 
@@ -74,6 +77,16 @@ export class AppDatabase {
         duration_sec REAL NOT NULL DEFAULT 0
       );
 
+      CREATE TABLE IF NOT EXISTS theory_results (
+        id TEXT PRIMARY KEY,
+        type TEXT NOT NULL CHECK(type IN ('quiz', 'interval-trainer', 'scale-practice')),
+        score INTEGER NOT NULL,
+        total_questions INTEGER NOT NULL,
+        accuracy REAL NOT NULL,
+        details TEXT NOT NULL DEFAULT '{}',
+        timestamp TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+
       CREATE TABLE IF NOT EXISTS settings (
         category TEXT NOT NULL,
         key TEXT NOT NULL,
@@ -117,6 +130,8 @@ export class AppDatabase {
     this.db.exec(`
       CREATE INDEX IF NOT EXISTS idx_game_results_song_id ON game_results(song_id);
       CREATE INDEX IF NOT EXISTS idx_game_results_timestamp ON game_results(timestamp);
+      CREATE INDEX IF NOT EXISTS idx_theory_results_type ON theory_results(type);
+      CREATE INDEX IF NOT EXISTS idx_theory_results_timestamp ON theory_results(timestamp);
       CREATE INDEX IF NOT EXISTS idx_songs_date_added ON songs(date_added);
       CREATE INDEX IF NOT EXISTS idx_songs_title ON songs(title COLLATE NOCASE);
       CREATE INDEX IF NOT EXISTS idx_songs_folder_id ON songs(folder_id);
@@ -630,6 +645,62 @@ export class AppDatabase {
     return row ? rowToUserStats(row) : null;
   }
 
+  saveTheoryResult(payload: SaveTheoryResultPayload): void {
+    const id = randomUUID();
+    const now = new Date().toISOString();
+
+    this.db
+      .prepare(`
+        INSERT INTO theory_results
+          (id, type, score, total_questions, accuracy, details, timestamp)
+        VALUES
+          (@id, @type, @score, @totalQuestions, @accuracy, @details, @timestamp)
+      `)
+      .run({
+        id,
+        type: payload.type,
+        score: payload.score,
+        totalQuestions: payload.totalQuestions,
+        accuracy: payload.accuracy,
+        details: JSON.stringify(payload.details ?? {}),
+        timestamp: now,
+      });
+  }
+
+  getTheoryResults(type?: TheoryResultRow['type'], limit = 20): TheoryResultRow[] {
+    const clampedLimit = Math.max(1, Math.min(limit, 200));
+    const rows = (
+      type
+        ? this.db
+            .prepare('SELECT * FROM theory_results WHERE type = ? ORDER BY timestamp DESC LIMIT ?')
+            .all(type, clampedLimit)
+        : this.db.prepare('SELECT * FROM theory_results ORDER BY timestamp DESC LIMIT ?').all(clampedLimit)
+    ) as DbRow[];
+    return rows.map(rowToTheoryResult);
+  }
+
+  getTheoryStats(type: TheoryResultRow['type']): TheoryStatsRow {
+    const row = this.db
+      .prepare(`
+        SELECT
+          COUNT(*) AS session_count,
+          COALESCE(MAX(score), 0) AS best_score,
+          COALESCE(AVG(accuracy), 0) AS average_accuracy,
+          MAX(timestamp) AS last_played
+        FROM theory_results
+        WHERE type = ?
+      `)
+      .get(type) as DbRow;
+
+    return {
+      type,
+      sessionCount: row.session_count as number,
+      bestScore: row.best_score as number,
+      averageAccuracy: row.average_accuracy as number,
+      lastPlayed: (row.last_played as string | null | undefined) ?? null,
+    };
+  }
+
   getSetting(category: string, key: string): string | null {
     const row = this.db
       .prepare('SELECT value FROM settings WHERE category = ? AND key = ?')
@@ -980,4 +1051,37 @@ function rowToUserStats(row: DbRow): UserStatsRow {
     lastPlayed: row.last_played as string | null,
     totalPracticeTimeSec: row.total_practice_time_sec as number,
   };
+}
+
+function rowToTheoryResult(row: DbRow): TheoryResultRow {
+  return {
+    id: row.id as string,
+    type: row.type as TheoryResultRow['type'],
+    score: row.score as number,
+    totalQuestions: row.total_questions as number,
+    accuracy: row.accuracy as number,
+    details: parseJsonObject(row.details),
+    timestamp: row.timestamp as string,
+  };
+}
+
+function parseJsonObject(value: unknown): Record<string, unknown> {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+
+  if (typeof value !== 'string' || value.trim() === '') {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    // Ignore invalid JSON payloads in legacy rows.
+  }
+
+  return {};
 }

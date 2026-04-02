@@ -21,6 +21,10 @@ import type {
 import { parseMidiFile } from '../../lib/midi/midiFileParser';
 import { MidiInputService } from '../../lib/midi/midiInputService';
 import type { MidiInputDevice } from '../../lib/midi/types';
+import type { DetectedKey } from '../../lib/theory/keyDetection';
+import { detectKey } from '../../lib/theory/keyDetection';
+import { detectChord } from '../../lib/theory/chords';
+import { KeySignatureBadge } from './KeySignatureBadge';
 import type { FingeringRow, SongRow, UserStatsRow } from '../../shared/dbTypes';
 import { ControlBar } from './ControlBar';
 import { FingeringEditor } from './FingeringEditor';
@@ -306,6 +310,8 @@ export function GameScreen({
   const [showReminder, setShowReminder] = useState(false);
   const [customFingerings, setCustomFingerings] = useState<FingeringRow[]>([]);
   const [keyboardOctaveShift, setKeyboardOctaveShift] = useState(keyboardInputService.getState().octaveShift);
+  const [chordLabel, setChordLabel] = useState<string | null>(null);
+  const [detectedKey, setDetectedKey] = useState<DetectedKey | null>(null);
   const [isEditingFingering, setIsEditingFingering] = useState(false);
   const [selectedFingeringNoteId, setSelectedFingeringNoteId] = useState<string | null>(null);
   const [fingeringEditorState, setFingeringEditorState] = useState<{
@@ -423,6 +429,16 @@ export function GameScreen({
       audioEngine.pauseSong();
     };
   }, [audioEngine, onGameFinished, playlistQueue]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setChordLabel(detectChord(snapshot.activeInputNotes)?.label ?? null);
+    }, 50);
+
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, [snapshot.activeInputNotes]);
 
   useEffect(() => {
     const loadSelectedSong = async () => {
@@ -549,6 +565,7 @@ export function GameScreen({
       title: songRecord.title,
     });
     const hydratedSong = applyTrackAssignments(parsedSong, songRecord.trackAssignments);
+    setDetectedKey(detectKey(hydratedSong.notes));
     currentSongRef.current = {
       ...songRecord,
       durationSec: hydratedSong.durationSec,
@@ -822,6 +839,12 @@ export function GameScreen({
       />
 
       <section className="status-strip">
+        {detectedKey && (
+          <div className="status-card">
+            <span>Key</span>
+            <KeySignatureBadge detectedKey={detectedKey} />
+          </div>
+        )}
         <div className="status-card">
           <span>Mode</span>
           <strong>
@@ -857,6 +880,7 @@ export function GameScreen({
         <div className="status-card wide">
           <span>Status</span>
           <strong>{statusMessage}</strong>
+          {chordLabel && <p className="status-inline-label">Chord: {chordLabel}</p>}
         </div>
       </section>
 
@@ -960,7 +984,13 @@ export function GameScreen({
         </div>
       </section>
 
-      <PianoKeyboard activeNotes={snapshot.activeInputNotes} upcomingNotes={snapshot.upcomingNotes} />
+      <PianoKeyboard
+        activeNotes={snapshot.activeInputNotes}
+        upcomingNotes={snapshot.upcomingNotes}
+        highlightedNotes={snapshot.activeInputNotes}
+        highlightColor="chord"
+        chordLabel={chordLabel}
+      />
     </main>
   );
 }

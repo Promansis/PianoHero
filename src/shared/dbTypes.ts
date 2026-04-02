@@ -89,6 +89,26 @@ export interface GameResultRow {
   durationSec: number;
 }
 
+export type TheoryResultType = 'quiz' | 'interval-trainer' | 'scale-practice';
+
+export interface TheoryResultRow {
+  id: string;
+  type: TheoryResultType;
+  score: number;
+  totalQuestions: number;
+  accuracy: number;
+  details: Record<string, unknown>;
+  timestamp: string;
+}
+
+export interface TheoryStatsRow {
+  type: TheoryResultType;
+  sessionCount: number;
+  bestScore: number;
+  averageAccuracy: number;
+  lastPlayed: string | null;
+}
+
 export interface AddSongPayload {
   id: string;
   title: string;
@@ -116,4 +136,12 @@ export interface SaveGameResultPayload {
   tempo: number;
   mode: SessionMode;
   durationSec: number;
+}
+
+export interface SaveTheoryResultPayload {
+  type: TheoryResultType;
+  score: number;
+  totalQuestions: number;
+  accuracy: number;
+  details?: Record<string, unknown>;
 }

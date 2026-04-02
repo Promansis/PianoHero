@@ -131,6 +131,16 @@ class AppDatabase {
         duration_sec REAL NOT NULL DEFAULT 0
       );
 
+      CREATE TABLE IF NOT EXISTS theory_results (
+        id TEXT PRIMARY KEY,
+        type TEXT NOT NULL CHECK(type IN ('quiz', 'interval-trainer', 'scale-practice')),
+        score INTEGER NOT NULL,
+        total_questions INTEGER NOT NULL,
+        accuracy REAL NOT NULL,
+        details TEXT NOT NULL DEFAULT '{}',
+        timestamp TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+
       CREATE TABLE IF NOT EXISTS settings (
         category TEXT NOT NULL,
         key TEXT NOT NULL,
@@ -172,6 +182,8 @@ class AppDatabase {
     this.db.exec(`
       CREATE INDEX IF NOT EXISTS idx_game_results_song_id ON game_results(song_id);
       CREATE INDEX IF NOT EXISTS idx_game_results_timestamp ON game_results(timestamp);
+      CREATE INDEX IF NOT EXISTS idx_theory_results_type ON theory_results(type);
+      CREATE INDEX IF NOT EXISTS idx_theory_results_timestamp ON theory_results(timestamp);
       CREATE INDEX IF NOT EXISTS idx_songs_date_added ON songs(date_added);
       CREATE INDEX IF NOT EXISTS idx_songs_title ON songs(title COLLATE NOCASE);
       CREATE INDEX IF NOT EXISTS idx_songs_folder_id ON songs(folder_id);
@@ -581,6 +593,47 @@ class AppDatabase {
     const row = this.db.prepare("SELECT * FROM user_stats WHERE song_id = ?").get(songId);
     return row ? rowToUserStats(row) : null;
   }
+  saveTheoryResult(payload) {
+    const id = randomUUID();
+    const now = (/* @__PURE__ */ new Date()).toISOString();
+    this.db.prepare(`
+        INSERT INTO theory_results
+          (id, type, score, total_questions, accuracy, details, timestamp)
+        VALUES
+          (@id, @type, @score, @totalQuestions, @accuracy, @details, @timestamp)
+      `).run({
+      id,
+      type: payload.type,
+      score: payload.score,
+      totalQuestions: payload.totalQuestions,
+      accuracy: payload.accuracy,
+      details: JSON.stringify(payload.details ?? {}),
+      timestamp: now
+    });
+  }
+  getTheoryResults(type, limit = 20) {
+    const clampedLimit = Math.max(1, Math.min(limit, 200));
+    const rows = type ? this.db.prepare("SELECT * FROM theory_results WHERE type = ? ORDER BY timestamp DESC LIMIT ?").all(type, clampedLimit) : this.db.prepare("SELECT * FROM theory_results ORDER BY timestamp DESC LIMIT ?").all(clampedLimit);
+    return rows.map(rowToTheoryResult);
+  }
+  getTheoryStats(type) {
+    const row = this.db.prepare(`
+        SELECT
+          COUNT(*) AS session_count,
+          COALESCE(MAX(score), 0) AS best_score,
+          COALESCE(AVG(accuracy), 0) AS average_accuracy,
+          MAX(timestamp) AS last_played
+        FROM theory_results
+        WHERE type = ?
+      `).get(type);
+    return {
+      type,
+      sessionCount: row.session_count,
+      bestScore: row.best_score,
+      averageAccuracy: row.average_accuracy,
+      lastPlayed: row.last_played ?? null
+    };
+  }
   getSetting(category, key) {
     const row = this.db.prepare("SELECT value FROM settings WHERE category = ? AND key = ?").get(category, key);
     return row?.value ?? null;
@@ -867,6 +920,33 @@ function rowToUserStats(row) {
     totalPracticeTimeSec: row.total_practice_time_sec
   };
 }
+function rowToTheoryResult(row) {
+  return {
+    id: row.id,
+    type: row.type,
+    score: row.score,
+    totalQuestions: row.total_questions,
+    accuracy: row.accuracy,
+    details: parseJsonObject(row.details),
+    timestamp: row.timestamp
+  };
+}
+function parseJsonObject(value) {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return value;
+  }
+  if (typeof value !== "string" || value.trim() === "") {
+    return {};
+  }
+  try {
+    const parsed = JSON.parse(value);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed;
+    }
+  } catch {
+  }
+  return {};
+}
 let mainWindow = null;
 let db;
 async function createSongId(buffer) {
@@ -988,6 +1068,14 @@ app.whenReady().then(async () => {
   });
   ipcMain.handle("results:for-song", (_event, songId) => db.getGameResults(songId));
   ipcMain.handle("stats:get", (_event, songId) => db.getUserStats(songId));
+  ipcMain.handle("theory:save-result", (_event, payload) => {
+    db.saveTheoryResult(payload);
+  });
+  ipcMain.handle(
+    "theory:get-results",
+    (_event, type, limit) => db.getTheoryResults(type, limit)
+  );
+  ipcMain.handle("theory:get-stats", (_event, type) => db.getTheoryStats(type));
   ipcMain.handle("fingerings:get", (_event, songId) => db.getCustomFingerings(songId));
   ipcMain.handle(
     "fingerings:save",

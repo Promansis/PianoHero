@@ -5,6 +5,7 @@ import { ComputerKeyboardInputService } from '../../lib/input/computerKeyboardIn
 import type { InputEvent, InputMode } from '../../lib/input/types';
 import { MidiInputService } from '../../lib/midi/midiInputService';
 import type { MidiInputDevice } from '../../lib/midi/types';
+import { detectChord } from '../../lib/theory/chords';
 import { PianoKeyboard } from './PianoKeyboard';
 
 interface RecordedNote {
@@ -59,6 +60,7 @@ export function FreePlayScreen({
   const [recordingClock, setRecordingClock] = useState(0);
   const [isPlayingRecording, setIsPlayingRecording] = useState(false);
   const [keyboardOctaveShift, setKeyboardOctaveShift] = useState(keyboardInputService.getState().octaveShift);
+  const [chordLabel, setChordLabel] = useState<string | null>(null);
   const noteStartMapRef = useRef(new Map<string, { startTimeSec: number; velocity: number; midi: number }>());
   const playbackTimeoutsRef = useRef<number[]>([]);
 
@@ -164,6 +166,16 @@ export function FreePlayScreen({
       playbackTimeoutsRef.current = [];
     };
   }, [audioEngine, inputMode, isRecording, keyboardInputService, midiInputService, recordingStartedAt]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setChordLabel(detectChord(activeNotes)?.label ?? null);
+    }, 50);
+
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, [activeNotes]);
 
   useEffect(() => {
     if (!isRecording || recordingStartedAt === null) {
@@ -390,7 +402,7 @@ export function FreePlayScreen({
         </div>
       </section>
 
-      <PianoKeyboard activeNotes={activeNotes} upcomingNotes={[]} />
+      <PianoKeyboard activeNotes={activeNotes} upcomingNotes={[]} highlightedNotes={activeNotes} highlightColor="chord" chordLabel={chordLabel} />
     </main>
   );
 }

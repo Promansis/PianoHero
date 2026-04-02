@@ -6,7 +6,10 @@ import type {
   LibraryImportResult,
   PlaylistRow,
   SaveGameResultPayload,
+  SaveTheoryResultPayload,
   SongRow,
+  TheoryResultRow,
+  TheoryStatsRow,
   UserStatsRow,
 } from './dbTypes';
 
@@ -41,6 +44,9 @@ export interface AppBridge {
   saveGameResult: (payload: SaveGameResultPayload) => Promise<void>;
   getGameResults: (songId: string) => Promise<GameResultRow[]>;
   getUserStats: (songId: string) => Promise<UserStatsRow | null>;
+  saveTheoryResult: (payload: SaveTheoryResultPayload) => Promise<void>;
+  getTheoryResults: (type?: TheoryResultRow['type'], limit?: number) => Promise<TheoryResultRow[]>;
+  getTheoryStats: (type: TheoryResultRow['type']) => Promise<TheoryStatsRow>;
 
   getCustomFingerings: (songId: string) => Promise<FingeringRow[]>;
   saveCustomFingering: (

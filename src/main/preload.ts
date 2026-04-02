@@ -15,6 +15,9 @@ const appBridge: AppBridge = {
   saveGameResult: (payload) => ipcRenderer.invoke('results:save', payload),
   getGameResults: (songId) => ipcRenderer.invoke('results:for-song', songId),
   getUserStats: (songId) => ipcRenderer.invoke('stats:get', songId),
+  saveTheoryResult: (payload) => ipcRenderer.invoke('theory:save-result', payload),
+  getTheoryResults: (type, limit) => ipcRenderer.invoke('theory:get-results', type, limit),
+  getTheoryStats: (type) => ipcRenderer.invoke('theory:get-stats', type),
 
   getCustomFingerings: (songId) => ipcRenderer.invoke('fingerings:get', songId),
   saveCustomFingering: (songId, noteIndex, finger, hand) =>

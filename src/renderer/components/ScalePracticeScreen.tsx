@@ -1,0 +1,274 @@
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { AudioEngine } from '../../lib/audio/audioEngine';
+import { ComputerKeyboardInputService } from '../../lib/input/computerKeyboardInputService';
+import type { InputEvent, InputMode } from '../../lib/input/types';
+import { MidiInputService } from '../../lib/midi/midiInputService';
+import { PITCH_CLASS_NAMES } from '../../lib/theory/chords';
+import { buildScale, SCALE_DEFINITIONS, type ScaleDirection, validateScaleSequence } from '../../lib/theory/scales';
+import { PianoKeyboard } from './PianoKeyboard';
+
+interface ScalePracticeScreenProps {
+  audioEngine: AudioEngine;
+  midiInputService: MidiInputService;
+  keyboardInputService: ComputerKeyboardInputService;
+  inputMode: InputMode;
+  onBack: () => void;
+  preset?: { root: number; scaleName: string };
+}
+
+export function ScalePracticeScreen({
+  audioEngine,
+  midiInputService,
+  keyboardInputService,
+  inputMode,
+  onBack,
+  preset,
+}: ScalePracticeScreenProps) {
+  const defaultScale = preset?.scaleName ? SCALE_DEFINITIONS.find((scale) => scale.name === preset.scaleName) ?? SCALE_DEFINITIONS[0] : SCALE_DEFINITIONS[0];
+  const [selectedScaleName, setSelectedScaleName] = useState(defaultScale.name);
+  const [selectedRoot, setSelectedRoot] = useState(preset?.root ?? 0);
+  const [octaves, setOctaves] = useState(1);
+  const [direction, setDirection] = useState<ScaleDirection>('ascending');
+  const [tempo, setTempo] = useState(90);
+  const [metronomeEnabled, setMetronomeEnabled] = useState(false);
+  const [isActive, setIsActive] = useState(false);
+  const [playedNotes, setPlayedNotes] = useState<number[]>([]);
+  const [activeNotes, setActiveNotes] = useState<number[]>([]);
+  const [statusMessage, setStatusMessage] = useState('Choose a scale, start the drill, then play the notes in order.');
+  const [lastResult, setLastResult] = useState<{ correct: boolean; expected: number } | null>(null);
+  const savedSessionRef = useRef(false);
+
+  const selectedScale = useMemo(
+    () => SCALE_DEFINITIONS.find((definition) => definition.name === selectedScaleName) ?? SCALE_DEFINITIONS[0],
+    [selectedScaleName],
+  );
+  const currentScale = useMemo(
+    () => buildScale(selectedRoot, selectedScale, octaves, 4),
+    [octaves, selectedRoot, selectedScale],
+  );
+
+  const sequence = useMemo(() => {
+    const validationSeed = direction === 'ascending'
+      ? currentScale.midiNotes
+      : direction === 'descending'
+        ? [...currentScale.midiNotes].reverse()
+        : [...currentScale.midiNotes, ...currentScale.midiNotes.slice(0, -1).reverse()];
+    return validationSeed;
+  }, [currentScale, direction]);
+
+  useEffect(() => {
+    const shouldHandleEvent = (event: InputEvent): boolean => {
+      if (inputMode === 'both') {
+        return true;
+      }
+      if (inputMode === 'midi') {
+        return event.source === 'midi';
+      }
+      return event.source === 'computer-keyboard';
+    };
+
+    const heldByNote = new Map<number, Set<string>>();
+
+    const handleInputEvent = async (event: InputEvent) => {
+      if (!shouldHandleEvent(event)) {
+        return;
+      }
+
+      if (event.type === 'noteon' && typeof event.note === 'number') {
+        const midi = event.note;
+        const heldSources = heldByNote.get(midi) ?? new Set<string>();
+        heldSources.add(event.sourceId);
+        heldByNote.set(midi, heldSources);
+        setActiveNotes([...heldByNote.keys()].sort((left, right) => left - right));
+        if (heldSources.size === 1) {
+          await audioEngine.noteOn(midi, event.velocity ?? 0.8);
+        }
+
+        if (!isActive) {
+          return;
+        }
+
+        setPlayedNotes((current) => {
+          const next = [...current, midi];
+          const validation = validateScaleSequence(next, currentScale, direction);
+          const latest = validation[validation.length - 1];
+          setLastResult({ correct: latest.correct, expected: latest.expected });
+          setStatusMessage(
+            latest.correct
+              ? `Correct: ${PITCH_CLASS_NAMES[midi % 12]}`
+              : `Expected ${PITCH_CLASS_NAMES[latest.expected % 12]}, heard ${PITCH_CLASS_NAMES[midi % 12]}.`,
+          );
+          return next;
+        });
+      }
+
+      if (event.type === 'noteoff' && typeof event.note === 'number') {
+        const heldSources = heldByNote.get(event.note);
+        if (!heldSources) {
+          return;
+        }
+        heldSources.delete(event.sourceId);
+        if (heldSources.size === 0) {
+          heldByNote.delete(event.note);
+          audioEngine.noteOff(event.note);
+        }
+        setActiveNotes([...heldByNote.keys()].sort((left, right) => left - right));
+      }
+    };
+
+    const unsubscribeMidi = midiInputService.subscribe((event) => {
+      void handleInputEvent(event);
+    });
+    const unsubscribeKeyboard = keyboardInputService.subscribe((event) => {
+      void handleInputEvent(event);
+    });
+
+    return () => {
+      unsubscribeMidi();
+      unsubscribeKeyboard();
+    };
+  }, [audioEngine, currentScale, direction, inputMode, isActive, keyboardInputService, midiInputService]);
+
+  useEffect(() => {
+    if (!metronomeEnabled || !isActive) {
+      return;
+    }
+
+    let beat = 0;
+    const interval = window.setInterval(() => {
+      beat += 1;
+      void audioEngine.playMetronomeClick(beat % 4 === 1);
+    }, (60 / Math.max(40, tempo)) * 1000);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [audioEngine, isActive, metronomeEnabled, tempo]);
+
+  useEffect(() => {
+    if (!isActive || playedNotes.length === 0 || playedNotes.length < sequence.length || savedSessionRef.current) {
+      return;
+    }
+
+    const validation = validateScaleSequence(playedNotes, currentScale, direction);
+    const correctCount = validation.filter((entry) => entry.correct).length;
+    const accuracy = (correctCount / validation.length) * 100;
+    savedSessionRef.current = true;
+    setIsActive(false);
+    setStatusMessage(`Scale complete. Accuracy ${accuracy.toFixed(1)}%.`);
+    void window.appBridge?.saveTheoryResult({
+      type: 'scale-practice',
+      score: correctCount,
+      totalQuestions: validation.length,
+      accuracy,
+      details: {
+        scaleName: selectedScale.name,
+        root: selectedRoot,
+        direction,
+        octaves,
+      },
+    });
+  }, [currentScale, direction, isActive, octaves, playedNotes, selectedRoot, selectedScale.name, sequence.length]);
+
+  const progress = `${playedNotes.length} / ${sequence.length}`;
+
+  return (
+    <main className="app-shell theory-practice-screen" onPointerDownCapture={() => void audioEngine.init()}>
+      <section className="panel theory-screen-hero">
+        <div>
+          <p className="eyebrow">Scale Practice</p>
+          <h1>{PITCH_CLASS_NAMES[selectedRoot]} {selectedScale.name}</h1>
+          <p className="song-title">{statusMessage}</p>
+        </div>
+        <div className="transport-buttons">
+          <button className="secondary-button" onClick={onBack}>
+            Back
+          </button>
+          <button
+            className="primary-button"
+            onClick={() => {
+              savedSessionRef.current = false;
+              setPlayedNotes([]);
+              setLastResult(null);
+              setIsActive(true);
+              setStatusMessage('Listening for the first note.');
+            }}
+          >
+            Start Drill
+          </button>
+        </div>
+      </section>
+
+      <section className="panel theory-settings-panel">
+        <label>
+          <span>Scale</span>
+          <select value={selectedScaleName} onChange={(event) => setSelectedScaleName(event.target.value)}>
+            {SCALE_DEFINITIONS.map((definition) => (
+              <option key={definition.name} value={definition.name}>
+                {definition.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>Root</span>
+          <select value={selectedRoot} onChange={(event) => setSelectedRoot(Number(event.target.value))}>
+            {PITCH_CLASS_NAMES.map((name, index) => (
+              <option key={name} value={index}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>Octaves</span>
+          <select value={octaves} onChange={(event) => setOctaves(Number(event.target.value))}>
+            {[1, 2, 3].map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>Direction</span>
+          <select value={direction} onChange={(event) => setDirection(event.target.value as ScaleDirection)}>
+            <option value="ascending">Ascending</option>
+            <option value="descending">Descending</option>
+            <option value="both">Up and Down</option>
+          </select>
+        </label>
+        <label>
+          <span>BPM</span>
+          <input type="range" min={50} max={160} step={1} value={tempo} onChange={(event) => setTempo(Number(event.target.value))} />
+          <strong>{tempo}</strong>
+        </label>
+        <button className="secondary-button" onClick={() => setMetronomeEnabled((value) => !value)}>
+          {metronomeEnabled ? 'Metronome On' : 'Metronome Off'}
+        </button>
+      </section>
+
+      <section className="status-strip">
+        <div className="status-card">
+          <span>Progress</span>
+          <strong>{progress}</strong>
+        </div>
+        <div className="status-card">
+          <span>Direction</span>
+          <strong>{direction}</strong>
+        </div>
+        <div className="status-card">
+          <span>Last Check</span>
+          <strong>{lastResult ? (lastResult.correct ? 'Correct' : 'Incorrect') : 'Waiting'}</strong>
+        </div>
+      </section>
+
+      <PianoKeyboard
+        activeNotes={activeNotes}
+        upcomingNotes={[]}
+        highlightedNotes={currentScale.midiNotes}
+        highlightColor="scale"
+      />
+    </main>
+  );
+}

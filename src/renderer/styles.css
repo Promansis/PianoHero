@@ -216,6 +216,11 @@ select {
   font-size: 0.98rem;
 }
 
+.status-inline-label {
+  margin: 8px 0 0;
+  color: rgba(36, 31, 26, 0.72);
+}
+
 .workspace-grid,
 .results-grid {
   display: grid;
@@ -301,6 +306,20 @@ select {
   padding: 16px 16px 18px;
 }
 
+.chord-label {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(255, 250, 242, 0.92);
+  color: #241f1a;
+  font-weight: 700;
+  box-shadow: 0 10px 24px rgba(23, 18, 14, 0.22);
+}
+
 .white-keys {
   display: flex;
   align-items: flex-end;
@@ -344,6 +363,22 @@ select {
 
 .black-key.active {
   background: linear-gradient(180deg, #7bbfff 0%, #1c76d1 100%);
+}
+
+.white-key.scale-highlight {
+  background: linear-gradient(180deg, #e8f6d4 0%, #c5e7a3 100%);
+}
+
+.black-key.scale-highlight {
+  background: linear-gradient(180deg, #7ca85c 0%, #456830 100%);
+}
+
+.white-key.chord-highlight {
+  box-shadow: inset 0 0 0 3px rgba(214, 124, 60, 0.4);
+}
+
+.black-key.chord-highlight {
+  box-shadow: inset 0 0 0 2px rgba(255, 221, 194, 0.35);
 }
 
 .white-key.cue-left::before,
@@ -502,7 +537,14 @@ select {
 .active-filters-panel,
 .advanced-filters,
 .bulk-action-bar,
-.playlist-view {
+.playlist-view,
+.theory-hub-hero,
+.theory-card,
+.theory-settings-panel,
+.theory-question-panel,
+.theory-review-panel,
+.theory-connections-panel,
+.theory-screen-hero {
   border-radius: 24px;
   padding: 24px;
 }
@@ -764,6 +806,117 @@ select {
   justify-content: flex-start;
 }
 
+.theory-hub-screen,
+.theory-practice-screen {
+  align-content: start;
+}
+
+.theory-card-grid,
+.theory-connections-grid,
+.theory-choice-grid,
+.theory-settings-panel,
+.theory-type-select {
+  display: grid;
+  gap: 16px;
+}
+
+.theory-card-grid {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.theory-card {
+  display: grid;
+  gap: 16px;
+}
+
+.theory-card-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.theory-card-stats span {
+  display: block;
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(36, 31, 26, 0.56);
+}
+
+.theory-settings-panel {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  align-items: end;
+}
+
+.theory-screen-hero,
+.theory-hub-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.theory-question-panel,
+.theory-review-panel,
+.theory-summary {
+  display: grid;
+  gap: 16px;
+}
+
+.theory-choice-grid,
+.theory-type-select {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.theory-choice-button {
+  min-height: 72px;
+}
+
+.theory-suggestion-list {
+  display: grid;
+  gap: 12px;
+}
+
+.theory-suggestion-button {
+  display: grid;
+  gap: 8px;
+  text-align: left;
+  border-radius: 18px;
+}
+
+.theory-review-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.theory-review-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border-radius: 16px;
+}
+
+.review-correct {
+  background: rgba(64, 181, 106, 0.12);
+}
+
+.review-incorrect {
+  background: rgba(191, 91, 68, 0.12);
+}
+
+.key-signature-badge {
+  display: grid;
+  gap: 6px;
+}
+
+.key-signature-badge span {
+  font-size: 0.82rem;
+  color: rgba(36, 31, 26, 0.72);
+}
+
 .empty-state-panel {
   min-height: 160px;
   display: grid;
@@ -786,6 +939,13 @@ select {
   }
 
   .song-card-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .theory-card-stats,
+  .theory-settings-panel,
+  .theory-choice-grid,
+  .theory-type-select {
     grid-template-columns: 1fr;
   }
 }
@@ -816,7 +976,10 @@ select {
   .library-selection-row,
   .sidebar-row,
   .fingering-editor-header,
-  .fingering-editor-buttons {
+  .fingering-editor-buttons,
+  .theory-screen-hero,
+  .theory-hub-hero,
+  .theory-review-list li {
     flex-direction: column;
     align-items: flex-start;
   }

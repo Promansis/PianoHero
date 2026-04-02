@@ -5,7 +5,14 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { getTrackAssignments } from '../lib/game/songUtils';
 import { parseMidiFile } from '../lib/midi/midiFileParser';
-import type { AddSongPayload, FingeringRow, LibraryBackup, SaveGameResultPayload } from '../shared/dbTypes';
+import type {
+  AddSongPayload,
+  FingeringRow,
+  LibraryBackup,
+  SaveGameResultPayload,
+  SaveTheoryResultPayload,
+  TheoryResultRow,
+} from '../shared/dbTypes';
 import { AppDatabase } from './database';
 
 let mainWindow: BrowserWindow | null = null;
@@ -163,6 +170,13 @@ app.whenReady().then(async () => {
   });
   ipcMain.handle('results:for-song', (_event, songId: string) => db.getGameResults(songId));
   ipcMain.handle('stats:get', (_event, songId: string) => db.getUserStats(songId));
+  ipcMain.handle('theory:save-result', (_event, payload: SaveTheoryResultPayload) => {
+    db.saveTheoryResult(payload);
+  });
+  ipcMain.handle('theory:get-results', (_event, type?: TheoryResultRow['type'], limit?: number) =>
+    db.getTheoryResults(type, limit),
+  );
+  ipcMain.handle('theory:get-stats', (_event, type: TheoryResultRow['type']) => db.getTheoryStats(type));
 
   ipcMain.handle('fingerings:get', (_event, songId: string) => db.getCustomFingerings(songId));
   ipcMain.handle(

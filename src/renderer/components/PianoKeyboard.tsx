@@ -3,6 +3,9 @@ import type { Hand } from '../../lib/game/types';
 interface PianoKeyboardProps {
   activeNotes: number[];
   upcomingNotes: Array<{ midi: number; hand: Hand; finger?: number }>;
+  highlightedNotes?: number[];
+  highlightColor?: 'scale' | 'chord';
+  chordLabel?: string | null;
 }
 
 interface KeyLayout {
@@ -85,7 +88,17 @@ function upcomingMap(
   return new Map(upcomingNotes.map((note) => [note.midi, { hand: note.hand, finger: note.finger }]));
 }
 
-export function PianoKeyboard({ activeNotes, upcomingNotes }: PianoKeyboardProps) {
+function matchesHighlight(midi: number, highlightedNotes: number[]): boolean {
+  return highlightedNotes.some((note) => (note <= 11 ? midi % 12 === note : midi === note));
+}
+
+export function PianoKeyboard({
+  activeNotes,
+  upcomingNotes,
+  highlightedNotes = [],
+  highlightColor = 'scale',
+  chordLabel = null,
+}: PianoKeyboardProps) {
   const activeSet = new Set(activeNotes);
   const upcoming = upcomingMap(upcomingNotes);
   const whiteKeys = KEY_LAYOUT.filter((key) => !key.isBlack);
@@ -102,14 +115,16 @@ export function PianoKeyboard({ activeNotes, upcomingNotes }: PianoKeyboardProps
       </div>
 
       <div className="keyboard-stage">
+        {chordLabel && <div className="chord-label">{chordLabel}</div>}
         <div className="white-keys">
           {whiteKeys.map((key) => {
             const cue = upcoming.get(key.midi);
             const isActive = activeSet.has(key.midi);
+            const isHighlighted = matchesHighlight(key.midi, highlightedNotes);
             return (
               <div
                 key={key.midi}
-                className={`white-key ${isActive ? 'active' : ''} ${cue ? `cue-${cue.hand}` : ''}`}
+                className={`white-key ${isActive ? 'active' : ''} ${cue ? `cue-${cue.hand}` : ''} ${isHighlighted ? `${highlightColor}-highlight` : ''}`}
                 style={{ width: `${WHITE_KEY_WIDTH}%` }}
                 title={key.note}
               >
@@ -124,10 +139,11 @@ export function PianoKeyboard({ activeNotes, upcomingNotes }: PianoKeyboardProps
           {blackKeys.map((key) => {
             const cue = upcoming.get(key.midi);
             const isActive = activeSet.has(key.midi);
+            const isHighlighted = matchesHighlight(key.midi, highlightedNotes);
             return (
               <div
                 key={key.midi}
-                className={`black-key ${isActive ? 'active' : ''} ${cue ? `cue-${cue.hand}` : ''}`}
+                className={`black-key ${isActive ? 'active' : ''} ${cue ? `cue-${cue.hand}` : ''} ${isHighlighted ? `${highlightColor}-highlight` : ''}`}
                 style={{ left: `${key.left}%` }}
                 title={key.note}
               >

@@ -11,6 +11,7 @@ interface LibraryScreenProps {
   onStartSession: (song: SongRow, mode: SessionMode) => void;
   onStartPlaylistQueue: (songs: SongRow[]) => void;
   onStartFreePlay: () => void;
+  onStartTheoryPractice: () => void;
   onOpenSetupGuide: () => void;
   onOpenKeyboardSetup: () => void;
 }
@@ -104,6 +105,7 @@ export function LibraryScreen({
   onStartSession,
   onStartPlaylistQueue,
   onStartFreePlay,
+  onStartTheoryPractice,
   onOpenSetupGuide,
   onOpenKeyboardSetup,
 }: LibraryScreenProps) {
@@ -534,6 +536,9 @@ export function LibraryScreen({
           </button>
           <button className="secondary-button" onClick={onStartFreePlay}>
             Free Play
+          </button>
+          <button className="secondary-button" onClick={onStartTheoryPractice}>
+            Theory
           </button>
           <button className="secondary-button" onClick={onOpenKeyboardSetup}>
             Keyboard Setup
