@@ -4,7 +4,7 @@ import type { GameResult } from '../../lib/game/types';
 import { parseMidiFile } from '../../lib/midi/midiFileParser';
 import type { SongTheoryAnalysis, TheorySuggestion } from '../../lib/theory/songAnalysis';
 import { analyzeSong } from '../../lib/theory/songAnalysis';
-import type { SongRow, UserStatsRow } from '../../shared/dbTypes';
+import type { SongRow, TroubleSpotRow, UserStatsRow } from '../../shared/dbTypes';
 import { PerformanceGraph } from './PerformanceGraph';
 
 interface ResultsScreenProps {
@@ -13,6 +13,7 @@ interface ResultsScreenProps {
   songFilePath: string;
   sessionConfig: SessionConfig;
   baselineStats: UserStatsRow | null;
+  onAchievementsUnlocked?: (achievementIds: string[]) => void;
   onRetry: () => void;
   onPracticeSections: (loopRange: LoopRange) => void;
   onStartTheoryPractice: (suggestion: TheorySuggestion) => void;
@@ -75,6 +76,7 @@ export function ResultsScreen({
   songFilePath,
   sessionConfig,
   baselineStats,
+  onAchievementsUnlocked,
   onRetry,
   onPracticeSections,
   onStartTheoryPractice,
@@ -86,35 +88,51 @@ export function ResultsScreen({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<SongTheoryAnalysis | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [historicalTroubleSpots, setHistoricalTroubleSpots] = useState<TroubleSpotRow[]>([]);
+  const [troubleSpotsLoading, setTroubleSpotsLoading] = useState(true);
   const grade = getGrade(result.accuracy);
   const stars = getStarCount(result.accuracy);
   const troubleSpots = result.measureAccuracy.filter((entry) => entry.accuracy < 70);
   const feedback = buildFeedback(result);
 
   useEffect(() => {
-    if (didPersistRef.current || !window.appBridge) {
+    if (didPersistRef.current) {
+      return;
+    }
+    const bridge = window.appBridge;
+    if (!bridge) {
+      setTroubleSpotsLoading(false);
       return;
     }
 
     didPersistRef.current = true;
-    void window.appBridge
-      .saveGameResult({
-        songId: song.id,
-        score: result.score,
-        accuracy: result.accuracy,
-        maxCombo: result.maxCombo,
-        perfectHits: result.perfectHits,
-        goodHits: result.goodHits,
-        okHits: result.okHits,
-        misses: result.misses,
-        tempo: result.tempo,
-        mode: result.mode,
-        durationSec: result.durationSec,
-      })
-      .catch((error) => {
+    void (async () => {
+      try {
+        const outcome = await bridge.saveGameResult({
+          songId: song.id,
+          score: result.score,
+          accuracy: result.accuracy,
+          maxCombo: result.maxCombo,
+          perfectHits: result.perfectHits,
+          goodHits: result.goodHits,
+          okHits: result.okHits,
+          misses: result.misses,
+          tempo: result.tempo,
+          mode: result.mode,
+          durationSec: result.durationSec,
+          measureAccuracy: result.measureAccuracy,
+        });
+        onAchievementsUnlocked?.(outcome.unlockedAchievementIds);
+        const nextTroubleSpots = await bridge.getTroubleSpots(song.id);
+        setHistoricalTroubleSpots(nextTroubleSpots);
+        setSaveError(null);
+      } catch (error) {
         setSaveError((error as Error).message);
-      });
-  }, [result, song.id]);
+      } finally {
+        setTroubleSpotsLoading(false);
+      }
+    })();
+  }, [onAchievementsUnlocked, result, song.id]);
 
   useEffect(() => {
     const loadAnalysis = async () => {
@@ -156,10 +174,35 @@ export function ResultsScreen({
     };
   }, [baselineStats, result]);
 
-  const practiceLoop = troubleSpots.length
+  const troubleSpotDetails = useMemo(
+    () =>
+      troubleSpots
+        .map((entry) => {
+          const history = historicalTroubleSpots.find(
+            (spot) => entry.measure >= spot.measureStart && entry.measure <= spot.measureEnd,
+          );
+          const lowestAccuracy = history?.lowestAccuracy ?? null;
+          const improvementText =
+            lowestAccuracy !== null && lowestAccuracy < entry.accuracy
+              ? `Accuracy improved from ${Math.round(lowestAccuracy)}% -> ${Math.round(entry.accuracy)}%`
+              : lowestAccuracy !== null
+                ? `Lowest recorded accuracy: ${Math.round(lowestAccuracy)}%`
+                : null;
+
+          return {
+            entry,
+            history,
+            improvementText,
+          };
+        })
+        .sort((left, right) => left.entry.accuracy - right.entry.accuracy),
+    [historicalTroubleSpots, troubleSpots],
+  );
+
+  const practiceLoop = troubleSpotDetails.length
     ? {
-        startMeasure: troubleSpots[0].measure,
-        endMeasure: troubleSpots[Math.min(troubleSpots.length - 1, 2)].measure,
+        startMeasure: troubleSpotDetails[0].history?.measureStart ?? troubleSpotDetails[0].entry.measure,
+        endMeasure: troubleSpotDetails[0].history?.measureEnd ?? troubleSpotDetails[0].entry.measure,
       }
     : null;
 
@@ -279,14 +322,27 @@ export function ResultsScreen({
             <p className="empty-state">No problem measures detected in this run.</p>
           ) : (
             <ul className="trouble-spot-list">
-              {troubleSpots.map((entry) => (
-                <li key={entry.measure}>
-                  <span>Measure {entry.measure + 1}</span>
+              {troubleSpotDetails.map(({ entry, history, improvementText }) => (
+                <li
+                  key={entry.measure}
+                  className={history?.isResolved ? 'trouble-spot-resolved' : undefined}
+                >
+                  <div>
+                    <span>Measure {entry.measure + 1}</span>
+                    {history && (
+                      <p className="panel-copy">
+                        You&apos;ve struggled with this section {history.struggleCount} time{history.struggleCount === 1 ? '' : 's'}.
+                      </p>
+                    )}
+                    {improvementText && <p className="panel-copy">{improvementText}</p>}
+                    {history?.isResolved && <p className="panel-copy">Resolved after repeated clean passes.</p>}
+                  </div>
                   <strong>{entry.accuracy}%</strong>
                 </li>
               ))}
             </ul>
           )}
+          {troubleSpotsLoading && <p className="panel-copy">Loading historical trouble spot data.</p>}
         </article>
       </section>
 
@@ -307,7 +363,7 @@ export function ResultsScreen({
             </div>
             <div className="result-stat">
               <span>Chord Progression</span>
-              <strong>{analysis.chordProgression.slice(0, 4).map((chord) => chord.label).join(' • ') || 'No stable block chords detected'}</strong>
+              <strong>{analysis.chordProgression.slice(0, 4).map((chord) => chord.label).join(' | ') || 'No stable block chords detected'}</strong>
             </div>
             <div className="result-stat">
               <span>Scales Used</span>

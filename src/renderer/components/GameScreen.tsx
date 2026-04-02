@@ -761,6 +761,20 @@ export function GameScreen({
     }
   };
 
+  useEffect(() => {
+    const handleShortcut = (event: Event) => {
+      const customEvent = event as CustomEvent<{ action?: string }>;
+      if (customEvent.detail?.action === 'play-pause') {
+        void handlePlayPause();
+      }
+    };
+
+    window.addEventListener('pianohero-shortcut', handleShortcut);
+    return () => {
+      window.removeEventListener('pianohero-shortcut', handleShortcut);
+    };
+  }, [handlePlayPause]);
+
   const handleSelectFingeringNote = (
     note: PlaybackSnapshot['visibleNotes'][number],
     anchorPoint: { x: number; y: number },

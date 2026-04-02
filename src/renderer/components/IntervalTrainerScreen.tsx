@@ -11,6 +11,7 @@ interface IntervalTrainerScreenProps {
   keyboardInputService: ComputerKeyboardInputService;
   inputMode: InputMode;
   onBack: () => void;
+  onAchievementsUnlocked?: (achievementIds: string[]) => void;
   preset?: { difficulty: string };
 }
 
@@ -45,7 +46,12 @@ function buildQuestion(difficulty: IntervalDifficulty): TrainerQuestion {
   };
 }
 
-export function IntervalTrainerScreen({ audioEngine, onBack, preset }: IntervalTrainerScreenProps) {
+export function IntervalTrainerScreen({
+  audioEngine,
+  onBack,
+  onAchievementsUnlocked,
+  preset,
+}: IntervalTrainerScreenProps) {
   const [difficulty, setDifficulty] = useState<IntervalDifficulty>((preset?.difficulty as IntervalDifficulty) || 'easy');
   const [questionIndex, setQuestionIndex] = useState(0);
   const [score, setScore] = useState(0);
@@ -97,18 +103,22 @@ export function IntervalTrainerScreen({ audioEngine, onBack, preset }: IntervalT
 
     savedSessionRef.current = true;
     const accuracy = (score / totalQuestions) * 100;
-    void window.appBridge?.saveTheoryResult({
-      type: 'interval-trainer',
-      score,
-      totalQuestions,
-      accuracy,
-      details: {
-        difficulty,
-        maxStreak,
-        history,
-      },
-    });
-  }, [difficulty, history, maxStreak, score, sessionComplete]);
+    void window.appBridge
+      ?.saveTheoryResult({
+        type: 'interval-trainer',
+        score,
+        totalQuestions,
+        accuracy,
+        details: {
+          difficulty,
+          maxStreak,
+          history,
+        },
+      })
+      .then((outcome) => {
+        onAchievementsUnlocked?.(outcome?.unlockedAchievementIds ?? []);
+      });
+  }, [difficulty, history, maxStreak, onAchievementsUnlocked, score, sessionComplete]);
 
   const accuracy = useMemo(() => (questionIndex === 0 ? 0 : (score / questionIndex) * 100), [questionIndex, score]);
 

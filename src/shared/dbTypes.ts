@@ -89,6 +89,11 @@ export interface GameResultRow {
   durationSec: number;
 }
 
+export interface MeasureAccuracyEntry {
+  measure: number;
+  accuracy: number;
+}
+
 export type TheoryResultType = 'quiz' | 'interval-trainer' | 'scale-practice';
 
 export interface TheoryResultRow {
@@ -136,6 +141,7 @@ export interface SaveGameResultPayload {
   tempo: number;
   mode: SessionMode;
   durationSec: number;
+  measureAccuracy: MeasureAccuracyEntry[];
 }
 
 export interface SaveTheoryResultPayload {
@@ -144,4 +150,70 @@ export interface SaveTheoryResultPayload {
   totalQuestions: number;
   accuracy: number;
   details?: Record<string, unknown>;
+}
+
+export interface SaveResultOutcome {
+  unlockedAchievementIds: string[];
+}
+
+export interface PracticeDayRow {
+  date: string;
+  totalPracticeTimeSec: number;
+  songsPlayed: number;
+  theorySessions: number;
+}
+
+export interface PracticeStreak {
+  currentStreak: number;
+  longestStreak: number;
+}
+
+export interface AchievementRow {
+  id: string;
+  unlockedAt: string | null;
+}
+
+export interface TroubleSpotRow {
+  id: string;
+  songId: string;
+  measureStart: number;
+  measureEnd: number;
+  firstDetected: string;
+  lastPracticed: string | null;
+  resolutionCount: number;
+  isResolved: boolean;
+  struggleCount: number;
+  lowestAccuracy: number | null;
+  latestAccuracy: number | null;
+}
+
+export interface MeasureAccuracyHistoryRow {
+  id: string;
+  gameResultId: string;
+  measure: number;
+  accuracy: number;
+}
+
+export interface RecommendationItem {
+  song: SongRow;
+  reason: string;
+}
+
+export interface RecommendationResult {
+  nextChallenge: RecommendationItem[];
+  skillBuilder: RecommendationItem[];
+  youMightLike: RecommendationItem[];
+  revisit: RecommendationItem[];
+}
+
+export interface ProgressStatsResult {
+  practiceTimeByDay: Array<{ date: string; minutes: number }>;
+  songsPlayedByWeek: Array<{ weekStart: string; count: number }>;
+  accuracyTrend: Array<{ date: string; avgAccuracy: number }>;
+  totalStats: {
+    totalSongs: number;
+    songsMastered: number;
+    totalPracticeTimeSec: number;
+    favoriteGenre: string;
+  };
 }

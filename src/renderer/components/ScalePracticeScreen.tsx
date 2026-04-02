@@ -13,6 +13,7 @@ interface ScalePracticeScreenProps {
   keyboardInputService: ComputerKeyboardInputService;
   inputMode: InputMode;
   onBack: () => void;
+  onAchievementsUnlocked?: (achievementIds: string[]) => void;
   preset?: { root: number; scaleName: string };
 }
 
@@ -22,6 +23,7 @@ export function ScalePracticeScreen({
   keyboardInputService,
   inputMode,
   onBack,
+  onAchievementsUnlocked,
   preset,
 }: ScalePracticeScreenProps) {
   const defaultScale = preset?.scaleName ? SCALE_DEFINITIONS.find((scale) => scale.name === preset.scaleName) ?? SCALE_DEFINITIONS[0] : SCALE_DEFINITIONS[0];
@@ -156,19 +158,23 @@ export function ScalePracticeScreen({
     savedSessionRef.current = true;
     setIsActive(false);
     setStatusMessage(`Scale complete. Accuracy ${accuracy.toFixed(1)}%.`);
-    void window.appBridge?.saveTheoryResult({
-      type: 'scale-practice',
-      score: correctCount,
-      totalQuestions: validation.length,
-      accuracy,
-      details: {
-        scaleName: selectedScale.name,
-        root: selectedRoot,
-        direction,
-        octaves,
-      },
-    });
-  }, [currentScale, direction, isActive, octaves, playedNotes, selectedRoot, selectedScale.name, sequence.length]);
+    void window.appBridge
+      ?.saveTheoryResult({
+        type: 'scale-practice',
+        score: correctCount,
+        totalQuestions: validation.length,
+        accuracy,
+        details: {
+          scaleName: selectedScale.name,
+          root: selectedRoot,
+          direction,
+          octaves,
+        },
+      })
+      .then((outcome) => {
+        onAchievementsUnlocked?.(outcome?.unlockedAchievementIds ?? []);
+      });
+  }, [currentScale, direction, isActive, octaves, onAchievementsUnlocked, playedNotes, selectedRoot, selectedScale.name, sequence.length]);
 
   const progress = `${playedNotes.length} / ${sequence.length}`;
 

@@ -78,6 +78,208 @@ function parseMidiFile(arrayBuffer, meta) {
     notes: notes.sort((left, right) => left.startSec - right.startSec || left.midi - right.midi)
   };
 }
+function getUnlockableAchievementIds(metrics, unlockedIds) {
+  const unlockable = [];
+  const addIfLocked = (achievementId, condition) => {
+    if (condition && !unlockedIds.has(achievementId)) {
+      unlockable.push(achievementId);
+    }
+  };
+  addIfLocked("first-song", metrics.completedSongSessions >= 1);
+  addIfLocked("perfect-score", metrics.hasPerfectScore);
+  addIfLocked("streak-7", metrics.currentStreak >= 7);
+  addIfLocked("streak-30", metrics.currentStreak >= 30);
+  addIfLocked("century-club", metrics.completedSongSessions >= 100);
+  addIfLocked("theorist", metrics.theorySessionCount >= 10);
+  addIfLocked("master-10", metrics.masteredSongCount >= 10);
+  return unlockable;
+}
+const ACHIEVEMENTS = [
+  {
+    id: "first-song",
+    name: "First Steps",
+    description: "Complete your first song.",
+    icon: "1"
+  },
+  {
+    id: "perfect-score",
+    name: "Perfectionist",
+    description: "Reach 100% accuracy on any song.",
+    icon: "*"
+  },
+  {
+    id: "streak-7",
+    name: "Week Warrior",
+    description: "Maintain a 7-day practice streak.",
+    icon: "7"
+  },
+  {
+    id: "streak-30",
+    name: "Monthly Master",
+    description: "Maintain a 30-day practice streak.",
+    icon: "30"
+  },
+  {
+    id: "century-club",
+    name: "Century Club",
+    description: "Complete 100 song sessions.",
+    icon: "100"
+  },
+  {
+    id: "theorist",
+    name: "Music Theorist",
+    description: "Complete 10 theory sessions.",
+    icon: "10"
+  },
+  {
+    id: "master-10",
+    name: "Master",
+    description: "Reach 90%+ accuracy on 10 songs.",
+    icon: "10x"
+  }
+];
+function average(values) {
+  if (values.length === 0) {
+    return null;
+  }
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+function summarizePerformance(results) {
+  const grouped = /* @__PURE__ */ new Map();
+  for (const result of results) {
+    const bucket = grouped.get(result.songId) ?? [];
+    bucket.push(result);
+    grouped.set(result.songId, bucket);
+  }
+  return new Map(
+    [...grouped.entries()].map(([songId, bucket]) => [
+      songId,
+      {
+        songId,
+        lastPlayed: bucket.map((entry) => entry.timestamp).sort((left, right) => right.localeCompare(left))[0] ?? null,
+        playCount: bucket.length,
+        averageAccuracy: average(bucket.map((entry) => entry.accuracy))
+      }
+    ])
+  );
+}
+function isBalancedHandSong(song) {
+  const assignments = Object.values(song.trackAssignments);
+  if (assignments.length === 0) {
+    return true;
+  }
+  const leftCount = assignments.filter((assignment) => assignment === "left").length;
+  const rightCount = assignments.filter((assignment) => assignment === "right").length;
+  if (leftCount === 0 || rightCount === 0) {
+    return false;
+  }
+  const ratio = leftCount / rightCount;
+  return ratio >= 0.6 && ratio <= 1.66;
+}
+function byDifficultyThenRecency(left, right, performance) {
+  const difficultyDelta = left.difficulty - right.difficulty;
+  if (difficultyDelta !== 0) {
+    return difficultyDelta;
+  }
+  const leftPlayed = performance.get(left.id)?.lastPlayed ?? "";
+  const rightPlayed = performance.get(right.id)?.lastPlayed ?? "";
+  return leftPlayed.localeCompare(rightPlayed);
+}
+function takeSongs(songs, usedIds, reasonBuilder, limit = 3) {
+  const items = [];
+  for (const song of songs) {
+    if (usedIds.has(song.id)) {
+      continue;
+    }
+    usedIds.add(song.id);
+    items.push({
+      song,
+      reason: reasonBuilder(song)
+    });
+    if (items.length >= limit) {
+      break;
+    }
+  }
+  return items;
+}
+function generateRecommendations({
+  songs,
+  userStatsBySongId,
+  recentResults30,
+  recentResults60
+}) {
+  const usedIds = /* @__PURE__ */ new Set();
+  const recent30BySong = summarizePerformance(recentResults30);
+  const recent60BySong = summarizePerformance(recentResults60);
+  const recentSuccesses = songs.filter((song) => {
+    const performance = recent30BySong.get(song.id);
+    return performance !== void 0 && performance.averageAccuracy !== null && performance.averageAccuracy >= 80;
+  });
+  const historicallyStrongSongs = songs.filter((song) => (userStatsBySongId[song.id]?.bestAccuracy ?? 0) >= 80);
+  const baselineDifficulty = average(recentSuccesses.map((song) => song.difficulty)) ?? average(historicallyStrongSongs.map((song) => song.difficulty)) ?? 3;
+  const nextChallengeCandidates = [...songs].filter((song) => song.difficulty >= Math.ceil(baselineDifficulty + 1) && song.difficulty <= Math.ceil(baselineDifficulty + 2)).filter((song) => {
+    const stats = userStatsBySongId[song.id];
+    const recentPerformance = recent30BySong.get(song.id);
+    return !stats || !recentPerformance || (recentPerformance.averageAccuracy ?? 0) < 70;
+  }).sort((left, right) => byDifficultyThenRecency(left, right, recent30BySong));
+  const weakerSongs = songs.filter((song) => {
+    const performance = recent30BySong.get(song.id);
+    return performance !== void 0 && performance.averageAccuracy !== null && performance.averageAccuracy < 75;
+  });
+  const skillTargetDifficulty = average(weakerSongs.map((song) => song.difficulty)) ?? Math.max(2, Math.round(baselineDifficulty));
+  const skillBuilderCandidates = [...songs].filter((song) => isBalancedHandSong(song)).filter((song) => Math.abs(song.difficulty - skillTargetDifficulty) <= 1).sort((left, right) => byDifficultyThenRecency(left, right, recent30BySong));
+  const genreCounts = /* @__PURE__ */ new Map();
+  for (const result of recentResults60) {
+    const song = songs.find((entry) => entry.id === result.songId);
+    if (!song?.genre.trim()) {
+      continue;
+    }
+    genreCounts.set(song.genre, (genreCounts.get(song.genre) ?? 0) + 1);
+  }
+  const preferredGenres = [...genreCounts.entries()].sort((left, right) => right[1] - left[1]).map(([genre]) => genre).slice(0, 2);
+  const youMightLikeCandidates = [...songs].filter((song) => preferredGenres.includes(song.genre)).filter((song) => (userStatsBySongId[song.id]?.playCount ?? 0) <= 1).sort((left, right) => {
+    const leftGenreCount = genreCounts.get(left.genre) ?? 0;
+    const rightGenreCount = genreCounts.get(right.genre) ?? 0;
+    if (leftGenreCount !== rightGenreCount) {
+      return rightGenreCount - leftGenreCount;
+    }
+    return left.title.localeCompare(right.title);
+  });
+  const revisitCandidates = [...songs].filter((song) => {
+    const stats = userStatsBySongId[song.id];
+    if (!stats || stats.playCount === 0) {
+      return false;
+    }
+    const recentPerformance = recent60BySong.get(song.id)?.averageAccuracy ?? stats.bestAccuracy;
+    return recentPerformance >= 60 && recentPerformance <= 85;
+  }).sort((left, right) => {
+    const leftPlayed = userStatsBySongId[left.id]?.lastPlayed ?? "";
+    const rightPlayed = userStatsBySongId[right.id]?.lastPlayed ?? "";
+    return leftPlayed.localeCompare(rightPlayed);
+  });
+  return {
+    nextChallenge: takeSongs(
+      nextChallengeCandidates,
+      usedIds,
+      (song) => `Difficulty ${song.difficulty} is just above your recent comfort zone.`
+    ),
+    skillBuilder: takeSongs(
+      skillBuilderCandidates,
+      usedIds,
+      () => "Balanced hand work to reinforce coordination and timing."
+    ),
+    youMightLike: takeSongs(
+      youMightLikeCandidates,
+      usedIds,
+      (song) => `You have been leaning into ${song.genre || "this style"} lately.`
+    ),
+    revisit: takeSongs(
+      revisitCandidates,
+      usedIds,
+      () => "Solid foundation already there. Another pass should convert this into a strong score."
+    )
+  };
+}
 class AppDatabase {
   db;
   constructor(dbPath) {
@@ -177,6 +379,36 @@ class AppDatabase {
         sort_order INTEGER NOT NULL DEFAULT 0,
         PRIMARY KEY (playlist_id, song_id)
       );
+
+      CREATE TABLE IF NOT EXISTS practice_days (
+        date TEXT PRIMARY KEY,
+        total_practice_time_sec REAL NOT NULL DEFAULT 0,
+        songs_played INTEGER NOT NULL DEFAULT 0,
+        theory_sessions INTEGER NOT NULL DEFAULT 0
+      );
+
+      CREATE TABLE IF NOT EXISTS achievements (
+        id TEXT PRIMARY KEY,
+        unlocked_at TEXT
+      );
+
+      CREATE TABLE IF NOT EXISTS trouble_spots (
+        id TEXT PRIMARY KEY,
+        song_id TEXT NOT NULL REFERENCES songs(id) ON DELETE CASCADE,
+        measure_start INTEGER NOT NULL,
+        measure_end INTEGER NOT NULL,
+        first_detected TEXT NOT NULL,
+        last_practiced TEXT,
+        resolution_count INTEGER NOT NULL DEFAULT 0,
+        is_resolved INTEGER NOT NULL DEFAULT 0
+      );
+
+      CREATE TABLE IF NOT EXISTS measure_accuracy_history (
+        id TEXT PRIMARY KEY,
+        game_result_id TEXT NOT NULL REFERENCES game_results(id) ON DELETE CASCADE,
+        measure INTEGER NOT NULL,
+        accuracy REAL NOT NULL
+      );
     `);
     this.ensureSongFolderColumn();
     this.db.exec(`
@@ -187,6 +419,11 @@ class AppDatabase {
       CREATE INDEX IF NOT EXISTS idx_songs_date_added ON songs(date_added);
       CREATE INDEX IF NOT EXISTS idx_songs_title ON songs(title COLLATE NOCASE);
       CREATE INDEX IF NOT EXISTS idx_songs_folder_id ON songs(folder_id);
+      CREATE INDEX IF NOT EXISTS idx_game_results_song_timestamp ON game_results(song_id, timestamp DESC);
+      CREATE INDEX IF NOT EXISTS idx_user_stats_last_played ON user_stats(last_played DESC);
+      CREATE INDEX IF NOT EXISTS idx_practice_days_date ON practice_days(date DESC);
+      CREATE INDEX IF NOT EXISTS idx_trouble_spots_song ON trouble_spots(song_id, is_resolved);
+      CREATE INDEX IF NOT EXISTS idx_measure_accuracy_history_game_result ON measure_accuracy_history(game_result_id, measure);
       CREATE INDEX IF NOT EXISTS idx_playlist_songs_playlist_id ON playlist_songs(playlist_id, sort_order);
       CREATE INDEX IF NOT EXISTS idx_folders_sort_order ON folders(sort_order, name COLLATE NOCASE);
       CREATE INDEX IF NOT EXISTS idx_playlists_name ON playlists(name COLLATE NOCASE);
@@ -195,12 +432,19 @@ class AppDatabase {
     this.db.prepare(`UPDATE songs SET track_assignments = '{}' WHERE track_assignments = '' OR track_assignments IS NULL`).run();
     this.db.prepare(`UPDATE game_results SET mode = 'piano-hero' WHERE mode = 'normal' OR mode = '' OR mode IS NULL`).run();
     this.db.prepare(`INSERT OR IGNORE INTO settings (category, key, value) VALUES ('fingering', 'handSize', 'medium')`).run();
+    this.seedAchievements();
   }
   ensureSongFolderColumn() {
     const columns = this.db.prepare(`PRAGMA table_info(songs)`).all();
     const hasFolderId = columns.some((column) => column.name === "folder_id");
     if (!hasFolderId) {
       this.db.prepare(`ALTER TABLE songs ADD COLUMN folder_id TEXT`).run();
+    }
+  }
+  seedAchievements() {
+    const insert = this.db.prepare("INSERT OR IGNORE INTO achievements (id, unlocked_at) VALUES (?, NULL)");
+    for (const achievement of ACHIEVEMENTS) {
+      insert.run(achievement.id);
     }
   }
   migrateFromJson(userDataPath) {
@@ -548,6 +792,18 @@ class AppDatabase {
         mode: payload.mode,
         durationSec: payload.durationSec
       });
+      const insertMeasureAccuracy = this.db.prepare(`
+        INSERT INTO measure_accuracy_history (id, game_result_id, measure, accuracy)
+        VALUES (@id, @gameResultId, @measure, @accuracy)
+      `);
+      for (const entry of payload.measureAccuracy) {
+        insertMeasureAccuracy.run({
+          id: randomUUID(),
+          gameResultId: id,
+          measure: entry.measure,
+          accuracy: entry.accuracy
+        });
+      }
       const existing = this.db.prepare("SELECT * FROM user_stats WHERE song_id = ?").get(payload.songId);
       if (!existing) {
         this.db.prepare(`
@@ -582,8 +838,13 @@ class AppDatabase {
           `).run({ playCount, bestScore, newAvg, bestAccuracy, now, totalTime, songId: payload.songId });
       }
       this.db.prepare("UPDATE songs SET times_played = times_played + 1 WHERE id = ?").run(payload.songId);
+      this.recordPracticeDayEntry(payload.durationSec, 1, 0);
+      this.updateTroubleSpotsForSong(payload.songId, payload.measureAccuracy, now);
+      return {
+        unlockedAchievementIds: this.checkAndUnlockAchievements()
+      };
     });
-    saveTransaction();
+    return saveTransaction();
   }
   getGameResults(songId) {
     const rows = this.db.prepare("SELECT * FROM game_results WHERE song_id = ? ORDER BY timestamp DESC").all(songId);
@@ -596,20 +857,27 @@ class AppDatabase {
   saveTheoryResult(payload) {
     const id = randomUUID();
     const now = (/* @__PURE__ */ new Date()).toISOString();
-    this.db.prepare(`
-        INSERT INTO theory_results
-          (id, type, score, total_questions, accuracy, details, timestamp)
-        VALUES
-          (@id, @type, @score, @totalQuestions, @accuracy, @details, @timestamp)
-      `).run({
-      id,
-      type: payload.type,
-      score: payload.score,
-      totalQuestions: payload.totalQuestions,
-      accuracy: payload.accuracy,
-      details: JSON.stringify(payload.details ?? {}),
-      timestamp: now
+    const saveTransaction = this.db.transaction(() => {
+      this.db.prepare(`
+          INSERT INTO theory_results
+            (id, type, score, total_questions, accuracy, details, timestamp)
+          VALUES
+            (@id, @type, @score, @totalQuestions, @accuracy, @details, @timestamp)
+        `).run({
+        id,
+        type: payload.type,
+        score: payload.score,
+        totalQuestions: payload.totalQuestions,
+        accuracy: payload.accuracy,
+        details: JSON.stringify(payload.details ?? {}),
+        timestamp: now
+      });
+      this.recordPracticeDayEntry(0, 0, 1);
+      return {
+        unlockedAchievementIds: this.checkAndUnlockAchievements()
+      };
     });
+    return saveTransaction();
   }
   getTheoryResults(type, limit = 20) {
     const clampedLimit = Math.max(1, Math.min(limit, 200));
@@ -632,6 +900,292 @@ class AppDatabase {
       bestScore: row.best_score,
       averageAccuracy: row.average_accuracy,
       lastPlayed: row.last_played ?? null
+    };
+  }
+  getPracticeDays(fromDate, toDate) {
+    const rows = this.db.prepare(`
+        SELECT *
+        FROM practice_days
+        WHERE date BETWEEN ? AND ?
+        ORDER BY date ASC
+      `).all(fromDate, toDate);
+    return rows.map(rowToPracticeDay);
+  }
+  recordPracticeTime(durationSec, songsPlayed, theorySessions) {
+    this.recordPracticeDayEntry(durationSec, songsPlayed, theorySessions);
+  }
+  getPracticeStreak() {
+    const rows = this.db.prepare("SELECT date FROM practice_days WHERE total_practice_time_sec > 0 OR songs_played > 0 OR theory_sessions > 0 ORDER BY date ASC").all();
+    return calculatePracticeStreak(rows.map((row) => row.date), /* @__PURE__ */ new Date());
+  }
+  getAllAchievements() {
+    const rows = this.db.prepare("SELECT * FROM achievements ORDER BY id ASC").all();
+    return rows.map(rowToAchievement);
+  }
+  unlockAchievement(achievementId) {
+    this.db.prepare("UPDATE achievements SET unlocked_at = COALESCE(unlocked_at, ?) WHERE id = ?").run((/* @__PURE__ */ new Date()).toISOString(), achievementId);
+  }
+  getTroubleSpots(songId) {
+    const rows = this.db.prepare(`
+        SELECT
+          ts.*,
+          (
+            SELECT COUNT(*)
+            FROM measure_accuracy_history mah
+            INNER JOIN game_results gr ON gr.id = mah.game_result_id
+            WHERE gr.song_id = ts.song_id
+              AND mah.measure BETWEEN ts.measure_start AND ts.measure_end
+              AND mah.accuracy < 70
+          ) AS struggle_count,
+          (
+            SELECT MIN(mah.accuracy)
+            FROM measure_accuracy_history mah
+            INNER JOIN game_results gr ON gr.id = mah.game_result_id
+            WHERE gr.song_id = ts.song_id
+              AND mah.measure BETWEEN ts.measure_start AND ts.measure_end
+          ) AS lowest_accuracy,
+          (
+            SELECT mah.accuracy
+            FROM measure_accuracy_history mah
+            INNER JOIN game_results gr ON gr.id = mah.game_result_id
+            WHERE gr.song_id = ts.song_id
+              AND mah.measure BETWEEN ts.measure_start AND ts.measure_end
+            ORDER BY gr.timestamp DESC, mah.rowid DESC
+            LIMIT 1
+          ) AS latest_accuracy
+        FROM trouble_spots ts
+        WHERE ts.song_id = ?
+        ORDER BY ts.is_resolved ASC, ts.measure_start ASC, ts.first_detected ASC
+      `).all(songId);
+    return rows.map(rowToTroubleSpot);
+  }
+  updateTroubleSpot(spotId, updates) {
+    const fields = [];
+    const params = { id: spotId };
+    if (updates.measureStart !== void 0) {
+      fields.push("measure_start = @measureStart");
+      params.measureStart = updates.measureStart;
+    }
+    if (updates.measureEnd !== void 0) {
+      fields.push("measure_end = @measureEnd");
+      params.measureEnd = updates.measureEnd;
+    }
+    if (updates.firstDetected !== void 0) {
+      fields.push("first_detected = @firstDetected");
+      params.firstDetected = updates.firstDetected;
+    }
+    if (updates.lastPracticed !== void 0) {
+      fields.push("last_practiced = @lastPracticed");
+      params.lastPracticed = updates.lastPracticed;
+    }
+    if (updates.resolutionCount !== void 0) {
+      fields.push("resolution_count = @resolutionCount");
+      params.resolutionCount = updates.resolutionCount;
+    }
+    if (updates.isResolved !== void 0) {
+      fields.push("is_resolved = @isResolved");
+      params.isResolved = updates.isResolved ? 1 : 0;
+    }
+    if (fields.length === 0) {
+      return;
+    }
+    this.db.prepare(`UPDATE trouble_spots SET ${fields.join(", ")} WHERE id = @id`).run(params);
+  }
+  getMeasureAccuracyHistory(songId) {
+    const rows = this.db.prepare(`
+        SELECT mah.*
+        FROM measure_accuracy_history mah
+        INNER JOIN game_results gr ON gr.id = mah.game_result_id
+        WHERE gr.song_id = ?
+        ORDER BY gr.timestamp DESC, mah.measure ASC
+      `).all(songId);
+    return rows.map(rowToMeasureAccuracyHistory);
+  }
+  getRecommendations() {
+    const songs = this.getAllSongs();
+    const statsRows = this.db.prepare("SELECT * FROM user_stats").all();
+    const userStatsBySongId = Object.fromEntries(statsRows.map((row) => {
+      const stats = rowToUserStats(row);
+      return [stats.songId, stats];
+    }));
+    const recentResults30 = this.db.prepare(`
+        SELECT *
+        FROM game_results
+        WHERE datetime(timestamp) >= datetime('now', '-30 days')
+        ORDER BY timestamp DESC
+      `).all();
+    const recentResults60 = this.db.prepare(`
+        SELECT *
+        FROM game_results
+        WHERE datetime(timestamp) >= datetime('now', '-60 days')
+        ORDER BY timestamp DESC
+      `).all();
+    return generateRecommendations({
+      songs,
+      userStatsBySongId,
+      recentResults30: recentResults30.map(rowToGameResult),
+      recentResults60: recentResults60.map(rowToGameResult)
+    });
+  }
+  getProgressStats(fromDate, toDate) {
+    const practiceRows = this.getPracticeDays(fromDate, toDate);
+    const practiceDaysByDate = new Map(practiceRows.map((row) => [row.date, row]));
+    const songsPlayedByWeekRows = this.db.prepare(`
+        SELECT
+          date(date, '-' || ((CAST(strftime('%w', date) AS INTEGER) + 6) % 7) || ' days') AS week_start,
+          SUM(songs_played) AS count
+        FROM practice_days
+        WHERE date BETWEEN ? AND ?
+        GROUP BY week_start
+        ORDER BY week_start ASC
+      `).all(fromDate, toDate);
+    const accuracyTrendRows = this.db.prepare(`
+        SELECT
+          substr(timestamp, 1, 10) AS date,
+          AVG(accuracy) AS avg_accuracy
+        FROM game_results
+        WHERE substr(timestamp, 1, 10) BETWEEN ? AND ?
+        GROUP BY substr(timestamp, 1, 10)
+        ORDER BY date ASC
+      `).all(fromDate, toDate);
+    const totalStats = this.db.prepare(`
+        SELECT
+          (SELECT COUNT(*) FROM songs) AS total_songs,
+          (SELECT COUNT(*) FROM user_stats WHERE best_accuracy >= 90) AS songs_mastered,
+          (SELECT COALESCE(SUM(total_practice_time_sec), 0) FROM practice_days) AS total_practice_time_sec,
+          (
+            SELECT COALESCE(s.genre, '')
+            FROM songs s
+            INNER JOIN user_stats us ON us.song_id = s.id
+            WHERE TRIM(s.genre) <> ''
+            GROUP BY s.genre
+            ORDER BY SUM(us.play_count) DESC, s.genre ASC
+            LIMIT 1
+          ) AS favorite_genre
+      `).get();
+    return {
+      practiceTimeByDay: buildPracticeDaySeries(fromDate, toDate, practiceDaysByDate),
+      songsPlayedByWeek: songsPlayedByWeekRows.map((row) => ({
+        weekStart: row.week_start,
+        count: row.count
+      })),
+      accuracyTrend: accuracyTrendRows.map((row) => ({
+        date: row.date,
+        avgAccuracy: Math.round((row.avg_accuracy ?? 0) * 10) / 10
+      })),
+      totalStats: {
+        totalSongs: totalStats.total_songs,
+        songsMastered: totalStats.songs_mastered,
+        totalPracticeTimeSec: totalStats.total_practice_time_sec,
+        favoriteGenre: totalStats.favorite_genre || "Unspecified"
+      }
+    };
+  }
+  recordPracticeDayEntry(durationSec, songsPlayed, theorySessions) {
+    const practiceDate = formatLocalDate(/* @__PURE__ */ new Date());
+    this.db.prepare(`
+        INSERT INTO practice_days (date, total_practice_time_sec, songs_played, theory_sessions)
+        VALUES (@date, @durationSec, @songsPlayed, @theorySessions)
+        ON CONFLICT(date) DO UPDATE SET
+          total_practice_time_sec = total_practice_time_sec + excluded.total_practice_time_sec,
+          songs_played = songs_played + excluded.songs_played,
+          theory_sessions = theory_sessions + excluded.theory_sessions
+      `).run({
+      date: practiceDate,
+      durationSec,
+      songsPlayed,
+      theorySessions
+    });
+  }
+  updateTroubleSpotsForSong(songId, measureAccuracy, practicedAt) {
+    const existingRows = this.db.prepare("SELECT * FROM trouble_spots WHERE song_id = ? ORDER BY measure_start ASC").all(songId);
+    const byMeasure = new Map(existingRows.map((row) => [row.measure_start, row]));
+    for (const entry of measureAccuracy) {
+      const existing = byMeasure.get(entry.measure);
+      if (entry.accuracy < 70) {
+        if (!existing) {
+          this.db.prepare(`
+              INSERT INTO trouble_spots
+                (id, song_id, measure_start, measure_end, first_detected, last_practiced, resolution_count, is_resolved)
+              VALUES
+                (@id, @songId, @measureStart, @measureEnd, @firstDetected, @lastPracticed, 0, 0)
+            `).run({
+            id: randomUUID(),
+            songId,
+            measureStart: entry.measure,
+            measureEnd: entry.measure,
+            firstDetected: practicedAt,
+            lastPracticed: practicedAt
+          });
+          continue;
+        }
+        this.db.prepare(`
+            UPDATE trouble_spots
+            SET
+              last_practiced = @lastPracticed,
+              resolution_count = 0,
+              is_resolved = 0
+            WHERE id = @id
+          `).run({
+          id: existing.id,
+          lastPracticed: practicedAt
+        });
+        continue;
+      }
+      if (!existing) {
+        continue;
+      }
+      if (entry.accuracy > 85) {
+        const nextResolutionCount = existing.resolution_count + 1;
+        this.db.prepare(`
+            UPDATE trouble_spots
+            SET
+              last_practiced = @lastPracticed,
+              resolution_count = @resolutionCount,
+              is_resolved = @isResolved
+            WHERE id = @id
+          `).run({
+          id: existing.id,
+          lastPracticed: practicedAt,
+          resolutionCount: nextResolutionCount,
+          isResolved: nextResolutionCount >= 3 ? 1 : 0
+        });
+      } else {
+        this.db.prepare("UPDATE trouble_spots SET last_practiced = ? WHERE id = ?").run(practicedAt, existing.id);
+      }
+    }
+  }
+  checkAndUnlockAchievements() {
+    const unlockedIds = new Set(
+      this.db.prepare("SELECT id FROM achievements WHERE unlocked_at IS NOT NULL").all().map((row) => row.id)
+    );
+    const metrics = this.buildAchievementMetrics();
+    const unlockableIds = getUnlockableAchievementIds(metrics, unlockedIds);
+    if (unlockableIds.length === 0) {
+      return [];
+    }
+    const now = (/* @__PURE__ */ new Date()).toISOString();
+    const unlockStatement = this.db.prepare("UPDATE achievements SET unlocked_at = COALESCE(unlocked_at, ?) WHERE id = ?");
+    for (const achievementId of unlockableIds) {
+      unlockStatement.run(now, achievementId);
+    }
+    return unlockableIds;
+  }
+  buildAchievementMetrics() {
+    const row = this.db.prepare(`
+        SELECT
+          (SELECT COUNT(*) FROM game_results) AS completed_song_sessions,
+          EXISTS(SELECT 1 FROM game_results WHERE accuracy >= 100) AS has_perfect_score,
+          (SELECT COUNT(*) FROM theory_results) AS theory_session_count,
+          (SELECT COUNT(*) FROM user_stats WHERE best_accuracy >= 90) AS mastered_song_count
+      `).get();
+    const streak = this.getPracticeStreak();
+    return {
+      completedSongSessions: row.completed_song_sessions,
+      hasPerfectScore: Boolean(row.has_perfect_score),
+      currentStreak: streak.currentStreak,
+      theorySessionCount: row.theory_session_count,
+      masteredSongCount: row.mastered_song_count
     };
   }
   getSetting(category, key) {
@@ -909,6 +1463,14 @@ function rowToGameResult(row) {
     durationSec: row.duration_sec
   };
 }
+function rowToPracticeDay(row) {
+  return {
+    date: row.date,
+    totalPracticeTimeSec: row.total_practice_time_sec,
+    songsPlayed: row.songs_played,
+    theorySessions: row.theory_sessions
+  };
+}
 function rowToUserStats(row) {
   return {
     songId: row.song_id,
@@ -918,6 +1480,35 @@ function rowToUserStats(row) {
     bestAccuracy: row.best_accuracy,
     lastPlayed: row.last_played,
     totalPracticeTimeSec: row.total_practice_time_sec
+  };
+}
+function rowToAchievement(row) {
+  return {
+    id: row.id,
+    unlockedAt: row.unlocked_at ?? null
+  };
+}
+function rowToTroubleSpot(row) {
+  return {
+    id: row.id,
+    songId: row.song_id,
+    measureStart: row.measure_start,
+    measureEnd: row.measure_end,
+    firstDetected: row.first_detected,
+    lastPracticed: row.last_practiced ?? null,
+    resolutionCount: row.resolution_count,
+    isResolved: row.is_resolved === 1,
+    struggleCount: row.struggle_count ?? 0,
+    lowestAccuracy: row.lowest_accuracy ?? null,
+    latestAccuracy: row.latest_accuracy ?? null
+  };
+}
+function rowToMeasureAccuracyHistory(row) {
+  return {
+    id: row.id,
+    gameResultId: row.game_result_id,
+    measure: row.measure,
+    accuracy: row.accuracy
   };
 }
 function rowToTheoryResult(row) {
@@ -946,6 +1537,60 @@ function parseJsonObject(value) {
   } catch {
   }
   return {};
+}
+function formatLocalDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+function calculatePracticeStreak(dates, currentDate) {
+  if (dates.length === 0) {
+    return {
+      currentStreak: 0,
+      longestStreak: 0
+    };
+  }
+  const uniqueDates = [...new Set(dates)].sort((left, right) => left.localeCompare(right));
+  let longestStreak = 1;
+  let runningStreak = 1;
+  for (let index = 1; index < uniqueDates.length; index += 1) {
+    const previous = /* @__PURE__ */ new Date(`${uniqueDates[index - 1]}T00:00:00`);
+    const current = /* @__PURE__ */ new Date(`${uniqueDates[index]}T00:00:00`);
+    const dayDelta = Math.round((current.getTime() - previous.getTime()) / 864e5);
+    if (dayDelta === 1) {
+      runningStreak += 1;
+      longestStreak = Math.max(longestStreak, runningStreak);
+    } else {
+      runningStreak = 1;
+    }
+  }
+  const dateSet = new Set(uniqueDates);
+  let currentStreak = 0;
+  const cursor = new Date(currentDate);
+  while (dateSet.has(formatLocalDate(cursor))) {
+    currentStreak += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return {
+    currentStreak,
+    longestStreak
+  };
+}
+function buildPracticeDaySeries(fromDate, toDate, rowsByDate) {
+  const series = [];
+  const cursor = /* @__PURE__ */ new Date(`${fromDate}T00:00:00`);
+  const end = /* @__PURE__ */ new Date(`${toDate}T00:00:00`);
+  while (cursor.getTime() <= end.getTime()) {
+    const date = formatLocalDate(cursor);
+    const row = rowsByDate.get(date);
+    series.push({
+      date,
+      minutes: Math.round((row?.totalPracticeTimeSec ?? 0) / 60 * 10) / 10
+    });
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return series;
 }
 let mainWindow = null;
 let db;
@@ -1063,19 +1708,37 @@ app.whenReady().then(async () => {
     }
     return importedSongs;
   });
-  ipcMain.handle("results:save", (_event, payload) => {
-    db.saveGameResult(payload);
-  });
+  ipcMain.handle("results:save", (_event, payload) => db.saveGameResult(payload));
   ipcMain.handle("results:for-song", (_event, songId) => db.getGameResults(songId));
   ipcMain.handle("stats:get", (_event, songId) => db.getUserStats(songId));
-  ipcMain.handle("theory:save-result", (_event, payload) => {
-    db.saveTheoryResult(payload);
-  });
+  ipcMain.handle("theory:save-result", (_event, payload) => db.saveTheoryResult(payload));
   ipcMain.handle(
     "theory:get-results",
     (_event, type, limit) => db.getTheoryResults(type, limit)
   );
   ipcMain.handle("theory:get-stats", (_event, type) => db.getTheoryStats(type));
+  ipcMain.handle(
+    "practice:get-days",
+    (_event, fromDate, toDate) => db.getPracticeDays(fromDate, toDate)
+  );
+  ipcMain.handle(
+    "practice:record-time",
+    (_event, durationSec, songsPlayed, theorySessions) => db.recordPracticeTime(durationSec, songsPlayed, theorySessions)
+  );
+  ipcMain.handle("practice:get-streak", () => db.getPracticeStreak());
+  ipcMain.handle("achievements:get-all", () => db.getAllAchievements());
+  ipcMain.handle("achievements:unlock", (_event, achievementId) => db.unlockAchievement(achievementId));
+  ipcMain.handle("trouble-spots:get", (_event, songId) => db.getTroubleSpots(songId));
+  ipcMain.handle(
+    "trouble-spots:update",
+    (_event, spotId, updates) => db.updateTroubleSpot(spotId, updates)
+  );
+  ipcMain.handle("measure-accuracy:get-history", (_event, songId) => db.getMeasureAccuracyHistory(songId));
+  ipcMain.handle("recommendations:get", () => db.getRecommendations());
+  ipcMain.handle(
+    "progress:get-stats",
+    (_event, fromDate, toDate) => db.getProgressStats(fromDate, toDate)
+  );
   ipcMain.handle("fingerings:get", (_event, songId) => db.getCustomFingerings(songId));
   ipcMain.handle(
     "fingerings:save",

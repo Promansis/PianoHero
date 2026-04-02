@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { SessionMode } from '../../lib/game/types';
-import type { FolderRow, PlaylistRow, SongRow, UserStatsRow } from '../../shared/dbTypes';
+import type { FolderRow, PlaylistRow, RecommendationResult, SongRow, UserStatsRow } from '../../shared/dbTypes';
 import { AdvancedFilters, type LibraryAdvancedFilters } from './AdvancedFilters';
 import { BulkActionBar } from './BulkActionBar';
 import { LibrarySidebar, type LibraryActiveView } from './LibrarySidebar';
@@ -12,6 +12,8 @@ interface LibraryScreenProps {
   onStartPlaylistQueue: (songs: SongRow[]) => void;
   onStartFreePlay: () => void;
   onStartTheoryPractice: () => void;
+  onOpenProgressDashboard: () => void;
+  onOpenSettings: () => void;
   onOpenSetupGuide: () => void;
   onOpenKeyboardSetup: () => void;
 }
@@ -106,6 +108,8 @@ export function LibraryScreen({
   onStartPlaylistQueue,
   onStartFreePlay,
   onStartTheoryPractice,
+  onOpenProgressDashboard,
+  onOpenSettings,
   onOpenSetupGuide,
   onOpenKeyboardSetup,
 }: LibraryScreenProps) {
@@ -126,9 +130,11 @@ export function LibraryScreen({
   const [selectedSongIds, setSelectedSongIds] = useState<Set<string>>(new Set());
   const [statusMessage, setStatusMessage] = useState('Build your library by importing MIDI files.');
   const [isLoading, setIsLoading] = useState(true);
+  const [isRecommendationsLoading, setIsRecommendationsLoading] = useState(true);
   const [isImporting, setIsImporting] = useState(false);
   const [editingSongId, setEditingSongId] = useState<string | null>(null);
   const [draft, setDraft] = useState<SongDraft | null>(null);
+  const [recommendations, setRecommendations] = useState<RecommendationResult | null>(null);
 
   const refreshLibrary = async () => {
     if (!window.appBridge) {
@@ -138,10 +144,12 @@ export function LibraryScreen({
     }
 
     setIsLoading(true);
-    const [nextSongs, nextFolders, nextPlaylists] = await Promise.all([
+    setIsRecommendationsLoading(true);
+    const [nextSongs, nextFolders, nextPlaylists, nextRecommendations] = await Promise.all([
       window.appBridge.getAllSongs(),
       window.appBridge.getAllFolders(),
       window.appBridge.getAllPlaylists(),
+      window.appBridge.getRecommendations().catch(() => null),
     ]);
     const statsEntries = await Promise.all(
       nextSongs.map(async (song) => [song.id, await window.appBridge!.getUserStats(song.id)] as const),
@@ -151,7 +159,9 @@ export function LibraryScreen({
     setFolders(nextFolders);
     setPlaylists(nextPlaylists);
     setStatsBySongId(Object.fromEntries(statsEntries));
+    setRecommendations(nextRecommendations);
     setIsLoading(false);
+    setIsRecommendationsLoading(false);
 
     if (nextSongs.length === 0) {
       setStatusMessage('Build your library by importing MIDI files.');
@@ -522,6 +532,13 @@ export function LibraryScreen({
     );
   };
 
+  const recommendationGroups = recommendations ? [
+    { title: 'Next Challenge', items: recommendations.nextChallenge },
+    { title: 'Skill Builder', items: recommendations.skillBuilder },
+    { title: 'You Might Like', items: recommendations.youMightLike },
+    { title: 'Revisit', items: recommendations.revisit },
+  ] : [];
+
   return (
     <main className="app-shell library-screen">
       <section className="panel library-header">
@@ -539,6 +556,12 @@ export function LibraryScreen({
           </button>
           <button className="secondary-button" onClick={onStartTheoryPractice}>
             Theory
+          </button>
+          <button className="secondary-button" onClick={onOpenProgressDashboard}>
+            Progress
+          </button>
+          <button className="secondary-button" onClick={onOpenSettings}>
+            Settings
           </button>
           <button className="secondary-button" onClick={onOpenKeyboardSetup}>
             Keyboard Setup
@@ -576,6 +599,53 @@ export function LibraryScreen({
         />
 
         <div className="library-content">
+          {activeView.type === 'all' && (
+            <section className="panel recommendations-section">
+              <div className="panel-heading">
+                <div>
+                  <p className="eyebrow">Recommended for You</p>
+                  <h2>What to play next</h2>
+                </div>
+              </div>
+              {isRecommendationsLoading ? (
+                <div className="loading-spinner" />
+              ) : recommendationGroups.every((group) => group.items.length === 0) ? (
+                <p className="empty-state">Play a few sessions to unlock personalized recommendations.</p>
+              ) : (
+                <div className="recommendation-groups">
+                  {recommendationGroups.map((group) => (
+                    <article className="recommendation-group" key={group.title}>
+                      <div className="recommendation-group-header">
+                        <h3>{group.title}</h3>
+                      </div>
+                      <div className="recommendation-carousel">
+                        {group.items.map((item) => (
+                          <article className="recommendation-card" key={`${group.title}-${item.song.id}`}>
+                            <p className="eyebrow">{item.song.genre || 'Library Pick'}</p>
+                            <h3>{item.song.title}</h3>
+                            <p className="panel-copy">{item.reason}</p>
+                            <div className="song-card-meta">
+                              <span>Difficulty {item.song.difficulty}</span>
+                              <span>{Math.round(item.song.bpm)} BPM</span>
+                            </div>
+                            <div className="song-card-actions">
+                              <button className="primary-button" onClick={() => onStartSession(item.song, 'piano-hero')}>
+                                Play
+                              </button>
+                              <button className="secondary-button" onClick={() => onStartSession(item.song, 'learning')}>
+                                Learn
+                              </button>
+                            </div>
+                          </article>
+                        ))}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+
           <section className="panel search-bar">
             <label className="search-field">
               <span>Search</span>

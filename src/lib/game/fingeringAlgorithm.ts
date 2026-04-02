@@ -158,7 +158,15 @@ function buildStatesForGroup(group: NoteGroup, handSize: HandSize): GroupState[]
       cost: chordIntrinsicCost(group.notes, fingers),
     }));
 
-  return states.length > 0 ? states : [{ fingers: [3], cost: chordIntrinsicCost(group.notes, [3]) }];
+  if (states.length > 0) {
+    return states;
+  }
+
+  const fallbackFingers = buildFallbackFingers(group.notes.length);
+  return [{
+    fingers: fallbackFingers,
+    cost: chordIntrinsicCost(group.notes, fallbackFingers),
+  }];
 }
 
 function enumerateFingerCombos(length: number): number[][] {
@@ -182,6 +190,21 @@ function enumerateFingerCombos(length: number): number[][] {
 
   walk(0, []);
   return combos;
+}
+
+function buildFallbackFingers(length: number): number[] {
+  if (length <= 1) {
+    return [3];
+  }
+
+  if (length <= FINGERS.length) {
+    return FINGERS.slice(0, length);
+  }
+
+  return Array.from({ length }, (_, index) => {
+    const position = index / (length - 1);
+    return 1 + Math.round(position * 4);
+  });
 }
 
 function isValidChordState(notes: IndexedNote[], fingers: number[], handSize: HandSize): boolean {
@@ -283,6 +306,9 @@ function runDynamicProgramming(groups: NoteGroup[], statesByGroup: GroupState[][
   const result = new Array<number>(groups.length);
   let stateIndex = bestStateIndex;
   for (let groupIndex = groups.length - 1; groupIndex >= 0; groupIndex -= 1) {
+    if (stateIndex < 0 || !dp[groupIndex][stateIndex]) {
+      stateIndex = 0;
+    }
     result[groupIndex] = stateIndex;
     stateIndex = dp[groupIndex][stateIndex].prevStateIndex;
   }

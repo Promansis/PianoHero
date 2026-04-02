@@ -63,4 +63,10 @@ describe('computeFingering', () => {
     const notes = [60, 72].map((midi, index) => createNote(index, midi, index * 0.45, 'right'));
     expect(mapFingering(notes, 'small')).not.toEqual(mapFingering(notes, 'large'));
   });
+
+  it('does not crash on dense chords with more notes than fingers', () => {
+    const notes = [48, 52, 55, 59, 62, 67].map((midi, index) => createNote(index, midi, 0, 'right'));
+
+    expect(mapFingering(notes)).toEqual([1, 2, 3, 3, 4, 5]);
+  });
 });

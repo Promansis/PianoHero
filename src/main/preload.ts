@@ -19,6 +19,21 @@ const appBridge: AppBridge = {
   getTheoryResults: (type, limit) => ipcRenderer.invoke('theory:get-results', type, limit),
   getTheoryStats: (type) => ipcRenderer.invoke('theory:get-stats', type),
 
+  getPracticeDays: (fromDate, toDate) => ipcRenderer.invoke('practice:get-days', fromDate, toDate),
+  recordPracticeTime: (durationSec, songsPlayed, theorySessions) =>
+    ipcRenderer.invoke('practice:record-time', durationSec, songsPlayed, theorySessions),
+  getPracticeStreak: () => ipcRenderer.invoke('practice:get-streak'),
+
+  getAllAchievements: () => ipcRenderer.invoke('achievements:get-all'),
+  unlockAchievement: (achievementId) => ipcRenderer.invoke('achievements:unlock', achievementId),
+
+  getTroubleSpots: (songId) => ipcRenderer.invoke('trouble-spots:get', songId),
+  updateTroubleSpot: (spotId, updates) => ipcRenderer.invoke('trouble-spots:update', spotId, updates),
+  getMeasureAccuracyHistory: (songId) => ipcRenderer.invoke('measure-accuracy:get-history', songId),
+
+  getRecommendations: () => ipcRenderer.invoke('recommendations:get'),
+  getProgressStats: (fromDate, toDate) => ipcRenderer.invoke('progress:get-stats', fromDate, toDate),
+
   getCustomFingerings: (songId) => ipcRenderer.invoke('fingerings:get', songId),
   saveCustomFingering: (songId, noteIndex, finger, hand) =>
     ipcRenderer.invoke('fingerings:save', songId, noteIndex, finger, hand),

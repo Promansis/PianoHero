@@ -11,6 +11,7 @@ import type {
   LibraryBackup,
   SaveGameResultPayload,
   SaveTheoryResultPayload,
+  TroubleSpotRow,
   TheoryResultRow,
 } from '../shared/dbTypes';
 import { AppDatabase } from './database';
@@ -165,18 +166,37 @@ app.whenReady().then(async () => {
     return importedSongs;
   });
 
-  ipcMain.handle('results:save', (_event, payload: SaveGameResultPayload) => {
-    db.saveGameResult(payload);
-  });
+  ipcMain.handle('results:save', (_event, payload: SaveGameResultPayload) => db.saveGameResult(payload));
   ipcMain.handle('results:for-song', (_event, songId: string) => db.getGameResults(songId));
   ipcMain.handle('stats:get', (_event, songId: string) => db.getUserStats(songId));
-  ipcMain.handle('theory:save-result', (_event, payload: SaveTheoryResultPayload) => {
-    db.saveTheoryResult(payload);
-  });
+  ipcMain.handle('theory:save-result', (_event, payload: SaveTheoryResultPayload) => db.saveTheoryResult(payload));
   ipcMain.handle('theory:get-results', (_event, type?: TheoryResultRow['type'], limit?: number) =>
     db.getTheoryResults(type, limit),
   );
   ipcMain.handle('theory:get-stats', (_event, type: TheoryResultRow['type']) => db.getTheoryStats(type));
+  ipcMain.handle('practice:get-days', (_event, fromDate: string, toDate: string) =>
+    db.getPracticeDays(fromDate, toDate),
+  );
+  ipcMain.handle('practice:record-time', (_event, durationSec: number, songsPlayed: number, theorySessions: number) =>
+    db.recordPracticeTime(durationSec, songsPlayed, theorySessions),
+  );
+  ipcMain.handle('practice:get-streak', () => db.getPracticeStreak());
+
+  ipcMain.handle('achievements:get-all', () => db.getAllAchievements());
+  ipcMain.handle('achievements:unlock', (_event, achievementId: string) => db.unlockAchievement(achievementId));
+
+  ipcMain.handle('trouble-spots:get', (_event, songId: string) => db.getTroubleSpots(songId));
+  ipcMain.handle(
+    'trouble-spots:update',
+    (_event, spotId: string, updates: Partial<Omit<TroubleSpotRow, 'id' | 'songId'>>) =>
+      db.updateTroubleSpot(spotId, updates),
+  );
+  ipcMain.handle('measure-accuracy:get-history', (_event, songId: string) => db.getMeasureAccuracyHistory(songId));
+
+  ipcMain.handle('recommendations:get', () => db.getRecommendations());
+  ipcMain.handle('progress:get-stats', (_event, fromDate: string, toDate: string) =>
+    db.getProgressStats(fromDate, toDate),
+  );
 
   ipcMain.handle('fingerings:get', (_event, songId: string) => db.getCustomFingerings(songId));
   ipcMain.handle(

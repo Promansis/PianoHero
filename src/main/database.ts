@@ -2,21 +2,32 @@ import Database from 'better-sqlite3';
 import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
+import { getUnlockableAchievementIds, type AchievementMetrics } from '../lib/achievements/achievementChecker';
+import { ACHIEVEMENTS } from '../lib/achievements/achievementDefinitions';
 import type { Hand, TrackAssignment } from '../lib/game/types';
+import { generateRecommendations } from '../lib/recommendations/recommendationEngine';
 import type {
   AddSongPayload,
+  AchievementRow,
   FingeringRow,
   FolderRow,
   GameResultRow,
   LibraryBackup,
   LibraryImportResult,
+  MeasureAccuracyHistoryRow,
   PlaylistRow,
+  PracticeDayRow,
+  PracticeStreak,
+  ProgressStatsResult,
+  RecommendationResult,
+  SaveResultOutcome,
   SaveGameResultPayload,
   SaveTheoryResultPayload,
   SettingRow,
   SongRow,
   TheoryResultRow,
   TheoryStatsRow,
+  TroubleSpotRow,
   UserStatsRow,
 } from '../shared/dbTypes';
 
@@ -123,6 +134,36 @@ export class AppDatabase {
         sort_order INTEGER NOT NULL DEFAULT 0,
         PRIMARY KEY (playlist_id, song_id)
       );
+
+      CREATE TABLE IF NOT EXISTS practice_days (
+        date TEXT PRIMARY KEY,
+        total_practice_time_sec REAL NOT NULL DEFAULT 0,
+        songs_played INTEGER NOT NULL DEFAULT 0,
+        theory_sessions INTEGER NOT NULL DEFAULT 0
+      );
+
+      CREATE TABLE IF NOT EXISTS achievements (
+        id TEXT PRIMARY KEY,
+        unlocked_at TEXT
+      );
+
+      CREATE TABLE IF NOT EXISTS trouble_spots (
+        id TEXT PRIMARY KEY,
+        song_id TEXT NOT NULL REFERENCES songs(id) ON DELETE CASCADE,
+        measure_start INTEGER NOT NULL,
+        measure_end INTEGER NOT NULL,
+        first_detected TEXT NOT NULL,
+        last_practiced TEXT,
+        resolution_count INTEGER NOT NULL DEFAULT 0,
+        is_resolved INTEGER NOT NULL DEFAULT 0
+      );
+
+      CREATE TABLE IF NOT EXISTS measure_accuracy_history (
+        id TEXT PRIMARY KEY,
+        game_result_id TEXT NOT NULL REFERENCES game_results(id) ON DELETE CASCADE,
+        measure INTEGER NOT NULL,
+        accuracy REAL NOT NULL
+      );
     `);
 
     this.ensureSongFolderColumn();
@@ -135,6 +176,11 @@ export class AppDatabase {
       CREATE INDEX IF NOT EXISTS idx_songs_date_added ON songs(date_added);
       CREATE INDEX IF NOT EXISTS idx_songs_title ON songs(title COLLATE NOCASE);
       CREATE INDEX IF NOT EXISTS idx_songs_folder_id ON songs(folder_id);
+      CREATE INDEX IF NOT EXISTS idx_game_results_song_timestamp ON game_results(song_id, timestamp DESC);
+      CREATE INDEX IF NOT EXISTS idx_user_stats_last_played ON user_stats(last_played DESC);
+      CREATE INDEX IF NOT EXISTS idx_practice_days_date ON practice_days(date DESC);
+      CREATE INDEX IF NOT EXISTS idx_trouble_spots_song ON trouble_spots(song_id, is_resolved);
+      CREATE INDEX IF NOT EXISTS idx_measure_accuracy_history_game_result ON measure_accuracy_history(game_result_id, measure);
       CREATE INDEX IF NOT EXISTS idx_playlist_songs_playlist_id ON playlist_songs(playlist_id, sort_order);
       CREATE INDEX IF NOT EXISTS idx_folders_sort_order ON folders(sort_order, name COLLATE NOCASE);
       CREATE INDEX IF NOT EXISTS idx_playlists_name ON playlists(name COLLATE NOCASE);
@@ -146,6 +192,7 @@ export class AppDatabase {
     this.db
       .prepare(`INSERT OR IGNORE INTO settings (category, key, value) VALUES ('fingering', 'handSize', 'medium')`)
       .run();
+    this.seedAchievements();
   }
 
   private ensureSongFolderColumn(): void {
@@ -153,6 +200,13 @@ export class AppDatabase {
     const hasFolderId = columns.some((column) => column.name === 'folder_id');
     if (!hasFolderId) {
       this.db.prepare(`ALTER TABLE songs ADD COLUMN folder_id TEXT`).run();
+    }
+  }
+
+  private seedAchievements(): void {
+    const insert = this.db.prepare('INSERT OR IGNORE INTO achievements (id, unlocked_at) VALUES (?, NULL)');
+    for (const achievement of ACHIEVEMENTS) {
+      insert.run(achievement.id);
     }
   }
 
@@ -555,11 +609,11 @@ export class AppDatabase {
     reorder(playlistId, songId, newOrder);
   }
 
-  saveGameResult(payload: SaveGameResultPayload): void {
+  saveGameResult(payload: SaveGameResultPayload): SaveResultOutcome {
     const id = randomUUID();
     const now = new Date().toISOString();
 
-    const saveTransaction = this.db.transaction(() => {
+    const saveTransaction = this.db.transaction((): SaveResultOutcome => {
       this.db
         .prepare(`
           INSERT INTO game_results
@@ -584,6 +638,19 @@ export class AppDatabase {
           mode: payload.mode,
           durationSec: payload.durationSec,
         });
+
+      const insertMeasureAccuracy = this.db.prepare(`
+        INSERT INTO measure_accuracy_history (id, game_result_id, measure, accuracy)
+        VALUES (@id, @gameResultId, @measure, @accuracy)
+      `);
+      for (const entry of payload.measureAccuracy) {
+        insertMeasureAccuracy.run({
+          id: randomUUID(),
+          gameResultId: id,
+          measure: entry.measure,
+          accuracy: entry.accuracy,
+        });
+      }
 
       const existing = this.db
         .prepare('SELECT * FROM user_stats WHERE song_id = ?')
@@ -628,9 +695,15 @@ export class AppDatabase {
       }
 
       this.db.prepare('UPDATE songs SET times_played = times_played + 1 WHERE id = ?').run(payload.songId);
+      this.recordPracticeDayEntry(payload.durationSec, 1, 0);
+      this.updateTroubleSpotsForSong(payload.songId, payload.measureAccuracy, now);
+
+      return {
+        unlockedAchievementIds: this.checkAndUnlockAchievements(),
+      };
     });
 
-    saveTransaction();
+    return saveTransaction();
   }
 
   getGameResults(songId: string): GameResultRow[] {
@@ -645,26 +718,36 @@ export class AppDatabase {
     return row ? rowToUserStats(row) : null;
   }
 
-  saveTheoryResult(payload: SaveTheoryResultPayload): void {
+  saveTheoryResult(payload: SaveTheoryResultPayload): SaveResultOutcome {
     const id = randomUUID();
     const now = new Date().toISOString();
 
-    this.db
-      .prepare(`
-        INSERT INTO theory_results
-          (id, type, score, total_questions, accuracy, details, timestamp)
-        VALUES
-          (@id, @type, @score, @totalQuestions, @accuracy, @details, @timestamp)
-      `)
-      .run({
-        id,
-        type: payload.type,
-        score: payload.score,
-        totalQuestions: payload.totalQuestions,
-        accuracy: payload.accuracy,
-        details: JSON.stringify(payload.details ?? {}),
-        timestamp: now,
-      });
+    const saveTransaction = this.db.transaction((): SaveResultOutcome => {
+      this.db
+        .prepare(`
+          INSERT INTO theory_results
+            (id, type, score, total_questions, accuracy, details, timestamp)
+          VALUES
+            (@id, @type, @score, @totalQuestions, @accuracy, @details, @timestamp)
+        `)
+        .run({
+          id,
+          type: payload.type,
+          score: payload.score,
+          totalQuestions: payload.totalQuestions,
+          accuracy: payload.accuracy,
+          details: JSON.stringify(payload.details ?? {}),
+          timestamp: now,
+        });
+
+      this.recordPracticeDayEntry(0, 0, 1);
+
+      return {
+        unlockedAchievementIds: this.checkAndUnlockAchievements(),
+      };
+    });
+
+    return saveTransaction();
   }
 
   getTheoryResults(type?: TheoryResultRow['type'], limit = 20): TheoryResultRow[] {
@@ -698,6 +781,372 @@ export class AppDatabase {
       bestScore: row.best_score as number,
       averageAccuracy: row.average_accuracy as number,
       lastPlayed: (row.last_played as string | null | undefined) ?? null,
+    };
+  }
+
+  getPracticeDays(fromDate: string, toDate: string): PracticeDayRow[] {
+    const rows = this.db
+      .prepare(`
+        SELECT *
+        FROM practice_days
+        WHERE date BETWEEN ? AND ?
+        ORDER BY date ASC
+      `)
+      .all(fromDate, toDate) as DbRow[];
+
+    return rows.map(rowToPracticeDay);
+  }
+
+  recordPracticeTime(durationSec: number, songsPlayed: number, theorySessions: number): void {
+    this.recordPracticeDayEntry(durationSec, songsPlayed, theorySessions);
+  }
+
+  getPracticeStreak(): PracticeStreak {
+    const rows = this.db
+      .prepare('SELECT date FROM practice_days WHERE total_practice_time_sec > 0 OR songs_played > 0 OR theory_sessions > 0 ORDER BY date ASC')
+      .all() as Array<{ date: string }>;
+
+    return calculatePracticeStreak(rows.map((row) => row.date), new Date());
+  }
+
+  getAllAchievements(): AchievementRow[] {
+    const rows = this.db.prepare('SELECT * FROM achievements ORDER BY id ASC').all() as DbRow[];
+    return rows.map(rowToAchievement);
+  }
+
+  unlockAchievement(achievementId: string): void {
+    this.db
+      .prepare('UPDATE achievements SET unlocked_at = COALESCE(unlocked_at, ?) WHERE id = ?')
+      .run(new Date().toISOString(), achievementId);
+  }
+
+  getTroubleSpots(songId: string): TroubleSpotRow[] {
+    const rows = this.db
+      .prepare(`
+        SELECT
+          ts.*,
+          (
+            SELECT COUNT(*)
+            FROM measure_accuracy_history mah
+            INNER JOIN game_results gr ON gr.id = mah.game_result_id
+            WHERE gr.song_id = ts.song_id
+              AND mah.measure BETWEEN ts.measure_start AND ts.measure_end
+              AND mah.accuracy < 70
+          ) AS struggle_count,
+          (
+            SELECT MIN(mah.accuracy)
+            FROM measure_accuracy_history mah
+            INNER JOIN game_results gr ON gr.id = mah.game_result_id
+            WHERE gr.song_id = ts.song_id
+              AND mah.measure BETWEEN ts.measure_start AND ts.measure_end
+          ) AS lowest_accuracy,
+          (
+            SELECT mah.accuracy
+            FROM measure_accuracy_history mah
+            INNER JOIN game_results gr ON gr.id = mah.game_result_id
+            WHERE gr.song_id = ts.song_id
+              AND mah.measure BETWEEN ts.measure_start AND ts.measure_end
+            ORDER BY gr.timestamp DESC, mah.rowid DESC
+            LIMIT 1
+          ) AS latest_accuracy
+        FROM trouble_spots ts
+        WHERE ts.song_id = ?
+        ORDER BY ts.is_resolved ASC, ts.measure_start ASC, ts.first_detected ASC
+      `)
+      .all(songId) as DbRow[];
+
+    return rows.map(rowToTroubleSpot);
+  }
+
+  updateTroubleSpot(spotId: string, updates: Partial<Omit<TroubleSpotRow, 'id' | 'songId'>>): void {
+    const fields: string[] = [];
+    const params: Record<string, unknown> = { id: spotId };
+
+    if (updates.measureStart !== undefined) {
+      fields.push('measure_start = @measureStart');
+      params.measureStart = updates.measureStart;
+    }
+    if (updates.measureEnd !== undefined) {
+      fields.push('measure_end = @measureEnd');
+      params.measureEnd = updates.measureEnd;
+    }
+    if (updates.firstDetected !== undefined) {
+      fields.push('first_detected = @firstDetected');
+      params.firstDetected = updates.firstDetected;
+    }
+    if (updates.lastPracticed !== undefined) {
+      fields.push('last_practiced = @lastPracticed');
+      params.lastPracticed = updates.lastPracticed;
+    }
+    if (updates.resolutionCount !== undefined) {
+      fields.push('resolution_count = @resolutionCount');
+      params.resolutionCount = updates.resolutionCount;
+    }
+    if (updates.isResolved !== undefined) {
+      fields.push('is_resolved = @isResolved');
+      params.isResolved = updates.isResolved ? 1 : 0;
+    }
+
+    if (fields.length === 0) {
+      return;
+    }
+
+    this.db.prepare(`UPDATE trouble_spots SET ${fields.join(', ')} WHERE id = @id`).run(params);
+  }
+
+  getMeasureAccuracyHistory(songId: string): MeasureAccuracyHistoryRow[] {
+    const rows = this.db
+      .prepare(`
+        SELECT mah.*
+        FROM measure_accuracy_history mah
+        INNER JOIN game_results gr ON gr.id = mah.game_result_id
+        WHERE gr.song_id = ?
+        ORDER BY gr.timestamp DESC, mah.measure ASC
+      `)
+      .all(songId) as DbRow[];
+
+    return rows.map(rowToMeasureAccuracyHistory);
+  }
+
+  getRecommendations(): RecommendationResult {
+    const songs = this.getAllSongs();
+    const statsRows = this.db.prepare('SELECT * FROM user_stats').all() as DbRow[];
+    const userStatsBySongId = Object.fromEntries(statsRows.map((row) => {
+      const stats = rowToUserStats(row);
+      return [stats.songId, stats] as const;
+    }));
+
+    const recentResults30 = this.db
+      .prepare(`
+        SELECT *
+        FROM game_results
+        WHERE datetime(timestamp) >= datetime('now', '-30 days')
+        ORDER BY timestamp DESC
+      `)
+      .all() as DbRow[];
+    const recentResults60 = this.db
+      .prepare(`
+        SELECT *
+        FROM game_results
+        WHERE datetime(timestamp) >= datetime('now', '-60 days')
+        ORDER BY timestamp DESC
+      `)
+      .all() as DbRow[];
+
+    return generateRecommendations({
+      songs,
+      userStatsBySongId,
+      recentResults30: recentResults30.map(rowToGameResult),
+      recentResults60: recentResults60.map(rowToGameResult),
+    });
+  }
+
+  getProgressStats(fromDate: string, toDate: string): ProgressStatsResult {
+    const practiceRows = this.getPracticeDays(fromDate, toDate);
+    const practiceDaysByDate = new Map(practiceRows.map((row) => [row.date, row]));
+
+    const songsPlayedByWeekRows = this.db
+      .prepare(`
+        SELECT
+          date(date, '-' || ((CAST(strftime('%w', date) AS INTEGER) + 6) % 7) || ' days') AS week_start,
+          SUM(songs_played) AS count
+        FROM practice_days
+        WHERE date BETWEEN ? AND ?
+        GROUP BY week_start
+        ORDER BY week_start ASC
+      `)
+      .all(fromDate, toDate) as DbRow[];
+
+    const accuracyTrendRows = this.db
+      .prepare(`
+        SELECT
+          substr(timestamp, 1, 10) AS date,
+          AVG(accuracy) AS avg_accuracy
+        FROM game_results
+        WHERE substr(timestamp, 1, 10) BETWEEN ? AND ?
+        GROUP BY substr(timestamp, 1, 10)
+        ORDER BY date ASC
+      `)
+      .all(fromDate, toDate) as DbRow[];
+
+    const totalStats = this.db
+      .prepare(`
+        SELECT
+          (SELECT COUNT(*) FROM songs) AS total_songs,
+          (SELECT COUNT(*) FROM user_stats WHERE best_accuracy >= 90) AS songs_mastered,
+          (SELECT COALESCE(SUM(total_practice_time_sec), 0) FROM practice_days) AS total_practice_time_sec,
+          (
+            SELECT COALESCE(s.genre, '')
+            FROM songs s
+            INNER JOIN user_stats us ON us.song_id = s.id
+            WHERE TRIM(s.genre) <> ''
+            GROUP BY s.genre
+            ORDER BY SUM(us.play_count) DESC, s.genre ASC
+            LIMIT 1
+          ) AS favorite_genre
+      `)
+      .get() as DbRow;
+
+    return {
+      practiceTimeByDay: buildPracticeDaySeries(fromDate, toDate, practiceDaysByDate),
+      songsPlayedByWeek: songsPlayedByWeekRows.map((row) => ({
+        weekStart: row.week_start as string,
+        count: row.count as number,
+      })),
+      accuracyTrend: accuracyTrendRows.map((row) => ({
+        date: row.date as string,
+        avgAccuracy: Math.round(((row.avg_accuracy as number) ?? 0) * 10) / 10,
+      })),
+      totalStats: {
+        totalSongs: totalStats.total_songs as number,
+        songsMastered: totalStats.songs_mastered as number,
+        totalPracticeTimeSec: totalStats.total_practice_time_sec as number,
+        favoriteGenre: (totalStats.favorite_genre as string) || 'Unspecified',
+      },
+    };
+  }
+
+  private recordPracticeDayEntry(durationSec: number, songsPlayed: number, theorySessions: number): void {
+    const practiceDate = formatLocalDate(new Date());
+
+    this.db
+      .prepare(`
+        INSERT INTO practice_days (date, total_practice_time_sec, songs_played, theory_sessions)
+        VALUES (@date, @durationSec, @songsPlayed, @theorySessions)
+        ON CONFLICT(date) DO UPDATE SET
+          total_practice_time_sec = total_practice_time_sec + excluded.total_practice_time_sec,
+          songs_played = songs_played + excluded.songs_played,
+          theory_sessions = theory_sessions + excluded.theory_sessions
+      `)
+      .run({
+        date: practiceDate,
+        durationSec,
+        songsPlayed,
+        theorySessions,
+      });
+  }
+
+  private updateTroubleSpotsForSong(
+    songId: string,
+    measureAccuracy: SaveGameResultPayload['measureAccuracy'],
+    practicedAt: string,
+  ): void {
+    const existingRows = this.db
+      .prepare('SELECT * FROM trouble_spots WHERE song_id = ? ORDER BY measure_start ASC')
+      .all(songId) as DbRow[];
+    const byMeasure = new Map(existingRows.map((row) => [row.measure_start as number, row]));
+
+    for (const entry of measureAccuracy) {
+      const existing = byMeasure.get(entry.measure);
+
+      if (entry.accuracy < 70) {
+        if (!existing) {
+          this.db
+            .prepare(`
+              INSERT INTO trouble_spots
+                (id, song_id, measure_start, measure_end, first_detected, last_practiced, resolution_count, is_resolved)
+              VALUES
+                (@id, @songId, @measureStart, @measureEnd, @firstDetected, @lastPracticed, 0, 0)
+            `)
+            .run({
+              id: randomUUID(),
+              songId,
+              measureStart: entry.measure,
+              measureEnd: entry.measure,
+              firstDetected: practicedAt,
+              lastPracticed: practicedAt,
+            });
+          continue;
+        }
+
+        this.db
+          .prepare(`
+            UPDATE trouble_spots
+            SET
+              last_practiced = @lastPracticed,
+              resolution_count = 0,
+              is_resolved = 0
+            WHERE id = @id
+          `)
+          .run({
+            id: existing.id,
+            lastPracticed: practicedAt,
+          });
+        continue;
+      }
+
+      if (!existing) {
+        continue;
+      }
+
+      if (entry.accuracy > 85) {
+        const nextResolutionCount = (existing.resolution_count as number) + 1;
+        this.db
+          .prepare(`
+            UPDATE trouble_spots
+            SET
+              last_practiced = @lastPracticed,
+              resolution_count = @resolutionCount,
+              is_resolved = @isResolved
+            WHERE id = @id
+          `)
+          .run({
+            id: existing.id,
+            lastPracticed: practicedAt,
+            resolutionCount: nextResolutionCount,
+            isResolved: nextResolutionCount >= 3 ? 1 : 0,
+          });
+      } else {
+        this.db
+          .prepare('UPDATE trouble_spots SET last_practiced = ? WHERE id = ?')
+          .run(practicedAt, existing.id);
+      }
+    }
+  }
+
+  private checkAndUnlockAchievements(): string[] {
+    const unlockedIds = new Set(
+      (
+        this.db
+          .prepare('SELECT id FROM achievements WHERE unlocked_at IS NOT NULL')
+          .all() as Array<{ id: string }>
+      ).map((row) => row.id),
+    );
+    const metrics = this.buildAchievementMetrics();
+    const unlockableIds = getUnlockableAchievementIds(metrics, unlockedIds);
+
+    if (unlockableIds.length === 0) {
+      return [];
+    }
+
+    const now = new Date().toISOString();
+    const unlockStatement = this.db.prepare('UPDATE achievements SET unlocked_at = COALESCE(unlocked_at, ?) WHERE id = ?');
+    for (const achievementId of unlockableIds) {
+      unlockStatement.run(now, achievementId);
+    }
+
+    return unlockableIds;
+  }
+
+  private buildAchievementMetrics(): AchievementMetrics {
+    const row = this.db
+      .prepare(`
+        SELECT
+          (SELECT COUNT(*) FROM game_results) AS completed_song_sessions,
+          EXISTS(SELECT 1 FROM game_results WHERE accuracy >= 100) AS has_perfect_score,
+          (SELECT COUNT(*) FROM theory_results) AS theory_session_count,
+          (SELECT COUNT(*) FROM user_stats WHERE best_accuracy >= 90) AS mastered_song_count
+      `)
+      .get() as DbRow;
+
+    const streak = this.getPracticeStreak();
+
+    return {
+      completedSongSessions: row.completed_song_sessions as number,
+      hasPerfectScore: Boolean(row.has_perfect_score),
+      currentStreak: streak.currentStreak,
+      theorySessionCount: row.theory_session_count as number,
+      masteredSongCount: row.mastered_song_count as number,
     };
   }
 
@@ -1041,6 +1490,15 @@ function rowToGameResult(row: DbRow): GameResultRow {
   };
 }
 
+function rowToPracticeDay(row: DbRow): PracticeDayRow {
+  return {
+    date: row.date as string,
+    totalPracticeTimeSec: row.total_practice_time_sec as number,
+    songsPlayed: row.songs_played as number,
+    theorySessions: row.theory_sessions as number,
+  };
+}
+
 function rowToUserStats(row: DbRow): UserStatsRow {
   return {
     songId: row.song_id as string,
@@ -1050,6 +1508,38 @@ function rowToUserStats(row: DbRow): UserStatsRow {
     bestAccuracy: row.best_accuracy as number,
     lastPlayed: row.last_played as string | null,
     totalPracticeTimeSec: row.total_practice_time_sec as number,
+  };
+}
+
+function rowToAchievement(row: DbRow): AchievementRow {
+  return {
+    id: row.id as string,
+    unlockedAt: (row.unlocked_at as string | null | undefined) ?? null,
+  };
+}
+
+function rowToTroubleSpot(row: DbRow): TroubleSpotRow {
+  return {
+    id: row.id as string,
+    songId: row.song_id as string,
+    measureStart: row.measure_start as number,
+    measureEnd: row.measure_end as number,
+    firstDetected: row.first_detected as string,
+    lastPracticed: (row.last_practiced as string | null | undefined) ?? null,
+    resolutionCount: row.resolution_count as number,
+    isResolved: (row.is_resolved as number) === 1,
+    struggleCount: (row.struggle_count as number | undefined) ?? 0,
+    lowestAccuracy: (row.lowest_accuracy as number | null | undefined) ?? null,
+    latestAccuracy: (row.latest_accuracy as number | null | undefined) ?? null,
+  };
+}
+
+function rowToMeasureAccuracyHistory(row: DbRow): MeasureAccuracyHistoryRow {
+  return {
+    id: row.id as string,
+    gameResultId: row.game_result_id as string,
+    measure: row.measure as number,
+    accuracy: row.accuracy as number,
   };
 }
 
@@ -1084,4 +1574,72 @@ function parseJsonObject(value: unknown): Record<string, unknown> {
   }
 
   return {};
+}
+
+function formatLocalDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function calculatePracticeStreak(dates: string[], currentDate: Date): PracticeStreak {
+  if (dates.length === 0) {
+    return {
+      currentStreak: 0,
+      longestStreak: 0,
+    };
+  }
+
+  const uniqueDates = [...new Set(dates)].sort((left, right) => left.localeCompare(right));
+  let longestStreak = 1;
+  let runningStreak = 1;
+
+  for (let index = 1; index < uniqueDates.length; index += 1) {
+    const previous = new Date(`${uniqueDates[index - 1]}T00:00:00`);
+    const current = new Date(`${uniqueDates[index]}T00:00:00`);
+    const dayDelta = Math.round((current.getTime() - previous.getTime()) / 86_400_000);
+
+    if (dayDelta === 1) {
+      runningStreak += 1;
+      longestStreak = Math.max(longestStreak, runningStreak);
+    } else {
+      runningStreak = 1;
+    }
+  }
+
+  const dateSet = new Set(uniqueDates);
+  let currentStreak = 0;
+  const cursor = new Date(currentDate);
+  while (dateSet.has(formatLocalDate(cursor))) {
+    currentStreak += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  return {
+    currentStreak,
+    longestStreak,
+  };
+}
+
+function buildPracticeDaySeries(
+  fromDate: string,
+  toDate: string,
+  rowsByDate: Map<string, PracticeDayRow>,
+): Array<{ date: string; minutes: number }> {
+  const series: Array<{ date: string; minutes: number }> = [];
+  const cursor = new Date(`${fromDate}T00:00:00`);
+  const end = new Date(`${toDate}T00:00:00`);
+
+  while (cursor.getTime() <= end.getTime()) {
+    const date = formatLocalDate(cursor);
+    const row = rowsByDate.get(date);
+    series.push({
+      date,
+      minutes: Math.round((((row?.totalPracticeTimeSec ?? 0) / 60) * 10)) / 10,
+    });
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return series;
 }

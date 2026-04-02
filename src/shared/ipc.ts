@@ -1,15 +1,23 @@
 import type {
   AddSongPayload,
+  AchievementRow,
   FingeringRow,
   FolderRow,
   GameResultRow,
   LibraryImportResult,
+  MeasureAccuracyHistoryRow,
   PlaylistRow,
+  PracticeDayRow,
+  PracticeStreak,
+  ProgressStatsResult,
+  RecommendationResult,
+  SaveResultOutcome,
   SaveGameResultPayload,
   SaveTheoryResultPayload,
   SongRow,
   TheoryResultRow,
   TheoryStatsRow,
+  TroubleSpotRow,
   UserStatsRow,
 } from './dbTypes';
 
@@ -41,12 +49,29 @@ export interface AppBridge {
   toggleFavorite: (songId: string) => Promise<void>;
   importMidiFiles: () => Promise<ImportedSong[]>;
 
-  saveGameResult: (payload: SaveGameResultPayload) => Promise<void>;
+  saveGameResult: (payload: SaveGameResultPayload) => Promise<SaveResultOutcome>;
   getGameResults: (songId: string) => Promise<GameResultRow[]>;
   getUserStats: (songId: string) => Promise<UserStatsRow | null>;
-  saveTheoryResult: (payload: SaveTheoryResultPayload) => Promise<void>;
+  saveTheoryResult: (payload: SaveTheoryResultPayload) => Promise<SaveResultOutcome>;
   getTheoryResults: (type?: TheoryResultRow['type'], limit?: number) => Promise<TheoryResultRow[]>;
   getTheoryStats: (type: TheoryResultRow['type']) => Promise<TheoryStatsRow>;
+
+  getPracticeDays: (fromDate: string, toDate: string) => Promise<PracticeDayRow[]>;
+  recordPracticeTime: (durationSec: number, songsPlayed: number, theorySessions: number) => Promise<void>;
+  getPracticeStreak: () => Promise<PracticeStreak>;
+
+  getAllAchievements: () => Promise<AchievementRow[]>;
+  unlockAchievement: (achievementId: string) => Promise<void>;
+
+  getTroubleSpots: (songId: string) => Promise<TroubleSpotRow[]>;
+  updateTroubleSpot: (
+    spotId: string,
+    updates: Partial<Omit<TroubleSpotRow, 'id' | 'songId'>>,
+  ) => Promise<void>;
+  getMeasureAccuracyHistory: (songId: string) => Promise<MeasureAccuracyHistoryRow[]>;
+
+  getRecommendations: () => Promise<RecommendationResult>;
+  getProgressStats: (fromDate: string, toDate: string) => Promise<ProgressStatsResult>;
 
   getCustomFingerings: (songId: string) => Promise<FingeringRow[]>;
   saveCustomFingering: (
