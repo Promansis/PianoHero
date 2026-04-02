@@ -23,6 +23,7 @@ import { MidiInputService } from '../../lib/midi/midiInputService';
 import type { MidiInputDevice } from '../../lib/midi/types';
 import type { FingeringRow, SongRow, UserStatsRow } from '../../shared/dbTypes';
 import { ControlBar } from './ControlBar';
+import { FingeringEditor } from './FingeringEditor';
 import { FallingNotesCanvas } from './FallingNotesCanvas';
 import { PianoKeyboard } from './PianoKeyboard';
 import { TrackAssignmentPanel } from './TrackAssignmentPanel';
@@ -59,6 +60,7 @@ interface FinishedGamePayload {
   song: SongRow;
   sessionConfig: SessionConfig;
   baselineStats: UserStatsRow | null;
+  playlistQueue: { songs: SongRow[]; index: number } | null;
 }
 
 interface GameScreenProps {
@@ -68,6 +70,7 @@ interface GameScreenProps {
   midiInputService: MidiInputService;
   song: SongRow;
   initialSessionConfig: SessionConfig;
+  playlistQueue: { songs: SongRow[]; index: number } | null;
   onGameFinished: (payload: FinishedGamePayload) => void;
   onBackToLibrary: () => void;
   onOpenKeyboardSetup: () => void;
@@ -127,17 +130,25 @@ function buildTempSong(filePath: string, title: string): SongRow {
 interface SessionToolbarProps {
   sessionConfig: SessionConfig;
   totalMeasures: number;
+  canEditFingering: boolean;
+  isEditingFingering: boolean;
   onRebuild: (next: SessionConfig) => void;
   onHandSizeChange: (value: SessionConfig['handSize']) => void;
   onFingeringDisplayModeChange: (value: SessionConfig['fingeringDisplayMode']) => void;
+  onToggleFingeringEditor: () => void;
+  onResetFingerings: () => void;
 }
 
 function SessionToolbar({
   sessionConfig,
   totalMeasures,
+  canEditFingering,
+  isEditingFingering,
   onRebuild,
   onHandSizeChange,
   onFingeringDisplayModeChange,
+  onToggleFingeringEditor,
+  onResetFingerings,
 }: SessionToolbarProps) {
   const [loopStart, setLoopStart] = useState(sessionConfig.loopRange ? sessionConfig.loopRange.startMeasure + 1 : 1);
   const [loopEnd, setLoopEnd] = useState(
@@ -255,6 +266,12 @@ function SessionToolbar({
             <option value="never">Never</option>
           </select>
         </label>
+        <button className={isEditingFingering ? 'primary-button' : 'secondary-button'} onClick={onToggleFingeringEditor}>
+          Edit Fingering
+        </button>
+        <button className="secondary-button" onClick={onResetFingerings} disabled={!canEditFingering}>
+          Reset to Auto
+        </button>
       </div>
     </section>
   );
@@ -267,6 +284,7 @@ export function GameScreen({
   midiInputService,
   song,
   initialSessionConfig,
+  playlistQueue,
   onGameFinished,
   onBackToLibrary,
   onOpenKeyboardSetup,
@@ -288,10 +306,27 @@ export function GameScreen({
   const [showReminder, setShowReminder] = useState(false);
   const [customFingerings, setCustomFingerings] = useState<FingeringRow[]>([]);
   const [keyboardOctaveShift, setKeyboardOctaveShift] = useState(keyboardInputService.getState().octaveShift);
+  const [isEditingFingering, setIsEditingFingering] = useState(false);
+  const [selectedFingeringNoteId, setSelectedFingeringNoteId] = useState<string | null>(null);
+  const [fingeringEditorState, setFingeringEditorState] = useState<{
+    noteId: string;
+    scheduledIndex: number;
+    label: string;
+    hand: 'left' | 'right';
+    finger?: number;
+    anchorPoint: { x: number; y: number };
+  } | null>(null);
 
   useEffect(() => {
     setSessionConfig(initialSessionConfig);
   }, [initialSessionConfig]);
+
+  useEffect(() => {
+    if (!isEditingFingering) {
+      setFingeringEditorState(null);
+      setSelectedFingeringNoteId(null);
+    }
+  }, [isEditingFingering]);
 
   useEffect(() => {
     const shouldHandleEvent = (event: InputEvent): boolean => {
@@ -368,6 +403,7 @@ export function GameScreen({
             song: activeSong,
             sessionConfig: game.getSessionConfig(),
             baselineStats: baselineStatsRef.current,
+            playlistQueue,
           });
         }
 
@@ -386,7 +422,7 @@ export function GameScreen({
       }
       audioEngine.pauseSong();
     };
-  }, [audioEngine, onGameFinished]);
+  }, [audioEngine, onGameFinished, playlistQueue]);
 
   useEffect(() => {
     const loadSelectedSong = async () => {
@@ -406,6 +442,9 @@ export function GameScreen({
       baselineStatsRef.current = baselineStats;
       setReminderFrequencyMinutes(reminderValue && reminderValue !== 'off' ? Number(reminderValue) || null : null);
       setCustomFingerings(fingerings);
+      setIsEditingFingering(false);
+      setFingeringEditorState(null);
+      setSelectedFingeringNoteId(null);
 
       const nextSessionConfig: SessionConfig = {
         ...initialSessionConfig,
@@ -432,6 +471,29 @@ export function GameScreen({
 
     void loadSelectedSong();
   }, [initialSessionConfig, song]);
+
+  useEffect(() => {
+    if (!fingeringEditorState) {
+      return;
+    }
+
+    const nextVisibleNote = snapshot.visibleNotes.find((note) => note.id === fingeringEditorState.noteId);
+    if (!nextVisibleNote) {
+      setSelectedFingeringNoteId(null);
+      return;
+    }
+
+    setFingeringEditorState((current) =>
+      current
+        ? {
+            ...current,
+            finger: nextVisibleNote.finger,
+            label: nextVisibleNote.label,
+            hand: nextVisibleNote.hand,
+          }
+        : null,
+    );
+  }, [fingeringEditorState, snapshot.visibleNotes]);
 
   useEffect(() => {
     if (!reminderFrequencyMinutes) {
@@ -659,6 +721,9 @@ export function GameScreen({
     const currentTime = previousGame?.getCurrentTimeSec(now) ?? 0;
     const wasPlaying = previousGame?.isTransportPlaying() ?? false;
     setCustomFingerings([]);
+    setIsEditingFingering(false);
+    setFingeringEditorState(null);
+    setSelectedFingeringNoteId(null);
     await mountSession(updatedSourceSong, sessionConfig, [], {
       keepTime: true,
       currentTimeSec: currentTime,
@@ -677,6 +742,57 @@ export function GameScreen({
         trackAssignments: updatedSongRecord.trackAssignments,
       });
     }
+  };
+
+  const handleSelectFingeringNote = (
+    note: PlaybackSnapshot['visibleNotes'][number],
+    anchorPoint: { x: number; y: number },
+  ) => {
+    if (!isEditingFingering || song.id.startsWith('temp-')) {
+      return;
+    }
+
+    setSelectedFingeringNoteId(note.id);
+    setFingeringEditorState({
+      noteId: note.id,
+      scheduledIndex: note.scheduledIndex,
+      label: note.label,
+      hand: note.hand,
+      finger: note.finger,
+      anchorPoint,
+    });
+  };
+
+  const handleSaveFingering = async (finger: number) => {
+    if (!window.appBridge || !fingeringEditorState || song.id.startsWith('temp-')) {
+      return;
+    }
+
+    const nextFingerings = [
+      ...customFingerings.filter((row) => row.noteIndex !== fingeringEditorState.scheduledIndex),
+      {
+        songId: song.id,
+        noteIndex: fingeringEditorState.scheduledIndex,
+        finger,
+        hand: fingeringEditorState.hand,
+      },
+    ];
+    setCustomFingerings(nextFingerings);
+    gameSessionRef.current?.setCustomFingerings(nextFingerings);
+    await window.appBridge.saveCustomFingering(song.id, fingeringEditorState.scheduledIndex, finger, fingeringEditorState.hand);
+    setFingeringEditorState((current) => current ? { ...current, finger } : null);
+  };
+
+  const handleResetFingerings = async () => {
+    if (!window.appBridge || song.id.startsWith('temp-')) {
+      return;
+    }
+
+    await window.appBridge.clearCustomFingerings(song.id);
+    setCustomFingerings([]);
+    gameSessionRef.current?.setCustomFingerings([]);
+    setFingeringEditorState(null);
+    setSelectedFingeringNoteId(null);
   };
 
   const loopStart = loopStartForSong(sessionSong, sessionConfig);
@@ -747,6 +863,8 @@ export function GameScreen({
       <SessionToolbar
         sessionConfig={sessionConfig}
         totalMeasures={sessionSong ? getMeasureCount(sessionSong) : 0}
+        canEditFingering={!song.id.startsWith('temp-')}
+        isEditingFingering={isEditingFingering}
         onRebuild={(next) => void rebuildForSessionConfig(next)}
         onHandSizeChange={(handSize) => {
           const nextConfig = { ...sessionConfig, handSize };
@@ -760,6 +878,14 @@ export function GameScreen({
           void window.appBridge?.setSetting('fingering', 'displayMode', fingeringDisplayMode);
           void rebuildForSessionConfig(nextConfig);
         }}
+        onToggleFingeringEditor={() => {
+          if (song.id.startsWith('temp-')) {
+            setStatusMessage('Save the song to the library before editing fingerings.');
+            return;
+          }
+          setIsEditingFingering((current) => !current);
+        }}
+        onResetFingerings={() => void handleResetFingerings()}
       />
 
       {showReminder && (
@@ -776,12 +902,41 @@ export function GameScreen({
       )}
 
       <section className="workspace-grid">
-        <FallingNotesCanvas
-          snapshot={snapshot}
-          onFileDrop={(file) => {
-            void handleDroppedFile(file);
-          }}
-        />
+        <div className="fingering-editor-shell">
+          <FallingNotesCanvas
+            snapshot={snapshot}
+            fingeringEditEnabled={isEditingFingering && !song.id.startsWith('temp-')}
+            selectedNoteId={selectedFingeringNoteId}
+            onNoteSelect={handleSelectFingeringNote}
+            onFileDrop={(file) => {
+              void handleDroppedFile(file);
+            }}
+          />
+          {fingeringEditorState && (
+            <FingeringEditor
+              note={{
+                id: fingeringEditorState.noteId,
+                scheduledIndex: fingeringEditorState.scheduledIndex,
+                midi: 0,
+                label: fingeringEditorState.label,
+                hand: fingeringEditorState.hand,
+                judgement: 'pending',
+                finger: fingeringEditorState.finger,
+                xRatio: 0,
+                widthRatio: 0,
+                topRatio: 0,
+                heightRatio: 0,
+              }}
+              anchorPoint={fingeringEditorState.anchorPoint}
+              onSelectFinger={(finger) => void handleSaveFingering(finger)}
+              onReset={() => void handleResetFingerings()}
+              onClose={() => {
+                setFingeringEditorState(null);
+                setSelectedFingeringNoteId(null);
+              }}
+            />
+          )}
+        </div>
         <TrackAssignmentPanel
           tracks={sourceSong?.tracks ?? []}
           onAssignmentChange={(trackId, assignment) => {

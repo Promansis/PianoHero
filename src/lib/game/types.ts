@@ -58,6 +58,7 @@ export interface ScheduledNote extends ParsedNote {
 
 export interface VisibleNote {
   id: string;
+  scheduledIndex: number;
   midi: number;
   label: string;
   hand: Hand;

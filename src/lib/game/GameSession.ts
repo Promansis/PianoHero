@@ -346,11 +346,11 @@ export class GameSession {
     const minHeightRatio = 0.03;
 
     return this.scheduledNotes
-      .filter((note) => {
+      .flatMap((note, scheduledIndex) => {
         const endSec = note.startSec + note.durationSec;
-        return note.startSec <= currentTimeSec + leadTimeSec && endSec >= currentTimeSec - 0.4;
-      })
-      .map((note) => {
+        if (!(note.startSec <= currentTimeSec + leadTimeSec && endSec >= currentTimeSec - 0.4)) {
+          return [];
+        }
         const keyIndex = note.midi - MIN_MIDI;
         const xRatio = keyIndex / TOTAL_KEYS;
         const widthRatio = 1 / TOTAL_KEYS;
@@ -359,8 +359,9 @@ export class GameSession {
         const heightRatio = Math.max(minHeightRatio, (note.durationSec / leadTimeSec) * HIT_LINE_RATIO);
         const topRatio = bottomRatio - heightRatio;
 
-        return {
+        return [{
           id: note.id,
+          scheduledIndex,
           midi: note.midi,
           label: note.name,
           hand: note.effectiveHand,
@@ -370,7 +371,7 @@ export class GameSession {
           widthRatio,
           topRatio,
           heightRatio,
-        };
+        }];
       })
       .filter((note) => note.topRatio < 1 && note.topRatio + note.heightRatio > 0);
   }

@@ -25,20 +25,27 @@ type AppScreen =
   | { screen: 'library' }
   | { screen: 'free-play' }
   | { screen: 'keyboard-setup'; returnTo: 'setup' | 'library' }
-  | { screen: 'game'; song: SongRow; sessionConfig: SessionConfig }
+  | { screen: 'game'; song: SongRow; sessionConfig: SessionConfig; playlistQueue: PlaylistQueue | null }
   | {
       screen: 'results';
       song: SongRow;
       sessionConfig: SessionConfig;
       result: GameResult;
       baselineStats: UserStatsRow | null;
+      playlistQueue: PlaylistQueue | null;
     };
+
+interface PlaylistQueue {
+  songs: SongRow[];
+  index: number;
+}
 
 interface FinishedGamePayload {
   result: GameResult;
   song: SongRow;
   sessionConfig: SessionConfig;
   baselineStats: UserStatsRow | null;
+  playlistQueue: PlaylistQueue | null;
 }
 
 function buildSessionConfig(mode: SessionMode, overrides: Partial<SessionConfig> = {}): SessionConfig {
@@ -159,7 +166,12 @@ export function App() {
     ]);
   };
 
-  const startSongSession = (song: SongRow, mode: SessionMode, loopRange: LoopRange | null = null) => {
+  const startSongSession = (
+    song: SongRow,
+    mode: SessionMode,
+    loopRange: LoopRange | null = null,
+    playlistQueue: PlaylistQueue | null = null,
+  ) => {
     setCurrentScreen({
       screen: 'game',
       song,
@@ -168,17 +180,57 @@ export function App() {
         waitForInput: mode === 'learning',
         handSize,
       }),
+      playlistQueue,
     });
   };
 
-  const handleGameFinished = ({ result, song, sessionConfig, baselineStats }: FinishedGamePayload) => {
+  const handleGameFinished = ({ result, song, sessionConfig, baselineStats, playlistQueue }: FinishedGamePayload) => {
     setCurrentScreen({
       screen: 'results',
       song,
       sessionConfig,
       result,
       baselineStats,
+      playlistQueue,
     });
+  };
+
+  const startPlaylistQueue = (songs: SongRow[]) => {
+    if (songs.length === 0) {
+      return;
+    }
+
+    startSongSession(
+      songs[0],
+      'piano-hero',
+      null,
+      {
+        songs,
+        index: 0,
+      },
+    );
+  };
+
+  const handleNextQueuedSong = () => {
+    if (currentScreen.screen !== 'results' || !currentScreen.playlistQueue) {
+      return;
+    }
+
+    const nextIndex = currentScreen.playlistQueue.index + 1;
+    const nextSong = currentScreen.playlistQueue.songs[nextIndex];
+    if (!nextSong) {
+      return;
+    }
+
+    startSongSession(
+      nextSong,
+      'piano-hero',
+      null,
+      {
+        songs: currentScreen.playlistQueue.songs,
+        index: nextIndex,
+      },
+    );
   };
 
   switch (currentScreen.screen) {
@@ -208,6 +260,7 @@ export function App() {
           onOpenSetupGuide={() => setCurrentScreen({ screen: 'setup' })}
           onStartFreePlay={() => setCurrentScreen({ screen: 'free-play' })}
           onStartSession={(song, mode) => startSongSession(song, mode)}
+          onStartPlaylistQueue={startPlaylistQueue}
         />
       );
 
@@ -242,6 +295,7 @@ export function App() {
           midiInputService={midiServiceRef.current}
           song={currentScreen.song}
           initialSessionConfig={currentScreen.sessionConfig}
+          playlistQueue={currentScreen.playlistQueue}
           onBackToLibrary={() => setCurrentScreen({ screen: 'library' })}
           onGameFinished={handleGameFinished}
           onOpenKeyboardSetup={() => setCurrentScreen({ screen: 'keyboard-setup', returnTo: 'library' })}
@@ -257,7 +311,19 @@ export function App() {
           song={currentScreen.song}
           onMainMenu={() => setCurrentScreen({ screen: 'library' })}
           onPracticeSections={(loopRange) => startSongSession(currentScreen.song, 'learning', loopRange)}
-          onRetry={() => startSongSession(currentScreen.song, currentScreen.sessionConfig.mode)}
+          onRetry={() =>
+            startSongSession(
+              currentScreen.song,
+              currentScreen.sessionConfig.mode,
+              null,
+              currentScreen.playlistQueue,
+            )
+          }
+          hasNextSong={
+            Boolean(currentScreen.playlistQueue) &&
+            currentScreen.playlistQueue!.index < currentScreen.playlistQueue!.songs.length - 1
+          }
+          onNextSong={handleNextQueuedSong}
         />
       );
   }

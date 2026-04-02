@@ -4,6 +4,9 @@ import type { PlaybackSnapshot, VisibleNote } from '../../lib/game/types';
 interface FallingNotesCanvasProps {
   snapshot: PlaybackSnapshot;
   onFileDrop: (file: File) => void;
+  fingeringEditEnabled?: boolean;
+  selectedNoteId?: string | null;
+  onNoteSelect?: (note: VisibleNote, anchorPoint: { x: number; y: number }) => void;
 }
 
 function noteFill(note: VisibleNote): string {
@@ -21,7 +24,13 @@ function noteFill(note: VisibleNote): string {
   }
 }
 
-export function FallingNotesCanvas({ snapshot, onFileDrop }: FallingNotesCanvasProps) {
+export function FallingNotesCanvas({
+  snapshot,
+  onFileDrop,
+  fingeringEditEnabled = false,
+  selectedNoteId = null,
+  onNoteSelect,
+}: FallingNotesCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [isDropping, setIsDropping] = useState(false);
@@ -49,7 +58,7 @@ export function FallingNotesCanvas({ snapshot, onFileDrop }: FallingNotesCanvasP
 
     context.clearRect(0, 0, width, height);
     drawGrid(context, width, height, snapshot.hitLineRatio);
-    drawNotes(context, width, height, snapshot.visibleNotes);
+    drawNotes(context, width, height, snapshot.visibleNotes, selectedNoteId);
     drawHitLine(context, width, height, snapshot.hitLineRatio);
   }, [snapshot]);
 
@@ -68,6 +77,21 @@ export function FallingNotesCanvas({ snapshot, onFileDrop }: FallingNotesCanvasP
         const file = event.dataTransfer.files[0];
         if (file) {
           onFileDrop(file);
+        }
+      }}
+      onClick={(event) => {
+        if (!fingeringEditEnabled || !onNoteSelect || !containerRef.current) {
+          return;
+        }
+
+        const rect = containerRef.current.getBoundingClientRect();
+        const localPoint = {
+          x: event.clientX - rect.left,
+          y: event.clientY - rect.top,
+        };
+        const hit = hitTestVisibleNote(localPoint, rect.width, rect.height, snapshot.visibleNotes);
+        if (hit) {
+          onNoteSelect(hit, localPoint);
         }
       }}
     >
@@ -117,6 +141,7 @@ function drawNotes(
   width: number,
   height: number,
   notes: VisibleNote[],
+  selectedNoteId: string | null,
 ): void {
   for (const note of notes) {
     const x = note.xRatio * width;
@@ -126,6 +151,12 @@ function drawNotes(
 
     context.fillStyle = noteFill(note);
     context.fillRect(x + 2, y, noteWidth - 4, noteHeight);
+
+    if (selectedNoteId === note.id) {
+      context.strokeStyle = '#1f3d7a';
+      context.lineWidth = 2;
+      context.strokeRect(x + 1, y - 1, noteWidth - 2, noteHeight + 2);
+    }
 
     context.fillStyle = 'rgba(255, 250, 244, 0.96)';
     context.font = '12px "Alegreya Sans", "Trebuchet MS", sans-serif';
@@ -137,6 +168,35 @@ function drawNotes(
       context.fillText(String(note.finger), x + noteWidth / 2, y + Math.min(32, noteHeight - 4));
     }
   }
+}
+
+function hitTestVisibleNote(
+  point: { x: number; y: number },
+  width: number,
+  height: number,
+  notes: VisibleNote[],
+): VisibleNote | null {
+  const matches = notes.filter((note) => {
+    const x = note.xRatio * width;
+    const noteWidth = Math.max(width * note.widthRatio * 0.92, 12);
+    const y = note.topRatio * height;
+    const noteHeight = Math.max(note.heightRatio * height, 14);
+
+    return point.x >= x && point.x <= x + noteWidth && point.y >= y && point.y <= y + noteHeight;
+  });
+
+  if (matches.length === 0) {
+    return null;
+  }
+
+  return matches.sort((left, right) => {
+    const leftArea = left.widthRatio * left.heightRatio;
+    const rightArea = right.widthRatio * right.heightRatio;
+    if (leftArea !== rightArea) {
+      return leftArea - rightArea;
+    }
+    return left.topRatio - right.topRatio;
+  })[0];
 }
 
 function drawHitLine(

@@ -12,6 +12,8 @@ interface ResultsScreenProps {
   onRetry: () => void;
   onPracticeSections: (loopRange: LoopRange) => void;
   onMainMenu: () => void;
+  hasNextSong: boolean;
+  onNextSong: () => void;
 }
 
 function getGrade(accuracy: number): 'S' | 'A' | 'B' | 'C' | 'D' | 'F' {
@@ -70,6 +72,8 @@ export function ResultsScreen({
   onRetry,
   onPracticeSections,
   onMainMenu,
+  hasNextSong,
+  onNextSong,
 }: ResultsScreenProps) {
   const didPersistRef = useRef(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -259,6 +263,11 @@ export function ResultsScreen({
         <button className="primary-button" onClick={onRetry}>
           Retry
         </button>
+        {hasNextSong && (
+          <button className="primary-button" onClick={onNextSong}>
+            Next Song
+          </button>
+        )}
         <button
           className="secondary-button"
           disabled={!practiceLoop}
