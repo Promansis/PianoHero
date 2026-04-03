@@ -21,9 +21,6 @@ export function ControlBar(props: ControlBarProps) {
         <div>
           <p className="eyebrow">Piano Hero</p>
           <h1>{props.songTitle !== 'No song loaded' ? props.songTitle : 'Piano Hero'}</h1>
-          {props.songTitle !== 'No song loaded' && (
-            <p className="song-title">{props.songTitle}</p>
-          )}
         </div>
         <div className="transport-buttons">
           {props.onBackToLibrary && (

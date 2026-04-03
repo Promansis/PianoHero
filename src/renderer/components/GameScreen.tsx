@@ -1048,13 +1048,16 @@ export function GameScreen({
       {overlayVisible && (
         <div className="immersive-overlay" onClick={(e) => { if (e.target === e.currentTarget) setOverlayVisible(false); }}>
           <div className="immersive-overlay-panel">
-            <div className="immersive-overlay-actions">
-              <button className="primary-button" onClick={() => setOverlayVisible(false)}>
-                Resume
-              </button>
-              <button className="secondary-button" onClick={() => { audioEngine.pauseSong(); onBackToLibrary(); }}>
-                Back to Library
-              </button>
+            <div className="immersive-overlay-header">
+              <h2>{currentSongRef.current.title}</h2>
+              <div className="immersive-overlay-actions">
+                <button className="primary-button" onClick={() => setOverlayVisible(false)}>
+                  Resume
+                </button>
+                <button className="secondary-button" onClick={() => { audioEngine.pauseSong(); onBackToLibrary(); }}>
+                  Back to Library
+                </button>
+              </div>
             </div>
 
             <ControlBar
@@ -1070,10 +1073,6 @@ export function GameScreen({
               onRestart={() => void handleRestart()}
               onTempoChange={(value) => void handleTempoChange(value)}
               onSeek={(value) => void handleSeek(value)}
-              onBackToLibrary={() => {
-                audioEngine.pauseSong();
-                onBackToLibrary();
-              }}
             />
 
             <section className="status-strip">

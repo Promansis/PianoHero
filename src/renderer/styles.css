@@ -175,6 +175,7 @@ select:focus {
   padding: 0;
   gap: 0;
   overflow: hidden;
+  position: relative;
 }
 
 .immersive-hud {
@@ -258,6 +259,10 @@ select:focus {
   border-radius: 0;
 }
 
+.immersive-keyboard {
+  flex-shrink: 0;
+}
+
 .immersive-keyboard .keyboard-shell {
   border-radius: 0;
   padding: 4px 0 0;
@@ -270,6 +275,42 @@ select:focus {
 .immersive-keyboard .keyboard-stage {
   margin-top: 0;
   border-radius: 0;
+}
+
+.app-shell-immersive .reminder-overlay {
+  position: absolute;
+  bottom: 220px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  width: max-content;
+  max-width: min(600px, calc(100vw - 48px));
+}
+
+.immersive-overlay-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.immersive-overlay-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.immersive-overlay-panel .session-toolbar {
+  grid-template-columns: 1fr 1fr;
+}
+
+.immersive-overlay-panel .session-chip-group {
+  display: flex;
+  flex-wrap: wrap;
 }
 
 .immersive-overlay {
