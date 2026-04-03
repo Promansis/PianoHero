@@ -7,6 +7,35 @@ import type { MidiInputService } from '../../lib/midi/midiInputService';
 import type { MidiInputDevice } from '../../lib/midi/types';
 import { FreePlayScreen } from './FreePlayScreen';
 
+const gradientStub = {
+  addColorStop: vi.fn(),
+};
+
+HTMLCanvasElement.prototype.getContext = vi.fn(() => ({
+  setTransform: vi.fn(),
+  clearRect: vi.fn(),
+  beginPath: vi.fn(),
+  closePath: vi.fn(),
+  moveTo: vi.fn(),
+  lineTo: vi.fn(),
+  quadraticCurveTo: vi.fn(),
+  bezierCurveTo: vi.fn(),
+  ellipse: vi.fn(),
+  arc: vi.fn(),
+  fill: vi.fn(),
+  stroke: vi.fn(),
+  fillRect: vi.fn(),
+  fillText: vi.fn(),
+  clip: vi.fn(),
+  save: vi.fn(),
+  restore: vi.fn(),
+  translate: vi.fn(),
+  rotate: vi.fn(),
+  measureText: vi.fn(() => ({ width: 80 })),
+  createLinearGradient: vi.fn(() => gradientStub),
+  createRadialGradient: vi.fn(() => gradientStub),
+})) as never;
+
 class MockMidiInputService {
   private listeners = new Set<(event: InputEvent) => void>();
 
