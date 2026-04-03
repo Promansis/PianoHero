@@ -109,6 +109,8 @@ export interface AppBridge {
 
   getSetting: (category: string, key: string) => Promise<string | null>;
   setSetting: (category: string, key: string, value: string) => Promise<void>;
+  resetLearningProgress: () => Promise<void>;
+  resetUserData: () => Promise<void>;
   exportLibrary: () => Promise<string | null>;
   importLibrary: () => Promise<LibraryImportResult | null>;
 

@@ -66,6 +66,8 @@ const appBridge: AppBridge = {
 
   getSetting: (category, key) => ipcRenderer.invoke('settings:get', category, key),
   setSetting: (category, key, value) => ipcRenderer.invoke('settings:set', category, key, value),
+  resetLearningProgress: () => ipcRenderer.invoke('settings:reset-learning-progress'),
+  resetUserData: () => ipcRenderer.invoke('settings:reset-user-data'),
   exportLibrary: () => ipcRenderer.invoke('library:export'),
   importLibrary: () => ipcRenderer.invoke('library:import'),
 

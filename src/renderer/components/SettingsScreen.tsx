@@ -58,6 +58,8 @@ export function SettingsScreen({
   const [values, setValues] = useState<SettingsValues>(DEFAULT_SETTINGS);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isResettingProgress, setIsResettingProgress] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   const [statusMessage, setStatusMessage] = useState('Loading saved settings.');
   const [samplePackPath, setSamplePackPath] = useState<string | null>(null);
   const [samplePackFileCount, setSamplePackFileCount] = useState(0);
@@ -140,6 +142,57 @@ export function SettingsScreen({
     await window.appBridge?.setSetting('audio', 'customSamplePackPath', '');
     onSettingChange('audio', 'customSamplePackPath', '');
     setStatusMessage('Custom sample pack cleared. Using built-in instruments.');
+  };
+
+  const resetUserData = async () => {
+    if (!window.appBridge) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      'Reset all user data? This clears songs, results, playlists, folders, settings, achievements, and imported MIDI copies.',
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setIsResetting(true);
+    setStatusMessage('Resetting user data...');
+
+    try {
+      await window.appBridge.resetUserData();
+      window.localStorage.clear();
+      window.location.reload();
+    } catch {
+      setIsResetting(false);
+      setStatusMessage('Reset failed. Your data was not fully cleared.');
+    }
+  };
+
+  const resetLearningProgress = async () => {
+    if (!window.appBridge) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      'Reset learning progress? This keeps your songs, folders, playlists, and settings, but clears play history, achievements, trouble spots, theory sessions, and practice time.',
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setIsResettingProgress(true);
+    setStatusMessage('Resetting learning progress...');
+
+    try {
+      await window.appBridge.resetLearningProgress();
+      setStatusMessage('Learning progress reset. Your library and settings were kept.');
+      window.location.reload();
+    } catch {
+      setStatusMessage('Progress reset failed. Your history was not fully cleared.');
+    } finally {
+      setIsResettingProgress(false);
+    }
   };
 
   if (isLoading) {
@@ -431,6 +484,20 @@ export function SettingsScreen({
               <article className="settings-note-card">
                 <span>Save Status</span>
                 <strong>{isSaving ? 'Saving...' : 'All changes saved'}</strong>
+              </article>
+              <article className="settings-note-card settings-danger-card">
+                <span>Reset Learning Progress</span>
+                <strong>Keeps your library, playlists, folders, and settings, but clears achievements and practice history.</strong>
+                <button className="danger-button" disabled={isResettingProgress} onClick={() => void resetLearningProgress()}>
+                  {isResettingProgress ? 'Resetting...' : 'Reset Learning Progress'}
+                </button>
+              </article>
+              <article className="settings-note-card settings-danger-card">
+                <span>Reset User Data</span>
+                <strong>Clears songs, playlists, folders, results, achievements, and saved settings.</strong>
+                <button className="danger-button" disabled={isResetting} onClick={() => void resetUserData()}>
+                  {isResetting ? 'Resetting...' : 'Reset User Data'}
+                </button>
               </article>
             </div>
           )}

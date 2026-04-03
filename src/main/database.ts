@@ -1165,6 +1165,39 @@ export class AppDatabase {
     this.db.prepare('INSERT OR REPLACE INTO settings (category, key, value) VALUES (?, ?, ?)').run(category, key, value);
   }
 
+  resetLearningProgress(): void {
+    this.db.transaction(() => {
+      this.db.prepare('DELETE FROM measure_accuracy_history').run();
+      this.db.prepare('DELETE FROM trouble_spots').run();
+      this.db.prepare('DELETE FROM game_results').run();
+      this.db.prepare('DELETE FROM theory_results').run();
+      this.db.prepare('DELETE FROM user_stats').run();
+      this.db.prepare('DELETE FROM practice_days').run();
+      this.db.prepare('DELETE FROM achievements').run();
+      this.db.prepare('UPDATE songs SET times_played = 0').run();
+      this.seedAchievements();
+    })();
+  }
+
+  resetUserData(): void {
+    this.db.transaction(() => {
+      this.db.prepare('DELETE FROM measure_accuracy_history').run();
+      this.db.prepare('DELETE FROM trouble_spots').run();
+      this.db.prepare('DELETE FROM game_results').run();
+      this.db.prepare('DELETE FROM theory_results').run();
+      this.db.prepare('DELETE FROM user_stats').run();
+      this.db.prepare('DELETE FROM practice_days').run();
+      this.db.prepare('DELETE FROM fingerings').run();
+      this.db.prepare('DELETE FROM playlist_songs').run();
+      this.db.prepare('DELETE FROM playlists').run();
+      this.db.prepare('DELETE FROM folders').run();
+      this.db.prepare('DELETE FROM songs').run();
+      this.db.prepare('DELETE FROM settings').run();
+      this.db.prepare('DELETE FROM achievements').run();
+      this.seedAchievements();
+    })();
+  }
+
   exportLibraryData(): LibraryBackup {
     const playlists = this.getAllPlaylists().map((playlist) => ({
       ...playlist,

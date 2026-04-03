@@ -1,6 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain } from 'electron';
 import type { OpenDialogOptions, SaveDialogOptions } from 'electron';
-import { copyFileSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import type { Dirent } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -329,6 +329,14 @@ app.whenReady().then(async () => {
   ipcMain.handle('settings:set', (_event, category: string, key: string, value: string) =>
     db.setSetting(category, key, value),
   );
+  ipcMain.handle('settings:reset-learning-progress', () => {
+    db.resetLearningProgress();
+  });
+  ipcMain.handle('settings:reset-user-data', () => {
+    db.resetUserData();
+    rmSync(midiFilesDir, { recursive: true, force: true });
+    mkdirSync(midiFilesDir, { recursive: true });
+  });
 
   ipcMain.handle('library:export', async () => {
     const options: SaveDialogOptions = {
