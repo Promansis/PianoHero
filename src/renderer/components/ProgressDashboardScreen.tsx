@@ -133,7 +133,7 @@ export function ProgressDashboardScreen({ onBack }: ProgressDashboardScreenProps
             <p className="song-title">Gathering practice history, streaks, and chart data.</p>
           </div>
           <button className="secondary-button" onClick={onBack}>
-            Back to Library
+            Back to Menu
           </button>
         </section>
         <section className="panel empty-state-panel">
@@ -153,7 +153,7 @@ export function ProgressDashboardScreen({ onBack }: ProgressDashboardScreenProps
             <p className="song-title">{errorMessage ?? 'No progress data is available yet.'}</p>
           </div>
           <button className="secondary-button" onClick={onBack}>
-            Back to Library
+            Back to Menu
           </button>
         </section>
       </main>
@@ -169,7 +169,7 @@ export function ProgressDashboardScreen({ onBack }: ProgressDashboardScreenProps
           <p className="song-title">Track consistency, workload, and how cleanly your scores are trending.</p>
         </div>
         <button className="secondary-button" onClick={onBack}>
-          Back to Library
+          Back to Menu
         </button>
       </section>
 
@@ -219,7 +219,7 @@ export function ProgressDashboardScreen({ onBack }: ProgressDashboardScreenProps
         <article className="panel chart-panel">
           <LineChart
             title="Practice Time (Last 30 Days)"
-            color="#1f3d7a"
+            color="var(--color-accent)"
             data={stats.practiceTimeByDay.map((entry) => ({
               label: entry.date.slice(5),
               value: entry.minutes,
@@ -230,7 +230,7 @@ export function ProgressDashboardScreen({ onBack }: ProgressDashboardScreenProps
         <article className="panel chart-panel">
           <BarChart
             title="Songs Played Per Week"
-            color="#bf5b44"
+            color="var(--color-accent-secondary)"
             data={stats.songsPlayedByWeek.map((entry) => ({
               label: entry.weekStart.slice(5),
               value: entry.count,
@@ -241,7 +241,7 @@ export function ProgressDashboardScreen({ onBack }: ProgressDashboardScreenProps
         <article className="panel chart-panel">
           <LineChart
             title="Accuracy Trend"
-            color="#40b56a"
+            color="var(--color-good)"
             data={stats.accuracyTrend.map((entry) => ({
               label: entry.date.slice(5),
               value: entry.avgAccuracy,

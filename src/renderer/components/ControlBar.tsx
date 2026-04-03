@@ -28,7 +28,7 @@ export function ControlBar(props: ControlBarProps) {
         <div className="transport-buttons">
           {props.onBackToLibrary && (
             <button className="secondary-button" onClick={props.onBackToLibrary}>
-              Library
+              Main Menu
             </button>
           )}
           <button className="secondary-button" onClick={props.onImport}>

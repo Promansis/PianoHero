@@ -66,7 +66,7 @@ export function TheoryHubScreen(props: TheoryHubScreenProps) {
         </div>
         <div className="transport-buttons">
           <button className="secondary-button" onClick={props.onBack}>
-            Back to Library
+            Back to Menu
           </button>
         </div>
       </section>

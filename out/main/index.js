@@ -1601,6 +1601,24 @@ async function createSongId(buffer) {
 function toArrayBuffer(buffer) {
   return Uint8Array.from(buffer).buffer;
 }
+function collectMidiFiles(dir) {
+  const results = [];
+  let entries;
+  try {
+    entries = readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return results;
+  }
+  for (const entry of entries) {
+    const fullPath = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      results.push(...collectMidiFiles(fullPath));
+    } else if (/\.(mid|midi)$/i.test(entry.name)) {
+      results.push(fullPath);
+    }
+  }
+  return results;
+}
 function calculateDifficulty(noteCount, durationSec) {
   const safeDuration = Math.max(durationSec, 1);
   return Math.max(1, Math.min(10, Math.round(noteCount / safeDuration * 1.2)));
@@ -1618,7 +1636,7 @@ async function createMainWindow() {
     height: 960,
     minWidth: 1180,
     minHeight: 780,
-    backgroundColor: "#f2eadb",
+    backgroundColor: "#0d0e14",
     webPreferences: {
       preload: join(__dirname, "../preload/preload.js"),
       contextIsolation: true,
@@ -1707,6 +1725,55 @@ app.whenReady().then(async () => {
       });
     }
     return importedSongs;
+  });
+  ipcMain.handle("songs:import-folder", async () => {
+    const options = {
+      properties: ["openDirectory"]
+    };
+    const result = mainWindow ? await dialog.showOpenDialog(mainWindow, options) : await dialog.showOpenDialog(options);
+    if (result.canceled || result.filePaths.length === 0) {
+      return null;
+    }
+    const filePaths = collectMidiFiles(result.filePaths[0]);
+    const importedSongs = [];
+    let skipped = 0;
+    for (const selectedPath of filePaths) {
+      const buffer = await readFile(selectedPath);
+      const songId = await createSongId(buffer);
+      if (db.getSong(songId)) {
+        skipped++;
+        continue;
+      }
+      const destPath = join(midiFilesDir, `${songId}.mid`);
+      const title = selectedPath.split(/[\\/]/).pop()?.replace(/\.(mid|midi)$/i, "") ?? "Untitled";
+      const parsedSong = parseMidiFile(toArrayBuffer(buffer), { songId, title });
+      const difficulty = calculateDifficulty(parsedSong.notes.length, parsedSong.durationSec);
+      copyFileSync(selectedPath, destPath);
+      const row = db.addSong({
+        id: songId,
+        title,
+        artist: "",
+        genre: "",
+        filePath: destPath,
+        difficulty,
+        durationSec: parsedSong.durationSec,
+        bpm: parsedSong.bpm,
+        noteCount: parsedSong.notes.length,
+        tags: [],
+        trackAssignments: getTrackAssignments(parsedSong)
+      });
+      importedSongs.push({
+        songId,
+        destPath,
+        fileData: new Uint8Array(buffer),
+        title: row.title,
+        durationSec: row.durationSec,
+        bpm: row.bpm,
+        noteCount: row.noteCount,
+        difficulty: row.difficulty
+      });
+    }
+    return { imported: importedSongs, skipped };
   });
   ipcMain.handle("results:save", (_event, payload) => db.saveGameResult(payload));
   ipcMain.handle("results:for-song", (_event, songId) => db.getGameResults(songId));

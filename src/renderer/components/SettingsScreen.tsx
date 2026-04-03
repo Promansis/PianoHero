@@ -30,7 +30,7 @@ const DEFAULT_SETTINGS: SettingsValues = {
   'audio.metronomeVolume': '65',
   'audio.reverbLevel': '20',
   'audio.latencyCompMs': '0',
-  'visual.theme': 'light',
+  'visual.theme': 'dark',
   'visual.colorBlindMode': 'false',
   'visual.noteLabels': 'alphabetic',
   'visual.keyboardOverlaySize': 'medium',
@@ -154,7 +154,7 @@ export function SettingsScreen({
             <p className="song-title">Reading saved audio, gameplay, and practice defaults.</p>
           </div>
           <button className="secondary-button" onClick={onBack}>
-            Back to Library
+            Back to Menu
           </button>
         </section>
         <section className="panel empty-state-panel">
@@ -173,7 +173,7 @@ export function SettingsScreen({
           <p className="song-title">{statusMessage}</p>
         </div>
         <button className="secondary-button" onClick={onBack}>
-          Back to Library
+          Back to Menu
         </button>
       </section>
 
@@ -281,6 +281,7 @@ export function SettingsScreen({
                   value={values['visual.theme']}
                   onChange={(event) => void persistSetting('visual', 'theme', event.target.value)}
                 >
+                  <option value="dark">Dark</option>
                   <option value="light">Light</option>
                   <option value="warm">Warm</option>
                 </select>

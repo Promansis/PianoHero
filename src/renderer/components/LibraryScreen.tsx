@@ -13,12 +13,7 @@ interface LibraryScreenProps {
   audioEngine: AudioEngine;
   onStartSession: (song: SongRow, mode: SessionMode) => void;
   onStartPlaylistQueue: (songs: SongRow[]) => void;
-  onStartFreePlay: () => void;
   onStartTheoryPractice: () => void;
-  onOpenProgressDashboard: () => void;
-  onOpenSettings: () => void;
-  onOpenSetupGuide: () => void;
-  onOpenKeyboardSetup: () => void;
 }
 
 type SortField = 'title' | 'date' | 'score' | 'difficulty' | 'plays' | 'lastPlayed';
@@ -139,12 +134,7 @@ export function LibraryScreen({
   audioEngine,
   onStartSession,
   onStartPlaylistQueue,
-  onStartFreePlay,
   onStartTheoryPractice,
-  onOpenProgressDashboard,
-  onOpenSettings,
-  onOpenSetupGuide,
-  onOpenKeyboardSetup,
 }: LibraryScreenProps) {
   const [songs, setSongs] = useState<SongRow[]>([]);
   const [statsBySongId, setStatsBySongId] = useState<Record<string, UserStatsRow | null>>({});
@@ -694,24 +684,6 @@ export function LibraryScreen({
           <p className="song-title">{statusMessage}</p>
         </div>
         <div className="transport-buttons">
-          <button className="secondary-button" onClick={onOpenSetupGuide}>
-            Setup Guide
-          </button>
-          <button className="secondary-button" onClick={onStartFreePlay}>
-            Free Play
-          </button>
-          <button className="secondary-button" onClick={onStartTheoryPractice}>
-            Theory
-          </button>
-          <button className="secondary-button" onClick={onOpenProgressDashboard}>
-            Progress
-          </button>
-          <button className="secondary-button" onClick={onOpenSettings}>
-            Settings
-          </button>
-          <button className="secondary-button" onClick={onOpenKeyboardSetup}>
-            Keyboard Setup
-          </button>
           <button className="secondary-button" onClick={() => void handleExportLibrary()}>
             Export Library
           </button>

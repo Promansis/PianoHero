@@ -11,11 +11,42 @@ interface FallingNotesCanvasProps {
   noteLabels?: 'alphabetic' | 'symbols' | 'both' | 'none';
 }
 
-function noteFill(note: VisibleNote, colorBlindMode: boolean): string {
+interface CanvasPalette {
+  perfect: string;
+  good: string;
+  ok: string;
+  miss: string;
+  leftHand: string;
+  rightHand: string;
+  surface: string;
+  grid: string;
+  hitLine: string;
+  text: string;
+  selected: string;
+}
+
+function readCanvasPalette(): CanvasPalette {
+  const styles = getComputedStyle(document.documentElement);
+  return {
+    perfect: styles.getPropertyValue('--color-perfect').trim() || '#f5c542',
+    good: styles.getPropertyValue('--color-good').trim() || '#40b56a',
+    ok: styles.getPropertyValue('--color-ok').trim() || '#4a90d9',
+    miss: styles.getPropertyValue('--color-miss').trim() || '#bf5b44',
+    leftHand: styles.getPropertyValue('--color-accent').trim() || '#3366cc',
+    rightHand: styles.getPropertyValue('--color-accent-secondary').trim() || '#dc5b35',
+    surface: styles.getPropertyValue('--color-chart-bg').trim() || '#fdf9f1',
+    grid: styles.getPropertyValue('--color-chart-grid').trim() || 'rgba(35, 33, 28, 0.08)',
+    hitLine: styles.getPropertyValue('--color-accent').trim() || '#1f3d7a',
+    text: styles.getPropertyValue('--color-note-text').trim() || 'rgba(255, 250, 244, 0.96)',
+    selected: styles.getPropertyValue('--color-accent').trim() || '#1f3d7a',
+  };
+}
+
+function noteFill(note: VisibleNote, colorBlindMode: boolean, palette: CanvasPalette): string {
   if (colorBlindMode) {
     // Deuteranopia-safe palette: yellow/blue/cyan/pink instead of yellow/green/blue/red
     switch (note.judgement) {
-      case 'perfect': return '#f5c542';
+      case 'perfect': return palette.perfect;
       case 'good': return '#4477AA';
       case 'ok': return '#66CCEE';
       case 'miss': return '#EE6677';
@@ -24,15 +55,15 @@ function noteFill(note: VisibleNote, colorBlindMode: boolean): string {
   }
   switch (note.judgement) {
     case 'perfect':
-      return '#f5c542';
+      return palette.perfect;
     case 'good':
-      return '#40b56a';
+      return palette.good;
     case 'ok':
-      return '#4a90d9';
+      return palette.ok;
     case 'miss':
-      return '#bf5b44';
+      return palette.miss;
     default:
-      return note.hand === 'left' ? '#3366cc' : '#dc5b35';
+      return note.hand === 'left' ? palette.leftHand : palette.rightHand;
   }
 }
 
@@ -64,6 +95,7 @@ export function FallingNotesCanvas({
     const width = container.clientWidth;
     const height = container.clientHeight;
     const devicePixelRatio = window.devicePixelRatio || 1;
+    const palette = readCanvasPalette();
     canvas.width = width * devicePixelRatio;
     canvas.height = height * devicePixelRatio;
     canvas.style.width = `${width}px`;
@@ -71,10 +103,10 @@ export function FallingNotesCanvas({
     context.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
 
     context.clearRect(0, 0, width, height);
-    drawGrid(context, width, height, snapshot.hitLineRatio);
-    drawNotes(context, width, height, snapshot.visibleNotes, selectedNoteId, colorBlindMode, noteLabels);
-    drawHitLine(context, width, height, snapshot.hitLineRatio);
-  }, [snapshot]);
+    drawGrid(context, width, height, snapshot.hitLineRatio, palette);
+    drawNotes(context, width, height, snapshot.visibleNotes, selectedNoteId, colorBlindMode, noteLabels, palette);
+    drawHitLine(context, width, height, snapshot.hitLineRatio, palette);
+  }, [colorBlindMode, noteLabels, selectedNoteId, snapshot]);
 
   return (
     <div
@@ -126,11 +158,12 @@ function drawGrid(
   width: number,
   height: number,
   hitLineRatio: number,
+  palette: CanvasPalette,
 ): void {
-  context.fillStyle = '#fdf9f1';
+  context.fillStyle = palette.surface;
   context.fillRect(0, 0, width, height);
 
-  context.strokeStyle = 'rgba(35, 33, 28, 0.08)';
+  context.strokeStyle = palette.grid;
   context.lineWidth = 1;
   for (let index = 0; index <= 11; index += 1) {
     const x = width * index / 11;
@@ -140,7 +173,7 @@ function drawGrid(
     context.stroke();
   }
 
-  context.strokeStyle = 'rgba(35, 33, 28, 0.1)';
+  context.strokeStyle = palette.grid;
   for (let index = 1; index <= 4; index += 1) {
     const y = height * hitLineRatio * index / 4;
     context.beginPath();
@@ -158,6 +191,7 @@ function drawNotes(
   selectedNoteId: string | null,
   colorBlindMode: boolean,
   noteLabels: 'alphabetic' | 'symbols' | 'both' | 'none',
+  palette: CanvasPalette,
 ): void {
   for (const note of notes) {
     const x = note.xRatio * width;
@@ -165,25 +199,25 @@ function drawNotes(
     const y = note.topRatio * height;
     const noteHeight = Math.max(note.heightRatio * height, 14);
 
-    context.fillStyle = noteFill(note, colorBlindMode);
+    context.fillStyle = noteFill(note, colorBlindMode, palette);
     context.fillRect(x + 2, y, noteWidth - 4, noteHeight);
 
     if (selectedNoteId === note.id) {
-      context.strokeStyle = '#1f3d7a';
+      context.strokeStyle = palette.selected;
       context.lineWidth = 2;
       context.strokeRect(x + 1, y - 1, noteWidth - 2, noteHeight + 2);
     }
 
     if (noteLabels !== 'none') {
-      context.fillStyle = 'rgba(255, 250, 244, 0.96)';
-      context.font = '12px "Alegreya Sans", "Trebuchet MS", sans-serif';
+      context.fillStyle = palette.text;
+      context.font = '12px "Segoe UI", system-ui, sans-serif';
       context.textAlign = 'center';
       context.fillText(note.label, x + noteWidth / 2, y + Math.min(18, noteHeight - 4));
     }
 
     if (note.finger !== undefined) {
-      context.fillStyle = 'rgba(255, 250, 244, 0.96)';
-      context.font = 'bold 11px "Alegreya Sans", "Trebuchet MS", sans-serif';
+      context.fillStyle = palette.text;
+      context.font = 'bold 11px "Segoe UI", system-ui, sans-serif';
       context.textAlign = 'center';
       context.fillText(String(note.finger), x + noteWidth / 2, y + Math.min(32, noteHeight - 4));
     }
@@ -224,9 +258,10 @@ function drawHitLine(
   width: number,
   height: number,
   hitLineRatio: number,
+  palette: CanvasPalette,
 ): void {
   const y = height * hitLineRatio;
-  context.strokeStyle = '#1f3d7a';
+  context.strokeStyle = palette.hitLine;
   context.lineWidth = 4;
   context.beginPath();
   context.moveTo(0, y);

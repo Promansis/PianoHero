@@ -883,7 +883,7 @@ export function GameScreen({
   const durationLabel = formatTime(snapshot.durationSec);
 
   return (
-    <main className="app-shell" onPointerDownCapture={() => void ensureAudioReady()}>
+    <main className="app-shell app-shell-without-chrome" onPointerDownCapture={() => void ensureAudioReady()}>
       <ControlBar
         canPlay={Boolean(sessionSong)}
         isPlaying={snapshot.isPlaying}

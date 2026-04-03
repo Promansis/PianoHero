@@ -467,7 +467,7 @@ export function FreePlayScreen({
         </div>
         <div className="transport-buttons">
           <button className="secondary-button" onClick={onBackToLibrary}>
-            Library
+            Main Menu
           </button>
           <button className="secondary-button" onClick={onOpenKeyboardSetup}>
             Keyboard Setup

@@ -22,6 +22,7 @@ import { GameScreen } from './components/GameScreen';
 import { IntervalTrainerScreen } from './components/IntervalTrainerScreen';
 import { KeyboardSetupScreen } from './components/KeyboardSetupScreen';
 import { LibraryScreen } from './components/LibraryScreen';
+import { MainMenuScreen } from './components/MainMenuScreen';
 import { ProgressDashboardScreen } from './components/ProgressDashboardScreen';
 import { ResultsScreen } from './components/ResultsScreen';
 import { ScalePracticeScreen } from './components/ScalePracticeScreen';
@@ -32,6 +33,7 @@ import { TheoryQuizScreen } from './components/TheoryQuizScreen';
 
 type AppScreen =
   | { screen: 'setup' }
+  | { screen: 'main-menu' }
   | { screen: 'library' }
   | { screen: 'free-play' }
   | { screen: 'theory-hub' }
@@ -105,6 +107,37 @@ function extractNoteName(filename: string): string | null {
   return null;
 }
 
+function getScreenTitle(currentScreen: AppScreen): string {
+  switch (currentScreen.screen) {
+    case 'setup':
+      return 'Setup';
+    case 'main-menu':
+      return 'Main Menu';
+    case 'library':
+      return 'Song Library';
+    case 'free-play':
+      return 'Free Play';
+    case 'theory-hub':
+      return 'Theory';
+    case 'progress-dashboard':
+      return 'Progress';
+    case 'settings':
+      return 'Settings';
+    case 'scale-practice':
+      return 'Scale Practice';
+    case 'interval-trainer':
+      return 'Interval Trainer';
+    case 'theory-quiz':
+      return 'Theory Quiz';
+    case 'keyboard-setup':
+      return 'Keyboard Setup';
+    case 'game':
+      return 'In Game';
+    case 'results':
+      return 'Results';
+  }
+}
+
 export function App() {
   const audioEngineRef = useRef(new AudioEngine());
   const midiServiceRef = useRef<MidiInputService | null>(null);
@@ -116,7 +149,7 @@ export function App() {
   const [inputMode, setInputMode] = useState<InputMode>('both');
   const [midiDevices, setMidiDevices] = useState<MidiInputDevice[]>([]);
   const [achievementToastQueue, setAchievementToastQueue] = useState<string[]>([]);
-  const [currentScreen, setCurrentScreen] = useState<AppScreen>({ screen: 'library' });
+  const [currentScreen, setCurrentScreen] = useState<AppScreen>({ screen: 'main-menu' });
   const [colorBlindMode, setColorBlindMode] = useState(false);
   const [noteLabels, setNoteLabels] = useState<'alphabetic' | 'symbols' | 'both' | 'none'>('alphabetic');
   const [keyboardOverlaySize, setKeyboardOverlaySize] = useState<'small' | 'medium' | 'large'>('medium');
@@ -208,7 +241,7 @@ export function App() {
         setHandSize(savedHandSize);
       }
 
-      const theme = rawTheme === 'warm' ? 'warm' : 'light';
+      const theme = rawTheme === 'warm' ? 'warm' : rawTheme === 'dark' ? 'dark' : 'light';
       document.documentElement.dataset['theme'] = theme;
 
       setColorBlindMode(rawColorBlind === 'true');
@@ -280,7 +313,7 @@ export function App() {
         void window.appBridge.setSetting('audio', 'instrumentId', initialInstrumentId);
       }
 
-      setCurrentScreen({ screen: setupComplete === 'true' ? 'library' : 'setup' });
+      setCurrentScreen({ screen: setupComplete === 'true' ? 'main-menu' : 'setup' });
       setSettingsReady(true);
     };
 
@@ -350,7 +383,7 @@ export function App() {
 
     if (category === 'visual') {
       if (key === 'theme') {
-        document.documentElement.dataset['theme'] = value === 'warm' ? 'warm' : 'light';
+        document.documentElement.dataset['theme'] = value === 'warm' ? 'warm' : value === 'dark' ? 'dark' : 'light';
       } else if (key === 'colorBlindMode') {
         setColorBlindMode(value === 'true');
       } else if (key === 'noteLabels' && (value === 'alphabetic' || value === 'symbols' || value === 'both' || value === 'none')) {
@@ -497,14 +530,15 @@ export function App() {
   const handleBackNavigation = () => {
     switch (currentScreen.screen) {
       case 'setup':
-      case 'library':
+      case 'main-menu':
         return;
+      case 'library':
       case 'free-play':
       case 'theory-hub':
       case 'progress-dashboard':
       case 'settings':
       case 'results':
-        setCurrentScreen({ screen: 'library' });
+        setCurrentScreen({ screen: 'main-menu' });
         return;
       case 'scale-practice':
       case 'interval-trainer':
@@ -515,7 +549,7 @@ export function App() {
         setCurrentScreen({ screen: currentScreen.returnTo });
         return;
       case 'game':
-        setCurrentScreen({ screen: 'library' });
+        setCurrentScreen({ screen: 'main-menu' });
         return;
     }
   };
@@ -590,12 +624,25 @@ export function App() {
           onOpenKeyboardSetup={() => setCurrentScreen({ screen: 'keyboard-setup', returnTo: 'setup' })}
           onSkip={() => {
             void persistSetupState(true);
-            setCurrentScreen({ screen: 'library' });
+            setCurrentScreen({ screen: 'main-menu' });
           }}
           onStartPractice={() => {
             void persistSetupState(true);
-            setCurrentScreen({ screen: 'library' });
+            setCurrentScreen({ screen: 'main-menu' });
           }}
+        />
+      );
+      break;
+
+    case 'main-menu':
+      screenContent = (
+        <MainMenuScreen
+          onOpenLibrary={() => setCurrentScreen({ screen: 'library' })}
+          onOpenFreePlay={() => setCurrentScreen({ screen: 'free-play' })}
+          onOpenTheory={() => setCurrentScreen({ screen: 'theory-hub' })}
+          onOpenProgress={() => setCurrentScreen({ screen: 'progress-dashboard' })}
+          onOpenSettings={() => setCurrentScreen({ screen: 'settings' })}
+          onOpenSetup={() => setCurrentScreen({ screen: 'setup' })}
         />
       );
       break;
@@ -604,11 +651,6 @@ export function App() {
       screenContent = (
         <LibraryScreen
           audioEngine={audioEngineRef.current}
-          onOpenKeyboardSetup={() => setCurrentScreen({ screen: 'keyboard-setup', returnTo: 'library' })}
-          onOpenProgressDashboard={() => setCurrentScreen({ screen: 'progress-dashboard' })}
-          onOpenSettings={() => setCurrentScreen({ screen: 'settings' })}
-          onOpenSetupGuide={() => setCurrentScreen({ screen: 'setup' })}
-          onStartFreePlay={() => setCurrentScreen({ screen: 'free-play' })}
           onStartTheoryPractice={() => setCurrentScreen({ screen: 'theory-hub' })}
           onStartSession={(song, mode) => startSongSession(song, mode)}
           onStartPlaylistQueue={startPlaylistQueue}
@@ -626,7 +668,7 @@ export function App() {
           keyboardOverlaySize={keyboardOverlaySize}
           postureReminderMinutes={postureReminderMinutes}
           breakReminderMinutes={breakReminderMinutes}
-          onBackToLibrary={() => setCurrentScreen({ screen: 'library' })}
+          onBackToLibrary={() => setCurrentScreen({ screen: 'main-menu' })}
           onOpenKeyboardSetup={() => setCurrentScreen({ screen: 'keyboard-setup', returnTo: 'library' })}
         />
       );
@@ -635,7 +677,7 @@ export function App() {
     case 'theory-hub':
       screenContent = (
         <TheoryHubScreen
-          onBack={() => setCurrentScreen({ screen: 'library' })}
+          onBack={() => setCurrentScreen({ screen: 'main-menu' })}
           onStartIntervalTrainer={(preset) => setCurrentScreen({ screen: 'interval-trainer', preset })}
           onStartQuiz={(preset) => setCurrentScreen({ screen: 'theory-quiz', preset })}
           onStartScalePractice={(preset) => setCurrentScreen({ screen: 'scale-practice', preset })}
@@ -644,7 +686,7 @@ export function App() {
       break;
 
     case 'progress-dashboard':
-      screenContent = <ProgressDashboardScreen onBack={() => setCurrentScreen({ screen: 'library' })} />;
+      screenContent = <ProgressDashboardScreen onBack={() => setCurrentScreen({ screen: 'main-menu' })} />;
       break;
 
     case 'settings':
@@ -655,7 +697,7 @@ export function App() {
           onSettingChange={applySettingChange}
           onInputModeChange={persistInputMode}
           onOpenKeyboardSetup={() => setCurrentScreen({ screen: 'keyboard-setup', returnTo: 'settings' })}
-          onBack={() => setCurrentScreen({ screen: 'library' })}
+          onBack={() => setCurrentScreen({ screen: 'main-menu' })}
         />
       );
       break;
@@ -724,7 +766,7 @@ export function App() {
           noteLabels={noteLabels}
           keyboardOverlaySize={keyboardOverlaySize}
           breakReminderMinutes={breakReminderMinutes}
-          onBackToLibrary={() => setCurrentScreen({ screen: 'library' })}
+          onBackToLibrary={() => setCurrentScreen({ screen: 'main-menu' })}
           onGameFinished={handleGameFinished}
           onOpenKeyboardSetup={() => setCurrentScreen({ screen: 'keyboard-setup', returnTo: 'library' })}
         />
@@ -740,7 +782,7 @@ export function App() {
           song={currentScreen.song}
           songFilePath={currentScreen.songFilePath}
           onAchievementsUnlocked={enqueueAchievementToasts}
-          onMainMenu={() => setCurrentScreen({ screen: 'library' })}
+          onMainMenu={() => setCurrentScreen({ screen: 'main-menu' })}
           onPracticeSections={(loopRange) => startSongSession(currentScreen.song, 'learning', loopRange)}
           onStartTheoryPractice={handleStartTheoryPractice}
           onRetry={() =>
@@ -758,9 +800,31 @@ export function App() {
       break;
   }
 
+  const showAppChrome = currentScreen.screen !== 'game';
+  const canNavigateBack = currentScreen.screen !== 'setup' && currentScreen.screen !== 'main-menu';
+
   return (
     <>
-      {screenContent}
+      {showAppChrome ? (
+        <div className="app-frame">
+          <header className="app-topbar">
+            <div className="app-topbar-brand">PIANO HERO</div>
+            <div className="app-topbar-title">{getScreenTitle(currentScreen)}</div>
+            <div className="app-topbar-actions">
+              {canNavigateBack ? (
+                <button className="secondary-button chrome-back-button" onClick={handleBackNavigation}>
+                  Back
+                </button>
+              ) : (
+                <div className="app-topbar-spacer" aria-hidden="true" />
+              )}
+            </div>
+          </header>
+          {screenContent}
+        </div>
+      ) : (
+        screenContent
+      )}
       <AchievementToast
         achievementId={achievementToastQueue[0] ?? null}
         onClose={() => setAchievementToastQueue((current) => current.slice(1))}
