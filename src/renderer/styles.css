@@ -975,11 +975,9 @@ select:focus {
 
 .black-key {
   position: absolute;
-  width: calc((100% / 52) * 0.6);
   height: 58%;
   background: linear-gradient(180deg, var(--color-black-key-start) 0%, var(--color-black-key-end) 100%);
   border-radius: 0 0 12px 12px;
-  transform: translateX(-50%);
 }
 
 .white-key.active {

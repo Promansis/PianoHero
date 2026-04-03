@@ -1,5 +1,5 @@
 import type { Hand } from '../../lib/game/types';
-import { KEY_LAYOUT, WHITE_KEY_WIDTH } from '../../lib/piano/pianoLayout';
+import { BLACK_KEY_WIDTH, KEY_LAYOUT, WHITE_KEY_WIDTH } from '../../lib/piano/pianoLayout';
 
 interface PianoKeyboardProps {
   activeNotes: number[];
@@ -73,7 +73,7 @@ export function PianoKeyboard({
               <div
                 key={key.midi}
                 className={`black-key ${isActive ? 'active' : ''} ${cue ? `cue-${cue.hand}` : ''} ${isHighlighted ? `${highlightColor}-highlight` : ''}`}
-                style={{ left: `${key.left}%` }}
+                style={{ left: `${key.left}%`, width: `${WHITE_KEY_WIDTH * BLACK_KEY_WIDTH}%` }}
                 title={key.note}
               >
                 {cue?.finger !== undefined && <strong className="key-finger black">{cue.finger}</strong>}
