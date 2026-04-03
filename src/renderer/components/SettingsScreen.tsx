@@ -61,6 +61,8 @@ export function SettingsScreen({
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState('Loading saved settings.');
+  const [samplePackPath, setSamplePackPath] = useState<string | null>(null);
+  const [samplePackFileCount, setSamplePackFileCount] = useState(0);
 
   useEffect(() => {
     const load = async () => {
@@ -88,6 +90,14 @@ export function SettingsScreen({
 
       nextValues[getSettingKey('input', 'mode')] = inputMode;
       setValues(nextValues);
+
+      const savedSamplePath = await window.appBridge.getSetting('audio', 'customSamplePackPath');
+      if (savedSamplePath) {
+        setSamplePackPath(savedSamplePath);
+        const files = await window.appBridge.listAudioFiles(savedSamplePath);
+        setSamplePackFileCount(files.length);
+      }
+
       setStatusMessage('Settings loaded.');
       setIsLoading(false);
     };
@@ -108,6 +118,30 @@ export function SettingsScreen({
     await window.appBridge?.setSetting(category, key, value);
     setIsSaving(false);
     setStatusMessage('Settings saved.');
+  };
+
+  const browseSamplePack = async () => {
+    if (!window.appBridge) {
+      return;
+    }
+    const dir = await window.appBridge.pickSampleDirectory();
+    if (!dir) {
+      return;
+    }
+    const files = await window.appBridge.listAudioFiles(dir);
+    setSamplePackPath(dir);
+    setSamplePackFileCount(files.length);
+    await window.appBridge.setSetting('audio', 'customSamplePackPath', dir);
+    onSettingChange('audio', 'customSamplePackPath', dir);
+    setStatusMessage(`Sample pack set: ${files.length} audio file(s) found.`);
+  };
+
+  const clearSamplePack = async () => {
+    setSamplePackPath(null);
+    setSamplePackFileCount(0);
+    await window.appBridge?.setSetting('audio', 'customSamplePackPath', '');
+    onSettingChange('audio', 'customSamplePackPath', '');
+    setStatusMessage('Custom sample pack cleared. Using built-in instruments.');
   };
 
   if (isLoading) {
@@ -216,6 +250,25 @@ export function SettingsScreen({
                   {INSTRUMENTS.find((instrument) => instrument.id === values['audio.instrumentId'])?.description ??
                     'Choose a built-in voice for practice and playback.'}
                 </strong>
+              </article>
+              <article className="settings-note-card">
+                <span>Custom Sample Pack</span>
+                {samplePackPath ? (
+                  <strong>{samplePackPath} ({samplePackFileCount} file{samplePackFileCount !== 1 ? 's' : ''})</strong>
+                ) : (
+                  <strong>Not configured — using built-in sounds.</strong>
+                )}
+                <div className="settings-sample-pack-buttons">
+                  <button className="secondary-button" onClick={() => void browseSamplePack()}>
+                    Browse…
+                  </button>
+                  {samplePackPath && (
+                    <button className="secondary-button" onClick={() => void clearSamplePack()}>
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <em>Expected naming: A0.mp3, C1.mp3, Ds1.mp3, Fs1.mp3, etc. (Salamander-style)</em>
               </article>
             </div>
           )}

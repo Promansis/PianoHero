@@ -90,6 +90,21 @@ function parseStoredAudioNumber(value: string | null, fallback: number): number 
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+// Parses sample filenames into Tone.js note names.
+// Supports Salamander style (Ds1.mp3 → D#1) and standard style (C#4.mp3 → C#4).
+function extractNoteName(filename: string): string | null {
+  const base = filename.replace(/\.[^.]+$/, '');
+  const salamander = /^([A-G])s(\d)$/.exec(base);
+  if (salamander) {
+    return `${salamander[1]}#${salamander[2]}`;
+  }
+  const standard = /^([A-G][#b]?\d{1,2})$/.exec(base);
+  if (standard) {
+    return standard[1];
+  }
+  return null;
+}
+
 export function App() {
   const audioEngineRef = useRef(new AudioEngine());
   const midiServiceRef = useRef<MidiInputService | null>(null);
@@ -160,6 +175,7 @@ export function App() {
         rawWaitMode,
         rawBreakReminder,
         rawMidiDeviceId,
+        rawCustomSamplePath,
       ] = await Promise.all([
         window.appBridge.getSetting('onboarding', 'setupComplete'),
         window.appBridge.getSetting('practice', 'postureReminderMinutes'),
@@ -178,6 +194,7 @@ export function App() {
         window.appBridge.getSetting('gameplay', 'waitModeDefault'),
         window.appBridge.getSetting('practice', 'breakReminderMinutes'),
         window.appBridge.getSetting('input', 'midiDeviceId'),
+        window.appBridge.getSetting('audio', 'customSamplePackPath'),
       ]);
 
       if (reminder) {
@@ -242,6 +259,23 @@ export function App() {
       audioEngineRef.current.setReverbLevel(parseStoredAudioNumber(rawReverbLevel, 20));
       void audioEngineRef.current.setInstrument(initialInstrumentId);
 
+      if (rawCustomSamplePath) {
+        void (async () => {
+          const files = await window.appBridge!.listAudioFiles(rawCustomSamplePath);
+          const urls: Record<string, string> = {};
+          for (const file of files) {
+            const noteName = extractNoteName(file);
+            if (noteName) {
+              urls[noteName] = file;
+            }
+          }
+          if (Object.keys(urls).length > 0) {
+            const baseUrl = 'file:///' + rawCustomSamplePath.replace(/\\/g, '/').replace(/\/?$/, '/');
+            await audioEngineRef.current.setCustomSampler(urls, baseUrl);
+          }
+        })();
+      }
+
       if (!rawInstrumentId) {
         void window.appBridge.setSetting('audio', 'instrumentId', initialInstrumentId);
       }
@@ -276,6 +310,26 @@ export function App() {
     if (category === 'audio') {
       if (key === 'instrumentId') {
         void audioEngineRef.current.setInstrument(isInstrumentId(value) ? value : DEFAULT_INSTRUMENT_ID);
+        return;
+      }
+      if (key === 'customSamplePackPath') {
+        if (!value) {
+          return;
+        }
+        void (async () => {
+          const files = await window.appBridge?.listAudioFiles(value) ?? [];
+          const urls: Record<string, string> = {};
+          for (const file of files) {
+            const noteName = extractNoteName(file);
+            if (noteName) {
+              urls[noteName] = file;
+            }
+          }
+          if (Object.keys(urls).length > 0) {
+            const baseUrl = 'file:///' + value.replace(/\\/g, '/').replace(/\/?$/, '/');
+            await audioEngineRef.current.setCustomSampler(urls, baseUrl);
+          }
+        })();
         return;
       }
       const parsedValue = Number(value);

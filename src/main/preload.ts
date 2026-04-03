@@ -11,6 +11,7 @@ const appBridge: AppBridge = {
   deleteSong: (songId) => ipcRenderer.invoke('songs:delete', songId),
   toggleFavorite: (songId) => ipcRenderer.invoke('songs:toggle-favorite', songId),
   importMidiFiles: () => ipcRenderer.invoke('songs:import-midi-files'),
+  importMidiFolder: () => ipcRenderer.invoke('songs:import-folder'),
 
   saveGameResult: (payload) => ipcRenderer.invoke('results:save', payload),
   getGameResults: (songId) => ipcRenderer.invoke('results:for-song', songId),
@@ -70,6 +71,10 @@ const appBridge: AppBridge = {
 
   loadMidiFileData: (filePath) => ipcRenderer.invoke('file:load-midi', filePath),
   saveMidiFile: (suggestedName, data) => ipcRenderer.invoke('file:save-midi', suggestedName, data),
+  saveWavFile: (suggestedName, data) => ipcRenderer.invoke('file:save-wav', suggestedName, data),
+  pickAudioFile: () => ipcRenderer.invoke('file:pick-audio'),
+  pickSampleDirectory: () => ipcRenderer.invoke('file:pick-sample-dir'),
+  listAudioFiles: (dir) => ipcRenderer.invoke('file:list-audio', dir),
 };
 
 contextBridge.exposeInMainWorld('appBridge', appBridge);

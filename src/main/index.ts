@@ -1,6 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain } from 'electron';
 import type { OpenDialogOptions, SaveDialogOptions } from 'electron';
-import { copyFileSync, mkdirSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
+import type { Dirent } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { getTrackAssignments } from '../lib/game/songUtils';
@@ -26,6 +27,25 @@ async function createSongId(buffer: Buffer): Promise<string> {
 
 function toArrayBuffer(buffer: Buffer): ArrayBuffer {
   return Uint8Array.from(buffer).buffer;
+}
+
+function collectMidiFiles(dir: string): string[] {
+  const results: string[] = [];
+  let entries: Dirent[];
+  try {
+    entries = readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return results;
+  }
+  for (const entry of entries) {
+    const fullPath = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      results.push(...collectMidiFiles(fullPath));
+    } else if (/\.(mid|midi)$/i.test(entry.name)) {
+      results.push(fullPath);
+    }
+  }
+  return results;
 }
 
 function calculateDifficulty(noteCount: number, durationSec: number): number {
@@ -164,6 +184,66 @@ app.whenReady().then(async () => {
     }
 
     return importedSongs;
+  });
+
+  ipcMain.handle('songs:import-folder', async () => {
+    const options: OpenDialogOptions = {
+      properties: ['openDirectory'],
+    };
+    const result = mainWindow
+      ? await dialog.showOpenDialog(mainWindow, options)
+      : await dialog.showOpenDialog(options);
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return null;
+    }
+
+    const filePaths = collectMidiFiles(result.filePaths[0]);
+    const importedSongs = [];
+    let skipped = 0;
+
+    for (const selectedPath of filePaths) {
+      const buffer = await readFile(selectedPath);
+      const songId = await createSongId(buffer);
+
+      if (db.getSong(songId)) {
+        skipped++;
+        continue;
+      }
+
+      const destPath = join(midiFilesDir, `${songId}.mid`);
+      const title = selectedPath.split(/[\\/]/).pop()?.replace(/\.(mid|midi)$/i, '') ?? 'Untitled';
+      const parsedSong = parseMidiFile(toArrayBuffer(buffer), { songId, title });
+      const difficulty = calculateDifficulty(parsedSong.notes.length, parsedSong.durationSec);
+
+      copyFileSync(selectedPath, destPath);
+      const row = db.addSong({
+        id: songId,
+        title,
+        artist: '',
+        genre: '',
+        filePath: destPath,
+        difficulty,
+        durationSec: parsedSong.durationSec,
+        bpm: parsedSong.bpm,
+        noteCount: parsedSong.notes.length,
+        tags: [],
+        trackAssignments: getTrackAssignments(parsedSong),
+      });
+
+      importedSongs.push({
+        songId,
+        destPath,
+        fileData: new Uint8Array(buffer),
+        title: row.title,
+        durationSec: row.durationSec,
+        bpm: row.bpm,
+        noteCount: row.noteCount,
+        difficulty: row.difficulty,
+      });
+    }
+
+    return { imported: importedSongs, skipped };
   });
 
   ipcMain.handle('results:save', (_event, payload: SaveGameResultPayload) => db.saveGameResult(payload));
@@ -309,6 +389,68 @@ app.whenReady().then(async () => {
 
     writeFileSync(result.filePath, Buffer.from(data));
     return result.filePath;
+  });
+
+  ipcMain.handle('file:save-wav', async (_event, suggestedName: string, data: Uint8Array) => {
+    const options: SaveDialogOptions = {
+      defaultPath: suggestedName,
+      filters: [{ name: 'WAV Audio', extensions: ['wav'] }],
+    };
+    const result = mainWindow
+      ? await dialog.showSaveDialog(mainWindow, options)
+      : await dialog.showSaveDialog(options);
+
+    if (result.canceled || !result.filePath) {
+      return null;
+    }
+
+    writeFileSync(result.filePath, Buffer.from(data));
+    return result.filePath;
+  });
+
+  ipcMain.handle('file:pick-audio', async () => {
+    const options: OpenDialogOptions = {
+      properties: ['openFile'],
+      filters: [{ name: 'Audio Files', extensions: ['mp3', 'wav', 'ogg', 'flac', 'm4a'] }],
+    };
+    const result = mainWindow
+      ? await dialog.showOpenDialog(mainWindow, options)
+      : await dialog.showOpenDialog(options);
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return null;
+    }
+
+    const filePath = result.filePaths[0];
+    const name = filePath.split(/[\\/]/).pop() ?? 'audio';
+    return { path: filePath, name };
+  });
+
+  ipcMain.handle('file:pick-sample-dir', async () => {
+    const options: OpenDialogOptions = {
+      properties: ['openDirectory'],
+    };
+    const result = mainWindow
+      ? await dialog.showOpenDialog(mainWindow, options)
+      : await dialog.showOpenDialog(options);
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return null;
+    }
+
+    return result.filePaths[0];
+  });
+
+  ipcMain.handle('file:list-audio', (_event, dir: string) => {
+    try {
+      const audioExtensions = new Set(['.mp3', '.wav', '.ogg', '.flac', '.m4a']);
+      return readdirSync(dir).filter((file) => {
+        const lower = file.toLowerCase();
+        return audioExtensions.has(lower.slice(lower.lastIndexOf('.')));
+      });
+    } catch {
+      return [];
+    }
   });
 
   await createMainWindow();

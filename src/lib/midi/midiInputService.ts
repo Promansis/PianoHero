@@ -159,6 +159,48 @@ export class MidiInputService {
       };
     }
 
+    if (command === 0xb0 && data1 === 1) {
+      return {
+        type: 'modulation',
+        modulationValue: data2 / 127,
+        timestamp,
+        sourceId,
+        source: 'midi',
+      };
+    }
+
+    if (command === 0xe0) {
+      const raw = ((data2 & 0x7f) << 7) | (data1 & 0x7f);
+      return {
+        type: 'pitchbend',
+        pitchBendValue: (raw - 8192) / 8192,
+        timestamp,
+        sourceId,
+        source: 'midi',
+      };
+    }
+
+    if (command === 0xd0) {
+      return {
+        type: 'aftertouch',
+        pressureValue: data1 / 127,
+        timestamp,
+        sourceId,
+        source: 'midi',
+      };
+    }
+
+    if (command === 0xa0) {
+      return {
+        type: 'aftertouch',
+        note: data1,
+        pressureValue: data2 / 127,
+        timestamp,
+        sourceId,
+        source: 'midi',
+      };
+    }
+
     return null;
   }
 }

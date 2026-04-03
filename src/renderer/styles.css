@@ -537,6 +537,11 @@ select {
 
 .song-card h2 {
   margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.song-card-title-group > div {
+  min-width: 0;
 }
 
 .song-card-meta,
@@ -1032,12 +1037,17 @@ select {
 .session-toolbar,
 .session-chip-group,
 .setup-actions,
-.song-card-actions,
 .setup-grid,
 .metadata-grid,
 .free-play-summary {
   display: grid;
   gap: 16px;
+}
+
+.song-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .session-toolbar {
@@ -1097,8 +1107,9 @@ select {
   grid-column: span 2;
 }
 
-.song-card-actions {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+.song-card-actions .primary-button,
+.song-card-actions .secondary-button {
+  flex: 1 1 auto;
 }
 
 .song-tag-row {
@@ -1184,7 +1195,7 @@ select {
   }
 
   .song-card-actions {
-    grid-template-columns: 1fr;
+    flex-direction: column;
   }
 }
 

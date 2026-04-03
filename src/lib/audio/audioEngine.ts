@@ -7,6 +7,7 @@ import {
   type InstrumentDefinition,
   type InstrumentVoice,
 } from './instrumentCatalog';
+import { audioBufferToWav } from './wavEncoder';
 
 function midiToName(midi: number): string {
   return Tone.Frequency(midi, 'midi').toNote();
@@ -62,6 +63,13 @@ function createSamplerFallbackDefinition(definition: InstrumentDefinition): Inst
   };
 }
 
+interface RecordedNoteForExport {
+  midi: number;
+  velocity: number;
+  startTimeSec: number;
+  durationSec: number;
+}
+
 export class AudioEngine {
   private sampler: Tone.Sampler | null = null;
   private synth: Tone.PolySynth | null = null;
@@ -70,11 +78,15 @@ export class AudioEngine {
   private instrumentOutputNode: Tone.Volume | null = null;
   private instrumentReverbNode: Tone.FeedbackDelay | null = null;
   private metronomeVolumeNode: Tone.Volume | null = null;
+  private backingTrackPlayer: Tone.Player | null = null;
+  private backingTrackVolumeNode: Tone.Volume | null = null;
   private initialized = false;
   private sustainDown = false;
   private heldNotes = new Set<string>();
   private sustainedNotes = new Set<string>();
   private instrumentId = DEFAULT_INSTRUMENT_ID;
+  private customSamplerUrls: Record<string, string> | null = null;
+  private customSamplerBaseUrl: string | null = null;
   private masterVolumePercent = 80;
   private metronomeVolumePercent = 65;
   private reverbPercent = 20;
@@ -265,6 +277,127 @@ export class AudioEngine {
     if (this.instrumentReverbNode) {
       this.instrumentReverbNode.wet.value = this.reverbPercent / 100;
     }
+  }
+
+  setPitchBend(value: number): void {
+    const cents = Math.max(-1, Math.min(1, value)) * 200;
+    // PolySynth supports detune directly
+    if (this.synth) {
+      this.synth.set({ detune: cents });
+    }
+    // Sampler does not expose detune; pitch bend is a no-op for sampler-based instruments
+  }
+
+  setModulation(_value: number): void {
+    // Reserved for future vibrato depth control
+  }
+
+  async loadBackingTrack(src: string): Promise<void> {
+    await this.init();
+    this.backingTrackPlayer?.dispose();
+    this.backingTrackPlayer = null;
+    if (!this.backingTrackVolumeNode) {
+      this.backingTrackVolumeNode = new Tone.Volume(0).connect(this.masterVolumeNode!);
+    }
+    this.backingTrackPlayer = new Tone.Player(src).connect(this.backingTrackVolumeNode);
+    await Tone.loaded();
+  }
+
+  playBackingTrack(): void {
+    if (this.backingTrackPlayer?.loaded) {
+      this.backingTrackPlayer.start();
+    }
+  }
+
+  pauseBackingTrack(): void {
+    this.backingTrackPlayer?.stop();
+  }
+
+  stopBackingTrack(): void {
+    this.backingTrackPlayer?.stop();
+  }
+
+  setBackingTrackVolume(value: number): void {
+    if (this.backingTrackVolumeNode) {
+      this.backingTrackVolumeNode.volume.value = percentToDb(clampPercent(value));
+    }
+  }
+
+  getBackingTrackDuration(): number {
+    return this.backingTrackPlayer?.buffer.duration ?? 0;
+  }
+
+  async setCustomSampler(urls: Record<string, string>, baseUrl: string): Promise<void> {
+    this.customSamplerUrls = urls;
+    this.customSamplerBaseUrl = baseUrl;
+    if (!this.initialized) {
+      return;
+    }
+
+    this.allNotesOff();
+    this.sampler?.dispose();
+    this.sampler = null;
+    this.synth?.dispose();
+    this.synth = null;
+    this.sampler = new Tone.Sampler({
+      urls,
+      baseUrl,
+    }).connect(this.instrumentOutputNode!);
+    if (this.instrumentReverbNode) {
+      this.sampler.connect(this.instrumentReverbNode);
+    }
+    await Tone.loaded();
+  }
+
+  async renderRecordingToWav(notes: RecordedNoteForExport[], durationSec: number): Promise<Uint8Array> {
+    const renderDuration = durationSec + 3;
+    const definition = getInstrumentDefinition(this.instrumentId);
+    const customUrls = this.customSamplerUrls;
+    const customBaseUrl = this.customSamplerBaseUrl;
+
+    const toneBuffer = await Tone.Offline(async () => {
+      let instrument: Tone.Sampler | Tone.PolySynth;
+
+      if (customUrls && customBaseUrl) {
+        instrument = new Tone.Sampler({ urls: customUrls, baseUrl: customBaseUrl }).toDestination();
+        await Tone.loaded();
+      } else if (definition.voice === 'sampler' && definition.sampleUrls && definition.sampleBaseUrl) {
+        const samplerOpts = definition.options as { release?: number };
+        instrument = new Tone.Sampler({
+          urls: definition.sampleUrls,
+          baseUrl: definition.sampleBaseUrl,
+          release: samplerOpts.release,
+        }).toDestination();
+        await Tone.loaded();
+      } else {
+        const fallback = createSamplerFallbackDefinition(definition);
+        instrument = new Tone.PolySynth(
+          resolveVoiceConstructor(fallback.voice),
+          fallback.options as never,
+        ).toDestination();
+      }
+
+      for (const note of notes) {
+        Tone.Transport.schedule((time) => {
+          const noteName = midiToName(note.midi);
+          const duration = Math.max(0.05, note.durationSec);
+          if (instrument instanceof Tone.Sampler) {
+            instrument.triggerAttackRelease(noteName, duration, time, note.velocity);
+          } else {
+            (instrument as Tone.PolySynth).triggerAttackRelease(noteName, duration, time, note.velocity);
+          }
+        }, note.startTimeSec);
+      }
+
+      Tone.Transport.start();
+    }, renderDuration);
+
+    const audioBuffer = toneBuffer.get();
+    if (!audioBuffer) {
+      throw new Error('Offline render produced no audio.');
+    }
+
+    return audioBufferToWav(audioBuffer);
   }
 
   private releaseNote(noteName: string): void {

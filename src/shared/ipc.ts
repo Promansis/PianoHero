@@ -48,6 +48,7 @@ export interface AppBridge {
   deleteSong: (songId: string) => Promise<void>;
   toggleFavorite: (songId: string) => Promise<void>;
   importMidiFiles: () => Promise<ImportedSong[]>;
+  importMidiFolder: () => Promise<{ imported: ImportedSong[]; skipped: number } | null>;
 
   saveGameResult: (payload: SaveGameResultPayload) => Promise<SaveResultOutcome>;
   getGameResults: (songId: string) => Promise<GameResultRow[]>;
@@ -113,4 +114,8 @@ export interface AppBridge {
 
   loadMidiFileData: (filePath: string) => Promise<Uint8Array>;
   saveMidiFile: (suggestedName: string, data: Uint8Array) => Promise<string | null>;
+  saveWavFile: (suggestedName: string, data: Uint8Array) => Promise<string | null>;
+  pickAudioFile: () => Promise<{ path: string; name: string } | null>;
+  pickSampleDirectory: () => Promise<string | null>;
+  listAudioFiles: (dir: string) => Promise<string[]>;
 }

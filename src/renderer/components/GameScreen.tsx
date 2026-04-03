@@ -371,6 +371,17 @@ export function GameScreen({
         return;
       }
 
+      if (event.type === 'pitchbend') {
+        audioEngine.setPitchBend(event.pitchBendValue ?? 0);
+        return;
+      }
+      if (event.type === 'modulation') {
+        audioEngine.setModulation(event.modulationValue ?? 0);
+        return;
+      }
+      if (event.type === 'aftertouch') {
+        return;
+      }
       game.ingestInputEvent(event);
       if (event.type === 'noteon' && typeof event.note === 'number') {
         await audioEngine.noteOn(event.note, event.velocity ?? 0.8);

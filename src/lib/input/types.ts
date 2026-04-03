@@ -3,13 +3,16 @@ export type InputMode = 'midi' | 'computer-keyboard' | 'both';
 export type InputSource = 'midi' | 'computer-keyboard';
 
 export interface InputEvent {
-  type: 'noteon' | 'noteoff' | 'sustain';
+  type: 'noteon' | 'noteoff' | 'sustain' | 'pitchbend' | 'aftertouch' | 'modulation';
   source: InputSource;
   sourceId: string;
   timestamp: number;
   note?: number;
   velocity?: number;
   sustainValue?: number;
+  pitchBendValue?: number;
+  pressureValue?: number;
+  modulationValue?: number;
 }
 
 export type KeyboardControlAction = 'sustain' | 'octave-down' | 'octave-up';

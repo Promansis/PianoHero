@@ -1,5 +1,5 @@
 import { app, ipcMain, dialog, BrowserWindow } from "electron";
-import { existsSync, readFileSync, renameSync, mkdirSync, copyFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, renameSync, mkdirSync, copyFileSync, writeFileSync, readdirSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import * as MidiPackage from "@tonejs/midi";
@@ -1835,6 +1835,52 @@ app.whenReady().then(async () => {
     }
     writeFileSync(result.filePath, Buffer.from(data));
     return result.filePath;
+  });
+  ipcMain.handle("file:save-wav", async (_event, suggestedName, data) => {
+    const options = {
+      defaultPath: suggestedName,
+      filters: [{ name: "WAV Audio", extensions: ["wav"] }]
+    };
+    const result = mainWindow ? await dialog.showSaveDialog(mainWindow, options) : await dialog.showSaveDialog(options);
+    if (result.canceled || !result.filePath) {
+      return null;
+    }
+    writeFileSync(result.filePath, Buffer.from(data));
+    return result.filePath;
+  });
+  ipcMain.handle("file:pick-audio", async () => {
+    const options = {
+      properties: ["openFile"],
+      filters: [{ name: "Audio Files", extensions: ["mp3", "wav", "ogg", "flac", "m4a"] }]
+    };
+    const result = mainWindow ? await dialog.showOpenDialog(mainWindow, options) : await dialog.showOpenDialog(options);
+    if (result.canceled || result.filePaths.length === 0) {
+      return null;
+    }
+    const filePath = result.filePaths[0];
+    const name = filePath.split(/[\\/]/).pop() ?? "audio";
+    return { path: filePath, name };
+  });
+  ipcMain.handle("file:pick-sample-dir", async () => {
+    const options = {
+      properties: ["openDirectory"]
+    };
+    const result = mainWindow ? await dialog.showOpenDialog(mainWindow, options) : await dialog.showOpenDialog(options);
+    if (result.canceled || result.filePaths.length === 0) {
+      return null;
+    }
+    return result.filePaths[0];
+  });
+  ipcMain.handle("file:list-audio", (_event, dir) => {
+    try {
+      const audioExtensions = /* @__PURE__ */ new Set([".mp3", ".wav", ".ogg", ".flac", ".m4a"]);
+      return readdirSync(dir).filter((file) => {
+        const lower = file.toLowerCase();
+        return audioExtensions.has(lower.slice(lower.lastIndexOf(".")));
+      });
+    } catch {
+      return [];
+    }
   });
   await createMainWindow();
   app.on("activate", async () => {

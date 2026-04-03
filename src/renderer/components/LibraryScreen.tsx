@@ -271,6 +271,34 @@ export function LibraryScreen({
     }
   };
 
+  const handleImportFolder = async () => {
+    if (!window.appBridge) {
+      return;
+    }
+
+    setIsImporting(true);
+    try {
+      const result = await window.appBridge.importMidiFolder();
+      if (!result) {
+        setStatusMessage('Import canceled.');
+      } else if (result.imported.length === 0 && result.skipped === 0) {
+        setStatusMessage('No MIDI files found in that folder.');
+      } else {
+        const parts: string[] = [];
+        if (result.imported.length > 0) parts.push(`${result.imported.length} song${result.imported.length === 1 ? '' : 's'} imported`);
+        if (result.skipped > 0) parts.push(`${result.skipped} already in library`);
+        setStatusMessage(parts.join(', ') + '.');
+        if (result.imported.length > 0) {
+          await refreshLibrary();
+        }
+      }
+    } catch (error) {
+      setStatusMessage(`Import failed: ${(error as Error).message}`);
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   const handleToggleFavorite = async (songId: string) => {
     if (!window.appBridge) {
       return;
@@ -692,6 +720,9 @@ export function LibraryScreen({
           </button>
           <button className="secondary-button" onClick={() => void refreshLibrary()} disabled={isLoading}>
             Refresh
+          </button>
+          <button className="secondary-button" onClick={() => void handleImportFolder()} disabled={isImporting}>
+            {isImporting ? 'Importing...' : 'Import Folder'}
           </button>
           <button className="primary-button" onClick={() => void handleImport()} disabled={isImporting}>
             {isImporting ? 'Importing...' : 'Upload MIDI'}

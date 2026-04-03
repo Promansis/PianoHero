@@ -69,6 +69,10 @@ export function FreePlayScreen({
   const [isPlayingRecording, setIsPlayingRecording] = useState(false);
   const [keyboardOctaveShift, setKeyboardOctaveShift] = useState(keyboardInputService.getState().octaveShift);
   const [chordLabel, setChordLabel] = useState<string | null>(null);
+  const [backingTrackName, setBackingTrackName] = useState<string | null>(null);
+  const [isBackingTrackPlaying, setIsBackingTrackPlaying] = useState(false);
+  const [backingTrackVolume, setBackingTrackVolume] = useState(70);
+  const [isExportingWav, setIsExportingWav] = useState(false);
   const noteStartMapRef = useRef(new Map<string, { startTimeSec: number; velocity: number; midi: number }>());
   const playbackTimeoutsRef = useRef<number[]>([]);
 
@@ -137,6 +141,20 @@ export function FreePlayScreen({
             noteStartMapRef.current.delete(makeSourceNoteKey(event.sourceId, midi));
           }
         }
+        return;
+      }
+
+      if (event.type === 'pitchbend') {
+        audioEngine.setPitchBend(event.pitchBendValue ?? 0);
+        return;
+      }
+
+      if (event.type === 'modulation') {
+        audioEngine.setModulation(event.modulationValue ?? 0);
+        return;
+      }
+
+      if (event.type === 'aftertouch') {
         return;
       }
 
@@ -322,6 +340,68 @@ export function FreePlayScreen({
     );
   };
 
+  const loadBackingTrack = async () => {
+    if (!window.appBridge) {
+      return;
+    }
+    const picked = await window.appBridge.pickAudioFile();
+    if (!picked) {
+      return;
+    }
+    const src = 'file:///' + picked.path.replace(/\\/g, '/');
+    await audioEngine.loadBackingTrack(src);
+    setBackingTrackName(picked.name);
+    audioEngine.setBackingTrackVolume(backingTrackVolume);
+    setIsBackingTrackPlaying(false);
+    setStatusMessage(`Backing track loaded: ${picked.name}`);
+  };
+
+  const toggleBackingTrack = () => {
+    if (isBackingTrackPlaying) {
+      audioEngine.pauseBackingTrack();
+      setIsBackingTrackPlaying(false);
+    } else {
+      audioEngine.playBackingTrack();
+      setIsBackingTrackPlaying(true);
+    }
+  };
+
+  const stopBackingTrack = () => {
+    audioEngine.stopBackingTrack();
+    setIsBackingTrackPlaying(false);
+  };
+
+  const handleBackingTrackVolumeChange = (value: number) => {
+    setBackingTrackVolume(value);
+    audioEngine.setBackingTrackVolume(value);
+  };
+
+  const exportWav = async () => {
+    if (recordedNotes.length === 0 || !window.appBridge) {
+      setStatusMessage('Record something before exporting.');
+      return;
+    }
+    setIsExportingWav(true);
+    setStatusMessage('Rendering WAV (this may take a moment)...');
+    try {
+      const duration = recordedNotes.reduce(
+        (max, note) => Math.max(max, note.startTimeSec + note.durationSec),
+        0,
+      );
+      const wavBytes = await audioEngine.renderRecordingToWav(recordedNotes, duration);
+      const savedPath = await window.appBridge.saveWavFile('free-play-recording.wav', wavBytes);
+      if (savedPath) {
+        setStatusMessage(`WAV saved to ${savedPath}.`);
+      } else {
+        setStatusMessage('Export cancelled.');
+      }
+    } catch {
+      setStatusMessage('WAV export failed. Try exporting MIDI instead.');
+    } finally {
+      setIsExportingWav(false);
+    }
+  };
+
   const exportRecording = async () => {
     if (recordedNotes.length === 0 || !window.appBridge) {
       setStatusMessage('Record something before exporting.');
@@ -405,8 +485,18 @@ export function FreePlayScreen({
           >
             Play Recording
           </button>
+          <button className="secondary-button" onClick={() => void loadBackingTrack()}>
+            Load Track
+          </button>
           <button className="primary-button" onClick={() => void exportRecording()} disabled={recordedNotes.length === 0}>
             Export MIDI
+          </button>
+          <button
+            className="primary-button"
+            onClick={() => void exportWav()}
+            disabled={recordedNotes.length === 0 || isExportingWav}
+          >
+            {isExportingWav ? 'Rendering...' : 'Export WAV'}
           </button>
         </div>
       </section>
@@ -443,6 +533,33 @@ export function FreePlayScreen({
           />
         </label>
       </section>
+
+      {backingTrackName && (
+        <section className="panel free-play-backing-track">
+          <div className="backing-track-info">
+            <span>Backing Track</span>
+            <strong>{backingTrackName}</strong>
+          </div>
+          <div className="backing-track-controls">
+            <button className="secondary-button" onClick={toggleBackingTrack}>
+              {isBackingTrackPlaying ? 'Pause' : 'Play'}
+            </button>
+            <button className="secondary-button" onClick={stopBackingTrack} disabled={!isBackingTrackPlaying}>
+              Stop
+            </button>
+            <label className="backing-track-volume">
+              <span>Volume</span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={backingTrackVolume}
+                onChange={(event) => handleBackingTrackVolumeChange(Number(event.target.value))}
+              />
+            </label>
+          </div>
+        </section>
+      )}
 
       <section className="panel free-play-summary">
         <div>
