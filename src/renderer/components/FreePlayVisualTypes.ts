@@ -9,7 +9,8 @@ export type FreePlayVisualMode =
   | 'tree-of-light'
   | 'particle-galaxy'
   | 'aurora-borealis'
-  | 'fireworks';
+  | 'fireworks'
+  | 'sacred-geometry';
 
 export interface FreePlayVisualNote {
   id: string;
@@ -78,5 +79,10 @@ export const FREE_PLAY_VISUAL_MODE_OPTIONS: Array<{
     value: 'fireworks',
     label: 'Fireworks',
     description: 'Notes launch shells and chord bursts across a sky that warms with your energy.',
+  },
+  {
+    value: 'sacred-geometry',
+    label: 'Sacred Geometry',
+    description: 'Notes bloom into rotating geometric rings that overlap into mandalas.',
   },
 ];

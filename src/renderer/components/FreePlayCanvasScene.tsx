@@ -245,6 +245,21 @@ interface MetronomePulse {
   createdAt: number;
 }
 
+interface GeometryRing {
+  id: string;
+  midi: number;
+  hue: number;
+  x: number;
+  y: number;
+  sides: number;
+  radius: number;
+  targetRadius: number;
+  rotation: number;
+  rotationSpeed: number;
+  alpha: number;
+  createdAt: number;
+}
+
 interface SceneState {
   processedNoteIds: Set<string>;
   processedOrder: string[];
@@ -267,6 +282,7 @@ interface SceneState {
   auroraBands: AuroraRibbon[];
   fireworkShells: FireworkShell[];
   fireworkParticles: FireworkParticle[];
+  geometryRings: GeometryRing[];
   metronomePulses: MetronomePulse[];
   sustainEnvelope: number;
   lidAngle: number;
@@ -310,6 +326,7 @@ function createSceneState(): SceneState {
     auroraBands: [],
     fireworkShells: [],
     fireworkParticles: [],
+    geometryRings: [],
     metronomePulses: [],
     sustainEnvelope: 0,
     lidAngle: 0.2,
@@ -436,6 +453,9 @@ function trimSceneState(state: SceneState, now: number): void {
   state.fireworkParticles = state.fireworkParticles.filter(
     (particle) => now - particle.createdAt <= particle.lifeMs && particle.alpha >= 0.01,
   );
+  state.geometryRings = state.geometryRings
+    .filter((ring) => ring.alpha > 0.015 && now - ring.createdAt <= 60000)
+    .slice(-200);
   if (state.processedOrder.length > 4000) {
     const excess = state.processedOrder.length - 4000;
     for (const id of state.processedOrder.splice(0, excess)) {
@@ -787,6 +807,20 @@ function syncSceneState(state: SceneState, props: FreePlayCanvasSceneProps, now:
     addGalaxyBurst(state, note, props);
     addAuroraRibbon(state, note);
     launchFireworkShells(state, note, props);
+    state.geometryRings.push({
+      id: note.id,
+      midi: note.midi,
+      hue: midiToHue(note.midi),
+      x: midiToLaneRatio(note.midi),
+      y: 0.75 - ((note.midi - 21) / 87) * 0.5,
+      sides: [0, 3, 4, 5, 6][note.midi % 5],
+      radius: 0,
+      targetRadius: 30 + note.velocity * 90,
+      rotation: seededUnit(note.id, 9) * Math.PI * 2,
+      rotationSpeed: (note.velocity * 0.0012 + 0.0002) * (note.midi % 2 === 0 ? 1 : -1),
+      alpha: 0.7 + note.velocity * 0.3,
+      createdAt: note.createdAt,
+    });
   }
 
   if (props.metronomeEnabled && props.metronomeBeat !== state.lastMetronomeBeat) {
@@ -837,6 +871,12 @@ function updateGenerativeModes(
     band.amplitude = lerp(band.amplitude, band.targetAmplitude * (1 + state.auroraEnergy * 0.4 * lift), 0.04);
     band.phase += band.speed * deltaMs * (1 + state.auroraEnergy * 0.25);
     band.alpha = lerp(band.alpha, Math.max(0.05, band.alpha * (1 - silence * 0.02)), 0.02);
+  }
+
+  for (const ring of state.geometryRings) {
+    ring.radius = lerp(ring.radius, ring.targetRadius * (1 + state.sustainEnvelope * 0.35), 0.04);
+    ring.rotation += ring.rotationSpeed * deltaMs;
+    ring.alpha *= 1 - deltaMs * 0.000045;
   }
 
   state.skyWarmth = lerp(state.skyWarmth, clamp(intensity * 0.7 + harmony * 0.5, 0, 1), 0.03);
@@ -975,6 +1015,39 @@ function drawFog(
   }
 }
 
+function drawGodRays(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  intensity: number,
+  keyHue: number,
+  now: number,
+): void {
+  const sources = [width * 0.28, width * 0.72];
+  context.save();
+  context.globalCompositeOperation = 'lighter';
+  for (const srcX of sources) {
+    for (let i = 0; i < 10; i += 1) {
+      const baseAngle = Math.PI / 2 + (i - 5) * 0.08 + Math.sin(now * 0.0003 + i * 0.7) * 0.06;
+      const fanLeft = baseAngle - 0.018;
+      const fanRight = baseAngle + 0.018;
+      const reach = height * (1.0 + intensity * 0.4);
+      const rayAlpha = (0.04 + intensity * 0.1) * (0.5 + 0.5 * Math.sin(now * 0.0007 + i * 1.3));
+      const gradient = context.createLinearGradient(srcX, 0, srcX + Math.cos(baseAngle) * reach * 0.2, reach);
+      gradient.addColorStop(0, hsla(keyHue + i * 8, 88, 80, rayAlpha));
+      gradient.addColorStop(1, hsla(keyHue + i * 8, 88, 70, 0));
+      context.fillStyle = gradient;
+      context.beginPath();
+      context.moveTo(srcX, 0);
+      context.lineTo(srcX + Math.cos(fanLeft) * reach, Math.sin(fanLeft) * reach);
+      context.lineTo(srcX + Math.cos(fanRight) * reach, Math.sin(fanRight) * reach);
+      context.closePath();
+      context.fill();
+    }
+  }
+  context.restore();
+}
+
 function drawConcertStage(
   context: CanvasRenderingContext2D,
   width: number,
@@ -987,6 +1060,7 @@ function drawConcertStage(
   keyHue: number,
 ): void {
   drawBackground(context, width, height, 'rgba(8, 14, 32, 1)', 'rgba(2, 4, 10, 1)');
+  drawGodRays(context, width, height, intensity, keyHue, now);
 
   const sweepBase = now * 0.0012;
   for (let index = 0; index < 4; index += 1) {
@@ -1579,11 +1653,24 @@ function drawParticleGalaxy(
   context.fillStyle = backdrop;
   context.fillRect(0, 0, width, height);
 
+  const nebulaHues = [200, 280, 320, 60];
+  for (let n = 0; n < 4; n += 1) {
+    const nx = seededUnit(`neb-${n}`, 1) * width;
+    const ny = seededUnit(`neb-${n}`, 2) * height;
+    const nr = minDimension * (0.18 + seededUnit(`neb-${n}`, 3) * 0.22);
+    const nebulaGrad = context.createRadialGradient(nx, ny, 0, nx, ny, nr);
+    nebulaGrad.addColorStop(0, hsla(nebulaHues[n], 80, 38, 0.12 + state.galaxySupernova * 0.08));
+    nebulaGrad.addColorStop(1, hsla(nebulaHues[n], 70, 30, 0));
+    context.fillStyle = nebulaGrad;
+    context.fillRect(0, 0, width, height);
+  }
+
   for (let index = 0; index < 120; index += 1) {
     const seed = seededUnit(`galaxy-star-${index}`, 1);
     const starX = seededUnit(`galaxy-star-${index}`, 2) * width;
     const starY = seededUnit(`galaxy-star-${index}`, 3) * height;
-    context.fillStyle = `rgba(255,255,255,${0.08 + seed * 0.3})`;
+    const twinkle = seed * 0.28 + Math.sin(now * 0.0016 * (0.4 + seed * 0.8) + index * 1.7) * 0.12;
+    context.fillStyle = `rgba(255,255,255,${Math.max(0, 0.06 + twinkle)})`;
     context.beginPath();
     context.arc(starX, starY, 0.5 + seed * 1.6, 0, Math.PI * 2);
     context.fill();
@@ -1612,6 +1699,16 @@ function drawParticleGalaxy(
     context.beginPath();
     context.arc(x, y, particle.size * (0.8 + state.galaxySupernova * 0.22), 0, Math.PI * 2);
     context.fill();
+  }
+
+  if (state.galaxySupernova > 0.4) {
+    const flashAlpha = (state.galaxySupernova - 0.4) * 0.55;
+    const flash = context.createRadialGradient(centerX, centerY, 0, centerX, centerY, minDimension * 0.6);
+    flash.addColorStop(0, `rgba(255, 240, 200, ${flashAlpha})`);
+    flash.addColorStop(0.5, `rgba(255, 200, 140, ${flashAlpha * 0.4})`);
+    flash.addColorStop(1, 'rgba(255, 240, 200, 0)');
+    context.fillStyle = flash;
+    context.fillRect(0, 0, width, height);
   }
 
   const coreGradient = context.createRadialGradient(centerX, centerY, 0, centerX, centerY, minDimension * 0.16);
@@ -1670,7 +1767,57 @@ function drawAuroraBorealis(
       }
       context.stroke();
     }
+
+    const curtainCount = Math.floor(width / 14);
+    for (let c = 0; c < curtainCount; c += 1) {
+      const cx = (c / curtainCount) * width;
+      const waveY = band.baseY * height + Math.sin(cx * 0.007 + band.phase) * band.amplitude;
+      const curtainLen = 40 + Math.sin(cx * 0.04 + now * 0.001 + band.shimmer) * 25;
+      const curtainGrad = context.createLinearGradient(cx, waveY, cx, waveY + curtainLen);
+      curtainGrad.addColorStop(0, hsla(band.hue, 90, 72, bandAlpha * 0.55));
+      curtainGrad.addColorStop(1, hsla(band.hue, 90, 72, 0));
+      context.strokeStyle = curtainGrad;
+      context.lineWidth = 1;
+      context.beginPath();
+      context.moveTo(cx, waveY);
+      context.lineTo(cx, waveY + curtainLen);
+      context.stroke();
+    }
+
+    for (let s = 0; s < 18; s += 1) {
+      const sx = seededUnit(`aurora-sparkle-${band.createdAt}-${s}`, 1) * width;
+      const sparkWaveY = band.baseY * height + Math.sin(sx * 0.007 + band.phase) * band.amplitude;
+      const sparkleAlpha =
+        ((Math.sin(now * 0.003 * (0.4 + seededUnit(`aurora-sparkle-${band.createdAt}-${s}`, 2) * 0.8) + s) + 1) * 0.5) *
+        bandAlpha *
+        0.9;
+      context.fillStyle = `rgba(255, 255, 255, ${sparkleAlpha})`;
+      context.beginPath();
+      context.arc(sx, sparkWaveY, 1.2, 0, Math.PI * 2);
+      context.fill();
+    }
   }
+
+  context.save();
+  context.globalAlpha = 0.15;
+  for (const band of state.auroraBands) {
+    const age = clamp((now - band.createdAt) / 40000, 0, 1);
+    const bandAlpha = Math.max(0.03, band.alpha * (1 - age * 0.3) * (1 - silence * 0.5));
+    const reflectBaseY = height * 0.96 - (1 - band.baseY) * height * 0.14;
+    context.strokeStyle = hsla(band.hue, 88, 66, bandAlpha * 0.5);
+    context.lineWidth = Math.max(4, band.thickness * 0.4);
+    context.lineCap = 'round';
+    context.beginPath();
+    context.moveTo(-20, reflectBaseY);
+    for (let x = 0; x <= width + 40; x += 88) {
+      const wave = Math.sin(x * 0.007 + band.phase) * band.amplitude * 0.3;
+      const controlX = x + 44;
+      const controlY = reflectBaseY + Math.sin((x + 44) * 0.007 + band.phase) * band.amplitude * 0.3;
+      context.quadraticCurveTo(controlX, controlY, x + 88, reflectBaseY + wave);
+    }
+    context.stroke();
+  }
+  context.restore();
 
   const horizon = context.createLinearGradient(0, height * 0.68, 0, height);
   horizon.addColorStop(0, 'rgba(8, 26, 34, 0)');
@@ -1737,6 +1884,97 @@ function drawFireworks(
     context.moveTo(x, height);
     context.lineTo(x, height * 0.44);
     context.stroke();
+  }
+}
+
+function drawPolygon(
+  context: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  radius: number,
+  sides: number,
+  rotation: number,
+): void {
+  context.beginPath();
+  if (sides === 0) {
+    context.arc(cx, cy, radius, 0, Math.PI * 2);
+  } else {
+    for (let i = 0; i <= sides; i += 1) {
+      const angle = (i / sides) * Math.PI * 2 + rotation;
+      const px = cx + Math.cos(angle) * radius;
+      const py = cy + Math.sin(angle) * radius;
+      if (i === 0) {
+        context.moveTo(px, py);
+      } else {
+        context.lineTo(px, py);
+      }
+    }
+  }
+  context.closePath();
+}
+
+function drawSacredGeometry(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  state: SceneState,
+  now: number,
+): void {
+  const bg = context.createLinearGradient(0, 0, 0, height);
+  bg.addColorStop(0, '#06040e');
+  bg.addColorStop(1, '#0e0820');
+  context.fillStyle = bg;
+  context.fillRect(0, 0, width, height);
+
+  const vignette = context.createRadialGradient(width / 2, height / 2, Math.min(width, height) * 0.25, width / 2, height / 2, Math.min(width, height) * 0.82);
+  vignette.addColorStop(0, 'rgba(0,0,0,0)');
+  vignette.addColorStop(1, 'rgba(0,0,0,0.72)');
+  context.fillStyle = vignette;
+  context.fillRect(0, 0, width, height);
+
+  for (let a = 0; a < state.geometryRings.length; a += 1) {
+    const ringA = state.geometryRings[a];
+    const pitchClassA = ringA.midi % 12;
+    for (let b = a + 1; b < state.geometryRings.length; b += 1) {
+      const ringB = state.geometryRings[b];
+      if (ringB.midi % 12 === pitchClassA) {
+        const ax = ringA.x * width;
+        const ay = ringA.y * height;
+        const bx = ringB.x * width;
+        const by = ringB.y * height;
+        const lineAlpha = Math.min(ringA.alpha, ringB.alpha) * 0.22;
+        context.strokeStyle = hsla(ringA.hue, 80, 70, lineAlpha);
+        context.lineWidth = 0.8;
+        context.beginPath();
+        context.moveTo(ax, ay);
+        context.lineTo(bx, by);
+        context.stroke();
+      }
+    }
+  }
+
+  for (const ring of state.geometryRings) {
+    if (ring.radius < 2) continue;
+    const cx = ring.x * width;
+    const cy = ring.y * height;
+
+    drawSoftGlow(context, cx, cy, ring.radius * 1.8, ring.hue, ring.alpha * 0.22);
+
+    context.strokeStyle = hsla(ring.hue, 90, 72, ring.alpha * 0.85);
+    context.lineWidth = 1.5;
+    drawPolygon(context, cx, cy, ring.radius, ring.sides, ring.rotation);
+    context.stroke();
+
+    context.strokeStyle = hsla((ring.hue + 180) % 360, 80, 68, ring.alpha * 0.35);
+    context.lineWidth = 0.8;
+    drawPolygon(context, cx, cy, ring.radius * 0.6, ring.sides, ring.rotation + Math.PI / (ring.sides || 6));
+    context.stroke();
+
+    const dotR = 2 + ring.alpha * 2;
+    context.fillStyle = hsla(ring.hue, 96, 88, ring.alpha * 0.9);
+    context.beginPath();
+    context.arc(cx, cy, dotR, 0, Math.PI * 2);
+    context.fill();
   }
 }
 
@@ -1872,6 +2110,19 @@ export function FreePlayCanvasScene(props: FreePlayCanvasSceneProps) {
         case 'fireworks':
           drawFireworks(context, width, height, state, nextProps, now);
           break;
+        case 'sacred-geometry':
+          drawSacredGeometry(context, width, height, state, now);
+          break;
+      }
+
+      if (nextProps.mode !== 'ink-in-water' && nextProps.mode !== 'scale-heatmap') {
+        context.save();
+        context.filter = 'blur(10px)';
+        context.globalCompositeOperation = 'lighter';
+        context.globalAlpha = 0.28;
+        context.drawImage(canvas, 0, 0, width, height);
+        context.filter = 'none';
+        context.restore();
       }
 
       drawMetronomePulse(context, width, height, state.metronomePulses, now);
