@@ -10,7 +10,6 @@ interface IntervalTrainerScreenProps {
   midiInputService: MidiInputService;
   keyboardInputService: ComputerKeyboardInputService;
   inputMode: InputMode;
-  onBack: () => void;
   onAchievementsUnlocked?: (achievementIds: string[]) => void;
   preset?: { difficulty: string };
 }
@@ -48,7 +47,6 @@ function buildQuestion(difficulty: IntervalDifficulty): TrainerQuestion {
 
 export function IntervalTrainerScreen({
   audioEngine,
-  onBack,
   onAchievementsUnlocked,
   preset,
 }: IntervalTrainerScreenProps) {
@@ -152,9 +150,6 @@ export function IntervalTrainerScreen({
           <p className="song-title">{feedback}</p>
         </div>
         <div className="transport-buttons">
-          <button className="secondary-button" onClick={onBack}>
-            Back
-          </button>
           <button
             className="primary-button"
             onClick={() => {

@@ -4,10 +4,6 @@ import type { AchievementRow, ProgressStatsResult, PracticeStreak } from '../../
 import { BarChart } from './charts/BarChart';
 import { LineChart } from './charts/LineChart';
 
-interface ProgressDashboardScreenProps {
-  onBack: () => void;
-}
-
 function formatDuration(totalSeconds: number): string {
   const totalMinutes = Math.round(totalSeconds / 60);
   const hours = Math.floor(totalMinutes / 60);
@@ -37,7 +33,7 @@ function weekComparisonDelta(current: number, previous: number): string {
   return diff > 0 ? `+${diff}` : `${diff}`;
 }
 
-export function ProgressDashboardScreen({ onBack }: ProgressDashboardScreenProps) {
+export function ProgressDashboardScreen() {
   const [stats, setStats] = useState<ProgressStatsResult | null>(null);
   const [streak, setStreak] = useState<PracticeStreak | null>(null);
   const [achievements, setAchievements] = useState<AchievementRow[]>([]);
@@ -132,9 +128,6 @@ export function ProgressDashboardScreen({ onBack }: ProgressDashboardScreenProps
             <h1>Loading progress</h1>
             <p className="song-title">Gathering practice history, streaks, and chart data.</p>
           </div>
-          <button className="secondary-button" onClick={onBack}>
-            Back to Menu
-          </button>
         </section>
         <section className="panel empty-state-panel">
           <div className="loading-spinner" />
@@ -152,9 +145,6 @@ export function ProgressDashboardScreen({ onBack }: ProgressDashboardScreenProps
             <h1>Progress unavailable</h1>
             <p className="song-title">{errorMessage ?? 'No progress data is available yet.'}</p>
           </div>
-          <button className="secondary-button" onClick={onBack}>
-            Back to Menu
-          </button>
         </section>
       </main>
     );
@@ -168,9 +158,6 @@ export function ProgressDashboardScreen({ onBack }: ProgressDashboardScreenProps
           <h1>Long-term practice view</h1>
           <p className="song-title">Track consistency, workload, and how cleanly your scores are trending.</p>
         </div>
-        <button className="secondary-button" onClick={onBack}>
-          Back to Menu
-        </button>
       </section>
 
       <section className="dashboard-stat-grid">

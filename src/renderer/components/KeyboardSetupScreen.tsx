@@ -20,7 +20,6 @@ interface KeyboardSetupScreenProps {
   keyboardInputService: ComputerKeyboardInputService;
   inputMode: InputMode;
   onInputModeChange: (mode: InputMode) => void;
-  onBack: () => void;
 }
 
 function isNoteAction(action: KeyboardAction): action is KeyboardNoteAction {
@@ -31,7 +30,6 @@ export function KeyboardSetupScreen({
   keyboardInputService,
   inputMode,
   onInputModeChange,
-  onBack,
 }: KeyboardSetupScreenProps) {
   const [mapping, setMapping] = useState<KeyboardMapping>(keyboardInputService.getMapping());
   const [octaveShift, setOctaveShift] = useState(keyboardInputService.getState().octaveShift);
@@ -172,9 +170,6 @@ export function KeyboardSetupScreen({
           <p className="song-title">{statusMessage}</p>
         </div>
         <div className="transport-buttons">
-          <button className="secondary-button" onClick={onBack}>
-            Back
-          </button>
           <button className="secondary-button" onClick={handleReset}>
             Reset Mapping
           </button>

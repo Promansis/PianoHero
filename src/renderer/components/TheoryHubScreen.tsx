@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import type { TheoryResultType, TheoryStatsRow } from '../../shared/dbTypes';
 
 interface TheoryHubScreenProps {
-  onBack: () => void;
   onStartScalePractice: (preset?: { root: number; scaleName: string }) => void;
   onStartIntervalTrainer: (preset?: { difficulty: string }) => void;
   onStartQuiz: (preset?: { quizType: string }) => void;
@@ -63,11 +62,6 @@ export function TheoryHubScreen(props: TheoryHubScreenProps) {
           <p className="eyebrow">Theory Hub</p>
           <h1>Music theory practice</h1>
           <p className="song-title">Use scales, intervals, and quizzes to connect ear training with the keyboard.</p>
-        </div>
-        <div className="transport-buttons">
-          <button className="secondary-button" onClick={props.onBack}>
-            Back to Menu
-          </button>
         </div>
       </section>
 

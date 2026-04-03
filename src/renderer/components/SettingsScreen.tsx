@@ -9,7 +9,6 @@ interface SettingsScreenProps {
   onSettingChange: (category: string, key: string, value: string) => void;
   onInputModeChange: (nextMode: InputMode) => void;
   onOpenKeyboardSetup: () => void;
-  onBack: () => void;
 }
 
 type SettingsTab = 'audio' | 'visual' | 'gameplay' | 'input' | 'practice';
@@ -54,7 +53,6 @@ export function SettingsScreen({
   onSettingChange,
   onInputModeChange,
   onOpenKeyboardSetup,
-  onBack,
 }: SettingsScreenProps) {
   const [activeTab, setActiveTab] = useState<SettingsTab>('audio');
   const [values, setValues] = useState<SettingsValues>(DEFAULT_SETTINGS);
@@ -153,9 +151,6 @@ export function SettingsScreen({
             <h1>Loading preferences</h1>
             <p className="song-title">Reading saved audio, gameplay, and practice defaults.</p>
           </div>
-          <button className="secondary-button" onClick={onBack}>
-            Back to Menu
-          </button>
         </section>
         <section className="panel empty-state-panel">
           <div className="loading-spinner" />
@@ -172,9 +167,6 @@ export function SettingsScreen({
           <h1>Practice defaults and accessibility</h1>
           <p className="song-title">{statusMessage}</p>
         </div>
-        <button className="secondary-button" onClick={onBack}>
-          Back to Menu
-        </button>
       </section>
 
       <section className="settings-layout">

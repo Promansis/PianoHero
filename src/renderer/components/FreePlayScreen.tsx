@@ -28,7 +28,6 @@ interface FreePlayScreenProps {
   keyboardOverlaySize: 'small' | 'medium' | 'large';
   postureReminderMinutes: number | null;
   breakReminderMinutes: number | null;
-  onBackToLibrary: () => void;
   onOpenKeyboardSetup: () => void;
 }
 
@@ -51,7 +50,6 @@ export function FreePlayScreen({
   keyboardOverlaySize,
   postureReminderMinutes,
   breakReminderMinutes,
-  onBackToLibrary,
   onOpenKeyboardSetup,
 }: FreePlayScreenProps) {
   const [devices, setDevices] = useState<MidiInputDevice[]>([]);
@@ -466,9 +464,6 @@ export function FreePlayScreen({
           <p className="song-title">{statusMessage}</p>
         </div>
         <div className="transport-buttons">
-          <button className="secondary-button" onClick={onBackToLibrary}>
-            Main Menu
-          </button>
           <button className="secondary-button" onClick={onOpenKeyboardSetup}>
             Keyboard Setup
           </button>

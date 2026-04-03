@@ -12,7 +12,6 @@ interface ScalePracticeScreenProps {
   midiInputService: MidiInputService;
   keyboardInputService: ComputerKeyboardInputService;
   inputMode: InputMode;
-  onBack: () => void;
   onAchievementsUnlocked?: (achievementIds: string[]) => void;
   preset?: { root: number; scaleName: string };
 }
@@ -22,7 +21,6 @@ export function ScalePracticeScreen({
   midiInputService,
   keyboardInputService,
   inputMode,
-  onBack,
   onAchievementsUnlocked,
   preset,
 }: ScalePracticeScreenProps) {
@@ -187,9 +185,6 @@ export function ScalePracticeScreen({
           <p className="song-title">{statusMessage}</p>
         </div>
         <div className="transport-buttons">
-          <button className="secondary-button" onClick={onBack}>
-            Back
-          </button>
           <button
             className="primary-button"
             onClick={() => {

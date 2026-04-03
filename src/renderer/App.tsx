@@ -241,8 +241,11 @@ export function App() {
         setHandSize(savedHandSize);
       }
 
-      const theme = rawTheme === 'warm' ? 'warm' : rawTheme === 'dark' ? 'dark' : 'light';
+      const theme = rawTheme === 'warm' ? 'warm' : rawTheme === 'light' ? 'light' : 'dark';
       document.documentElement.dataset['theme'] = theme;
+      if (!rawTheme) {
+        void window.appBridge.setSetting('visual', 'theme', theme);
+      }
 
       setColorBlindMode(rawColorBlind === 'true');
 
@@ -668,7 +671,6 @@ export function App() {
           keyboardOverlaySize={keyboardOverlaySize}
           postureReminderMinutes={postureReminderMinutes}
           breakReminderMinutes={breakReminderMinutes}
-          onBackToLibrary={() => setCurrentScreen({ screen: 'main-menu' })}
           onOpenKeyboardSetup={() => setCurrentScreen({ screen: 'keyboard-setup', returnTo: 'library' })}
         />
       );
@@ -677,7 +679,6 @@ export function App() {
     case 'theory-hub':
       screenContent = (
         <TheoryHubScreen
-          onBack={() => setCurrentScreen({ screen: 'main-menu' })}
           onStartIntervalTrainer={(preset) => setCurrentScreen({ screen: 'interval-trainer', preset })}
           onStartQuiz={(preset) => setCurrentScreen({ screen: 'theory-quiz', preset })}
           onStartScalePractice={(preset) => setCurrentScreen({ screen: 'scale-practice', preset })}
@@ -686,7 +687,7 @@ export function App() {
       break;
 
     case 'progress-dashboard':
-      screenContent = <ProgressDashboardScreen onBack={() => setCurrentScreen({ screen: 'main-menu' })} />;
+      screenContent = <ProgressDashboardScreen />;
       break;
 
     case 'settings':
@@ -697,7 +698,6 @@ export function App() {
           onSettingChange={applySettingChange}
           onInputModeChange={persistInputMode}
           onOpenKeyboardSetup={() => setCurrentScreen({ screen: 'keyboard-setup', returnTo: 'settings' })}
-          onBack={() => setCurrentScreen({ screen: 'main-menu' })}
         />
       );
       break;
@@ -709,7 +709,6 @@ export function App() {
           inputMode={inputMode}
           keyboardInputService={keyboardServiceRef.current}
           midiInputService={midiServiceRef.current}
-          onBack={() => setCurrentScreen({ screen: 'theory-hub' })}
           onAchievementsUnlocked={enqueueAchievementToasts}
           preset={currentScreen.preset}
         />
@@ -723,7 +722,6 @@ export function App() {
           inputMode={inputMode}
           keyboardInputService={keyboardServiceRef.current}
           midiInputService={midiServiceRef.current}
-          onBack={() => setCurrentScreen({ screen: 'theory-hub' })}
           onAchievementsUnlocked={enqueueAchievementToasts}
           preset={currentScreen.preset}
         />
@@ -734,7 +732,6 @@ export function App() {
       screenContent = (
         <TheoryQuizScreen
           audioEngine={audioEngineRef.current}
-          onBack={() => setCurrentScreen({ screen: 'theory-hub' })}
           onAchievementsUnlocked={enqueueAchievementToasts}
           preset={currentScreen.preset}
         />
@@ -747,7 +744,6 @@ export function App() {
           inputMode={inputMode}
           keyboardInputService={keyboardServiceRef.current}
           onInputModeChange={persistInputMode}
-          onBack={() => setCurrentScreen({ screen: currentScreen.returnTo })}
         />
       );
       break;
