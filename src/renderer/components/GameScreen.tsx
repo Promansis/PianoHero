@@ -988,11 +988,19 @@ export function GameScreen({
           </div>
           <div className="immersive-hud-item">
             <span>Combo</span>
-            <strong>{snapshot.score.combo} ×{snapshot.score.comboMultiplier.toFixed(1)}</strong>
+            <strong key={snapshot.score.combo} className="combo-pop">
+              {snapshot.score.combo} ×{snapshot.score.comboMultiplier.toFixed(1)}
+            </strong>
           </div>
           <div className="immersive-hud-item">
             <span>Accuracy</span>
-            <strong>{snapshot.score.accuracy.toFixed(1)}%</strong>
+            <strong className={
+              snapshot.score.accuracy >= 90 ? 'accuracy-high' :
+              snapshot.score.accuracy >= 70 ? 'accuracy-mid'  :
+                                               'accuracy-low'
+            }>
+              {snapshot.score.accuracy.toFixed(1)}%
+            </strong>
           </div>
         </div>
         <button className="immersive-menu-btn" onClick={() => setOverlayVisible(true)}>

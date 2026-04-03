@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { PlaybackSnapshot, VisibleNote } from '../../lib/game/types';
+import type { PlaybackSnapshot, VisibleNote, NoteJudgement } from '../../lib/game/types';
 import { getKeyPosition, OCTAVE_C_MIDI } from '../../lib/piano/pianoLayout';
 
 interface FallingNotesCanvasProps {
@@ -26,6 +26,33 @@ interface CanvasPalette {
   selected: string;
 }
 
+interface JudgmentPopup {
+  id: string;
+  x: number;
+  y: number;
+  label: string;
+  colour: string;
+  createdAt: number;
+  duration: number;
+}
+
+interface Particle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  radius: number;
+  colour: string;
+  createdAt: number;
+  duration: number;
+}
+
+interface EffectsState {
+  popups: JudgmentPopup[];
+  particles: Particle[];
+  vignette: { createdAt: number; duration: number } | null;
+}
+
 function readCanvasPalette(): CanvasPalette {
   const styles = getComputedStyle(document.documentElement);
   return {
@@ -45,7 +72,6 @@ function readCanvasPalette(): CanvasPalette {
 
 function noteFill(note: VisibleNote, colorBlindMode: boolean, palette: CanvasPalette): string {
   if (colorBlindMode) {
-    // Deuteranopia-safe palette: yellow/blue/cyan/pink instead of yellow/green/blue/red
     switch (note.judgement) {
       case 'perfect': return palette.perfect;
       case 'good': return '#4477AA';
@@ -79,6 +105,8 @@ export function FallingNotesCanvas({
 }: FallingNotesCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const prevJudgementsRef = useRef<Map<string, NoteJudgement>>(new Map());
+  const effectsRef = useRef<EffectsState>({ popups: [], particles: [], vignette: null });
   const [isDropping, setIsDropping] = useState(false);
 
   useEffect(() => {
@@ -103,10 +131,54 @@ export function FallingNotesCanvas({
     canvas.style.height = `${height}px`;
     context.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
 
+    // Detect judgement transitions and spawn effects
+    const now = performance.now();
+    const hitY = height * snapshot.hitLineRatio;
+    const { popups, particles } = effectsRef.current;
+
+    for (const note of snapshot.visibleNotes) {
+      const prev = prevJudgementsRef.current.get(note.id);
+      if (prev === 'pending' && note.judgement !== 'pending') {
+        const noteX = note.xRatio * width + Math.max(width * note.widthRatio * 0.92, 12) / 2;
+        popups.push(spawnPopup(note, noteX, hitY, now, palette));
+        particles.push(...spawnParticles(note, noteX, hitY, now, palette));
+        if (note.judgement === 'miss') {
+          effectsRef.current.vignette = { createdAt: now, duration: 500 };
+        }
+      }
+      prevJudgementsRef.current.set(note.id, note.judgement);
+    }
+
+    // Cull stale IDs (notes scrolled off or song restarted)
+    const liveIds = new Set(snapshot.visibleNotes.map((n) => n.id));
+    for (const id of prevJudgementsRef.current.keys()) {
+      if (!liveIds.has(id)) prevJudgementsRef.current.delete(id);
+    }
+
+    // Age-cull effects
+    effectsRef.current.popups = popups.filter((p) => now - p.createdAt < p.duration);
+    effectsRef.current.particles = particles.filter((p) => now - p.createdAt < p.duration);
+    if (effectsRef.current.vignette) {
+      const v = effectsRef.current.vignette;
+      if (now - v.createdAt >= v.duration) effectsRef.current.vignette = null;
+    }
+
+    // Draw scene
     context.clearRect(0, 0, width, height);
     drawGrid(context, width, height, snapshot.hitLineRatio, palette);
     drawNotes(context, width, height, snapshot.visibleNotes, selectedNoteId, colorBlindMode, noteLabels, palette);
+
+    // Hit line glow (behind the line)
+    drawHitLineGlow(context, width, height, snapshot.hitLineRatio, snapshot.score.combo, palette);
+
+    // Hit line
     drawHitLine(context, width, height, snapshot.hitLineRatio, palette);
+
+    // Effects on top
+    const eff = effectsRef.current;
+    drawParticles(context, eff.particles, now);
+    drawPopups(context, eff.popups, now);
+    drawVignette(context, width, height, eff.vignette, now);
   }, [colorBlindMode, noteLabels, selectedNoteId, snapshot]);
 
   return (
@@ -166,7 +238,6 @@ function drawGrid(
 
   context.strokeStyle = palette.grid;
   context.lineWidth = 1;
-  // Draw vertical lines at octave boundaries (each C note)
   for (const midi of OCTAVE_C_MIDI) {
     const x = getKeyPosition(midi).leftPercent / 100 * width;
     context.beginPath();
@@ -268,4 +339,152 @@ function drawHitLine(
   context.moveTo(0, y);
   context.lineTo(width, y);
   context.stroke();
+}
+
+function hexToRgb(hex: string): string {
+  const clean = hex.replace('#', '');
+  if (clean.length === 3) {
+    return clean.split('').map((c) => parseInt(c + c, 16)).join(',');
+  }
+  return [0, 2, 4].map((i) => parseInt(clean.slice(i, i + 2), 16)).join(',');
+}
+
+function spawnPopup(
+  note: VisibleNote,
+  x: number,
+  hitY: number,
+  now: number,
+  palette: CanvasPalette,
+): JudgmentPopup {
+  const labels: Record<string, string> = { perfect: 'PERFECT!', good: 'GOOD', ok: 'OK', miss: 'MISS' };
+  const colours: Record<string, string> = {
+    perfect: palette.perfect,
+    good: palette.good,
+    ok: palette.ok,
+    miss: palette.miss,
+  };
+  return {
+    id: note.id,
+    x,
+    y: hitY - 20,
+    label: labels[note.judgement] ?? note.judgement.toUpperCase(),
+    colour: colours[note.judgement] ?? palette.text,
+    createdAt: now,
+    duration: 700,
+  };
+}
+
+function spawnParticles(
+  note: VisibleNote,
+  x: number,
+  hitY: number,
+  now: number,
+  palette: CanvasPalette,
+): Particle[] {
+  const counts: Record<string, number> = { perfect: 7, good: 5, ok: 3, miss: 3 };
+  const colours: Record<string, string> = {
+    perfect: palette.perfect,
+    good: palette.good,
+    ok: palette.ok,
+    miss: palette.miss,
+  };
+  const count = counts[note.judgement] ?? 0;
+  const colour = colours[note.judgement] ?? palette.text;
+  return Array.from({ length: count }, (_, i) => {
+    const angle = (Math.PI * 2 * i) / count + (Math.random() * 0.4 - 0.2);
+    const speed = 0.06 + Math.random() * 0.08;
+    return {
+      x,
+      y: hitY,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      radius: 2 + Math.random() * 2,
+      colour,
+      createdAt: now,
+      duration: 400,
+    };
+  });
+}
+
+function drawHitLineGlow(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  hitLineRatio: number,
+  combo: number,
+  palette: CanvasPalette,
+): void {
+  const alpha = combo >= 50 ? 0.48 : combo >= 25 ? 0.32 : combo >= 10 ? 0.18 : 0;
+  if (alpha === 0) return;
+
+  const y = height * hitLineRatio;
+  const spread = 48;
+  const rgb = hexToRgb(palette.hitLine);
+  const grad = context.createLinearGradient(0, y - spread, 0, y + spread / 2);
+  grad.addColorStop(0, `rgba(${rgb},0)`);
+  grad.addColorStop(0.5, `rgba(${rgb},${alpha})`);
+  grad.addColorStop(1, `rgba(${rgb},0)`);
+  context.fillStyle = grad;
+  context.fillRect(0, y - spread, width, spread + spread / 2);
+}
+
+function drawParticles(
+  context: CanvasRenderingContext2D,
+  particles: Particle[],
+  now: number,
+): void {
+  for (const p of particles) {
+    const age = (now - p.createdAt) / p.duration;
+    const elapsed = now - p.createdAt;
+    context.globalAlpha = 1 - age;
+    context.fillStyle = p.colour;
+    context.beginPath();
+    context.arc(p.x + p.vx * elapsed, p.y + p.vy * elapsed, p.radius * (1 - age * 0.5), 0, Math.PI * 2);
+    context.fill();
+  }
+  context.globalAlpha = 1;
+}
+
+function drawPopups(
+  context: CanvasRenderingContext2D,
+  popups: JudgmentPopup[],
+  now: number,
+): void {
+  for (const popup of popups) {
+    const age = (now - popup.createdAt) / popup.duration;
+    const scale = age < 0.12 ? 1 + (1 - age / 0.12) * 0.25 : 1;
+    context.save();
+    context.globalAlpha = 1 - age;
+    context.translate(popup.x, popup.y - age * 50);
+    context.scale(scale, scale);
+    context.shadowColor = 'rgba(0,0,0,0.55)';
+    context.shadowBlur = 4;
+    context.fillStyle = popup.colour;
+    context.font = 'bold 15px "Segoe UI", system-ui, sans-serif';
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillText(popup.label, 0, 0);
+    context.restore();
+  }
+}
+
+function drawVignette(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  vignette: { createdAt: number; duration: number } | null,
+  now: number,
+): void {
+  if (!vignette) return;
+  const age = (now - vignette.createdAt) / vignette.duration;
+  if (age >= 1) return;
+  const cx = width / 2;
+  const cy = height / 2;
+  const r = Math.sqrt(cx * cx + cy * cy);
+  const alpha = (1 - age) * 0.38;
+  const grad = context.createRadialGradient(cx, cy, r * 0.55, cx, cy, r);
+  grad.addColorStop(0, 'rgba(180,30,20,0)');
+  grad.addColorStop(1, `rgba(180,30,20,${alpha})`);
+  context.fillStyle = grad;
+  context.fillRect(0, 0, width, height);
 }

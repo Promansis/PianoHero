@@ -221,6 +221,21 @@ select:focus {
   text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
 }
 
+@keyframes comboPop {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.4); }
+  100% { transform: scale(1); }
+}
+
+.immersive-hud-item strong.combo-pop {
+  display: inline-block;
+  animation: comboPop 250ms ease-out both;
+}
+
+.immersive-hud-item strong.accuracy-high { color: #40b56a; }
+.immersive-hud-item strong.accuracy-mid  { color: #d4a017; }
+.immersive-hud-item strong.accuracy-low  { color: #bf5b44; }
+
 .immersive-menu-btn {
   pointer-events: all;
   background: rgba(0, 0, 0, 0.45);
