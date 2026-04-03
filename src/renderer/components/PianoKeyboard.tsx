@@ -1,4 +1,5 @@
 import type { Hand } from '../../lib/game/types';
+import { KEY_LAYOUT, WHITE_KEY_WIDTH } from '../../lib/piano/pianoLayout';
 
 interface PianoKeyboardProps {
   activeNotes: number[];
@@ -7,80 +8,6 @@ interface PianoKeyboardProps {
   highlightColor?: 'scale' | 'chord';
   chordLabel?: string | null;
   size?: 'small' | 'medium' | 'large';
-}
-
-interface KeyLayout {
-  midi: number;
-  note: string;
-  isBlack: boolean;
-  left: number;
-}
-
-const MIN_MIDI = 21;
-const MAX_MIDI = 108;
-const BLACK_CLASSES = new Set([1, 3, 6, 8, 10]);
-const WHITE_KEYS = buildWhiteKeys();
-const WHITE_KEY_WIDTH = 100 / WHITE_KEYS.length;
-const KEY_LAYOUT = buildKeyLayout();
-
-function buildWhiteKeys(): number[] {
-  const whiteKeys: number[] = [];
-  for (let midi = MIN_MIDI; midi <= MAX_MIDI; midi += 1) {
-    if (!BLACK_CLASSES.has(midi % 12)) {
-      whiteKeys.push(midi);
-    }
-  }
-  return whiteKeys;
-}
-
-function buildKeyLayout(): KeyLayout[] {
-  const whiteIndexMap = new Map<number, number>();
-  WHITE_KEYS.forEach((midi, index) => {
-    whiteIndexMap.set(midi, index);
-  });
-
-  const offsets: Record<number, number> = {
-    1: 0.65,
-    3: 1.55,
-    6: 3.65,
-    8: 4.55,
-    10: 5.45,
-  };
-
-  const layout: KeyLayout[] = [];
-  for (let midi = MIN_MIDI; midi <= MAX_MIDI; midi += 1) {
-    const pitchClass = midi % 12;
-    const note = midiToLabel(midi);
-    const isBlack = BLACK_CLASSES.has(pitchClass);
-
-    if (!isBlack) {
-      const left = (whiteIndexMap.get(midi) ?? 0) * WHITE_KEY_WIDTH;
-      layout.push({ midi, note, isBlack, left });
-      continue;
-    }
-
-    const priorWhiteCount = whiteBeforeMidi(midi);
-    const left = (priorWhiteCount - 1 + (offsets[pitchClass] ?? 0.5)) * WHITE_KEY_WIDTH;
-    const normalizedLeft = Math.max(0, Math.min(100 - WHITE_KEY_WIDTH * 0.6, left));
-    layout.push({ midi, note, isBlack, left: normalizedLeft });
-  }
-
-  return layout;
-}
-
-function whiteBeforeMidi(targetMidi: number): number {
-  let count = 0;
-  for (let midi = MIN_MIDI; midi <= targetMidi; midi += 1) {
-    if (!BLACK_CLASSES.has(midi % 12)) {
-      count += 1;
-    }
-  }
-  return count;
-}
-
-function midiToLabel(midi: number): string {
-  const pitchNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-  return `${pitchNames[midi % 12]}${Math.floor(midi / 12) - 1}`;
 }
 
 function upcomingMap(

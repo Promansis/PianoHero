@@ -3,6 +3,7 @@ import type { FingeringRow } from '../../shared/dbTypes';
 import { computeFingering } from './fingeringAlgorithm';
 import { ScoringEngine } from './ScoringEngine';
 import { buildScheduledNotes, getLoopRangeSeconds, getMeasureIndexForTime } from './songUtils';
+import { getKeyPosition } from '../piano/pianoLayout';
 import type {
   GameResult,
   NoteJudgement,
@@ -17,9 +18,6 @@ interface ScheduledGameNote extends ScheduledNote {
   judgement: NoteJudgement;
 }
 
-const MIN_MIDI = 21;
-const MAX_MIDI = 108;
-const TOTAL_KEYS = MAX_MIDI - MIN_MIDI + 1;
 const HIT_WINDOW_SEC = 0.1;
 const HIT_LINE_RATIO = 0.86;
 const BLOCKING_NOTE_EPSILON_SEC = 0.005;
@@ -354,9 +352,9 @@ export class GameSession {
         if (!(note.startSec <= currentTimeSec + leadTimeSec && endSec >= currentTimeSec - 0.4)) {
           return [];
         }
-        const keyIndex = note.midi - MIN_MIDI;
-        const xRatio = keyIndex / TOTAL_KEYS;
-        const widthRatio = 1 / TOTAL_KEYS;
+        const pos = getKeyPosition(note.midi);
+        const xRatio = pos.leftPercent / 100;
+        const widthRatio = pos.widthPercent / 100;
         const bottomRatio =
           HIT_LINE_RATIO - ((note.startSec - currentTimeSec) / leadTimeSec) * HIT_LINE_RATIO;
         const heightRatio = Math.max(minHeightRatio, (note.durationSec / leadTimeSec) * HIT_LINE_RATIO);

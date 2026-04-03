@@ -328,6 +328,7 @@ export function GameScreen({
   const [keyboardOctaveShift, setKeyboardOctaveShift] = useState(keyboardInputService.getState().octaveShift);
   const [chordLabel, setChordLabel] = useState<string | null>(null);
   const [detectedKey, setDetectedKey] = useState<DetectedKey | null>(null);
+  const [overlayVisible, setOverlayVisible] = useState(false);
   const [isEditingFingering, setIsEditingFingering] = useState(false);
   const [selectedFingeringNoteId, setSelectedFingeringNoteId] = useState<string | null>(null);
   const [fingeringEditorState, setFingeringEditorState] = useState<{
@@ -565,6 +566,19 @@ export function GameScreen({
       window.clearInterval(interval);
     };
   }, [breakReminderMinutes]);
+
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.stopPropagation();
+      event.preventDefault();
+      setOverlayVisible((prev) => !prev);
+    };
+    window.addEventListener('keydown', handleEscape, true);
+    return () => {
+      window.removeEventListener('keydown', handleEscape, true);
+    };
+  }, []);
 
   const ensureAudioReady = async () => {
     try {
@@ -882,101 +896,128 @@ export function GameScreen({
   const currentTimeLabel = formatTime(snapshot.currentTimeSec - loopStart);
   const durationLabel = formatTime(snapshot.durationSec);
 
+  const sessionToolbar = (
+    <SessionToolbar
+      sessionConfig={sessionConfig}
+      totalMeasures={sessionSong ? getMeasureCount(sessionSong) : 0}
+      canEditFingering={!song.id.startsWith('temp-')}
+      isEditingFingering={isEditingFingering}
+      onRebuild={(next) => void rebuildForSessionConfig(next)}
+      onHandSizeChange={(handSize) => {
+        const nextConfig = { ...sessionConfig, handSize };
+        setSessionConfig(nextConfig);
+        void window.appBridge?.setSetting('fingering', 'handSize', handSize);
+        void rebuildForSessionConfig(nextConfig);
+      }}
+      onFingeringDisplayModeChange={(fingeringDisplayMode) => {
+        const nextConfig = { ...sessionConfig, fingeringDisplayMode };
+        setSessionConfig(nextConfig);
+        void window.appBridge?.setSetting('fingering', 'displayMode', fingeringDisplayMode);
+        void rebuildForSessionConfig(nextConfig);
+      }}
+      onToggleFingeringEditor={() => {
+        if (song.id.startsWith('temp-')) {
+          setStatusMessage('Save the song to the library before editing fingerings.');
+          return;
+        }
+        setIsEditingFingering((current) => !current);
+      }}
+      onResetFingerings={() => void handleResetFingerings()}
+    />
+  );
+
+  const fallingNotesCanvas = (
+    <div className="fingering-editor-shell">
+      <FallingNotesCanvas
+        snapshot={snapshot}
+        fingeringEditEnabled={isEditingFingering && !song.id.startsWith('temp-')}
+        selectedNoteId={selectedFingeringNoteId}
+        onNoteSelect={handleSelectFingeringNote}
+        onFileDrop={(file) => {
+          void handleDroppedFile(file);
+        }}
+        colorBlindMode={colorBlindMode}
+        noteLabels={noteLabels}
+      />
+      {fingeringEditorState && (
+        <FingeringEditor
+          note={{
+            id: fingeringEditorState.noteId,
+            scheduledIndex: fingeringEditorState.scheduledIndex,
+            midi: 0,
+            label: fingeringEditorState.label,
+            hand: fingeringEditorState.hand,
+            judgement: 'pending',
+            finger: fingeringEditorState.finger,
+            xRatio: 0,
+            widthRatio: 0,
+            topRatio: 0,
+            heightRatio: 0,
+          }}
+          anchorPoint={fingeringEditorState.anchorPoint}
+          onSelectFinger={(finger) => void handleSaveFingering(finger)}
+          onReset={() => void handleResetFingerings()}
+          onClose={() => {
+            setFingeringEditorState(null);
+            setSelectedFingeringNoteId(null);
+          }}
+        />
+      )}
+    </div>
+  );
+
+  const pianoKeyboard = (
+    <PianoKeyboard
+      activeNotes={snapshot.activeInputNotes}
+      upcomingNotes={snapshot.upcomingNotes}
+      highlightedNotes={snapshot.activeInputNotes}
+      highlightColor="chord"
+      chordLabel={chordLabel}
+      size={keyboardOverlaySize}
+    />
+  );
+
   return (
-    <main className="app-shell app-shell-without-chrome" onPointerDownCapture={() => void ensureAudioReady()}>
-      <ControlBar
-        canPlay={Boolean(sessionSong)}
-        isPlaying={snapshot.isPlaying}
-        tempo={sessionConfig.tempoMultiplier}
-        progress={Math.max(0, Math.min(1, progress))}
-        songTitle={currentSongRef.current.title}
-        currentTimeLabel={currentTimeLabel}
-        durationLabel={durationLabel}
-        onImport={() => void handlePickMidi()}
-        onPlayPause={() => void handlePlayPause()}
-        onRestart={() => void handleRestart()}
-        onTempoChange={(value) => void handleTempoChange(value)}
-        onSeek={(value) => void handleSeek(value)}
-        onBackToLibrary={() => {
-          audioEngine.pauseSong();
-          onBackToLibrary();
-        }}
-      />
-
-      <section className="status-strip">
-        {detectedKey && (
-          <div className="status-card">
-            <span>Key</span>
-            <KeySignatureBadge detectedKey={detectedKey} />
+    <main className="app-shell app-shell-immersive" onPointerDownCapture={() => void ensureAudioReady()}>
+      {/* Minimal HUD — always visible during gameplay */}
+      <div className="immersive-hud">
+        <div className="immersive-hud-stats">
+          <div className="immersive-hud-item">
+            <span>Score</span>
+            <strong>{snapshot.score.totalScore.toLocaleString()}</strong>
           </div>
-        )}
-        <div className="status-card">
-          <span>Mode</span>
-          <strong>
-            {sessionConfig.mode === 'piano-hero'
-              ? 'Piano Hero'
-              : sessionConfig.mode === 'performance'
-                ? 'Performance'
-                : 'Learning'}
-          </strong>
+          <div className="immersive-hud-item">
+            <span>Combo</span>
+            <strong>{snapshot.score.combo} ×{snapshot.score.comboMultiplier.toFixed(1)}</strong>
+          </div>
+          <div className="immersive-hud-item">
+            <span>Accuracy</span>
+            <strong>{snapshot.score.accuracy.toFixed(1)}%</strong>
+          </div>
         </div>
-        <div className="status-card">
-          <span>Score</span>
-          <strong>{snapshot.score.totalScore.toLocaleString()}</strong>
-        </div>
-        <div className="status-card">
-          <span>Combo</span>
-          <strong>
-            {snapshot.score.combo} x{snapshot.score.comboMultiplier.toFixed(1)}
-          </strong>
-        </div>
-        <div className="status-card">
-          <span>Accuracy</span>
-          <strong>{snapshot.score.accuracy.toFixed(1)}%</strong>
-        </div>
-        <div className="status-card">
-          <span>Input Mode</span>
-          <strong>{inputMode === 'both' ? 'Both' : inputMode === 'midi' ? 'MIDI' : 'Computer Keyboard'}</strong>
-        </div>
-        <div className="status-card">
-          <span>Keyboard Octave</span>
-          <strong>{keyboardOctaveShift >= 0 ? `+${keyboardOctaveShift}` : keyboardOctaveShift}</strong>
-        </div>
-        <div className="status-card wide">
-          <span>Status</span>
-          <strong>{statusMessage}</strong>
-          {chordLabel && <p className="status-inline-label">Chord: {chordLabel}</p>}
-        </div>
-      </section>
+        <button className="immersive-menu-btn" onClick={() => setOverlayVisible(true)}>
+          Menu
+        </button>
+      </div>
 
-      <SessionToolbar
-        sessionConfig={sessionConfig}
-        totalMeasures={sessionSong ? getMeasureCount(sessionSong) : 0}
-        canEditFingering={!song.id.startsWith('temp-')}
-        isEditingFingering={isEditingFingering}
-        onRebuild={(next) => void rebuildForSessionConfig(next)}
-        onHandSizeChange={(handSize) => {
-          const nextConfig = { ...sessionConfig, handSize };
-          setSessionConfig(nextConfig);
-          void window.appBridge?.setSetting('fingering', 'handSize', handSize);
-          void rebuildForSessionConfig(nextConfig);
-        }}
-        onFingeringDisplayModeChange={(fingeringDisplayMode) => {
-          const nextConfig = { ...sessionConfig, fingeringDisplayMode };
-          setSessionConfig(nextConfig);
-          void window.appBridge?.setSetting('fingering', 'displayMode', fingeringDisplayMode);
-          void rebuildForSessionConfig(nextConfig);
-        }}
-        onToggleFingeringEditor={() => {
-          if (song.id.startsWith('temp-')) {
-            setStatusMessage('Save the song to the library before editing fingerings.');
-            return;
-          }
-          setIsEditingFingering((current) => !current);
-        }}
-        onResetFingerings={() => void handleResetFingerings()}
-      />
+      {/* Fingering hint bar */}
+      {isEditingFingering && !fingeringEditorState && !song.id.startsWith('temp-') && (
+        <div className="fingering-hint-bar">
+          Click any falling note to assign a fingering number (1–5)
+        </div>
+      )}
 
+      {/* Main canvas area — fills all available space */}
+      <div className="immersive-canvas-area">
+        {fallingNotesCanvas}
+      </div>
+
+      {/* Piano keyboard anchored at the bottom */}
+      <div className="immersive-keyboard">
+        {pianoKeyboard}
+      </div>
+
+      {/* Reminder overlays float on top of the game */}
       {showReminder && (
         <section className="panel reminder-overlay">
           <div>
@@ -1003,81 +1044,96 @@ export function GameScreen({
         </section>
       )}
 
-      {isEditingFingering && !fingeringEditorState && !song.id.startsWith('temp-') && (
-        <div className="fingering-hint-bar">
-          Click any falling note to assign a fingering number (1–5)
-        </div>
-      )}
+      {/* Settings overlay — shown when Escape is pressed */}
+      {overlayVisible && (
+        <div className="immersive-overlay" onClick={(e) => { if (e.target === e.currentTarget) setOverlayVisible(false); }}>
+          <div className="immersive-overlay-panel">
+            <div className="immersive-overlay-actions">
+              <button className="primary-button" onClick={() => setOverlayVisible(false)}>
+                Resume
+              </button>
+              <button className="secondary-button" onClick={() => { audioEngine.pauseSong(); onBackToLibrary(); }}>
+                Back to Library
+              </button>
+            </div>
 
-      <section className="workspace-grid">
-        <div className="fingering-editor-shell">
-          <FallingNotesCanvas
-            snapshot={snapshot}
-            fingeringEditEnabled={isEditingFingering && !song.id.startsWith('temp-')}
-            selectedNoteId={selectedFingeringNoteId}
-            onNoteSelect={handleSelectFingeringNote}
-            onFileDrop={(file) => {
-              void handleDroppedFile(file);
-            }}
-            colorBlindMode={colorBlindMode}
-            noteLabels={noteLabels}
-          />
-          {fingeringEditorState && (
-            <FingeringEditor
-              note={{
-                id: fingeringEditorState.noteId,
-                scheduledIndex: fingeringEditorState.scheduledIndex,
-                midi: 0,
-                label: fingeringEditorState.label,
-                hand: fingeringEditorState.hand,
-                judgement: 'pending',
-                finger: fingeringEditorState.finger,
-                xRatio: 0,
-                widthRatio: 0,
-                topRatio: 0,
-                heightRatio: 0,
-              }}
-              anchorPoint={fingeringEditorState.anchorPoint}
-              onSelectFinger={(finger) => void handleSaveFingering(finger)}
-              onReset={() => void handleResetFingerings()}
-              onClose={() => {
-                setFingeringEditorState(null);
-                setSelectedFingeringNoteId(null);
+            <ControlBar
+              canPlay={Boolean(sessionSong)}
+              isPlaying={snapshot.isPlaying}
+              tempo={sessionConfig.tempoMultiplier}
+              progress={Math.max(0, Math.min(1, progress))}
+              songTitle={currentSongRef.current.title}
+              currentTimeLabel={currentTimeLabel}
+              durationLabel={durationLabel}
+              onImport={() => void handlePickMidi()}
+              onPlayPause={() => void handlePlayPause()}
+              onRestart={() => void handleRestart()}
+              onTempoChange={(value) => void handleTempoChange(value)}
+              onSeek={(value) => void handleSeek(value)}
+              onBackToLibrary={() => {
+                audioEngine.pauseSong();
+                onBackToLibrary();
               }}
             />
-          )}
-        </div>
-        <TrackAssignmentPanel
-          tracks={sourceSong?.tracks ?? []}
-          onAssignmentChange={(trackId, assignment) => {
-            void handleAssignmentChange(trackId, assignment);
-          }}
-        />
-      </section>
 
-      <section className="status-strip compact-strip">
-        <div className="status-card wide">
-          <span>MIDI Devices</span>
-          <strong>
-            {devices.length > 0 ? devices.map((device) => device.name).join(', ') : 'No devices detected'}
-          </strong>
-        </div>
-        <div className="status-card">
-          <span>Keyboard Mapping</span>
-          <button className="secondary-button" onClick={onOpenKeyboardSetup}>
-            Open Setup
-          </button>
-        </div>
-      </section>
+            <section className="status-strip">
+              {detectedKey && (
+                <div className="status-card">
+                  <span>Key</span>
+                  <KeySignatureBadge detectedKey={detectedKey} />
+                </div>
+              )}
+              <div className="status-card">
+                <span>Mode</span>
+                <strong>
+                  {sessionConfig.mode === 'piano-hero'
+                    ? 'Piano Hero'
+                    : sessionConfig.mode === 'performance'
+                      ? 'Performance'
+                      : 'Learning'}
+                </strong>
+              </div>
+              <div className="status-card">
+                <span>Input Mode</span>
+                <strong>{inputMode === 'both' ? 'Both' : inputMode === 'midi' ? 'MIDI' : 'Computer Keyboard'}</strong>
+              </div>
+              <div className="status-card">
+                <span>Keyboard Octave</span>
+                <strong>{keyboardOctaveShift >= 0 ? `+${keyboardOctaveShift}` : keyboardOctaveShift}</strong>
+              </div>
+              <div className="status-card wide">
+                <span>Status</span>
+                <strong>{statusMessage}</strong>
+              </div>
+            </section>
 
-      <PianoKeyboard
-        activeNotes={snapshot.activeInputNotes}
-        upcomingNotes={snapshot.upcomingNotes}
-        highlightedNotes={snapshot.activeInputNotes}
-        highlightColor="chord"
-        chordLabel={chordLabel}
-        size={keyboardOverlaySize}
-      />
+            {sessionToolbar}
+
+            <section className="workspace-grid">
+              <section className="status-strip compact-strip">
+                <div className="status-card wide">
+                  <span>MIDI Devices</span>
+                  <strong>
+                    {devices.length > 0 ? devices.map((device) => device.name).join(', ') : 'No devices detected'}
+                  </strong>
+                </div>
+                <div className="status-card">
+                  <span>Keyboard Mapping</span>
+                  <button className="secondary-button" onClick={onOpenKeyboardSetup}>
+                    Open Setup
+                  </button>
+                </div>
+              </section>
+              <TrackAssignmentPanel
+                tracks={sourceSong?.tracks ?? []}
+                onAssignmentChange={(trackId, assignment) => {
+                  void handleAssignmentChange(trackId, assignment);
+                }}
+              />
+            </section>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

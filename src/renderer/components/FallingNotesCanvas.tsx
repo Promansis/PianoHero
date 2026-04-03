@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { PlaybackSnapshot, VisibleNote } from '../../lib/game/types';
+import { getKeyPosition, OCTAVE_C_MIDI } from '../../lib/piano/pianoLayout';
 
 interface FallingNotesCanvasProps {
   snapshot: PlaybackSnapshot;
@@ -165,15 +166,15 @@ function drawGrid(
 
   context.strokeStyle = palette.grid;
   context.lineWidth = 1;
-  for (let index = 0; index <= 11; index += 1) {
-    const x = width * index / 11;
+  // Draw vertical lines at octave boundaries (each C note)
+  for (const midi of OCTAVE_C_MIDI) {
+    const x = getKeyPosition(midi).leftPercent / 100 * width;
     context.beginPath();
     context.moveTo(x, 0);
     context.lineTo(x, height);
     context.stroke();
   }
 
-  context.strokeStyle = palette.grid;
   for (let index = 1; index <= 4; index += 1) {
     const y = height * hitLineRatio * index / 4;
     context.beginPath();

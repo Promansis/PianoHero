@@ -583,7 +583,7 @@ export function App() {
         return;
       }
 
-      if (event.key === 'Escape') {
+      if (event.key === 'Escape' && currentScreen.screen !== 'game') {
         event.preventDefault();
         handleBackNavigation();
         return;

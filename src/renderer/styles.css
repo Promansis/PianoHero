@@ -167,6 +167,137 @@ select:focus {
   padding-top: 24px;
 }
 
+/* ── Immersive game mode (Guitar Hero style) ── */
+.app-shell-immersive {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+}
+
+.immersive-hud {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  pointer-events: none;
+}
+
+.immersive-hud-stats {
+  display: flex;
+  gap: 24px;
+}
+
+.immersive-hud-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: 10px;
+  padding: 4px 12px;
+  backdrop-filter: blur(6px);
+}
+
+.immersive-hud-item span {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.immersive-hud-item strong {
+  font-size: 16px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.95);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
+}
+
+.immersive-menu-btn {
+  pointer-events: all;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.8);
+  border-radius: 10px;
+  padding: 6px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.immersive-menu-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+
+.immersive-canvas-area {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.immersive-canvas-area .fingering-editor-shell {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.immersive-canvas-area .canvas-shell {
+  flex: 1;
+  min-height: unset;
+  border-radius: 0;
+}
+
+.immersive-keyboard .keyboard-shell {
+  border-radius: 0;
+  padding: 4px 0 0;
+}
+
+.immersive-keyboard .panel-heading {
+  display: none;
+}
+
+.immersive-keyboard .keyboard-stage {
+  margin-top: 0;
+  border-radius: 0;
+}
+
+.immersive-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(12px);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 24px 16px;
+  overflow-y: auto;
+}
+
+.immersive-overlay-panel {
+  width: 100%;
+  max-width: 900px;
+  display: grid;
+  gap: 16px;
+}
+
+.immersive-overlay-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
 .app-topbar {
   position: fixed;
   top: 16px;
