@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { AudioEngine } from '../../lib/audio/audioEngine';
 import type { SessionMode } from '../../lib/game/types';
+import { parseMidiFile } from '../../lib/midi/midiFileParser';
 import type { FolderRow, PlaylistRow, RecommendationResult, SongRow, UserStatsRow } from '../../shared/dbTypes';
 import { AdvancedFilters, type LibraryAdvancedFilters } from './AdvancedFilters';
 import { BulkActionBar } from './BulkActionBar';
@@ -8,6 +10,7 @@ import { PlaylistView } from './PlaylistView';
 import { TagChips } from './TagChips';
 
 interface LibraryScreenProps {
+  audioEngine: AudioEngine;
   onStartSession: (song: SongRow, mode: SessionMode) => void;
   onStartPlaylistQueue: (songs: SongRow[]) => void;
   onStartFreePlay: () => void;
@@ -40,6 +43,35 @@ const EMPTY_ADVANCED_FILTERS: LibraryAdvancedFilters = {
   dateAddedFrom: '',
   dateAddedTo: '',
 };
+
+interface FilterPreset {
+  label: string;
+  difficulty: DifficultyFilter;
+  advanced: LibraryAdvancedFilters;
+}
+
+const FILTER_PRESETS: FilterPreset[] = [
+  {
+    label: 'Unplayed',
+    difficulty: 'all',
+    advanced: { ...EMPTY_ADVANCED_FILTERS, playedState: 'unplayed' },
+  },
+  {
+    label: 'Quick (< 3 min)',
+    difficulty: 'all',
+    advanced: { ...EMPTY_ADVANCED_FILTERS, durationMax: '180' },
+  },
+  {
+    label: 'Hard',
+    difficulty: 'hard',
+    advanced: EMPTY_ADVANCED_FILTERS,
+  },
+  {
+    label: 'High Score',
+    difficulty: 'all',
+    advanced: { ...EMPTY_ADVANCED_FILTERS, scoreMin: '90' },
+  },
+];
 
 function formatDuration(durationSec: number): string {
   const total = Math.max(0, Math.round(durationSec));
@@ -104,6 +136,7 @@ function withinDateRange(date: string, from: string, to: string): boolean {
 }
 
 export function LibraryScreen({
+  audioEngine,
   onStartSession,
   onStartPlaylistQueue,
   onStartFreePlay,
@@ -135,6 +168,17 @@ export function LibraryScreen({
   const [editingSongId, setEditingSongId] = useState<string | null>(null);
   const [draft, setDraft] = useState<SongDraft | null>(null);
   const [recommendations, setRecommendations] = useState<RecommendationResult | null>(null);
+  const [previewSongId, setPreviewSongId] = useState<string | null>(null);
+  const previewTimeoutsRef = useRef<number[]>([]);
+  const [userPresets, setUserPresets] = useState<FilterPreset[]>(() => {
+    try {
+      const raw = localStorage.getItem('pianohero-filter-presets');
+      return raw ? (JSON.parse(raw) as FilterPreset[]) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [newPresetName, setNewPresetName] = useState('');
 
   const refreshLibrary = async () => {
     if (!window.appBridge) {
@@ -348,6 +392,71 @@ export function LibraryScreen({
     await refreshLibrary();
   };
 
+  const handleSavePreset = () => {
+    const name = newPresetName.trim();
+    if (!name) {
+      return;
+    }
+    const preset: FilterPreset = { label: name, difficulty: difficultyFilter, advanced: advancedFilters };
+    const next = [...userPresets.filter((p) => p.label !== name), preset];
+    setUserPresets(next);
+    localStorage.setItem('pianohero-filter-presets', JSON.stringify(next));
+    setNewPresetName('');
+  };
+
+  const handleDeletePreset = (label: string) => {
+    const next = userPresets.filter((p) => p.label !== label);
+    setUserPresets(next);
+    localStorage.setItem('pianohero-filter-presets', JSON.stringify(next));
+  };
+
+  const stopPreview = () => {
+    previewTimeoutsRef.current.forEach((id) => window.clearTimeout(id));
+    previewTimeoutsRef.current = [];
+    audioEngine.allNotesOff();
+    setPreviewSongId(null);
+  };
+
+  const handlePreview = async (song: SongRow) => {
+    stopPreview();
+    if (!window.appBridge) {
+      return;
+    }
+    setPreviewSongId(song.id);
+    try {
+      await audioEngine.init();
+      const bytes = await window.appBridge.loadMidiFileData(song.filePath);
+      const parsed = parseMidiFile(bytes.slice().buffer, { songId: song.id, title: song.title });
+      const PREVIEW_DURATION_SEC = 20;
+      const allNotes = parsed.notes
+        .filter((note) => note.startSec < PREVIEW_DURATION_SEC)
+        .sort((a, b) => a.startSec - b.startSec);
+
+      const ids: number[] = [];
+      for (const note of allNotes) {
+        const onId = window.setTimeout(
+          () => void audioEngine.noteOn(note.midi, note.velocity),
+          note.startSec * 1000,
+        );
+        const offId = window.setTimeout(
+          () => audioEngine.noteOff(note.midi),
+          (note.startSec + note.durationSec) * 1000,
+        );
+        ids.push(onId, offId);
+      }
+      // Auto-stop after preview duration
+      const endId = window.setTimeout(() => {
+        audioEngine.allNotesOff();
+        setPreviewSongId(null);
+        previewTimeoutsRef.current = [];
+      }, PREVIEW_DURATION_SEC * 1000);
+      ids.push(endId);
+      previewTimeoutsRef.current = ids;
+    } catch {
+      setPreviewSongId(null);
+    }
+  };
+
   const normalizedQuery = searchQuery.trim().toLowerCase();
   const playlistFiltersActive = Boolean(normalizedQuery) || difficultyFilter !== 'all' || selectedTagFilters.length > 0 || hasAdvancedFilters(advancedFilters);
 
@@ -515,15 +624,24 @@ export function LibraryScreen({
         </div>
 
         <div className="song-card-actions">
-          <button className="primary-button" onClick={() => onStartSession(song, 'piano-hero')}>
+          <button className="primary-button" onClick={() => { stopPreview(); onStartSession(song, 'piano-hero'); }}>
             Play
           </button>
-          <button className="secondary-button" onClick={() => onStartSession(song, 'learning')}>
+          <button className="secondary-button" onClick={() => { stopPreview(); onStartSession(song, 'learning'); }}>
             Learn
           </button>
-          <button className="secondary-button" onClick={() => onStartSession(song, 'performance')}>
+          <button className="secondary-button" onClick={() => { stopPreview(); onStartSession(song, 'performance'); }}>
             Perform
           </button>
+          {previewSongId === song.id ? (
+            <button className="secondary-button" onClick={stopPreview}>
+              Stop Preview
+            </button>
+          ) : (
+            <button className="secondary-button" onClick={() => void handlePreview(song)} disabled={previewSongId !== null}>
+              Preview
+            </button>
+          )}
           <button className="secondary-button" onClick={() => setEditingSongId(song.id)}>
             Edit Metadata
           </button>
@@ -646,6 +764,57 @@ export function LibraryScreen({
             </section>
           )}
 
+          {activeView.type === 'all' && recommendations && (
+            (() => {
+              const revisitSong = recommendations.revisit[0]?.song ?? null;
+              const challengeSong = recommendations.nextChallenge[0]?.song ?? null;
+              if (!revisitSong && !challengeSong) {
+                return null;
+              }
+              return (
+                <section className="panel practice-plan-section">
+                  <div className="panel-heading">
+                    <div>
+                      <p className="eyebrow">Practice Plan</p>
+                      <h2>Suggested session</h2>
+                    </div>
+                  </div>
+                  <p className="panel-copy">A ready-made routine for your next practice slot.</p>
+                  <ol className="practice-routine-steps">
+                    <li className="practice-routine-step">
+                      <div className="step-number">1</div>
+                      <div className="step-body">
+                        <strong>Warm-up: Theory drill</strong>
+                        <p className="panel-copy">A quick scale or chord quiz to get the fingers and ears engaged.</p>
+                      </div>
+                      <button className="secondary-button" onClick={onStartTheoryPractice}>Open Theory</button>
+                    </li>
+                    {revisitSong && (
+                      <li className="practice-routine-step">
+                        <div className="step-number">2</div>
+                        <div className="step-body">
+                          <strong>Review: {revisitSong.title}</strong>
+                          <p className="panel-copy">Revisit a recent song to consolidate what you already know.</p>
+                        </div>
+                        <button className="secondary-button" onClick={() => { stopPreview(); onStartSession(revisitSong, 'learning'); }}>Learn</button>
+                      </li>
+                    )}
+                    {challengeSong && (
+                      <li className="practice-routine-step">
+                        <div className="step-number">{revisitSong ? 3 : 2}</div>
+                        <div className="step-body">
+                          <strong>Challenge: {challengeSong.title}</strong>
+                          <p className="panel-copy">Push your current level with something slightly harder.</p>
+                        </div>
+                        <button className="secondary-button" onClick={() => { stopPreview(); onStartSession(challengeSong, 'piano-hero'); }}>Play</button>
+                      </li>
+                    )}
+                  </ol>
+                </section>
+              );
+            })()
+          )}
+
           <section className="panel search-bar">
             <label className="search-field">
               <span>Search</span>
@@ -699,6 +868,57 @@ export function LibraryScreen({
                 List
               </button>
             </div>
+          </section>
+
+          <section className="filter-chips filter-presets">
+            <span className="filter-preset-label">Quick Filters:</span>
+            {FILTER_PRESETS.map((preset) => (
+              <button
+                key={preset.label}
+                className="secondary-button"
+                onClick={() => {
+                  setDifficultyFilter(preset.difficulty);
+                  setAdvancedFilters(preset.advanced);
+                  setSelectedTagFilters([]);
+                }}
+              >
+                {preset.label}
+              </button>
+            ))}
+            {userPresets.map((preset) => (
+              <span key={preset.label} className="user-preset-chip">
+                <button
+                  className="secondary-button"
+                  onClick={() => {
+                    setDifficultyFilter(preset.difficulty);
+                    setAdvancedFilters(preset.advanced);
+                    setSelectedTagFilters([]);
+                  }}
+                >
+                  {preset.label}
+                </button>
+                <button
+                  className="secondary-button user-preset-delete"
+                  onClick={() => handleDeletePreset(preset.label)}
+                  title={`Remove "${preset.label}" preset`}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+            <span className="user-preset-save">
+              <input
+                type="text"
+                className="preset-name-input"
+                placeholder="Preset name…"
+                value={newPresetName}
+                onChange={(event) => setNewPresetName(event.target.value)}
+                onKeyDown={(event) => { if (event.key === 'Enter') handleSavePreset(); }}
+              />
+              <button className="secondary-button" onClick={handleSavePreset} disabled={!newPresetName.trim()}>
+                Save Filters
+              </button>
+            </span>
           </section>
 
           <section className="filter-chips">

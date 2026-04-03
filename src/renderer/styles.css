@@ -504,6 +504,14 @@ select {
   flex-wrap: wrap;
 }
 
+.filter-preset-label {
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(36, 31, 26, 0.56);
+  align-self: center;
+}
+
 .song-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -878,6 +886,16 @@ select {
 .theory-choice-grid,
 .theory-type-select {
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.note-staff-container {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0;
+}
+
+.note-staff-svg {
+  color: var(--color-text, #241f1a);
 }
 
 .theory-choice-button {
@@ -1375,6 +1393,24 @@ select {
   grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
 }
 
+.week-comparison-grid {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.week-comparison-col {
+  display: grid;
+  gap: 12px;
+}
+
+.week-comparison-deltas {
+  border-left: 1px solid rgba(36, 31, 26, 0.12);
+  border-right: 1px solid rgba(36, 31, 26, 0.12);
+  padding: 0 24px;
+}
+
 .chart-canvas {
   min-height: 240px;
 }
@@ -1523,6 +1559,151 @@ select {
   .dashboard-meta-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* Setup diagram SVGs */
+.setup-diagram-svg {
+  width: 100%;
+  max-width: 160px;
+  height: auto;
+  display: block;
+  margin: 0 auto 12px;
+  color: var(--text-primary, rgba(36, 31, 26, 0.85));
+}
+
+/* Key signature mini-staff */
+.key-staff-svg {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-primary, rgba(36, 31, 26, 0.85));
+}
+
+/* Daily goal panel */
+.daily-goal-panel {
+  border-radius: 24px;
+  padding: 24px;
+}
+
+.daily-goal-fraction {
+  font-size: 1.1rem;
+  white-space: nowrap;
+}
+
+.daily-goal-bar-track {
+  height: 8px;
+  background: rgba(36, 31, 26, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 12px 0 10px;
+}
+
+.daily-goal-bar-fill {
+  height: 100%;
+  background: #40b56a;
+  border-radius: 4px;
+  transition: width 0.4s ease;
+  min-width: 0;
+}
+
+/* Fingering hint bar */
+.fingering-hint-bar {
+  background: rgba(31, 61, 122, 0.09);
+  border: 1px solid rgba(31, 61, 122, 0.18);
+  border-radius: 12px;
+  padding: 9px 18px;
+  font-size: 0.82rem;
+  letter-spacing: 0.03em;
+  color: rgba(31, 61, 122, 0.85);
+  text-align: center;
+  margin: 0 0 8px;
+}
+
+/* User-saved filter presets */
+.user-preset-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.user-preset-delete {
+  padding: 4px 8px !important;
+  font-size: 1rem !important;
+  line-height: 1 !important;
+  min-width: unset !important;
+}
+
+.user-preset-save {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 4px;
+}
+
+.preset-name-input {
+  padding: 6px 10px;
+  border: 1px solid rgba(36, 31, 26, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.7);
+  font-size: 0.82rem;
+  width: 130px;
+}
+
+.preset-name-input:focus {
+  outline: 2px solid rgba(31, 61, 122, 0.35);
+  border-color: transparent;
+}
+
+/* Practice routine panel */
+.practice-routine-panel {
+  border-radius: 24px;
+  padding: 24px;
+}
+
+.practice-routine-steps {
+  list-style: none;
+  padding: 0;
+  margin: 16px 0 0;
+  display: grid;
+  gap: 12px;
+}
+
+.practice-routine-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid rgba(36, 31, 26, 0.09);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.step-number {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(31, 61, 122, 0.12);
+  color: rgba(31, 61, 122, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.step-body {
+  flex: 1;
+}
+
+.step-body strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.practice-routine-step .secondary-button {
+  flex-shrink: 0;
+  align-self: center;
 }
 
 .keyboard-shell.keyboard-size-small .keyboard-stage {

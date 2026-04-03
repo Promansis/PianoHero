@@ -549,6 +549,7 @@ export function App() {
     case 'library':
       screenContent = (
         <LibraryScreen
+          audioEngine={audioEngineRef.current}
           onOpenKeyboardSetup={() => setCurrentScreen({ screen: 'keyboard-setup', returnTo: 'library' })}
           onOpenProgressDashboard={() => setCurrentScreen({ screen: 'progress-dashboard' })}
           onOpenSettings={() => setCurrentScreen({ screen: 'settings' })}

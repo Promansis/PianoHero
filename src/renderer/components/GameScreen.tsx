@@ -992,6 +992,12 @@ export function GameScreen({
         </section>
       )}
 
+      {isEditingFingering && !fingeringEditorState && !song.id.startsWith('temp-') && (
+        <div className="fingering-hint-bar">
+          Click any falling note to assign a fingering number (1–5)
+        </div>
+      )}
+
       <section className="workspace-grid">
         <div className="fingering-editor-shell">
           <FallingNotesCanvas

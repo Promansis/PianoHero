@@ -385,6 +385,53 @@ export function ResultsScreen({
         )}
       </section>
 
+      {analysis && (practiceLoop !== null || analysis.suggestedPractice.length > 0) && (
+        <section className="panel practice-routine-panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Practice Routine</p>
+              <h2>Structured next session</h2>
+            </div>
+          </div>
+          <p className="panel-copy">
+            Follow these steps in order to make the most of your next practice slot.
+          </p>
+          <ol className="practice-routine-steps">
+            {analysis.suggestedPractice.length > 0 && (
+              <li className="practice-routine-step">
+                <div className="step-number">1</div>
+                <div className="step-body">
+                  <strong>Warm-up: {analysis.suggestedPractice[0].label}</strong>
+                  <p className="panel-copy">{analysis.suggestedPractice[0].description}</p>
+                </div>
+                <button
+                  className="secondary-button"
+                  onClick={() => onStartTheoryPractice(analysis.suggestedPractice[0])}
+                >
+                  Start
+                </button>
+              </li>
+            )}
+            {practiceLoop !== null && (
+              <li className="practice-routine-step">
+                <div className="step-number">{analysis.suggestedPractice.length > 0 ? 2 : 1}</div>
+                <div className="step-body">
+                  <strong>
+                    Loop trouble measures {practiceLoop.startMeasure + 1}–{practiceLoop.endMeasure + 1}
+                  </strong>
+                  <p className="panel-copy">
+                    Isolate the weakest section in learning mode and repeat until accuracy improves.
+                  </p>
+                </div>
+                <button className="secondary-button" onClick={() => onPracticeSections(practiceLoop)}>
+                  Start
+                </button>
+              </li>
+            )}
+          </ol>
+        </section>
+      )}
+
       <section className="results-actions">
         <button className="primary-button" onClick={onRetry}>
           Retry

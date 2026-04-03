@@ -24,10 +24,26 @@ function daysAgo(days: number): string {
   return `${year}-${month}-${day}`;
 }
 
+interface WeekComparison {
+  thisWeek: { practiceMinutes: number; songsPlayed: number; avgAccuracy: number | null };
+  lastWeek: { practiceMinutes: number; songsPlayed: number; avgAccuracy: number | null };
+}
+
+function weekComparisonDelta(current: number, previous: number): string {
+  const diff = current - previous;
+  if (diff === 0) {
+    return '—';
+  }
+  return diff > 0 ? `+${diff}` : `${diff}`;
+}
+
 export function ProgressDashboardScreen({ onBack }: ProgressDashboardScreenProps) {
   const [stats, setStats] = useState<ProgressStatsResult | null>(null);
   const [streak, setStreak] = useState<PracticeStreak | null>(null);
   const [achievements, setAchievements] = useState<AchievementRow[]>([]);
+  const [weekComparison, setWeekComparison] = useState<WeekComparison | null>(null);
+  const [dailyGoalMinutes, setDailyGoalMinutes] = useState<number | null>(null);
+  const [todayMinutes, setTodayMinutes] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -42,15 +58,55 @@ export function ProgressDashboardScreen({ onBack }: ProgressDashboardScreenProps
       try {
         const fromDate = daysAgo(29);
         const toDate = daysAgo(0);
-        const [nextStats, nextStreak, nextAchievements] = await Promise.all([
+        const thisWeekFrom = daysAgo(6);
+        const lastWeekFrom = daysAgo(13);
+        const lastWeekTo = daysAgo(7);
+        const [nextStats, nextStreak, nextAchievements, thisWeekStats, lastWeekStats, rawDailyGoal] = await Promise.all([
           window.appBridge.getProgressStats(fromDate, toDate),
           window.appBridge.getPracticeStreak(),
           window.appBridge.getAllAchievements(),
+          window.appBridge.getProgressStats(thisWeekFrom, toDate),
+          window.appBridge.getProgressStats(lastWeekFrom, lastWeekTo),
+          window.appBridge.getSetting('practice', 'dailyGoalMinutes'),
         ]);
 
         setStats(nextStats);
         setStreak(nextStreak);
         setAchievements(nextAchievements);
+
+        const parsedGoal = Number(rawDailyGoal);
+        if (Number.isFinite(parsedGoal) && parsedGoal > 0) {
+          setDailyGoalMinutes(parsedGoal);
+        }
+        const today = daysAgo(0);
+        const todayEntry = nextStats.practiceTimeByDay.find((d) => d.date === today);
+        setTodayMinutes(todayEntry?.minutes ?? 0);
+
+        const sumMinutes = (s: ProgressStatsResult) =>
+          s.practiceTimeByDay.reduce((acc, d) => acc + d.minutes, 0);
+        const sumSongs = (s: ProgressStatsResult) =>
+          s.songsPlayedByWeek.reduce((acc, w) => acc + w.count, 0);
+        const avgAccuracy = (s: ProgressStatsResult): number | null => {
+          const entries = s.accuracyTrend.filter((d) => d.avgAccuracy > 0);
+          if (entries.length === 0) {
+            return null;
+          }
+          return Math.round(entries.reduce((acc, d) => acc + d.avgAccuracy, 0) / entries.length * 10) / 10;
+        };
+
+        setWeekComparison({
+          thisWeek: {
+            practiceMinutes: sumMinutes(thisWeekStats),
+            songsPlayed: sumSongs(thisWeekStats),
+            avgAccuracy: avgAccuracy(thisWeekStats),
+          },
+          lastWeek: {
+            practiceMinutes: sumMinutes(lastWeekStats),
+            songsPlayed: sumSongs(lastWeekStats),
+            avgAccuracy: avgAccuracy(lastWeekStats),
+          },
+        });
+
         setErrorMessage(null);
       } catch (error) {
         setErrorMessage((error as Error).message);
@@ -136,6 +192,29 @@ export function ProgressDashboardScreen({ onBack }: ProgressDashboardScreenProps
         </article>
       </section>
 
+      {dailyGoalMinutes !== null && (
+        <section className="panel daily-goal-panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Daily Goal</p>
+              <h2>Today&apos;s practice</h2>
+            </div>
+            <strong className="daily-goal-fraction">{todayMinutes}m / {dailyGoalMinutes}m</strong>
+          </div>
+          <div className="daily-goal-bar-track">
+            <div
+              className="daily-goal-bar-fill"
+              style={{ width: `${Math.min(100, Math.round((todayMinutes / dailyGoalMinutes) * 100))}%` }}
+            />
+          </div>
+          <p className="panel-copy">
+            {todayMinutes >= dailyGoalMinutes
+              ? 'Goal reached for today.'
+              : `${dailyGoalMinutes - todayMinutes} minute${dailyGoalMinutes - todayMinutes === 1 ? '' : 's'} remaining to hit your daily goal.`}
+          </p>
+        </section>
+      )}
+
       <section className="dashboard-chart-grid">
         <article className="panel chart-panel">
           <LineChart
@@ -172,6 +251,71 @@ export function ProgressDashboardScreen({ onBack }: ProgressDashboardScreenProps
           />
         </article>
       </section>
+
+      {weekComparison && (
+        <section className="panel week-comparison-panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Week over Week</p>
+              <h2>This week vs last week</h2>
+            </div>
+          </div>
+          <div className="week-comparison-grid">
+            <div className="week-comparison-col">
+              <p className="eyebrow">This Week</p>
+              <div className="result-stat">
+                <span>Practice Time</span>
+                <strong>{weekComparison.thisWeek.practiceMinutes}m</strong>
+              </div>
+              <div className="result-stat">
+                <span>Songs Played</span>
+                <strong>{weekComparison.thisWeek.songsPlayed}</strong>
+              </div>
+              <div className="result-stat">
+                <span>Avg Accuracy</span>
+                <strong>{weekComparison.thisWeek.avgAccuracy !== null ? `${weekComparison.thisWeek.avgAccuracy}%` : '—'}</strong>
+              </div>
+            </div>
+            <div className="week-comparison-col week-comparison-deltas">
+              <p className="eyebrow">Change</p>
+              <div className="result-stat">
+                <span>Time</span>
+                <strong>{weekComparisonDelta(weekComparison.thisWeek.practiceMinutes, weekComparison.lastWeek.practiceMinutes)}m</strong>
+              </div>
+              <div className="result-stat">
+                <span>Songs</span>
+                <strong>{weekComparisonDelta(weekComparison.thisWeek.songsPlayed, weekComparison.lastWeek.songsPlayed)}</strong>
+              </div>
+              <div className="result-stat">
+                <span>Accuracy</span>
+                <strong>
+                  {weekComparison.thisWeek.avgAccuracy !== null && weekComparison.lastWeek.avgAccuracy !== null
+                    ? (() => {
+                        const diff = Math.round((weekComparison.thisWeek.avgAccuracy - weekComparison.lastWeek.avgAccuracy) * 10) / 10;
+                        return diff === 0 ? '—' : `${diff > 0 ? '+' : ''}${diff}%`;
+                      })()
+                    : '—'}
+                </strong>
+              </div>
+            </div>
+            <div className="week-comparison-col">
+              <p className="eyebrow">Last Week</p>
+              <div className="result-stat">
+                <span>Practice Time</span>
+                <strong>{weekComparison.lastWeek.practiceMinutes}m</strong>
+              </div>
+              <div className="result-stat">
+                <span>Songs Played</span>
+                <strong>{weekComparison.lastWeek.songsPlayed}</strong>
+              </div>
+              <div className="result-stat">
+                <span>Avg Accuracy</span>
+                <strong>{weekComparison.lastWeek.avgAccuracy !== null ? `${weekComparison.lastWeek.avgAccuracy}%` : '—'}</strong>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       <section className="dashboard-meta-grid">
         <article className="panel streak-panel">
