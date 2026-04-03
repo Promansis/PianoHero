@@ -42,7 +42,7 @@ type AppScreen =
   | { screen: 'scale-practice'; preset?: { root: number; scaleName: string } }
   | { screen: 'interval-trainer'; preset?: { difficulty: string } }
   | { screen: 'theory-quiz'; preset?: { quizType: string } }
-  | { screen: 'keyboard-setup'; returnTo: 'setup' | 'library' | 'settings' }
+  | { screen: 'keyboard-setup'; returnTo: 'setup' | 'library' | 'settings' | 'free-play' }
   | { screen: 'game'; song: SongRow; sessionConfig: SessionConfig; playlistQueue: PlaylistQueue | null }
   | {
       screen: 'results';
@@ -583,7 +583,7 @@ export function App() {
         return;
       }
 
-      if (event.key === 'Escape' && currentScreen.screen !== 'game') {
+      if (event.key === 'Escape' && currentScreen.screen !== 'game' && currentScreen.screen !== 'free-play') {
         event.preventDefault();
         handleBackNavigation();
         return;
@@ -671,7 +671,8 @@ export function App() {
           keyboardOverlaySize={keyboardOverlaySize}
           postureReminderMinutes={postureReminderMinutes}
           breakReminderMinutes={breakReminderMinutes}
-          onOpenKeyboardSetup={() => setCurrentScreen({ screen: 'keyboard-setup', returnTo: 'library' })}
+          onBackToMainMenu={() => setCurrentScreen({ screen: 'main-menu' })}
+          onOpenKeyboardSetup={() => setCurrentScreen({ screen: 'keyboard-setup', returnTo: 'free-play' })}
         />
       );
       break;
@@ -796,7 +797,7 @@ export function App() {
       break;
   }
 
-  const showAppChrome = currentScreen.screen !== 'game';
+  const showAppChrome = currentScreen.screen !== 'game' && currentScreen.screen !== 'free-play';
   const canNavigateBack = currentScreen.screen !== 'setup' && currentScreen.screen !== 'main-menu';
 
   return (

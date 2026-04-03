@@ -7,6 +7,12 @@ import { MidiInputService } from '../../lib/midi/midiInputService';
 import type { MidiInputDevice } from '../../lib/midi/types';
 import { detectChord } from '../../lib/theory/chords';
 import { PianoKeyboard } from './PianoKeyboard';
+import {
+  FREE_PLAY_VISUAL_MODE_OPTIONS,
+  FreePlayVisualizer,
+  type FreePlayVisualMode,
+  type FreePlayVisualNote,
+} from './FreePlayVisualizer';
 
 interface RecordedNote {
   midi: number;
@@ -28,14 +34,21 @@ interface FreePlayScreenProps {
   keyboardOverlaySize: 'small' | 'medium' | 'large';
   postureReminderMinutes: number | null;
   breakReminderMinutes: number | null;
+  onBackToMainMenu: () => void;
   onOpenKeyboardSetup: () => void;
 }
+
+const VISUAL_NOTE_LIFETIME_MS = 4200;
 
 function formatDuration(seconds: number): string {
   const total = Math.max(0, Math.floor(seconds));
   const minutes = Math.floor(total / 60);
   const remainder = total % 60;
   return `${minutes}:${String(remainder).padStart(2, '0')}`;
+}
+
+function formatCount(count: number, singular: string, plural = `${singular}s`): string {
+  return `${count} ${count === 1 ? singular : plural}`;
 }
 
 function makeSourceNoteKey(sourceId: string, midi: number): string {
@@ -50,6 +63,7 @@ export function FreePlayScreen({
   keyboardOverlaySize,
   postureReminderMinutes,
   breakReminderMinutes,
+  onBackToMainMenu,
   onOpenKeyboardSetup,
 }: FreePlayScreenProps) {
   const [devices, setDevices] = useState<MidiInputDevice[]>([]);
@@ -58,6 +72,7 @@ export function FreePlayScreen({
   const [activeNotes, setActiveNotes] = useState<number[]>([]);
   const [metronomeEnabled, setMetronomeEnabled] = useState(false);
   const [metronomeBpm, setMetronomeBpm] = useState(90);
+  const [metronomeBeat, setMetronomeBeat] = useState(0);
   const [statusMessage, setStatusMessage] = useState('Play with MIDI or your computer keyboard to begin free practice.');
   const [isRecording, setIsRecording] = useState(false);
   const [recordingStartedAt, setRecordingStartedAt] = useState<number | null>(null);
@@ -71,8 +86,13 @@ export function FreePlayScreen({
   const [isBackingTrackPlaying, setIsBackingTrackPlaying] = useState(false);
   const [backingTrackVolume, setBackingTrackVolume] = useState(70);
   const [isExportingWav, setIsExportingWav] = useState(false);
+  const [overlayVisible, setOverlayVisible] = useState(false);
+  const [visualMode, setVisualMode] = useState<FreePlayVisualMode>('concert-stage');
+  const [sustainOn, setSustainOn] = useState(false);
+  const [visualNotes, setVisualNotes] = useState<FreePlayVisualNote[]>([]);
   const noteStartMapRef = useRef(new Map<string, { startTimeSec: number; velocity: number; midi: number }>());
   const playbackTimeoutsRef = useRef<number[]>([]);
+  const visualNoteTimeoutsRef = useRef<number[]>([]);
 
   useEffect(() => {
     const heldByNote = new Map<number, Set<string>>();
@@ -86,6 +106,16 @@ export function FreePlayScreen({
       return event.source === 'computer-keyboard';
     };
 
+    const pushVisualNote = (midi: number, velocity: number, source: FreePlayVisualNote['source']) => {
+      const createdAt = performance.now();
+      const id = `${source}-${createdAt}-${midi}`;
+      setVisualNotes((previous) => [...previous.slice(-17), { id, midi, velocity, createdAt, source }]);
+      const timeout = window.setTimeout(() => {
+        setVisualNotes((previous) => previous.filter((note) => note.id !== id));
+      }, VISUAL_NOTE_LIFETIME_MS);
+      visualNoteTimeoutsRef.current.push(timeout);
+    };
+
     const handleInputEvent = async (event: InputEvent) => {
       if (!shouldHandleEvent(event)) {
         return;
@@ -97,6 +127,7 @@ export function FreePlayScreen({
         heldSources.add(event.sourceId);
         heldByNote.set(midi, heldSources);
         setActiveNotes([...heldByNote.keys()].sort((left, right) => left - right));
+        pushVisualNote(midi, event.velocity ?? 0.8, 'live');
 
         if (heldSources.size === 1) {
           await audioEngine.noteOn(midi, event.velocity ?? 0.8);
@@ -156,7 +187,9 @@ export function FreePlayScreen({
         return;
       }
 
-      audioEngine.setSustain((event.sustainValue ?? 0) >= 64);
+      const nextSustainOn = (event.sustainValue ?? 0) >= 64;
+      audioEngine.setSustain(nextSustainOn);
+      setSustainOn(nextSustainOn);
       if (isRecording && recordingStartedAt !== null) {
         setSustainEvents((previous) => [
           ...previous,
@@ -187,7 +220,9 @@ export function FreePlayScreen({
       unsubscribeKeyboard();
       unsubscribeKeyboardState();
       playbackTimeoutsRef.current.forEach((timeout) => window.clearTimeout(timeout));
+      visualNoteTimeoutsRef.current.forEach((timeout) => window.clearTimeout(timeout));
       playbackTimeoutsRef.current = [];
+      visualNoteTimeoutsRef.current = [];
     };
   }, [audioEngine, inputMode, isRecording, keyboardInputService, midiInputService, recordingStartedAt]);
 
@@ -222,9 +257,11 @@ export function FreePlayScreen({
 
     let beat = 0;
     const intervalMs = (60 / Math.max(30, metronomeBpm)) * 1000;
+    setMetronomeBeat(1);
     void audioEngine.playMetronomeClick(true);
     const interval = window.setInterval(() => {
       beat += 1;
+      setMetronomeBeat(beat + 1);
       void audioEngine.playMetronomeClick(beat % 4 === 0);
     }, intervalMs);
 
@@ -257,6 +294,22 @@ export function FreePlayScreen({
     };
   }, [breakReminderMinutes]);
 
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') {
+        return;
+      }
+      event.stopPropagation();
+      event.preventDefault();
+      setOverlayVisible((previous) => !previous);
+    };
+
+    window.addEventListener('keydown', handleEscape, true);
+    return () => {
+      window.removeEventListener('keydown', handleEscape, true);
+    };
+  }, []);
+
   const recordingDuration = useMemo(() => {
     if (isRecording) {
       return recordingClock;
@@ -267,6 +320,14 @@ export function FreePlayScreen({
       0,
     );
   }, [isRecording, recordedNotes, recordingClock]);
+
+  const ensureAudioReady = async () => {
+    try {
+      await audioEngine.init();
+    } catch (error) {
+      setStatusMessage(`Audio failed to initialize: ${(error as Error).message}`);
+    }
+  };
 
   const startRecording = () => {
     noteStartMapRef.current.clear();
@@ -280,20 +341,21 @@ export function FreePlayScreen({
 
   const stopRecording = () => {
     const stoppedAt = performance.now();
+    const completedNotes: RecordedNote[] = [];
     if (recordingStartedAt !== null) {
       for (const started of noteStartMapRef.current.values()) {
-        setRecordedNotes((previous) => [
-          ...previous,
-          {
-            midi: started.midi,
-            velocity: started.velocity,
-            startTimeSec: started.startTimeSec,
-            durationSec: Math.max(0.05, (stoppedAt - recordingStartedAt) / 1000 - started.startTimeSec),
-          },
-        ]);
+        completedNotes.push({
+          midi: started.midi,
+          velocity: started.velocity,
+          startTimeSec: started.startTimeSec,
+          durationSec: Math.max(0.05, (stoppedAt - recordingStartedAt) / 1000 - started.startTimeSec),
+        });
       }
     }
     noteStartMapRef.current.clear();
+    if (completedNotes.length > 0) {
+      setRecordedNotes((previous) => [...previous, ...completedNotes]);
+    }
     setIsRecording(false);
     setRecordingStartedAt(null);
     setStatusMessage('Recording captured. You can replay or export it now.');
@@ -311,10 +373,21 @@ export function FreePlayScreen({
     setIsPlayingRecording(true);
     setStatusMessage('Playing recorded MIDI.');
 
+    const queueVisualNote = (midi: number, velocity: number) => {
+      const createdAt = performance.now();
+      const id = `playback-${createdAt}-${midi}`;
+      setVisualNotes((previous) => [...previous.slice(-17), { id, midi, velocity, createdAt, source: 'playback' }]);
+      const timeout = window.setTimeout(() => {
+        setVisualNotes((previous) => previous.filter((note) => note.id !== id));
+      }, VISUAL_NOTE_LIFETIME_MS);
+      visualNoteTimeoutsRef.current.push(timeout);
+    };
+
     for (const note of recordedNotes) {
       playbackTimeoutsRef.current.push(
         window.setTimeout(() => {
           setActiveNotes((previous) => [...new Set([...previous, note.midi])].sort((left, right) => left - right));
+          queueVisualNote(note.midi, note.velocity);
           void audioEngine.noteOn(note.midi, note.velocity);
         }, note.startTimeSec * 1000),
       );
@@ -326,6 +399,16 @@ export function FreePlayScreen({
       );
     }
 
+    for (const event of sustainEvents) {
+      playbackTimeoutsRef.current.push(
+        window.setTimeout(() => {
+          const nextSustainOn = event.value >= 64;
+          setSustainOn(nextSustainOn);
+          audioEngine.setSustain(nextSustainOn);
+        }, event.timeSec * 1000),
+      );
+    }
+
     const totalDuration = recordedNotes.reduce(
       (max, note) => Math.max(max, note.startTimeSec + note.durationSec),
       0,
@@ -333,6 +416,8 @@ export function FreePlayScreen({
     playbackTimeoutsRef.current.push(
       window.setTimeout(() => {
         setIsPlayingRecording(false);
+        setSustainOn(false);
+        audioEngine.setSustain(false);
         setStatusMessage('Playback finished.');
       }, totalDuration * 1000 + 120),
     );
@@ -358,15 +443,18 @@ export function FreePlayScreen({
     if (isBackingTrackPlaying) {
       audioEngine.pauseBackingTrack();
       setIsBackingTrackPlaying(false);
+      setStatusMessage('Backing track paused.');
     } else {
       audioEngine.playBackingTrack();
       setIsBackingTrackPlaying(true);
+      setStatusMessage('Backing track playing.');
     }
   };
 
   const stopBackingTrack = () => {
     audioEngine.stopBackingTrack();
     setIsBackingTrackPlaying(false);
+    setStatusMessage('Backing track stopped.');
   };
 
   const handleBackingTrackVolumeChange = (value: number) => {
@@ -430,8 +518,63 @@ export function FreePlayScreen({
     }
   };
 
+  const visualModeLabel =
+    FREE_PLAY_VISUAL_MODE_OPTIONS.find((option) => option.value === visualMode)?.label ?? 'Concert Stage';
+
   return (
-    <main className="app-shell free-play-screen" onPointerDownCapture={() => void audioEngine.init()}>
+    <main className="app-shell app-shell-immersive free-play-immersive-shell" onPointerDownCapture={() => void ensureAudioReady()}>
+      <div className="immersive-hud free-play-hud">
+        <div className="immersive-hud-stats">
+          <div className="immersive-hud-item">
+            <span>Mode</span>
+            <strong>{visualModeLabel}</strong>
+          </div>
+          <div className="immersive-hud-item">
+            <span>Chord</span>
+            <strong>{chordLabel ?? 'Listening'}</strong>
+          </div>
+          <div className="immersive-hud-item">
+            <span>Recording</span>
+            <strong>{isRecording ? formatDuration(recordingDuration) : recordedNotes.length > 0 ? formatCount(recordedNotes.length, 'note') : 'Standby'}</strong>
+          </div>
+          <div className="immersive-hud-item">
+            <span>Track</span>
+            <strong>{isBackingTrackPlaying ? 'Playing' : backingTrackName ? 'Loaded' : 'Off'}</strong>
+          </div>
+        </div>
+        <button className="immersive-menu-btn" onClick={() => setOverlayVisible(true)}>
+          Menu
+        </button>
+      </div>
+
+      <div className="immersive-canvas-area free-play-stage-area">
+        <FreePlayVisualizer
+          mode={visualMode}
+          activeNotes={activeNotes}
+          recentNotes={visualNotes}
+          chordLabel={chordLabel}
+          sustainOn={sustainOn}
+          metronomeEnabled={metronomeEnabled}
+          metronomeBeat={metronomeBeat}
+          isRecording={isRecording}
+          recordingDuration={recordingDuration}
+          isPlayingRecording={isPlayingRecording}
+          backingTrackName={backingTrackName}
+          isBackingTrackPlaying={isBackingTrackPlaying}
+        />
+      </div>
+
+      <div className="immersive-keyboard free-play-keyboard">
+        <PianoKeyboard
+          activeNotes={activeNotes}
+          upcomingNotes={[]}
+          highlightedNotes={activeNotes}
+          highlightColor="chord"
+          chordLabel={chordLabel}
+          size={keyboardOverlaySize}
+        />
+      </div>
+
       {showPostureReminder && (
         <section className="panel reminder-overlay">
           <div>
@@ -457,121 +600,176 @@ export function FreePlayScreen({
           </button>
         </section>
       )}
-      <section className="panel free-play-hero">
-        <div>
-          <p className="eyebrow">Free Play</p>
-          <h1>Open practice without scoring.</h1>
-          <p className="song-title">{statusMessage}</p>
-        </div>
-        <div className="transport-buttons">
-          <button className="secondary-button" onClick={onOpenKeyboardSetup}>
-            Keyboard Setup
-          </button>
-          <button className="secondary-button" onClick={() => setMetronomeEnabled((value) => !value)}>
-            {metronomeEnabled ? 'Metronome On' : 'Metronome Off'}
-          </button>
-          <button className="secondary-button" onClick={isRecording ? stopRecording : startRecording}>
-            {isRecording ? 'Stop Recording' : 'Record'}
-          </button>
-          <button
-            className="secondary-button"
-            onClick={() => void playRecording()}
-            disabled={isRecording || recordedNotes.length === 0 || isPlayingRecording}
-          >
-            Play Recording
-          </button>
-          <button className="secondary-button" onClick={() => void loadBackingTrack()}>
-            Load Track
-          </button>
-          <button className="primary-button" onClick={() => void exportRecording()} disabled={recordedNotes.length === 0}>
-            Export MIDI
-          </button>
-          <button
-            className="primary-button"
-            onClick={() => void exportWav()}
-            disabled={recordedNotes.length === 0 || isExportingWav}
-          >
-            {isExportingWav ? 'Rendering...' : 'Export WAV'}
-          </button>
-        </div>
-      </section>
 
-      <section className="status-strip">
-        <div className="status-card">
-          <span>MIDI Devices</span>
-          <strong>
-            {devices.length > 0 ? devices.map((device) => device.name).join(', ') : 'No devices detected'}
-          </strong>
-        </div>
-        <div className="status-card">
-          <span>Input Mode</span>
-          <strong>{inputMode === 'both' ? 'Both' : inputMode === 'midi' ? 'MIDI' : 'Computer Keyboard'}</strong>
-        </div>
-        <div className="status-card">
-          <span>Keyboard Octave</span>
-          <strong>{keyboardOctaveShift >= 0 ? `+${keyboardOctaveShift}` : keyboardOctaveShift}</strong>
-        </div>
-        <div className="status-card">
-          <span>Recording</span>
-          <strong>{isRecording ? formatDuration(recordingDuration) : 'Standby'}</strong>
-        </div>
-        <label className="status-card free-play-bpm-card">
-          <span>Metronome BPM</span>
-          <strong>{metronomeBpm}</strong>
-          <input
-            type="range"
-            min={40}
-            max={180}
-            step={1}
-            value={metronomeBpm}
-            onChange={(event) => setMetronomeBpm(Number(event.target.value))}
-          />
-        </label>
-      </section>
+      {overlayVisible && (
+        <div className="immersive-overlay" onClick={(event) => { if (event.target === event.currentTarget) setOverlayVisible(false); }}>
+          <div className="immersive-overlay-panel free-play-overlay-panel">
+            <div className="immersive-overlay-header">
+              <h2>Free Play</h2>
+              <div className="immersive-overlay-actions">
+                <button className="primary-button" onClick={() => setOverlayVisible(false)}>
+                  Resume
+                </button>
+                <button className="secondary-button" onClick={onBackToMainMenu}>
+                  Back to Main Menu
+                </button>
+              </div>
+            </div>
 
-      {backingTrackName && (
-        <section className="panel free-play-backing-track">
-          <div className="backing-track-info">
-            <span>Backing Track</span>
-            <strong>{backingTrackName}</strong>
+            <section className="status-strip">
+              <div className="status-card">
+                <span>Visual Mode</span>
+                <strong>{visualModeLabel}</strong>
+              </div>
+              <div className="status-card">
+                <span>Input Mode</span>
+                <strong>{inputMode === 'both' ? 'Both' : inputMode === 'midi' ? 'MIDI' : 'Computer Keyboard'}</strong>
+              </div>
+              <div className="status-card">
+                <span>Keyboard Octave</span>
+                <strong>{keyboardOctaveShift >= 0 ? `+${keyboardOctaveShift}` : keyboardOctaveShift}</strong>
+              </div>
+              <div className="status-card">
+                <span>Captured</span>
+                <strong>{formatCount(recordedNotes.length, 'note')}</strong>
+              </div>
+              <div className="status-card">
+                <span>Sustain</span>
+                <strong>{sustainOn ? 'Down' : 'Up'}</strong>
+              </div>
+              <div className="status-card wide">
+                <span>Status</span>
+                <strong>{statusMessage}</strong>
+              </div>
+            </section>
+
+            <section className="panel free-play-overlay-section">
+              <div className="panel-heading">
+                <div>
+                  <p className="eyebrow">Visual Modes</p>
+                  <h2>Choose the atmosphere</h2>
+                </div>
+                <p className="panel-copy">Switch instantly without interrupting live play, recording, or backing tracks.</p>
+              </div>
+              <div className="free-play-mode-grid">
+                {FREE_PLAY_VISUAL_MODE_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    className={`free-play-mode-card ${visualMode === option.value ? 'active' : ''}`}
+                    onClick={() => setVisualMode(option.value)}
+                  >
+                    <strong>{option.label}</strong>
+                    <span>{option.description}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            <section className="panel free-play-overlay-section">
+              <div className="panel-heading">
+                <div>
+                  <p className="eyebrow">Session Controls</p>
+                  <h2>Keep the instrument live</h2>
+                </div>
+              </div>
+              <div className="transport-buttons">
+                <button className="secondary-button" onClick={onOpenKeyboardSetup}>
+                  Keyboard Setup
+                </button>
+                <button className={metronomeEnabled ? 'primary-button' : 'secondary-button'} onClick={() => setMetronomeEnabled((value) => !value)}>
+                  {metronomeEnabled ? 'Metronome On' : 'Metronome Off'}
+                </button>
+                <button className={isRecording ? 'primary-button' : 'secondary-button'} onClick={isRecording ? stopRecording : startRecording}>
+                  {isRecording ? 'Stop Recording' : 'Record'}
+                </button>
+                <button
+                  className="secondary-button"
+                  onClick={() => void playRecording()}
+                  disabled={isRecording || recordedNotes.length === 0 || isPlayingRecording}
+                >
+                  Play Recording
+                </button>
+                <button className="secondary-button" onClick={() => void loadBackingTrack()}>
+                  Load Track
+                </button>
+                <button className="primary-button" onClick={() => void exportRecording()} disabled={recordedNotes.length === 0}>
+                  Export MIDI
+                </button>
+                <button
+                  className="primary-button"
+                  onClick={() => void exportWav()}
+                  disabled={recordedNotes.length === 0 || isExportingWav}
+                >
+                  {isExportingWav ? 'Rendering...' : 'Export WAV'}
+                </button>
+              </div>
+
+              <div className="free-play-overlay-grid">
+                <label className="status-card free-play-slider-card">
+                  <span>Metronome BPM</span>
+                  <strong>{metronomeBpm}</strong>
+                  <input
+                    type="range"
+                    min={40}
+                    max={180}
+                    step={1}
+                    value={metronomeBpm}
+                    onChange={(event) => setMetronomeBpm(Number(event.target.value))}
+                  />
+                </label>
+
+                <div className="status-card">
+                  <span>Playback</span>
+                  <strong>{isPlayingRecording ? 'Running' : 'Idle'}</strong>
+                </div>
+
+                <div className="status-card">
+                  <span>Sustain Events</span>
+                  <strong>{formatCount(sustainEvents.length, 'event')}</strong>
+                </div>
+
+                <div className="status-card wide">
+                  <span>MIDI Devices</span>
+                  <strong>{devices.length > 0 ? devices.map((device) => device.name).join(', ') : 'No devices detected'}</strong>
+                </div>
+              </div>
+            </section>
+
+            <section className="panel free-play-overlay-section">
+              <div className="panel-heading">
+                <div>
+                  <p className="eyebrow">Backing Track</p>
+                  <h2>{backingTrackName ?? 'No track loaded'}</h2>
+                </div>
+                <p className="panel-copy">
+                  {backingTrackName
+                    ? 'Blend a groove underneath the keyboard while staying in the same visual scene.'
+                    : 'Load a backing track to turn open practice into a performance space.'}
+                </p>
+              </div>
+              <div className="transport-buttons">
+                <button className="secondary-button" onClick={toggleBackingTrack} disabled={!backingTrackName}>
+                  {isBackingTrackPlaying ? 'Pause' : 'Play'}
+                </button>
+                <button className="secondary-button" onClick={stopBackingTrack} disabled={!backingTrackName}>
+                  Stop
+                </button>
+              </div>
+              <label className="status-card free-play-slider-card">
+                <span>Track Volume</span>
+                <strong>{backingTrackVolume}%</strong>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={backingTrackVolume}
+                  onChange={(event) => handleBackingTrackVolumeChange(Number(event.target.value))}
+                />
+              </label>
+            </section>
           </div>
-          <div className="backing-track-controls">
-            <button className="secondary-button" onClick={toggleBackingTrack}>
-              {isBackingTrackPlaying ? 'Pause' : 'Play'}
-            </button>
-            <button className="secondary-button" onClick={stopBackingTrack} disabled={!isBackingTrackPlaying}>
-              Stop
-            </button>
-            <label className="backing-track-volume">
-              <span>Volume</span>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={backingTrackVolume}
-                onChange={(event) => handleBackingTrackVolumeChange(Number(event.target.value))}
-              />
-            </label>
-          </div>
-        </section>
+        </div>
       )}
-
-      <section className="panel free-play-summary">
-        <div>
-          <span>Recorded Notes</span>
-          <strong>{recordedNotes.length}</strong>
-        </div>
-        <div>
-          <span>Sustain Events</span>
-          <strong>{sustainEvents.length}</strong>
-        </div>
-        <div>
-          <span>Playback</span>
-          <strong>{isPlayingRecording ? 'Running' : 'Idle'}</strong>
-        </div>
-      </section>
-
-      <PianoKeyboard activeNotes={activeNotes} upcomingNotes={[]} highlightedNotes={activeNotes} highlightColor="chord" chordLabel={chordLabel} size={keyboardOverlaySize} />
     </main>
   );
 }
