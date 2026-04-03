@@ -3,8 +3,11 @@ import type { FreePlayVisualMode, FreePlayVisualNote } from './FreePlayVisualTyp
 import {
   applyNoteToHeatmap,
   buildHeatHistoryRow,
+  calculateHarmonyEnergy,
   calculatePitchCenter,
+  calculateSilenceProgress,
   calculateVisualIntensity,
+  classifyNoteRegister,
   clamp,
   coolHeatValues,
   detectKeyCenter,
@@ -13,8 +16,10 @@ import {
   midiToHue,
   midiToLabel,
   midiToLaneRatio,
+  midiToWatercolorHue,
   pitchClassLabel,
   selectConstellationMotif,
+  type NoteRegister,
   type RepeatedNoteStat,
   type RollingNoteEvent,
 } from './freePlayVisualState';
@@ -120,6 +125,122 @@ interface FogPuff {
   alpha: number;
 }
 
+interface InkBlob {
+  id: string;
+  x: number;
+  y: number;
+  hue: number;
+  radius: number;
+  targetRadius: number;
+  spreadRate: number;
+  alpha: number;
+  driftX: number;
+  driftY: number;
+  createdAt: number;
+}
+
+interface TreeAnchor {
+  x: number;
+  y: number;
+  angle: number;
+  depth: number;
+  kind: 'root' | 'trunk' | 'branch';
+  strength: number;
+}
+
+interface TreeSegment {
+  id: string;
+  startX: number;
+  startY: number;
+  endX: number;
+  endY: number;
+  thickness: number;
+  hue: number;
+  createdAt: number;
+  kind: 'root' | 'trunk' | 'branch';
+  swayOffset: number;
+  swaySpeed: number;
+}
+
+interface TreeOrnament {
+  id: string;
+  x: number;
+  y: number;
+  radius: number;
+  hue: number;
+  createdAt: number;
+  kind: 'leaf' | 'bloom';
+  drift: number;
+  shimmer: number;
+}
+
+interface GalaxyParticle {
+  id: string;
+  arm: number;
+  angle: number;
+  baseRadiusRatio: number;
+  radiusRatio: number;
+  targetRadiusRatio: number;
+  spin: number;
+  size: number;
+  hue: number;
+  alpha: number;
+  createdAt: number;
+  sparkle: number;
+}
+
+interface AuroraRibbon {
+  id: string;
+  register: NoteRegister;
+  hue: number;
+  baseY: number;
+  amplitude: number;
+  targetAmplitude: number;
+  thickness: number;
+  speed: number;
+  phase: number;
+  alpha: number;
+  shimmer: number;
+  createdAt: number;
+  lastHitAt: number;
+}
+
+interface FireworkTrailPoint {
+  x: number;
+  y: number;
+  createdAt: number;
+}
+
+interface FireworkShell {
+  id: string;
+  midi: number;
+  x: number;
+  y: number;
+  targetY: number;
+  vy: number;
+  hue: number;
+  size: number;
+  burstCount: number;
+  createdAt: number;
+  trail: FireworkTrailPoint[];
+}
+
+interface FireworkParticle {
+  id: string;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  hue: number;
+  size: number;
+  alpha: number;
+  drag: number;
+  gravity: number;
+  createdAt: number;
+  lifeMs: number;
+  sparkle: number;
+}
+
 interface MetronomePulse {
   createdAt: number;
 }
@@ -138,15 +259,28 @@ interface SceneState {
   constellationPaths: ConstellationPath[];
   shootingStars: ShootingStar[];
   fogPuffs: FogPuff[];
+  inkBlobs: InkBlob[];
+  treeAnchors: TreeAnchor[];
+  treeSegments: TreeSegment[];
+  treeOrnaments: TreeOrnament[];
+  galaxyParticles: GalaxyParticle[];
+  auroraBands: AuroraRibbon[];
+  fireworkShells: FireworkShell[];
+  fireworkParticles: FireworkParticle[];
   metronomePulses: MetronomePulse[];
   sustainEnvelope: number;
   lidAngle: number;
   pageFlutter: number;
   starfieldRotation: number;
+  treeGlow: number;
+  galaxySupernova: number;
+  auroraEnergy: number;
+  skyWarmth: number;
   lastFrameAt: number | null;
   lastHeatRowAt: number;
   lastFogSpawnAt: number;
   lastMetronomeBeat: number;
+  lastSustainOn: boolean;
 }
 
 function createSceneState(): SceneState {
@@ -164,15 +298,32 @@ function createSceneState(): SceneState {
     constellationPaths: [],
     shootingStars: [],
     fogPuffs: [],
+    inkBlobs: [],
+    treeAnchors: [
+      { x: 0.5, y: 0.88, angle: -Math.PI / 2, depth: 0, kind: 'trunk', strength: 1 },
+      { x: 0.5, y: 0.89, angle: Math.PI * 0.82, depth: 0, kind: 'root', strength: 0.9 },
+      { x: 0.5, y: 0.89, angle: Math.PI * 0.18, depth: 0, kind: 'root', strength: 0.9 },
+    ],
+    treeSegments: [],
+    treeOrnaments: [],
+    galaxyParticles: [],
+    auroraBands: [],
+    fireworkShells: [],
+    fireworkParticles: [],
     metronomePulses: [],
     sustainEnvelope: 0,
     lidAngle: 0.2,
     pageFlutter: 0,
     starfieldRotation: 0,
+    treeGlow: 0,
+    galaxySupernova: 0,
+    auroraEnergy: 0,
+    skyWarmth: 0,
     lastFrameAt: null,
     lastHeatRowAt: 0,
     lastFogSpawnAt: 0,
     lastMetronomeBeat: 0,
+    lastSustainOn: false,
   };
 }
 
@@ -192,6 +343,19 @@ function readPalette(): ScenePalette {
 
 function hsla(hue: number, saturation: number, lightness: number, alpha = 1): string {
   return `hsla(${Math.round(hue)}, ${saturation}%, ${lightness}%, ${alpha})`;
+}
+
+function hashString(value: string): number {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash << 5) - hash + value.charCodeAt(index);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
+function seededUnit(value: string, offset = 0): number {
+  return ((hashString(`${value}:${offset}`) % 1000) + 1) / 1001;
 }
 
 function fillRoundedRect(
@@ -230,6 +394,24 @@ function drawBackground(
   context.fillRect(0, 0, width, height);
 }
 
+function drawSoftGlow(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  radius: number,
+  hue: number,
+  alpha: number,
+): void {
+  const gradient = context.createRadialGradient(x, y, 0, x, y, radius);
+  gradient.addColorStop(0, hsla(hue, 92, 82, alpha));
+  gradient.addColorStop(0.45, hsla(hue, 92, 70, alpha * 0.46));
+  gradient.addColorStop(1, hsla(hue, 92, 64, 0));
+  context.fillStyle = gradient;
+  context.beginPath();
+  context.arc(x, y, radius, 0, Math.PI * 2);
+  context.fill();
+}
+
 function trimSceneState(state: SceneState, now: number): void {
   state.noteHistory = state.noteHistory.filter((event) => now - event.createdAt <= 30000);
   state.stageBursts = state.stageBursts.filter((burst) => now - burst.createdAt <= 2200);
@@ -240,11 +422,253 @@ function trimSceneState(state: SceneState, now: number): void {
   state.metronomePulses = state.metronomePulses.filter((pulse) => now - pulse.createdAt <= 900);
   state.constellationPaths = state.constellationPaths.filter((path) => now - path.createdAt <= 24000);
   state.stars = state.stars.slice(-240);
+  state.inkBlobs = state.inkBlobs.filter((blob) => now - blob.createdAt <= 120000 && blob.alpha >= 0.01).slice(-260);
+  state.treeSegments = state.treeSegments.slice(-520);
+  state.treeOrnaments = state.treeOrnaments.slice(-700);
+  state.treeAnchors = state.treeAnchors.slice(-220);
+  state.galaxyParticles = state.galaxyParticles
+    .filter((particle) => now - particle.createdAt <= 90000 && particle.alpha >= 0.02)
+    .slice(-1400);
+  state.auroraBands = state.auroraBands
+    .filter((band) => now - band.lastHitAt <= 45000 || band.alpha >= 0.08)
+    .slice(-28);
+  state.fireworkShells = state.fireworkShells.filter((shell) => now - shell.createdAt <= 2200);
+  state.fireworkParticles = state.fireworkParticles.filter(
+    (particle) => now - particle.createdAt <= particle.lifeMs && particle.alpha >= 0.01,
+  );
   if (state.processedOrder.length > 4000) {
     const excess = state.processedOrder.length - 4000;
     for (const id of state.processedOrder.splice(0, excess)) {
       state.processedNoteIds.delete(id);
     }
+  }
+}
+
+function addInkBloom(state: SceneState, note: FreePlayVisualNote): void {
+  const lane = midiToLaneRatio(note.midi);
+  const seedX = seededUnit(note.id, 1);
+  const seedY = seededUnit(note.id, 2);
+  state.inkBlobs.push({
+    id: note.id,
+    x: clamp(lerp(0.08, 0.92, lane) + (seedX - 0.5) * 0.04, 0.06, 0.94),
+    y: clamp(lerp(0.78, 0.22, lane) + (seedY - 0.5) * 0.18, 0.14, 0.86),
+    hue: midiToWatercolorHue(note.midi),
+    radius: 14 + note.velocity * 24,
+    targetRadius: 34 + note.velocity * 82,
+    spreadRate: lerp(0.016, 0.034, lane),
+    alpha: 0.11 + note.velocity * 0.16,
+    driftX: (seededUnit(note.id, 3) - 0.5) * 0.000012,
+    driftY: (seededUnit(note.id, 4) - 0.5) * 0.00001,
+    createdAt: note.createdAt,
+  });
+}
+
+function chooseTreeAnchor(anchors: TreeAnchor[], kind: TreeAnchor['kind'], seed: number): TreeAnchor {
+  const matching = anchors.filter((anchor) => anchor.kind === kind);
+  if (matching.length === 0) {
+    return anchors[anchors.length - 1];
+  }
+  const recent = matching.slice(-Math.min(8, matching.length));
+  return recent[Math.min(recent.length - 1, Math.floor(seed * recent.length))];
+}
+
+function addTreeGrowth(state: SceneState, note: FreePlayVisualNote): void {
+  const register = classifyNoteRegister(note.midi);
+  const seed = seededUnit(note.id, 5);
+  const velocity = clamp(note.velocity, 0.1, 1.25);
+  const hue = register === 'high' ? (312 + seed * 30) % 360 : register === 'mid' ? 118 + seed * 24 : 34 + seed * 18;
+
+  if (register === 'low') {
+    const trunkCount = state.treeSegments.filter((segment) => segment.kind === 'trunk').length;
+    const kind: TreeSegment['kind'] = trunkCount < 8 || seed > 0.38 ? 'trunk' : 'root';
+    const anchor = chooseTreeAnchor(state.treeAnchors, kind === 'trunk' ? 'trunk' : 'root', seed);
+    const length = kind === 'trunk' ? 0.05 + velocity * 0.07 : 0.04 + velocity * 0.06;
+    const angle =
+      kind === 'trunk'
+        ? anchor.angle + (seed - 0.5) * 0.32
+        : anchor.angle + (seed - 0.5) * 0.92 + (seed > 0.5 ? 0.18 : -0.18);
+    const endX = clamp(anchor.x + Math.cos(angle) * length * (kind === 'root' ? 1.1 : 0.42), 0.14, 0.86);
+    const endY = clamp(anchor.y + Math.sin(angle) * length, 0.08, 0.96);
+    state.treeSegments.push({
+      id: `tree-${note.id}`,
+      startX: anchor.x,
+      startY: anchor.y,
+      endX,
+      endY,
+      thickness: kind === 'trunk' ? 5 + velocity * 7 : 2.8 + velocity * 4,
+      hue,
+      createdAt: note.createdAt,
+      kind,
+      swayOffset: seed * Math.PI * 2,
+      swaySpeed: 0.9 + seed * 0.7,
+    });
+    state.treeAnchors.push({
+      x: endX,
+      y: endY,
+      angle,
+      depth: anchor.depth + 1,
+      kind,
+      strength: clamp(anchor.strength * 0.95 + velocity * 0.1, 0.3, 1.4),
+    });
+    if (kind === 'trunk' && anchor.depth >= 2) {
+      state.treeAnchors.push({
+        x: endX,
+        y: endY,
+        angle: -Math.PI / 2 + (seed > 0.5 ? 0.7 : -0.7),
+        depth: anchor.depth + 1,
+        kind: 'branch',
+        strength: 0.8 + velocity * 0.25,
+      });
+    }
+  } else if (register === 'mid') {
+    const anchor = chooseTreeAnchor(
+      state.treeAnchors,
+      state.treeAnchors.some((candidate) => candidate.kind === 'branch') ? 'branch' : 'trunk',
+      seed,
+    );
+    const angle = anchor.angle + (seed > 0.5 ? 0.55 : -0.55) + (seed - 0.5) * 0.6;
+    const length = 0.05 + velocity * 0.09;
+    const endX = clamp(anchor.x + Math.cos(angle) * length, 0.08, 0.92);
+    const endY = clamp(anchor.y + Math.sin(angle) * length, 0.12, 0.88);
+    state.treeSegments.push({
+      id: `tree-${note.id}`,
+      startX: anchor.x,
+      startY: anchor.y,
+      endX,
+      endY,
+      thickness: 2.2 + velocity * 4.2,
+      hue,
+      createdAt: note.createdAt,
+      kind: 'branch',
+      swayOffset: seed * Math.PI * 2,
+      swaySpeed: 1.2 + seed * 1.1,
+    });
+    state.treeAnchors.push({
+      x: endX,
+      y: endY,
+      angle,
+      depth: anchor.depth + 1,
+      kind: 'branch',
+      strength: clamp(anchor.strength * 0.9 + velocity * 0.16, 0.22, 1.2),
+    });
+    if (velocity > 0.58) {
+      state.treeOrnaments.push({
+        id: `leaf-${note.id}`,
+        x: endX,
+        y: endY,
+        radius: 3 + velocity * 4,
+        hue: 112 + seed * 32,
+        createdAt: note.createdAt,
+        kind: 'leaf',
+        drift: (seed - 0.5) * 12,
+        shimmer: seededUnit(note.id, 6) * Math.PI * 2,
+      });
+    }
+  } else {
+    const anchor = chooseTreeAnchor(
+      state.treeAnchors,
+      state.treeAnchors.some((candidate) => candidate.kind === 'branch') ? 'branch' : 'trunk',
+      seed,
+    );
+    state.treeOrnaments.push({
+      id: `bloom-${note.id}`,
+      x: clamp(anchor.x + (seed - 0.5) * 0.055, 0.1, 0.9),
+      y: clamp(anchor.y + (seededUnit(note.id, 7) - 0.7) * 0.05, 0.08, 0.88),
+      radius: 4 + velocity * 8,
+      hue: velocity > 0.82 ? 338 + seed * 16 : 132 + seed * 36,
+      createdAt: note.createdAt,
+      kind: velocity > 0.82 ? 'bloom' : 'leaf',
+      drift: (seed - 0.5) * 16,
+      shimmer: seededUnit(note.id, 8) * Math.PI * 2,
+    });
+  }
+
+  state.treeGlow = clamp(state.treeGlow + note.velocity * 0.22, 0, 1.5);
+}
+
+function addGalaxyBurst(state: SceneState, note: FreePlayVisualNote, props: FreePlayCanvasSceneProps): void {
+  const lane = midiToLaneRatio(note.midi);
+  const baseRadiusRatio = 0.14 + lane * 0.36;
+  const armCount = props.activeNotes.length >= 3 ? 4 : 3;
+  const particleCount = Math.round(10 + note.velocity * 20 + Math.max(0, props.activeNotes.length - 1) * 5);
+  for (let index = 0; index < particleCount; index += 1) {
+    const particleId = `${note.id}-galaxy-${index}`;
+    const seed = seededUnit(particleId, 1);
+    const arm = index % armCount;
+    state.galaxyParticles.push({
+      id: particleId,
+      arm,
+      angle: seed * Math.PI * 2 + arm * ((Math.PI * 2) / armCount),
+      baseRadiusRatio,
+      radiusRatio: Math.max(0.06, baseRadiusRatio * (0.6 + seed * 0.35)),
+      targetRadiusRatio: baseRadiusRatio * (0.96 + seed * 0.18),
+      spin: 0.0005 + note.velocity * 0.0013 + seed * 0.0006,
+      size: 1.4 + note.velocity * 3.1 + seed * 1.2,
+      hue: (midiToHue(note.midi) + seed * 26) % 360,
+      alpha: 0.35 + note.velocity * 0.45,
+      createdAt: note.createdAt,
+      sparkle: seed * Math.PI * 2,
+    });
+  }
+}
+
+function auroraHueForNote(midi: number, register: NoteRegister, id: string): number {
+  const seed = seededUnit(id, 9);
+  if (register === 'low') {
+    return 132 + seed * 74;
+  }
+  if (register === 'mid') {
+    return 188 + seed * 72;
+  }
+  return 300 + seed * 28;
+}
+
+function addAuroraRibbon(state: SceneState, note: FreePlayVisualNote): void {
+  const register = classifyNoteRegister(note.midi);
+  const seed = seededUnit(note.id, 10);
+  const lane = midiToLaneRatio(note.midi);
+  const baseY =
+    register === 'low'
+      ? lerp(0.7, 0.86, 1 - lane * 0.6)
+      : register === 'mid'
+        ? lerp(0.45, 0.7, 1 - lane * 0.4)
+        : lerp(0.18, 0.42, 1 - lane * 0.25);
+
+  state.auroraBands.push({
+    id: note.id,
+    register,
+    hue: auroraHueForNote(note.midi, register, note.id),
+    baseY,
+    amplitude: 18 + note.velocity * 16,
+    targetAmplitude: 26 + note.velocity * 44,
+    thickness: register === 'low' ? 30 + note.velocity * 30 : register === 'mid' ? 24 + note.velocity * 26 : 18 + note.velocity * 22,
+    speed: register === 'low' ? 0.0008 + seed * 0.0006 : register === 'mid' ? 0.0011 + seed * 0.0008 : 0.0018 + seed * 0.0011,
+    phase: seed * Math.PI * 2,
+    alpha: 0.22 + note.velocity * 0.34,
+    shimmer: seededUnit(note.id, 11) * Math.PI * 2,
+    createdAt: note.createdAt,
+    lastHitAt: note.createdAt,
+  });
+  state.auroraEnergy = clamp(state.auroraEnergy + note.velocity * 0.18, 0, 1.5);
+}
+
+function launchFireworkShells(state: SceneState, note: FreePlayVisualNote, props: FreePlayCanvasSceneProps): void {
+  const lane = midiToLaneRatio(note.midi);
+  const shellCount = clamp(props.activeNotes.length >= 3 ? 3 : props.activeNotes.length >= 2 ? 2 : 1, 1, 3);
+  for (let index = 0; index < shellCount; index += 1) {
+    state.fireworkShells.push({
+      id: `${note.id}-shell-${index}`,
+      midi: note.midi,
+      x: clamp(0.08 + lane * 0.84 + (index - (shellCount - 1) / 2) * 0.05, 0.08, 0.92),
+      y: 1.02,
+      targetY: lerp(0.82, 0.18, lane) - index * 0.035,
+      vy: 0.34 + note.velocity * 0.26 + index * 0.02,
+      hue: (midiToHue(note.midi) + index * 22) % 360,
+      size: 2 + note.velocity * 3,
+      burstCount: Math.round(18 + note.velocity * 30 + index * 8),
+      createdAt: note.createdAt,
+      trail: [],
+    });
   }
 }
 
@@ -358,6 +782,11 @@ function syncSceneState(state: SceneState, props: FreePlayCanvasSceneProps, now:
     }
 
     state.pageFlutter = clamp(state.pageFlutter + note.velocity * 0.35, 0, 1.4);
+    addInkBloom(state, note);
+    addTreeGrowth(state, note);
+    addGalaxyBurst(state, note, props);
+    addAuroraRibbon(state, note);
+    launchFireworkShells(state, note, props);
   }
 
   if (props.metronomeEnabled && props.metronomeBeat !== state.lastMetronomeBeat) {
@@ -366,7 +795,100 @@ function syncSceneState(state: SceneState, props: FreePlayCanvasSceneProps, now:
   state.lastMetronomeBeat = props.metronomeEnabled ? props.metronomeBeat : 0;
 }
 
-function updateDynamics(state: SceneState, props: FreePlayCanvasSceneProps, now: number, deltaMs: number, intensity: number): void {
+function updateGenerativeModes(
+  state: SceneState,
+  props: FreePlayCanvasSceneProps,
+  now: number,
+  deltaMs: number,
+  intensity: number,
+  harmony: number,
+  silence: number,
+): void {
+  if (props.sustainOn && !state.lastSustainOn) {
+    state.galaxySupernova = Math.max(state.galaxySupernova, 1);
+  }
+  state.lastSustainOn = props.sustainOn;
+
+  for (const blob of state.inkBlobs) {
+    blob.radius = lerp(blob.radius, blob.targetRadius, blob.spreadRate);
+    blob.x = clamp(blob.x + blob.driftX * deltaMs, 0.05, 0.95);
+    blob.y = clamp(blob.y + blob.driftY * deltaMs, 0.08, 0.92);
+    blob.targetRadius *= 0.9994;
+    blob.alpha *= 0.9992 - silence * 0.0002;
+  }
+
+  state.treeGlow = lerp(state.treeGlow, intensity * 0.4 + harmony * 0.28, 0.035);
+
+  state.galaxySupernova = lerp(state.galaxySupernova, props.sustainOn ? 0.8 : 0, props.sustainOn ? 0.05 : 0.018);
+  for (const particle of state.galaxyParticles) {
+    particle.targetRadiusRatio = particle.baseRadiusRatio * (1 + state.galaxySupernova * 0.9);
+    particle.radiusRatio = lerp(particle.radiusRatio, particle.targetRadiusRatio, 0.045);
+    particle.angle += particle.spin * deltaMs * (1 + state.galaxySupernova * 0.3);
+    particle.alpha *= 0.9994;
+  }
+
+  state.auroraEnergy = lerp(state.auroraEnergy, harmony * 0.95 + intensity * 0.3, props.activeNotes.length > 0 ? 0.08 : 0.022);
+  for (const band of state.auroraBands) {
+    const lift = band.register === 'high' ? 1.2 : band.register === 'mid' ? 1 : 0.85;
+    band.targetAmplitude = Math.max(
+      14,
+      band.targetAmplitude * (props.activeNotes.length > 0 ? 0.9988 : 0.9965 - silence * 0.0008),
+    );
+    band.amplitude = lerp(band.amplitude, band.targetAmplitude * (1 + state.auroraEnergy * 0.4 * lift), 0.04);
+    band.phase += band.speed * deltaMs * (1 + state.auroraEnergy * 0.25);
+    band.alpha = lerp(band.alpha, Math.max(0.05, band.alpha * (1 - silence * 0.02)), 0.02);
+  }
+
+  state.skyWarmth = lerp(state.skyWarmth, clamp(intensity * 0.7 + harmony * 0.5, 0, 1), 0.03);
+  for (const shell of state.fireworkShells) {
+    shell.y -= shell.vy * (deltaMs / 1000);
+    shell.trail.push({ x: shell.x, y: shell.y, createdAt: now });
+    shell.trail = shell.trail.filter((point) => now - point.createdAt <= 600);
+  }
+
+  const explodedShells = state.fireworkShells.filter((shell) => shell.y <= shell.targetY);
+  for (const shell of explodedShells) {
+    for (let index = 0; index < shell.burstCount; index += 1) {
+      const angle = (Math.PI * 2 * index) / shell.burstCount + seededUnit(`${shell.id}-${index}`, 12) * 0.2;
+      const speed = 0.06 + seededUnit(`${shell.id}-${index}`, 13) * 0.14 + shell.size * 0.004;
+      state.fireworkParticles.push({
+        id: `${shell.id}-particle-${index}`,
+        x: shell.x,
+        y: shell.y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 0.02,
+        hue: (shell.hue + index * 7) % 360,
+        size: 1.6 + seededUnit(`${shell.id}-${index}`, 14) * (2.4 + shell.size * 0.8),
+        alpha: 0.56 + seededUnit(`${shell.id}-${index}`, 15) * 0.34,
+        drag: 0.986,
+        gravity: 0.1 + seededUnit(`${shell.id}-${index}`, 16) * 0.06,
+        createdAt: now,
+        lifeMs: 1200 + seededUnit(`${shell.id}-${index}`, 17) * 900,
+        sparkle: seededUnit(`${shell.id}-${index}`, 18) * Math.PI * 2,
+      });
+    }
+  }
+  state.fireworkShells = state.fireworkShells.filter((shell) => shell.y > shell.targetY);
+
+  for (const particle of state.fireworkParticles) {
+    const dt = deltaMs / 1000;
+    particle.x += particle.vx * dt;
+    particle.y += particle.vy * dt;
+    particle.vx *= Math.pow(particle.drag, dt * 60);
+    particle.vy = particle.vy * Math.pow(particle.drag, dt * 60) + particle.gravity * dt;
+    particle.alpha *= 0.992;
+  }
+}
+
+function updateDynamics(
+  state: SceneState,
+  props: FreePlayCanvasSceneProps,
+  now: number,
+  deltaMs: number,
+  intensity: number,
+  harmony: number,
+  silence: number,
+): void {
   state.sustainEnvelope = lerp(state.sustainEnvelope, props.sustainOn ? 1 : 0, props.sustainOn ? 0.08 : 0.035);
   state.lidAngle = lerp(state.lidAngle, 0.2 + intensity * 0.16, 0.05);
   state.pageFlutter = lerp(state.pageFlutter, 0, 0.045);
@@ -395,6 +917,8 @@ function updateDynamics(state: SceneState, props: FreePlayCanvasSceneProps, now:
     });
     state.lastFogSpawnAt = now;
   }
+
+  updateGenerativeModes(state, props, now, deltaMs, intensity, harmony, silence);
 }
 
 function drawStageBursts(
@@ -908,6 +1432,314 @@ function drawHeatmap(
   });
 }
 
+function drawInkInWater(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  state: SceneState,
+  now: number,
+  silence: number,
+): void {
+  drawBackground(context, width, height, '#eff6fb', '#ccd9e6');
+
+  const currentGradient = context.createLinearGradient(0, 0, width, height);
+  currentGradient.addColorStop(0, 'rgba(255,255,255,0.55)');
+  currentGradient.addColorStop(0.45, 'rgba(190, 214, 235, 0.18)');
+  currentGradient.addColorStop(1, 'rgba(95, 133, 176, 0.12)');
+  context.fillStyle = currentGradient;
+  context.fillRect(0, 0, width, height);
+
+  for (let stripe = 0; stripe < 7; stripe += 1) {
+    const x = ((stripe * 0.16 + now * 0.000015) % 1) * width;
+    const gradient = context.createLinearGradient(x, 0, x + width * 0.18, height);
+    gradient.addColorStop(0, 'rgba(255,255,255,0)');
+    gradient.addColorStop(0.5, 'rgba(255,255,255,0.16)');
+    gradient.addColorStop(1, 'rgba(255,255,255,0)');
+    context.fillStyle = gradient;
+    context.fillRect(x - width * 0.12, 0, width * 0.24, height);
+  }
+
+  context.save();
+  context.globalCompositeOperation = 'multiply';
+  for (const blob of state.inkBlobs) {
+    const age = clamp((now - blob.createdAt) / 12000, 0, 1);
+    const x = blob.x * width;
+    const y = blob.y * height;
+    const radius = blob.radius * (1 + age * 1.6);
+    const gradient = context.createRadialGradient(x, y, radius * 0.08, x, y, radius);
+    gradient.addColorStop(0, hsla(blob.hue, 70, 52, blob.alpha * (1 - age * 0.22)));
+    gradient.addColorStop(0.32, hsla(blob.hue + 10, 78, 56, blob.alpha * 0.72));
+    gradient.addColorStop(0.72, hsla(blob.hue + 18, 68, 64, blob.alpha * 0.24));
+    gradient.addColorStop(1, hsla(blob.hue + 24, 54, 70, 0));
+    context.fillStyle = gradient;
+    context.beginPath();
+    context.arc(x, y, radius, 0, Math.PI * 2);
+    context.fill();
+
+    const bloomRadius = radius * (1.28 + Math.sin((now - blob.createdAt) * 0.002) * 0.08);
+    const bloom = context.createRadialGradient(x, y, radius * 0.2, x, y, bloomRadius);
+    bloom.addColorStop(0, hsla(blob.hue, 64, 88, blob.alpha * 0.18));
+    bloom.addColorStop(1, hsla(blob.hue, 64, 88, 0));
+    context.fillStyle = bloom;
+    context.beginPath();
+    context.arc(x, y, bloomRadius, 0, Math.PI * 2);
+    context.fill();
+  }
+  context.restore();
+
+  context.save();
+  context.globalAlpha = 0.22 + (1 - silence) * 0.08;
+  for (const blob of state.inkBlobs.slice(-32)) {
+    const x = blob.x * width;
+    const y = blob.y * height;
+    context.strokeStyle = hsla(blob.hue, 74, 92, 0.18);
+    context.lineWidth = 1 + blob.radius * 0.015;
+    context.beginPath();
+    context.arc(x, y, blob.radius * 1.4, 0, Math.PI * 2);
+    context.stroke();
+  }
+  context.restore();
+}
+
+function drawTreeOfLight(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  state: SceneState,
+  now: number,
+): void {
+  drawBackground(context, width, height, '#08111d', '#010407');
+
+  const moonGlow = context.createRadialGradient(width * 0.76, height * 0.18, 0, width * 0.76, height * 0.18, width * 0.24);
+  moonGlow.addColorStop(0, 'rgba(240, 244, 255, 0.28)');
+  moonGlow.addColorStop(0.45, 'rgba(139, 174, 255, 0.14)');
+  moonGlow.addColorStop(1, 'rgba(139, 174, 255, 0)');
+  context.fillStyle = moonGlow;
+  context.fillRect(0, 0, width, height);
+
+  const ground = context.createLinearGradient(0, height * 0.78, 0, height);
+  ground.addColorStop(0, 'rgba(14, 26, 20, 0.12)');
+  ground.addColorStop(1, 'rgba(4, 12, 10, 0.92)');
+  context.fillStyle = ground;
+  context.fillRect(0, height * 0.78, width, height * 0.22);
+
+  for (const segment of state.treeSegments) {
+    const sway = segment.kind === 'branch' ? Math.sin(now * 0.001 * segment.swaySpeed + segment.swayOffset) * 6 : 0;
+    const startX = segment.startX * width;
+    const startY = segment.startY * height;
+    const endX = segment.endX * width + sway;
+    const endY = segment.endY * height;
+    const controlX = lerp(startX, endX, 0.5) + sway * 0.7;
+    const controlY = lerp(startY, endY, 0.52) - (segment.kind === 'root' ? -8 : 10);
+
+    context.strokeStyle = hsla(segment.hue, segment.kind === 'root' ? 58 : 72, segment.kind === 'root' ? 28 : 58, 0.18 + state.treeGlow * 0.12);
+    context.lineWidth = segment.thickness + 7;
+    context.beginPath();
+    context.moveTo(startX, startY);
+    context.quadraticCurveTo(controlX, controlY, endX, endY);
+    context.stroke();
+
+    context.strokeStyle = hsla(segment.hue, segment.kind === 'root' ? 44 : 86, segment.kind === 'root' ? 34 : 66, 0.92);
+    context.lineWidth = segment.thickness;
+    context.beginPath();
+    context.moveTo(startX, startY);
+    context.quadraticCurveTo(controlX, controlY, endX, endY);
+    context.stroke();
+  }
+
+  for (const ornament of state.treeOrnaments) {
+    const twinkle = 0.65 + (Math.sin(now * 0.0024 + ornament.shimmer) + 1) * 0.22;
+    const x = ornament.x * width + Math.sin(now * 0.0016 + ornament.drift) * (ornament.kind === 'leaf' ? 2.5 : 4);
+    const y = ornament.y * height + Math.cos(now * 0.0012 + ornament.drift) * 2.2;
+    const radius = ornament.radius * twinkle;
+    drawSoftGlow(context, x, y, radius * (ornament.kind === 'bloom' ? 5 : 3.5), ornament.hue, ornament.kind === 'bloom' ? 0.28 : 0.16);
+    context.fillStyle = hsla(ornament.hue, ornament.kind === 'bloom' ? 94 : 72, ornament.kind === 'bloom' ? 74 : 62, 0.94);
+    context.beginPath();
+    context.ellipse(x, y, radius, radius * (ornament.kind === 'leaf' ? 0.72 : 1), ornament.kind === 'leaf' ? 0.6 : 0, 0, Math.PI * 2);
+    context.fill();
+  }
+}
+
+function drawParticleGalaxy(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  state: SceneState,
+  now: number,
+): void {
+  drawBackground(context, width, height, '#040813', '#010205');
+  const centerX = width / 2;
+  const centerY = height / 2;
+  const minDimension = Math.min(width, height);
+
+  const backdrop = context.createRadialGradient(centerX, centerY, minDimension * 0.02, centerX, centerY, minDimension * 0.7);
+  backdrop.addColorStop(0, 'rgba(44, 84, 160, 0.24)');
+  backdrop.addColorStop(0.5, 'rgba(28, 18, 66, 0.12)');
+  backdrop.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  context.fillStyle = backdrop;
+  context.fillRect(0, 0, width, height);
+
+  for (let index = 0; index < 120; index += 1) {
+    const seed = seededUnit(`galaxy-star-${index}`, 1);
+    const starX = seededUnit(`galaxy-star-${index}`, 2) * width;
+    const starY = seededUnit(`galaxy-star-${index}`, 3) * height;
+    context.fillStyle = `rgba(255,255,255,${0.08 + seed * 0.3})`;
+    context.beginPath();
+    context.arc(starX, starY, 0.5 + seed * 1.6, 0, Math.PI * 2);
+    context.fill();
+  }
+
+  for (const particle of state.galaxyParticles) {
+    const radius = particle.radiusRatio * minDimension;
+    const spiralAngle = particle.angle + particle.arm * ((Math.PI * 2) / 4) + particle.radiusRatio * 7.4;
+    const x = centerX + Math.cos(spiralAngle) * radius * 1.12;
+    const y = centerY + Math.sin(spiralAngle) * radius * 0.6;
+    const tailAngle = spiralAngle - particle.spin * 180;
+    const tailRadius = Math.max(0, radius - minDimension * 0.03);
+    const tailX = centerX + Math.cos(tailAngle) * tailRadius * 1.08;
+    const tailY = centerY + Math.sin(tailAngle) * tailRadius * 0.58;
+    const age = clamp((now - particle.createdAt) / 70000, 0, 1);
+
+    context.strokeStyle = hsla(particle.hue, 88, 72, particle.alpha * (1 - age) * 0.12);
+    context.lineWidth = particle.size * 1.6;
+    context.beginPath();
+    context.moveTo(tailX, tailY);
+    context.lineTo(x, y);
+    context.stroke();
+
+    drawSoftGlow(context, x, y, particle.size * (13 + state.galaxySupernova * 5), particle.hue, particle.alpha * 0.18);
+    context.fillStyle = hsla(particle.hue, 90, 72, particle.alpha * (0.7 + (Math.sin(now * 0.0022 + particle.sparkle) + 1) * 0.15));
+    context.beginPath();
+    context.arc(x, y, particle.size * (0.8 + state.galaxySupernova * 0.22), 0, Math.PI * 2);
+    context.fill();
+  }
+
+  const coreGradient = context.createRadialGradient(centerX, centerY, 0, centerX, centerY, minDimension * 0.16);
+  coreGradient.addColorStop(0, 'rgba(255, 236, 182, 0.95)');
+  coreGradient.addColorStop(0.25, 'rgba(255, 168, 90, 0.6)');
+  coreGradient.addColorStop(0.7, `rgba(126, 174, 255, ${0.18 + state.galaxySupernova * 0.18})`);
+  coreGradient.addColorStop(1, 'rgba(126, 174, 255, 0)');
+  context.fillStyle = coreGradient;
+  context.beginPath();
+  context.arc(centerX, centerY, minDimension * 0.16, 0, Math.PI * 2);
+  context.fill();
+}
+
+function drawAuroraBorealis(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  state: SceneState,
+  now: number,
+  silence: number,
+): void {
+  const sky = context.createLinearGradient(0, 0, 0, height);
+  sky.addColorStop(0, '#020816');
+  sky.addColorStop(0.5, '#06132a');
+  sky.addColorStop(1, '#02050a');
+  context.fillStyle = sky;
+  context.fillRect(0, 0, width, height);
+
+  for (let index = 0; index < 80; index += 1) {
+    const seed = seededUnit(`aurora-star-${index}`, 1);
+    const starX = seededUnit(`aurora-star-${index}`, 2) * width;
+    const starY = seededUnit(`aurora-star-${index}`, 3) * height * 0.55;
+    context.fillStyle = `rgba(255,255,255,${0.08 + seed * 0.28})`;
+    context.beginPath();
+    context.arc(starX, starY, 0.5 + seed * 1.4, 0, Math.PI * 2);
+    context.fill();
+  }
+
+  for (const band of state.auroraBands) {
+    const age = clamp((now - band.createdAt) / 40000, 0, 1);
+    const bandAlpha = Math.max(0.03, band.alpha * (1 - age * 0.3) * (1 - silence * 0.5));
+    const shimmer = 0.8 + (Math.sin(now * 0.0018 + band.shimmer) + 1) * 0.16;
+    for (let layer = 0; layer < 3; layer += 1) {
+      const layerOffset = layer * 12;
+      context.strokeStyle = hsla(band.hue + layer * 6, 88, layer === 0 ? 72 : 66, bandAlpha * (0.44 - layer * 0.1));
+      context.lineWidth = Math.max(8, band.thickness - layerOffset) * shimmer;
+      context.lineCap = 'round';
+      context.beginPath();
+      context.moveTo(-20, band.baseY * height);
+      for (let x = 0; x <= width + 40; x += 88) {
+        const wave = Math.sin(x * 0.007 + band.phase + layer * 0.6) * band.amplitude;
+        const y = band.baseY * height + wave - layer * 10;
+        const controlX = x + 44;
+        const controlY = band.baseY * height + Math.sin((x + 44) * 0.007 + band.phase + layer * 0.6) * band.amplitude - layer * 10;
+        context.quadraticCurveTo(controlX, controlY, x + 88, y);
+      }
+      context.stroke();
+    }
+  }
+
+  const horizon = context.createLinearGradient(0, height * 0.68, 0, height);
+  horizon.addColorStop(0, 'rgba(8, 26, 34, 0)');
+  horizon.addColorStop(1, 'rgba(2, 8, 12, 0.86)');
+  context.fillStyle = horizon;
+  context.fillRect(0, height * 0.68, width, height * 0.32);
+}
+
+function drawFireworks(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  state: SceneState,
+  props: FreePlayCanvasSceneProps,
+  now: number,
+): void {
+  const sky = context.createLinearGradient(0, 0, 0, height);
+  sky.addColorStop(0, hsla(216 - state.skyWarmth * 18, 72, 12 + state.skyWarmth * 4, 1));
+  sky.addColorStop(0.52, hsla(228 - state.skyWarmth * 24, 58, 10 + state.skyWarmth * 8, 1));
+  sky.addColorStop(1, hsla(18 + state.skyWarmth * 18, 62, 12 + state.skyWarmth * 18, 1));
+  context.fillStyle = sky;
+  context.fillRect(0, 0, width, height);
+
+  for (const shell of state.fireworkShells) {
+    for (let index = 1; index < shell.trail.length; index += 1) {
+      const previous = shell.trail[index - 1];
+      const current = shell.trail[index];
+      const alpha = index / shell.trail.length;
+      context.strokeStyle = hsla(shell.hue, 92, 72, alpha * 0.36);
+      context.lineWidth = shell.size * 1.8;
+      context.beginPath();
+      context.moveTo(previous.x * width, previous.y * height);
+      context.lineTo(current.x * width, current.y * height);
+      context.stroke();
+    }
+    drawSoftGlow(context, shell.x * width, shell.y * height, 18 + shell.size * 8, shell.hue, 0.22);
+    context.fillStyle = hsla(shell.hue, 96, 78, 0.96);
+    context.beginPath();
+    context.arc(shell.x * width, shell.y * height, shell.size, 0, Math.PI * 2);
+    context.fill();
+  }
+
+  for (const particle of state.fireworkParticles) {
+    const age = clamp((now - particle.createdAt) / particle.lifeMs, 0, 1);
+    const sparkle = 0.72 + (Math.sin(now * 0.004 + particle.sparkle) + 1) * 0.16;
+    const x = particle.x * width;
+    const y = particle.y * height;
+    drawSoftGlow(context, x, y, particle.size * 6, particle.hue, particle.alpha * 0.14 * (1 - age));
+    context.fillStyle = hsla(particle.hue, 96, 72, particle.alpha * (1 - age) * sparkle);
+    context.beginPath();
+    context.arc(x, y, particle.size * (1 - age * 0.3), 0, Math.PI * 2);
+    context.fill();
+  }
+
+  for (const midi of props.activeNotes) {
+    const lane = midiToLaneRatio(midi);
+    const x = lerp(0.08, 0.92, lane) * width;
+    const trail = context.createLinearGradient(x, height, x, height * 0.42);
+    trail.addColorStop(0, hsla(midiToHue(midi), 92, 74, 0.34));
+    trail.addColorStop(1, hsla(midiToHue(midi), 92, 74, 0));
+    context.strokeStyle = trail;
+    context.lineWidth = 5;
+    context.beginPath();
+    context.moveTo(x, height);
+    context.lineTo(x, height * 0.44);
+    context.stroke();
+  }
+}
+
 function drawMetronomePulse(
   context: CanvasRenderingContext2D,
   width: number,
@@ -996,10 +1828,12 @@ export function FreePlayCanvasScene(props: FreePlayCanvasSceneProps) {
       state.lastFrameAt = now;
 
       const intensity = calculateVisualIntensity(state.noteHistory, nextProps.activeNotes, now);
+      const harmony = calculateHarmonyEnergy(nextProps.activeNotes, state.noteHistory, now);
+      const silence = calculateSilenceProgress(nextProps.activeNotes, state.noteHistory, now);
       const pitchCenter = calculatePitchCenter(nextProps.activeNotes, state.noteHistory, now);
       const keyCenter = detectKeyCenter(state.noteHistory, now);
 
-      updateDynamics(state, nextProps, now, deltaMs, intensity);
+      updateDynamics(state, nextProps, now, deltaMs, intensity, harmony, silence);
       trimSceneState(state, now);
 
       context.clearRect(0, 0, width, height);
@@ -1022,6 +1856,21 @@ export function FreePlayCanvasScene(props: FreePlayCanvasSceneProps) {
           break;
         case 'scale-heatmap':
           drawHeatmap(context, width, height, state, nextProps, keyCenter.hue);
+          break;
+        case 'ink-in-water':
+          drawInkInWater(context, width, height, state, now, silence);
+          break;
+        case 'tree-of-light':
+          drawTreeOfLight(context, width, height, state, now);
+          break;
+        case 'particle-galaxy':
+          drawParticleGalaxy(context, width, height, state, now);
+          break;
+        case 'aurora-borealis':
+          drawAuroraBorealis(context, width, height, state, now, silence);
+          break;
+        case 'fireworks':
+          drawFireworks(context, width, height, state, nextProps, now);
           break;
       }
 

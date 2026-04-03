@@ -2,11 +2,15 @@ import { describe, expect, it } from 'vitest';
 import {
   applyNoteToHeatmap,
   buildPitchClassHistogram,
+  calculateHarmonyEnergy,
   calculatePitchCenter,
+  calculateSilenceProgress,
   calculateVisualIntensity,
+  classifyNoteRegister,
   coolHeatValues,
   detectKeyCenter,
   findPeakHeatZones,
+  midiToWatercolorHue,
   selectConstellationMotif,
   updateRepeatedNoteStats,
   type RollingNoteEvent,
@@ -37,6 +41,16 @@ describe('freePlayVisualState', () => {
     expect(center).toBeLessThan(76.5);
   });
 
+  it('maps low notes warmer and high notes cooler for watercolor scenes', () => {
+    expect(midiToWatercolorHue(24)).toBeLessThan(midiToWatercolorHue(96));
+  });
+
+  it('classifies note registers for tree and aurora behaviors', () => {
+    expect(classifyNoteRegister(36)).toBe('low');
+    expect(classifyNoteRegister(60)).toBe('mid');
+    expect(classifyNoteRegister(84)).toBe('high');
+  });
+
   it('detects a C major leaning key center from weighted note history', () => {
     const now = 10_000;
     const history = [
@@ -49,6 +63,20 @@ describe('freePlayVisualState', () => {
 
     expect(detectKeyCenter(history, now).keyName).toBe('C Major');
     expect(buildPitchClassHistogram(history, now)[0]).toBeGreaterThan(0);
+  });
+
+  it('raises harmony energy for recent, wider chords', () => {
+    const now = 12_000;
+    const single = [note('a', 60, 0.7, now - 120)];
+    const chord = [
+      note('a', 48, 0.88, now - 120),
+      note('b', 60, 0.84, now - 100),
+      note('c', 72, 0.8, now - 90),
+    ];
+
+    expect(calculateHarmonyEnergy([48, 60, 72], chord, now)).toBeGreaterThan(
+      calculateHarmonyEnergy([60], single, now),
+    );
   });
 
   it('tracks repeated note streaks for orbit growth', () => {
@@ -69,6 +97,12 @@ describe('freePlayVisualState', () => {
     expect(heated[39]).toBeGreaterThan(0);
     expect(cooled[39]).toBeLessThan(heated[39]);
     expect(findPeakHeatZones(heated)[0]?.startMidi).toBe(60);
+  });
+
+  it('treats active notes as no-silence and older gaps as stronger silence', () => {
+    const history = [note('a', 60, 0.8, 1_000)];
+    expect(calculateSilenceProgress([60], history, 5_000)).toBe(0);
+    expect(calculateSilenceProgress([], history, 1_200)).toBeLessThan(calculateSilenceProgress([], history, 4_500));
   });
 
   it('selects deterministic constellation motifs from recent notes', () => {

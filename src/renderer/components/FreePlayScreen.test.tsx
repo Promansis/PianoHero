@@ -142,6 +142,11 @@ describe('FreePlayScreen', () => {
 
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(screen.getByText('Visual Modes')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Ink in Water/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Tree of Light/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Particle Galaxy/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Aurora Borealis/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Fireworks/ })).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(screen.queryByText('Visual Modes')).not.toBeInTheDocument();
@@ -196,9 +201,9 @@ describe('FreePlayScreen', () => {
     expect(await screen.findByText('jam.mp3')).toBeInTheDocument();
     expect(screen.getAllByText('1 note').length).toBeGreaterThan(0);
 
-    fireEvent.click(screen.getByRole('button', { name: /Color Ribbons/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Ink in Water/ }));
 
-    expect(screen.getByRole('region', { name: 'Color Ribbons visualizer' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Ink in Water visualizer' })).toBeInTheDocument();
     expect(screen.getByText('jam.mp3')).toBeInTheDocument();
     expect(screen.getAllByText('1 note').length).toBeGreaterThan(0);
     expect(screen.getByText('Play Recording')).toBeEnabled();

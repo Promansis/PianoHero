@@ -4,7 +4,12 @@ export type FreePlayVisualMode =
   | 'color-ribbons'
   | 'pulse-orbit'
   | 'constellation'
-  | 'scale-heatmap';
+  | 'scale-heatmap'
+  | 'ink-in-water'
+  | 'tree-of-light'
+  | 'particle-galaxy'
+  | 'aurora-borealis'
+  | 'fireworks';
 
 export interface FreePlayVisualNote {
   id: string;
@@ -48,5 +53,30 @@ export const FREE_PLAY_VISUAL_MODE_OPTIONS: Array<{
     value: 'scale-heatmap',
     label: 'Scale Heatmap',
     description: 'A practice-focused view of pitch-class balance and register use.',
+  },
+  {
+    value: 'ink-in-water',
+    label: 'Ink in Water',
+    description: 'Warm and cool ink blooms diffuse into a watercolor built from your session.',
+  },
+  {
+    value: 'tree-of-light',
+    label: 'Tree of Light',
+    description: 'Roots, branches, leaves, and blossoms grow into a luminous tree as you play.',
+  },
+  {
+    value: 'particle-galaxy',
+    label: 'Particle Galaxy',
+    description: 'Notes seed spiral arms around a gravity well, with sustain triggering supernovas.',
+  },
+  {
+    value: 'aurora-borealis',
+    label: 'Aurora Borealis',
+    description: 'Pitch paints shimmering northern-light ribbons that intensify with harmony.',
+  },
+  {
+    value: 'fireworks',
+    label: 'Fireworks',
+    description: 'Notes launch shells and chord bursts across a sky that warms with your energy.',
   },
 ];

@@ -33,6 +33,8 @@ export interface ConstellationMotif {
   anchors: Array<{ x: number; y: number }>;
 }
 
+export type NoteRegister = 'low' | 'mid' | 'high';
+
 const NOTE_NAMES = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
 const MAJOR_PROFILE = [6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88];
 const MINOR_PROFILE = [6.33, 2.68, 3.52, 5.38, 2.6, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17];
@@ -104,10 +106,25 @@ export function midiToHue(midi: number): number {
   return (midi * 17 + 40) % 360;
 }
 
+export function midiToWatercolorHue(midi: number): number {
+  const lane = clamp((midi - 21) / 87, 0, 1);
+  return lerp(14, 220, lane);
+}
+
 export function midiToLabel(midi: number): string {
   const pitchClass = ((midi % 12) + 12) % 12;
   const octave = Math.floor(midi / 12) - 1;
   return `${NOTE_NAMES[pitchClass]}${octave}`;
+}
+
+export function classifyNoteRegister(midi: number): NoteRegister {
+  if (midi < 48) {
+    return 'low';
+  }
+  if (midi < 72) {
+    return 'mid';
+  }
+  return 'high';
 }
 
 export function pitchClassLabel(pitchClass: number): string {
@@ -156,6 +173,22 @@ export function calculateVisualIntensity(
   return clamp(weightedBursts / 7 + velocityLift * 0.28 + polyphonyLift * 0.35, 0, 1);
 }
 
+export function calculateHarmonyEnergy(
+  activeNotes: number[],
+  noteHistory: RollingNoteEvent[],
+  now: number,
+): number {
+  const recent = noteHistory.filter((event) => now - event.createdAt <= 900);
+  const recentVelocity =
+    recent.length === 0 ? 0 : recent.reduce((sum, event) => sum + event.velocity, 0) / recent.length;
+  const activeSpread =
+    activeNotes.length < 2
+      ? 0
+      : clamp((Math.max(...activeNotes) - Math.min(...activeNotes)) / 36, 0, 1);
+  const polyphony = clamp((activeNotes.length - 1) / 4, 0, 1);
+  return clamp(polyphony * 0.55 + activeSpread * 0.25 + recentVelocity * 0.3, 0, 1);
+}
+
 export function calculatePitchCenter(
   activeNotes: number[],
   noteHistory: RollingNoteEvent[],
@@ -182,6 +215,24 @@ export function calculatePitchCenter(
   );
 
   return weighted.weight > 0 ? weighted.midi / weighted.weight : 60;
+}
+
+export function calculateSilenceProgress(
+  activeNotes: number[],
+  noteHistory: RollingNoteEvent[],
+  now: number,
+  silenceWindowMs = 3600,
+): number {
+  if (activeNotes.length > 0) {
+    return 0;
+  }
+
+  const latest = noteHistory.reduce((max, event) => Math.max(max, event.createdAt), 0);
+  if (latest === 0) {
+    return 1;
+  }
+
+  return clamp((now - latest) / silenceWindowMs, 0, 1);
 }
 
 export function buildPitchClassHistogram(noteHistory: RollingNoteEvent[], now: number, windowMs = 14000): number[] {
