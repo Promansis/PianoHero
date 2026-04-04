@@ -18,7 +18,6 @@ interface ScheduledGameNote extends ScheduledNote {
   judgement: NoteJudgement;
 }
 
-const HIT_WINDOW_SEC = 0.1;
 const HIT_LINE_RATIO = 0.86;
 const BLOCKING_NOTE_EPSILON_SEC = 0.005;
 
@@ -40,7 +39,7 @@ export class GameSession {
     this.song = song;
     this.sessionConfig = sessionConfig;
     this.customFingerings = customFingerings;
-    this.scoringEngine = new ScoringEngine(0);
+    this.scoringEngine = new ScoringEngine(0, sessionConfig.hitWindowMs / 1000);
     this.resetScheduledNotes();
     this.currentTimeSec = this.getLoopStartSec();
     this.playbackAnchorSec = this.currentTimeSec;
@@ -101,7 +100,7 @@ export class GameSession {
     this.playbackAnchorMs = nowMs;
     this.resetScheduledNotes();
     for (const note of this.scheduledNotes) {
-      if (note.startSec < this.currentTimeSec - HIT_WINDOW_SEC) {
+      if (note.startSec < this.currentTimeSec - this.sessionConfig.hitWindowMs / 1000) {
         note.judgement = 'miss';
         this.scoringEngine.recordMiss(this.getMeasureIndex(note.startSec));
       } else {
@@ -300,7 +299,7 @@ export class GameSession {
       (note) =>
         note.judgement === 'pending' &&
         note.midi === midi &&
-        Math.abs(note.startSec - eventSongTime) <= HIT_WINDOW_SEC,
+        Math.abs(note.startSec - eventSongTime) <= this.sessionConfig.hitWindowMs / 1000,
     );
 
     if (!candidate) {
@@ -328,7 +327,7 @@ export class GameSession {
         continue;
       }
 
-      if (note.startSec + HIT_WINDOW_SEC < currentTimeSec) {
+      if (note.startSec + this.sessionConfig.hitWindowMs / 1000 < currentTimeSec) {
         note.judgement = 'miss';
         this.scoringEngine.recordMiss(this.getMeasureIndex(note.startSec));
         continue;
@@ -339,7 +338,7 @@ export class GameSession {
   }
 
   private buildVisibleNotes(currentTimeSec: number): VisibleNote[] {
-    const beatsVisible = 8;
+    const beatsVisible = this.sessionConfig.beatsVisible;
     const leadTimeSec = Math.max(
       1.5,
       (beatsVisible * 60) / (this.song.bpm * Math.max(this.sessionConfig.tempoMultiplier, 0.01)),
@@ -385,7 +384,7 @@ export class GameSession {
       if (note.judgement === 'miss') {
         continue;
       }
-      if (note.startSec < currentTimeSec - HIT_WINDOW_SEC) {
+      if (note.startSec < currentTimeSec - this.sessionConfig.hitWindowMs / 1000) {
         continue;
       }
       if (note.startSec > horizon) {

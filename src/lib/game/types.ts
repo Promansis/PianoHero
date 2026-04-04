@@ -21,6 +21,8 @@ export interface SessionConfig {
   handSize: HandSize;
   fingeringDisplayMode: FingeringDisplayMode;
   latencyCompMs: number;
+  hitWindowMs: number;
+  beatsVisible: number;
 }
 
 export interface ParsedTrack {

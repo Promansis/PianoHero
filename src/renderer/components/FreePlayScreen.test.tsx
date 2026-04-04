@@ -114,6 +114,7 @@ describe('FreePlayScreen', () => {
 
   beforeEach(() => {
     window.appBridge = {
+      getSetting: vi.fn().mockResolvedValue(null),
       pickAudioFile: vi.fn().mockResolvedValue({
         path: 'C:\\Audio\\jam.mp3',
         name: 'jam.mp3',

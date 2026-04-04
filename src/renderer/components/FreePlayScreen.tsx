@@ -310,6 +310,19 @@ export function FreePlayScreen({
     };
   }, []);
 
+  useEffect(() => {
+    void (async () => {
+      const saved = await window.appBridge?.getSetting('audio', 'backingTrackVolume');
+      if (saved !== null && saved !== undefined) {
+        const parsed = Number(saved);
+        if (Number.isFinite(parsed)) {
+          setBackingTrackVolume(parsed);
+          audioEngine.setBackingTrackVolume(parsed);
+        }
+      }
+    })();
+  }, [audioEngine]);
+
   const recordingDuration = useMemo(() => {
     if (isRecording) {
       return recordingClock;
@@ -460,6 +473,7 @@ export function FreePlayScreen({
   const handleBackingTrackVolumeChange = (value: number) => {
     setBackingTrackVolume(value);
     audioEngine.setBackingTrackVolume(value);
+    void window.appBridge?.setSetting('audio', 'backingTrackVolume', String(value));
   };
 
   const exportWav = async () => {

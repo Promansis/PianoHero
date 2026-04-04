@@ -292,6 +292,38 @@ export class AudioEngine {
     // Reserved for future vibrato depth control
   }
 
+  setMetronomeSound(soundId: string): void {
+    if (!this.metronomeSynth) {
+      return;
+    }
+    switch (soundId) {
+      case 'wood':
+        this.metronomeSynth.set({
+          oscillator: { type: 'triangle' },
+          envelope: { attack: 0.001, decay: 0.08, sustain: 0, release: 0.06 },
+        });
+        break;
+      case 'soft':
+        this.metronomeSynth.set({
+          oscillator: { type: 'sine' },
+          envelope: { attack: 0.001, decay: 0.05, sustain: 0, release: 0.05 },
+        });
+        break;
+      case 'digital':
+        this.metronomeSynth.set({
+          oscillator: { type: 'sawtooth' },
+          envelope: { attack: 0.001, decay: 0.02, sustain: 0, release: 0.02 },
+        });
+        break;
+      default: // 'classic'
+        this.metronomeSynth.set({
+          oscillator: { type: 'square' },
+          envelope: { attack: 0.001, decay: 0.04, sustain: 0, release: 0.05 },
+        });
+        break;
+    }
+  }
+
   async loadBackingTrack(src: string): Promise<void> {
     await this.init();
     this.backingTrackPlayer?.dispose();

@@ -51,6 +51,8 @@ const DEFAULT_SESSION: SessionConfig = {
   handSize: 'medium',
   fingeringDisplayMode: 'always',
   latencyCompMs: 0,
+  hitWindowMs: 100,
+  beatsVisible: 8,
 };
 
 describe('GameSession', () => {

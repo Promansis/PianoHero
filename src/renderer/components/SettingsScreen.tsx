@@ -29,17 +29,20 @@ const DEFAULT_SETTINGS: SettingsValues = {
   'audio.metronomeVolume': '65',
   'audio.reverbLevel': '20',
   'audio.latencyCompMs': '0',
+  'audio.metronomeSound': 'classic',
   'visual.theme': 'dark',
   'visual.colorBlindMode': 'false',
   'visual.noteLabels': 'alphabetic',
   'visual.keyboardOverlaySize': 'medium',
-  'gameplay.defaultDifficulty': 'normal',
-  'gameplay.fingeringDisplayMode': 'learning-only',
+  'visual.beatsVisible': '8',
+  'visual.leftHandColor': '',
+  'visual.rightHandColor': '',
+  'fingering.displayMode': 'learning-only',
   'gameplay.waitModeDefault': 'false',
+  'gameplay.hitWindowMs': '100',
   'practice.postureReminderMinutes': '20',
   'input.midiDeviceId': '',
   'practice.dailyGoalMinutes': '20',
-  'practice.streakNotifications': 'true',
   'practice.breakReminderMinutes': '30',
 };
 
@@ -272,6 +275,18 @@ export function SettingsScreen({
                 />
               </label>
               <label>
+                <span>Metronome Sound</span>
+                <select
+                  value={values['audio.metronomeSound']}
+                  onChange={(event) => void persistSetting('audio', 'metronomeSound', event.target.value)}
+                >
+                  <option value="classic">Classic (Square)</option>
+                  <option value="wood">Wood (Triangle)</option>
+                  <option value="soft">Soft (Sine)</option>
+                  <option value="digital">Digital (Sawtooth)</option>
+                </select>
+              </label>
+              <label>
                 <span>Reverb Level</span>
                 <input
                   type="range"
@@ -364,27 +379,60 @@ export function SettingsScreen({
                   <option value="large">Large</option>
                 </select>
               </label>
+              <label>
+                <span>Note Preview (beats ahead)</span>
+                <input
+                  type="range"
+                  min={4}
+                  max={16}
+                  step={1}
+                  value={values['visual.beatsVisible']}
+                  onChange={(event) => void persistSetting('visual', 'beatsVisible', event.target.value)}
+                />
+                <em>{values['visual.beatsVisible']} beats</em>
+              </label>
+              <label>
+                <span>Left Hand Color</span>
+                <input
+                  type="color"
+                  value={values['visual.leftHandColor'] || '#1f3d7a'}
+                  onChange={(event) => void persistSetting('visual', 'leftHandColor', event.target.value)}
+                />
+                {values['visual.leftHandColor'] && (
+                  <button
+                    className="secondary-button"
+                    onClick={() => void persistSetting('visual', 'leftHandColor', '')}
+                  >
+                    Reset
+                  </button>
+                )}
+              </label>
+              <label>
+                <span>Right Hand Color</span>
+                <input
+                  type="color"
+                  value={values['visual.rightHandColor'] || '#9a4c33'}
+                  onChange={(event) => void persistSetting('visual', 'rightHandColor', event.target.value)}
+                />
+                {values['visual.rightHandColor'] && (
+                  <button
+                    className="secondary-button"
+                    onClick={() => void persistSetting('visual', 'rightHandColor', '')}
+                  >
+                    Reset
+                  </button>
+                )}
+              </label>
             </div>
           )}
 
           {activeTab === 'gameplay' && (
             <div className="settings-grid">
               <label>
-                <span>Default Difficulty</span>
-                <select
-                  value={values['gameplay.defaultDifficulty']}
-                  onChange={(event) => void persistSetting('gameplay', 'defaultDifficulty', event.target.value)}
-                >
-                  <option value="easy">Easy</option>
-                  <option value="normal">Normal</option>
-                  <option value="hard">Hard</option>
-                </select>
-              </label>
-              <label>
                 <span>Fingering Display</span>
                 <select
-                  value={values['gameplay.fingeringDisplayMode']}
-                  onChange={(event) => void persistSetting('gameplay', 'fingeringDisplayMode', event.target.value)}
+                  value={values['fingering.displayMode']}
+                  onChange={(event) => void persistSetting('fingering', 'displayMode', event.target.value)}
                 >
                   <option value="always">Always</option>
                   <option value="learning-only">Learning Only</option>
@@ -407,6 +455,18 @@ export function SettingsScreen({
                 >
                   <option value="false">Off</option>
                   <option value="true">On</option>
+                </select>
+              </label>
+              <label>
+                <span>Timing Window</span>
+                <select
+                  value={values['gameplay.hitWindowMs']}
+                  onChange={(event) => void persistSetting('gameplay', 'hitWindowMs', event.target.value)}
+                >
+                  <option value="50">Strict (50 ms)</option>
+                  <option value="100">Standard (100 ms)</option>
+                  <option value="150">Relaxed (150 ms)</option>
+                  <option value="200">Forgiving (200 ms)</option>
                 </select>
               </label>
             </div>
@@ -462,16 +522,6 @@ export function SettingsScreen({
                   value={values['practice.dailyGoalMinutes']}
                   onChange={(event) => void persistSetting('practice', 'dailyGoalMinutes', event.target.value)}
                 />
-              </label>
-              <label>
-                <span>Streak Notifications</span>
-                <select
-                  value={values['practice.streakNotifications']}
-                  onChange={(event) => void persistSetting('practice', 'streakNotifications', event.target.value)}
-                >
-                  <option value="true">On</option>
-                  <option value="false">Off</option>
-                </select>
               </label>
               <label>
                 <span>Break Reminder (minutes)</span>

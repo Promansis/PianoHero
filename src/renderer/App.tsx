@@ -71,6 +71,8 @@ function buildSessionConfig(
   mode: SessionMode,
   waitModeDefault: boolean,
   latencyCompMs: number,
+  hitWindowMs: number,
+  beatsVisible: number,
   overrides: Partial<SessionConfig> = {},
 ): SessionConfig {
   return {
@@ -83,6 +85,8 @@ function buildSessionConfig(
     handSize: 'medium',
     fingeringDisplayMode: 'learning-only',
     latencyCompMs,
+    hitWindowMs,
+    beatsVisible,
     ...overrides,
   };
 }
@@ -144,7 +148,6 @@ export function App() {
   const keyboardServiceRef = useRef(new ComputerKeyboardInputService());
   const [midiReady, setMidiReady] = useState(false);
   const [settingsReady, setSettingsReady] = useState(false);
-  const [reminderFrequency, setReminderFrequency] = useState('20');
   const [handSize, setHandSize] = useState<'small' | 'medium' | 'large'>('medium');
   const [inputMode, setInputMode] = useState<InputMode>('both');
   const [midiDevices, setMidiDevices] = useState<MidiInputDevice[]>([]);
@@ -155,6 +158,8 @@ export function App() {
   const [keyboardOverlaySize, setKeyboardOverlaySize] = useState<'small' | 'medium' | 'large'>('medium');
   const [latencyCompMs, setLatencyCompMs] = useState(0);
   const [waitModeDefault, setWaitModeDefault] = useState(false);
+  const [hitWindowMs, setHitWindowMs] = useState(100);
+  const [beatsVisible, setBeatsVisible] = useState(8);
   const [postureReminderMinutes, setPostureReminderMinutes] = useState<number | null>(null);
   const [breakReminderMinutes, setBreakReminderMinutes] = useState<number | null>(null);
 
@@ -209,6 +214,11 @@ export function App() {
         rawBreakReminder,
         rawMidiDeviceId,
         rawCustomSamplePath,
+        rawHitWindow,
+        rawBeatsVisible,
+        rawLeftHandColor,
+        rawRightHandColor,
+        rawMetronomeSound,
       ] = await Promise.all([
         window.appBridge.getSetting('onboarding', 'setupComplete'),
         window.appBridge.getSetting('practice', 'postureReminderMinutes'),
@@ -228,10 +238,14 @@ export function App() {
         window.appBridge.getSetting('practice', 'breakReminderMinutes'),
         window.appBridge.getSetting('input', 'midiDeviceId'),
         window.appBridge.getSetting('audio', 'customSamplePackPath'),
+        window.appBridge.getSetting('gameplay', 'hitWindowMs'),
+        window.appBridge.getSetting('visual', 'beatsVisible'),
+        window.appBridge.getSetting('visual', 'leftHandColor'),
+        window.appBridge.getSetting('visual', 'rightHandColor'),
+        window.appBridge.getSetting('audio', 'metronomeSound'),
       ]);
 
       if (reminder) {
-        setReminderFrequency(reminder);
         const parsed = Number(reminder);
         if (Number.isFinite(parsed) && parsed > 0) {
           setPostureReminderMinutes(parsed);
@@ -314,6 +328,27 @@ export function App() {
 
       if (!rawInstrumentId) {
         void window.appBridge.setSetting('audio', 'instrumentId', initialInstrumentId);
+      }
+
+      const parsedHitWindow = Number(rawHitWindow);
+      if (Number.isFinite(parsedHitWindow) && parsedHitWindow > 0) {
+        setHitWindowMs(parsedHitWindow);
+      }
+
+      const parsedBeatsVisible = Number(rawBeatsVisible);
+      if (Number.isFinite(parsedBeatsVisible) && parsedBeatsVisible > 0) {
+        setBeatsVisible(parsedBeatsVisible);
+      }
+
+      if (rawLeftHandColor) {
+        document.documentElement.style.setProperty('--hand-left-color', rawLeftHandColor);
+      }
+      if (rawRightHandColor) {
+        document.documentElement.style.setProperty('--hand-right-color', rawRightHandColor);
+      }
+
+      if (rawMetronomeSound) {
+        audioEngineRef.current.setMetronomeSound(rawMetronomeSound);
       }
 
       setCurrentScreen({ screen: setupComplete === 'true' ? 'main-menu' : 'setup' });
@@ -400,19 +435,46 @@ export function App() {
     if (category === 'gameplay') {
       if (key === 'waitModeDefault') {
         setWaitModeDefault(value === 'true');
+      } else if (key === 'hitWindowMs') {
+        const parsed = Number(value);
+        if (Number.isFinite(parsed) && parsed > 0) {
+          setHitWindowMs(parsed);
+        }
       }
       return;
     }
 
     if (category === 'practice') {
       if (key === 'postureReminderMinutes') {
-        setReminderFrequency(value);
         const parsed = Number(value);
         setPostureReminderMinutes(Number.isFinite(parsed) && parsed > 0 ? parsed : null);
       } else if (key === 'breakReminderMinutes') {
         const parsed = Number(value);
         setBreakReminderMinutes(Number.isFinite(parsed) && parsed > 0 ? parsed : null);
       }
+      return;
+    }
+
+    if (category === 'visual' && key === 'beatsVisible') {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed) && parsed > 0) {
+        setBeatsVisible(parsed);
+      }
+      return;
+    }
+
+    if (category === 'visual' && (key === 'leftHandColor' || key === 'rightHandColor')) {
+      const prop = key === 'leftHandColor' ? '--hand-left-color' : '--hand-right-color';
+      if (value) {
+        document.documentElement.style.setProperty(prop, value);
+      } else {
+        document.documentElement.style.removeProperty(prop);
+      }
+      return;
+    }
+
+    if (category === 'audio' && key === 'metronomeSound') {
+      audioEngineRef.current.setMetronomeSound(value);
       return;
     }
 
@@ -428,7 +490,7 @@ export function App() {
 
     await Promise.all([
       window.appBridge.setSetting('onboarding', 'setupComplete', setupComplete ? 'true' : 'false'),
-      window.appBridge.setSetting('practice', 'postureReminderMinutes', reminderFrequency),
+      window.appBridge.setSetting('practice', 'postureReminderMinutes', postureReminderMinutes !== null ? String(postureReminderMinutes) : 'off'),
       window.appBridge.setSetting('fingering', 'handSize', handSize),
     ]);
   };
@@ -450,7 +512,7 @@ export function App() {
     setCurrentScreen({
       screen: 'game',
       song,
-      sessionConfig: buildSessionConfig(mode, waitModeDefault, latencyCompMs, {
+      sessionConfig: buildSessionConfig(mode, waitModeDefault, latencyCompMs, hitWindowMs, beatsVisible, {
         loopRange,
         handSize,
       }),
@@ -621,9 +683,12 @@ export function App() {
       screenContent = (
         <SetupGuideScreen
           handSize={handSize}
-          reminderFrequency={reminderFrequency}
+          reminderFrequency={postureReminderMinutes !== null ? String(postureReminderMinutes) : 'off'}
           onHandSizeChange={setHandSize}
-          onReminderFrequencyChange={setReminderFrequency}
+          onReminderFrequencyChange={(value) => {
+            const parsed = Number(value);
+            setPostureReminderMinutes(Number.isFinite(parsed) && parsed > 0 ? parsed : null);
+          }}
           onOpenKeyboardSetup={() => setCurrentScreen({ screen: 'keyboard-setup', returnTo: 'setup' })}
           onSkip={() => {
             void persistSetupState(true);

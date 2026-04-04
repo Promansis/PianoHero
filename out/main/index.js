@@ -1,5 +1,5 @@
 import { app, ipcMain, dialog, BrowserWindow } from "electron";
-import { existsSync, readFileSync, renameSync, mkdirSync, copyFileSync, writeFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, renameSync, mkdirSync, copyFileSync, rmSync, writeFileSync, readdirSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import * as MidiPackage from "@tonejs/midi";
@@ -1198,6 +1198,37 @@ class AppDatabase {
   setSetting(category, key, value) {
     this.db.prepare("INSERT OR REPLACE INTO settings (category, key, value) VALUES (?, ?, ?)").run(category, key, value);
   }
+  resetLearningProgress() {
+    this.db.transaction(() => {
+      this.db.prepare("DELETE FROM measure_accuracy_history").run();
+      this.db.prepare("DELETE FROM trouble_spots").run();
+      this.db.prepare("DELETE FROM game_results").run();
+      this.db.prepare("DELETE FROM theory_results").run();
+      this.db.prepare("DELETE FROM user_stats").run();
+      this.db.prepare("DELETE FROM practice_days").run();
+      this.db.prepare("DELETE FROM achievements").run();
+      this.db.prepare("UPDATE songs SET times_played = 0").run();
+      this.seedAchievements();
+    })();
+  }
+  resetUserData() {
+    this.db.transaction(() => {
+      this.db.prepare("DELETE FROM measure_accuracy_history").run();
+      this.db.prepare("DELETE FROM trouble_spots").run();
+      this.db.prepare("DELETE FROM game_results").run();
+      this.db.prepare("DELETE FROM theory_results").run();
+      this.db.prepare("DELETE FROM user_stats").run();
+      this.db.prepare("DELETE FROM practice_days").run();
+      this.db.prepare("DELETE FROM fingerings").run();
+      this.db.prepare("DELETE FROM playlist_songs").run();
+      this.db.prepare("DELETE FROM playlists").run();
+      this.db.prepare("DELETE FROM folders").run();
+      this.db.prepare("DELETE FROM songs").run();
+      this.db.prepare("DELETE FROM settings").run();
+      this.db.prepare("DELETE FROM achievements").run();
+      this.seedAchievements();
+    })();
+  }
   exportLibraryData() {
     const playlists = this.getAllPlaylists().map((playlist) => ({
       ...playlist,
@@ -1859,6 +1890,14 @@ app.whenReady().then(async () => {
     "settings:set",
     (_event, category, key, value) => db.setSetting(category, key, value)
   );
+  ipcMain.handle("settings:reset-learning-progress", () => {
+    db.resetLearningProgress();
+  });
+  ipcMain.handle("settings:reset-user-data", () => {
+    db.resetUserData();
+    rmSync(midiFilesDir, { recursive: true, force: true });
+    mkdirSync(midiFilesDir, { recursive: true });
+  });
   ipcMain.handle("library:export", async () => {
     const options = {
       defaultPath: `pianohero-library-${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.json`,

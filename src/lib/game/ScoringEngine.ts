@@ -1,9 +1,5 @@
 import type { GameResult, NoteJudgement, ScoreSnapshot, SessionMode } from './types';
 
-const PERFECT_WINDOW_SEC = 0.025;
-const GOOD_WINDOW_SEC = 0.05;
-const OK_WINDOW_SEC = 0.1;
-
 const BASE_POINTS: Record<Exclude<NoteJudgement, 'pending'>, number> = {
   perfect: 100,
   good: 75,
@@ -25,20 +21,22 @@ export class ScoringEngine {
   private missCount = 0;
   private totalNotes = 0;
   private measureBuckets = new Map<number, { hits: number; total: number }>();
+  private hitWindowSec: number;
 
-  constructor(totalNotes: number) {
+  constructor(totalNotes: number, hitWindowSec = 0.1) {
     this.totalNotes = totalNotes;
+    this.hitWindowSec = hitWindowSec;
   }
 
   judgeTiming(deltaSec: number): Exclude<NoteJudgement, 'pending'> {
     const absoluteDelta = Math.abs(deltaSec);
-    if (absoluteDelta <= PERFECT_WINDOW_SEC) {
+    if (absoluteDelta <= this.hitWindowSec * 0.25) {
       return 'perfect';
     }
-    if (absoluteDelta <= GOOD_WINDOW_SEC) {
+    if (absoluteDelta <= this.hitWindowSec * 0.5) {
       return 'good';
     }
-    if (absoluteDelta <= OK_WINDOW_SEC) {
+    if (absoluteDelta <= this.hitWindowSec) {
       return 'ok';
     }
     return 'miss';

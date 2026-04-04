@@ -65,6 +65,8 @@ describe('ResultsScreen', () => {
           handSize: 'medium',
           fingeringDisplayMode: 'always',
           latencyCompMs: 0,
+          hitWindowMs: 100,
+          beatsVisible: 8,
         }}
         baselineStats={null}
         onRetry={vi.fn()}
@@ -126,6 +128,8 @@ describe('ResultsScreen', () => {
           handSize: 'medium',
           fingeringDisplayMode: 'always',
           latencyCompMs: 0,
+          hitWindowMs: 100,
+          beatsVisible: 8,
         }}
         baselineStats={null}
         onRetry={vi.fn()}
