@@ -3,6 +3,7 @@ import {
   FREE_PLAY_VISUAL_MODE_OPTIONS,
   type FreePlayVisualMode,
   type FreePlayVisualNote,
+  type VisualPreset,
 } from './FreePlayVisualTypes';
 import { formatRecordingTimer } from './freePlayVisualState';
 
@@ -19,10 +20,11 @@ interface FreePlayVisualizerProps {
   isPlayingRecording: boolean;
   backingTrackName: string | null;
   isBackingTrackPlaying: boolean;
+  visualPreset: VisualPreset;
 }
 
 export { FREE_PLAY_VISUAL_MODE_OPTIONS };
-export type { FreePlayVisualMode, FreePlayVisualNote };
+export type { FreePlayVisualMode, FreePlayVisualNote, VisualPreset };
 
 export function FreePlayVisualizer({
   mode,
@@ -37,6 +39,7 @@ export function FreePlayVisualizer({
   isPlayingRecording,
   backingTrackName,
   isBackingTrackPlaying,
+  visualPreset,
 }: FreePlayVisualizerProps) {
   const modeMeta =
     FREE_PLAY_VISUAL_MODE_OPTIONS.find((option) => option.value === mode) ?? FREE_PLAY_VISUAL_MODE_OPTIONS[0];
@@ -52,6 +55,7 @@ export function FreePlayVisualizer({
 
   return (
     <section className={`free-play-visualizer free-play-visualizer-${mode}`} aria-label={`${modeMeta.label} visualizer`}>
+      <div className="free-play-visualizer-info">
       <div className="free-play-visualizer-copy">
         <p className="eyebrow">Immersive Free Play</p>
         <h1>{modeMeta.label}</h1>
@@ -65,6 +69,7 @@ export function FreePlayVisualizer({
           {backingTrackName ? (isBackingTrackPlaying ? `Track: ${backingTrackName}` : `Track loaded: ${backingTrackName}`) : 'No backing track'}
         </span>
       </div>
+      </div>
 
       <FreePlayCanvasScene
         mode={mode}
@@ -73,6 +78,7 @@ export function FreePlayVisualizer({
         sustainOn={sustainOn}
         metronomeEnabled={metronomeEnabled}
         metronomeBeat={metronomeBeat}
+        visualPreset={visualPreset}
       />
     </section>
   );

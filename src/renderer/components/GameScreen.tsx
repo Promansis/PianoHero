@@ -1,4 +1,4 @@
-import { startTransition, useEffect, useRef, useState } from 'react';
+import { startTransition, useEffect, useMemo, useRef, useState } from 'react';
 import { AudioEngine } from '../../lib/audio/audioEngine';
 import { GameSession } from '../../lib/game/GameSession';
 import { ComputerKeyboardInputService } from '../../lib/input/computerKeyboardInputService';
@@ -67,20 +67,32 @@ interface FinishedGamePayload {
   playlistQueue: { songs: SongRow[]; index: number } | null;
 }
 
+interface LessonDrillFinishedPayload {
+  lessonId: string;
+  stepIndex: number;
+  result: ReturnType<GameSession['getFinalResult']>;
+  sessionConfig: SessionConfig;
+}
+
+type GameScreenSource =
+  | { kind: 'library-song'; song: SongRow; playlistQueue: { songs: SongRow[]; index: number } | null }
+  | { kind: 'lesson-drill'; lessonId: string; stepIndex: number; parsedSong: ParsedSong };
+
 interface GameScreenProps {
   audioEngine: AudioEngine;
   inputMode: InputMode;
   keyboardInputService: ComputerKeyboardInputService;
   midiInputService: MidiInputService;
-  song: SongRow;
+  source: GameScreenSource;
   initialSessionConfig: SessionConfig;
-  playlistQueue: { songs: SongRow[]; index: number } | null;
   colorBlindMode: boolean;
   noteLabels: 'alphabetic' | 'symbols' | 'both' | 'none';
   keyboardOverlaySize: 'small' | 'medium' | 'large';
   breakReminderMinutes: number | null;
   onGameFinished: (payload: FinishedGamePayload) => void;
-  onBackToLibrary: () => void;
+  onLessonDrillFinished?: (payload: LessonDrillFinishedPayload) => void;
+  onExit: () => void;
+  exitLabel?: string;
   onOpenKeyboardSetup: () => void;
 }
 
@@ -136,6 +148,26 @@ function buildTempSong(filePath: string, title: string): SongRow {
     dateAdded: new Date().toISOString(),
     timesPlayed: 0,
     tags: [],
+    isFavorite: false,
+    folderId: null,
+    trackAssignments: {},
+  };
+}
+
+function buildLessonSong(parsedSong: ParsedSong, lessonId: string, stepIndex: number): SongRow {
+  return {
+    id: `lesson-${lessonId}-${stepIndex}`,
+    title: parsedSong.title,
+    artist: '',
+    genre: 'Lesson Drill',
+    filePath: '',
+    difficulty: 1,
+    durationSec: parsedSong.durationSec,
+    bpm: parsedSong.bpm,
+    noteCount: parsedSong.notes.length,
+    dateAdded: new Date().toISOString(),
+    timesPlayed: 0,
+    tags: ['lesson-drill'],
     isFavorite: false,
     folderId: null,
     trackAssignments: {},
@@ -215,7 +247,7 @@ function SessionToolbar({
         {sessionConfig.loopRange ? (
           <>
             <span className="loop-label">
-              Looping measures {sessionConfig.loopRange.startMeasure + 1}–{sessionConfig.loopRange.endMeasure + 1}
+              Looping measures {sessionConfig.loopRange!.startMeasure + 1}-{sessionConfig.loopRange!.endMeasure + 1}
             </span>
             <button
               className="secondary-button"
@@ -237,7 +269,7 @@ function SessionToolbar({
                 onChange={(e) => setLoopStart(Number(e.target.value))}
                 aria-label="Loop start measure"
               />
-              <span>–</span>
+              <span>-</span>
               <input
                 className="loop-measure-input"
                 type="number"
@@ -297,22 +329,33 @@ export function GameScreen({
   inputMode,
   keyboardInputService,
   midiInputService,
-  song,
+  source,
   initialSessionConfig,
-  playlistQueue,
   colorBlindMode,
   noteLabels,
   keyboardOverlaySize,
   breakReminderMinutes,
   onGameFinished,
-  onBackToLibrary,
+  onLessonDrillFinished,
+  onExit,
+  exitLabel,
   onOpenKeyboardSetup,
 }: GameScreenProps) {
+  const initialSong = useMemo(
+    () => source.kind === 'library-song'
+      ? source.song
+      : buildLessonSong(source.parsedSong, source.lessonId, source.stepIndex),
+    // `source` is stable for the lifetime of the screen — it comes from the
+    // discriminated-union AppScreen and only changes when App remounts GameScreen.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [source],
+  );
+  const playlistQueue = source.kind === 'library-song' ? source.playlistQueue : null;
   const gameSessionRef = useRef<GameSession | null>(null);
   const rafRef = useRef<number | null>(null);
   const prevPlayingRef = useRef(false);
   const songEndedRef = useRef(false);
-  const currentSongRef = useRef(song);
+  const currentSongRef = useRef(initialSong);
   const baselineStatsRef = useRef<UserStatsRow | null>(null);
 
   const [sourceSong, setSourceSong] = useState<ParsedSong | null>(null);
@@ -432,13 +475,23 @@ export function GameScreen({
           game.getSong().durationSec > 0
         ) {
           songEndedRef.current = true;
-          onGameFinished({
-            result: game.getFinalResult(),
-            song: activeSong,
-            sessionConfig: game.getSessionConfig(),
-            baselineStats: baselineStatsRef.current,
-            playlistQueue,
-          });
+          const result = game.getFinalResult();
+          if (source.kind === 'lesson-drill') {
+            onLessonDrillFinished?.({
+              lessonId: source.lessonId,
+              stepIndex: source.stepIndex,
+              result,
+              sessionConfig: game.getSessionConfig(),
+            });
+          } else {
+            onGameFinished({
+              result,
+              song: activeSong,
+              sessionConfig: game.getSessionConfig(),
+              baselineStats: baselineStatsRef.current,
+              playlistQueue,
+            });
+          }
         }
 
         prevPlayingRef.current = nextSnapshot.isPlaying;
@@ -456,7 +509,7 @@ export function GameScreen({
       }
       audioEngine.pauseSong();
     };
-  }, [audioEngine, onGameFinished, playlistQueue]);
+  }, [audioEngine, onGameFinished, onLessonDrillFinished, playlistQueue, source]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -470,19 +523,28 @@ export function GameScreen({
 
   useEffect(() => {
     const loadSelectedSong = async () => {
-      if (!window.appBridge) {
+      const bridge = window.appBridge;
+      if (!bridge) {
         setStatusMessage('The app bridge is unavailable.');
         return;
       }
 
-      currentSongRef.current = song;
-      const [baselineStats, reminderValue, handSizeValue, displayModeValue, fingerings] = await Promise.all([
-        window.appBridge.getUserStats(song.id),
-        window.appBridge.getSetting('practice', 'postureReminderMinutes'),
-        window.appBridge.getSetting('fingering', 'handSize'),
-        window.appBridge.getSetting('fingering', 'displayMode'),
-        window.appBridge.getCustomFingerings(song.id),
+      currentSongRef.current = initialSong;
+      const [reminderValue, handSizeValue, displayModeValue] = await Promise.all([
+        bridge.getSetting('practice', 'postureReminderMinutes'),
+        bridge.getSetting('fingering', 'handSize'),
+        bridge.getSetting('fingering', 'displayMode'),
       ]);
+
+      let baselineStats: UserStatsRow | null = null;
+      let fingerings: FingeringRow[] = [];
+      if (source.kind === 'library-song') {
+        [baselineStats, fingerings] = await Promise.all([
+          bridge.getUserStats(initialSong.id),
+          bridge.getCustomFingerings(initialSong.id),
+        ]);
+      }
+
       baselineStatsRef.current = baselineStats;
       setReminderFrequencyMinutes(reminderValue && reminderValue !== 'off' ? Number(reminderValue) || null : null);
       setCustomFingerings(fingerings);
@@ -506,15 +568,22 @@ export function GameScreen({
       setSessionConfig(nextSessionConfig);
 
       try {
-        const bytes = await window.appBridge.loadMidiFileData(song.filePath);
-        await loadSongFromBytes(toArrayBuffer(bytes), song, nextSessionConfig, fingerings);
+        if (source.kind === 'lesson-drill') {
+          setDetectedKey(detectKey(source.parsedSong.notes));
+          await mountSession(source.parsedSong, nextSessionConfig, []);
+          setStatusMessage(`Loaded ${source.parsedSong.title} lesson drill with ${source.parsedSong.notes.length} notes.`);
+          return;
+        }
+
+        const bytes = await bridge.loadMidiFileData(initialSong.filePath);
+        await loadSongFromBytes(toArrayBuffer(bytes), initialSong, nextSessionConfig, fingerings);
       } catch (error) {
         setStatusMessage(`Unable to load song: ${(error as Error).message}`);
       }
     };
 
     void loadSelectedSong();
-  }, [initialSessionConfig, song]);
+  }, [initialSessionConfig, initialSong, source]);
 
   useEffect(() => {
     if (!fingeringEditorState) {
@@ -667,6 +736,10 @@ export function GameScreen({
   };
 
   const handlePickMidi = async () => {
+    if (source.kind !== 'library-song') {
+      return;
+    }
+
     const picked = await window.appBridge?.pickMidiFile();
     if (!picked) {
       return;
@@ -682,6 +755,10 @@ export function GameScreen({
   };
 
   const handleDroppedFile = async (file: File) => {
+    if (source.kind !== 'library-song') {
+      return;
+    }
+
     const bytes = await file.arrayBuffer();
     const nextSongId = await createSongId(bytes);
     const withPath = file as FileWithPath;
@@ -816,7 +893,7 @@ export function GameScreen({
       gameSessionRef.current.play(now);
     }
 
-    if (window.appBridge && !updatedSongRecord.id.startsWith('temp-')) {
+    if (window.appBridge && canPersistCurrentSong) {
       await window.appBridge.clearCustomFingerings(updatedSongRecord.id);
       await window.appBridge.updateSong(updatedSongRecord.id, {
         title: updatedSongRecord.title,
@@ -844,7 +921,7 @@ export function GameScreen({
     note: PlaybackSnapshot['visibleNotes'][number],
     anchorPoint: { x: number; y: number },
   ) => {
-    if (!isEditingFingering || song.id.startsWith('temp-')) {
+    if (!isEditingFingering || !canPersistCurrentSong) {
       return;
     }
 
@@ -860,14 +937,14 @@ export function GameScreen({
   };
 
   const handleSaveFingering = async (finger: number) => {
-    if (!window.appBridge || !fingeringEditorState || song.id.startsWith('temp-')) {
+    if (!window.appBridge || !fingeringEditorState || !canPersistCurrentSong) {
       return;
     }
 
     const nextFingerings = [
       ...customFingerings.filter((row) => row.noteIndex !== fingeringEditorState.scheduledIndex),
       {
-        songId: song.id,
+        songId: currentSongRef.current.id,
         noteIndex: fingeringEditorState.scheduledIndex,
         finger,
         hand: fingeringEditorState.hand,
@@ -875,16 +952,16 @@ export function GameScreen({
     ];
     setCustomFingerings(nextFingerings);
     gameSessionRef.current?.setCustomFingerings(nextFingerings);
-    await window.appBridge.saveCustomFingering(song.id, fingeringEditorState.scheduledIndex, finger, fingeringEditorState.hand);
+    await window.appBridge.saveCustomFingering(currentSongRef.current.id, fingeringEditorState.scheduledIndex, finger, fingeringEditorState.hand);
     setFingeringEditorState((current) => current ? { ...current, finger } : null);
   };
 
   const handleResetFingerings = async () => {
-    if (!window.appBridge || song.id.startsWith('temp-')) {
+    if (!window.appBridge || !canPersistCurrentSong) {
       return;
     }
 
-    await window.appBridge.clearCustomFingerings(song.id);
+    await window.appBridge.clearCustomFingerings(currentSongRef.current.id);
     setCustomFingerings([]);
     gameSessionRef.current?.setCustomFingerings([]);
     setFingeringEditorState(null);
@@ -895,12 +972,14 @@ export function GameScreen({
   const progress = snapshot.durationSec > 0 ? (snapshot.currentTimeSec - loopStart) / snapshot.durationSec : 0;
   const currentTimeLabel = formatTime(snapshot.currentTimeSec - loopStart);
   const durationLabel = formatTime(snapshot.durationSec);
+  const canImportMidi = source.kind === 'library-song';
+  const canPersistCurrentSong = source.kind === 'library-song' && !currentSongRef.current.id.startsWith('temp-');
 
   const sessionToolbar = (
     <SessionToolbar
       sessionConfig={sessionConfig}
       totalMeasures={sessionSong ? getMeasureCount(sessionSong) : 0}
-      canEditFingering={!song.id.startsWith('temp-')}
+      canEditFingering={canPersistCurrentSong}
       isEditingFingering={isEditingFingering}
       onRebuild={(next) => void rebuildForSessionConfig(next)}
       onHandSizeChange={(handSize) => {
@@ -916,7 +995,7 @@ export function GameScreen({
         void rebuildForSessionConfig(nextConfig);
       }}
       onToggleFingeringEditor={() => {
-        if (song.id.startsWith('temp-')) {
+        if (!canPersistCurrentSong) {
           setStatusMessage('Save the song to the library before editing fingerings.');
           return;
         }
@@ -930,11 +1009,13 @@ export function GameScreen({
     <div className="fingering-editor-shell">
       <FallingNotesCanvas
         snapshot={snapshot}
-        fingeringEditEnabled={isEditingFingering && !song.id.startsWith('temp-')}
+        fingeringEditEnabled={isEditingFingering && canPersistCurrentSong}
         selectedNoteId={selectedFingeringNoteId}
         onNoteSelect={handleSelectFingeringNote}
         onFileDrop={(file) => {
-          void handleDroppedFile(file);
+          if (canImportMidi) {
+            void handleDroppedFile(file);
+          }
         }}
         colorBlindMode={colorBlindMode}
         noteLabels={noteLabels}
@@ -989,7 +1070,7 @@ export function GameScreen({
           <div className="immersive-hud-item">
             <span>Combo</span>
             <strong key={snapshot.score.combo} className="combo-pop">
-              {snapshot.score.combo} ×{snapshot.score.comboMultiplier.toFixed(1)}
+              {snapshot.score.combo} x{snapshot.score.comboMultiplier.toFixed(1)}
             </strong>
           </div>
           <div className="immersive-hud-item">
@@ -1009,9 +1090,9 @@ export function GameScreen({
       </div>
 
       {/* Fingering hint bar */}
-      {isEditingFingering && !fingeringEditorState && !song.id.startsWith('temp-') && (
+      {isEditingFingering && !fingeringEditorState && canPersistCurrentSong && (
         <div className="fingering-hint-bar">
-          Click any falling note to assign a fingering number (1–5)
+          Click any falling note to assign a fingering number (1-5)
         </div>
       )}
 
@@ -1062,8 +1143,8 @@ export function GameScreen({
                 <button className="primary-button" onClick={() => setOverlayVisible(false)}>
                   Resume
                 </button>
-                <button className="secondary-button" onClick={() => { audioEngine.pauseSong(); onBackToLibrary(); }}>
-                  Back to Library
+                <button className="secondary-button" onClick={() => { audioEngine.pauseSong(); onExit(); }}>
+                  {exitLabel ?? (source.kind === 'lesson-drill' ? 'Back to Lesson' : 'Main Menu')}
                 </button>
               </div>
             </div>
@@ -1076,11 +1157,13 @@ export function GameScreen({
               songTitle={currentSongRef.current.title}
               currentTimeLabel={currentTimeLabel}
               durationLabel={durationLabel}
-              onImport={() => void handlePickMidi()}
+              onImport={canImportMidi ? () => void handlePickMidi() : undefined}
               onPlayPause={() => void handlePlayPause()}
               onRestart={() => void handleRestart()}
               onTempoChange={(value) => void handleTempoChange(value)}
               onSeek={(value) => void handleSeek(value)}
+              onBackToLibrary={onExit}
+              backLabel={exitLabel ?? (source.kind === 'lesson-drill' ? 'Back to Lesson' : 'Main Menu')}
             />
 
             <section className="status-strip">
@@ -1131,12 +1214,14 @@ export function GameScreen({
                   </button>
                 </div>
               </section>
-              <TrackAssignmentPanel
-                tracks={sourceSong?.tracks ?? []}
-                onAssignmentChange={(trackId, assignment) => {
-                  void handleAssignmentChange(trackId, assignment);
-                }}
-              />
+              {source.kind === 'library-song' ? (
+                <TrackAssignmentPanel
+                  tracks={sourceSong?.tracks ?? []}
+                  onAssignmentChange={(trackId, assignment) => {
+                    void handleAssignmentChange(trackId, assignment);
+                  }}
+                />
+              ) : null}
             </section>
           </div>
         </div>

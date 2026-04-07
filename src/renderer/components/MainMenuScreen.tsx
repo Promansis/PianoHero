@@ -1,5 +1,8 @@
+import type { CSSProperties } from 'react';
+
 interface MainMenuScreenProps {
   onOpenLibrary: () => void;
+  onOpenLearn: () => void;
   onOpenFreePlay: () => void;
   onOpenTheory: () => void;
   onOpenProgress: () => void;
@@ -22,38 +25,45 @@ const MENU_CARDS: Array<{
     onSelect: (props) => props.onOpenLibrary(),
   },
   {
-    icon: '♬',
+    icon: '\u266a',
+    title: 'Learn',
+    subtitle: 'Follow the structured curriculum from first notes to advanced drills.',
+    accent: 'var(--color-accent-secondary)',
+    onSelect: (props) => props.onOpenLearn(),
+  },
+  {
+    icon: '\u266c',
     title: 'Free Play',
     subtitle: 'Practice without scoring, record ideas, and load backing tracks.',
-    accent: 'var(--color-accent-secondary)',
+    accent: 'var(--color-good)',
     onSelect: (props) => props.onOpenFreePlay(),
   },
   {
-    icon: '♫',
+    icon: '\u266b',
     title: 'Theory',
     subtitle: 'Sharpen scales, intervals, and quiz speed between songs.',
-    accent: 'var(--color-good)',
+    accent: 'var(--color-perfect)',
     onSelect: (props) => props.onOpenTheory(),
   },
   {
     icon: '★',
     title: 'Progress',
     subtitle: 'Review streaks, charts, goals, and accuracy trends.',
-    accent: 'var(--color-perfect)',
+    accent: 'var(--color-ok)',
     onSelect: (props) => props.onOpenProgress(),
   },
   {
     icon: '⚙',
     title: 'Settings',
     subtitle: 'Tune audio, visuals, input defaults, and accessibility.',
-    accent: 'var(--color-ok)',
+    accent: 'var(--color-miss)',
     onSelect: (props) => props.onOpenSettings(),
   },
   {
     icon: '⌨',
     title: 'Setup',
     subtitle: 'Configure keyboard controls, onboarding, and device basics.',
-    accent: 'var(--color-miss)',
+    accent: 'var(--color-accent)',
     onSelect: (props) => props.onOpenSetup(),
   },
 ];
@@ -93,4 +103,3 @@ export function MainMenuScreen(props: MainMenuScreenProps) {
     </main>
   );
 }
-import type { CSSProperties } from 'react';

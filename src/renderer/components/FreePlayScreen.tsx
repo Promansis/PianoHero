@@ -12,6 +12,7 @@ import {
   FreePlayVisualizer,
   type FreePlayVisualMode,
   type FreePlayVisualNote,
+  type VisualPreset,
 } from './FreePlayVisualizer';
 
 interface RecordedNote {
@@ -88,6 +89,7 @@ export function FreePlayScreen({
   const [isExportingWav, setIsExportingWav] = useState(false);
   const [overlayVisible, setOverlayVisible] = useState(false);
   const [visualMode, setVisualMode] = useState<FreePlayVisualMode>('concert-stage');
+  const [visualPreset, setVisualPreset] = useState<VisualPreset>('balanced');
   const [sustainOn, setSustainOn] = useState(false);
   const [visualNotes, setVisualNotes] = useState<FreePlayVisualNote[]>([]);
   const noteStartMapRef = useRef(new Map<string, { startTimeSec: number; velocity: number; midi: number }>());
@@ -575,6 +577,7 @@ export function FreePlayScreen({
           isPlayingRecording={isPlayingRecording}
           backingTrackName={backingTrackName}
           isBackingTrackPlaying={isBackingTrackPlaying}
+          visualPreset={visualPreset}
         />
       </div>
 
@@ -664,6 +667,18 @@ export function FreePlayScreen({
                   <h2>Choose the atmosphere</h2>
                 </div>
                 <p className="panel-copy">Switch instantly without interrupting live play, recording, or backing tracks.</p>
+              </div>
+              <div className="free-play-preset-row">
+                <span className="free-play-preset-label">Preset</span>
+                {(['subtle', 'balanced', 'vivid'] as VisualPreset[]).map((p) => (
+                  <button
+                    key={p}
+                    className={`free-play-preset-btn ${visualPreset === p ? 'active' : ''}`}
+                    onClick={() => setVisualPreset(p)}
+                  >
+                    {p.charAt(0).toUpperCase() + p.slice(1)}
+                  </button>
+                ))}
               </div>
               <div className="free-play-mode-grid">
                 {FREE_PLAY_VISUAL_MODE_OPTIONS.map((option) => (

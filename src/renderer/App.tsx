@@ -1,7 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 import { AudioEngine } from '../lib/audio/audioEngine';
 import { DEFAULT_INSTRUMENT_ID, isInstrumentId } from '../lib/audio/instrumentCatalog';
-import type { GameResult, LoopRange, SessionConfig, SessionMode } from '../lib/game/types';
+import { CURRICULUM, getLessonById, getTierByLessonId } from '../lib/learning/curriculum';
+import { buildLessonDrill } from '../lib/learning/drillGenerator';
+import {
+  EMPTY_LEARNING_PROGRESS,
+  loadLearningProgress,
+  markLessonCompleted,
+  markLessonStepCompleted,
+  saveLearningProgress,
+  setLearningGating,
+} from '../lib/learning/learningProgress';
+import type { LearningProgress } from '../lib/learning/types';
+import type { GameResult, LoopRange, ParsedSong, SessionConfig, SessionMode } from '../lib/game/types';
 import { ComputerKeyboardInputService } from '../lib/input/computerKeyboardInputService';
 import {
   INPUT_KEYBOARD_MAPPING_SETTING_KEY,
@@ -21,6 +32,8 @@ import { FreePlayScreen } from './components/FreePlayScreen';
 import { GameScreen } from './components/GameScreen';
 import { IntervalTrainerScreen } from './components/IntervalTrainerScreen';
 import { KeyboardSetupScreen } from './components/KeyboardSetupScreen';
+import { LearnHubScreen } from './components/LearnHubScreen';
+import { LessonScreen } from './components/LessonScreen';
 import { LibraryScreen } from './components/LibraryScreen';
 import { MainMenuScreen } from './components/MainMenuScreen';
 import { ProgressDashboardScreen } from './components/ProgressDashboardScreen';
@@ -31,19 +44,25 @@ import { SetupGuideScreen } from './components/SetupGuideScreen';
 import { TheoryHubScreen } from './components/TheoryHubScreen';
 import { TheoryQuizScreen } from './components/TheoryQuizScreen';
 
+type LessonReturnTarget = { lessonId: string; stepIndex: number };
+type KeyboardSetupReturnTarget = 'setup' | 'library' | 'settings' | 'free-play' | LessonReturnTarget;
+
 type AppScreen =
   | { screen: 'setup' }
   | { screen: 'main-menu' }
   | { screen: 'library' }
+  | { screen: 'learn-hub' }
+  | { screen: 'lesson'; lessonId: string; stepIndex?: number }
   | { screen: 'free-play' }
   | { screen: 'theory-hub' }
   | { screen: 'progress-dashboard' }
   | { screen: 'settings' }
-  | { screen: 'scale-practice'; preset?: { root: number; scaleName: string } }
-  | { screen: 'interval-trainer'; preset?: { difficulty: string } }
-  | { screen: 'theory-quiz'; preset?: { quizType: string } }
-  | { screen: 'keyboard-setup'; returnTo: 'setup' | 'library' | 'settings' | 'free-play' }
+  | { screen: 'scale-practice'; preset?: { root: number; scaleName: string }; returnTo?: LessonReturnTarget }
+  | { screen: 'interval-trainer'; preset?: { difficulty: string }; returnTo?: LessonReturnTarget }
+  | { screen: 'theory-quiz'; preset?: { quizType: string }; returnTo?: LessonReturnTarget }
+  | { screen: 'keyboard-setup'; returnTo: KeyboardSetupReturnTarget }
   | { screen: 'game'; song: SongRow; sessionConfig: SessionConfig; playlistQueue: PlaylistQueue | null }
+  | { screen: 'lesson-drill'; lessonId: string; stepIndex: number; parsedSong: ParsedSong; sessionConfig: SessionConfig }
   | {
       screen: 'results';
       song: SongRow;
@@ -97,7 +116,7 @@ function parseStoredAudioNumber(value: string | null, fallback: number): number 
 }
 
 // Parses sample filenames into Tone.js note names.
-// Supports Salamander style (Ds1.mp3 → D#1) and standard style (C#4.mp3 → C#4).
+// Supports Salamander style (Ds1.mp3 -> D#1) and standard style (C#4.mp3 -> C#4).
 function extractNoteName(filename: string): string | null {
   const base = filename.replace(/\.[^.]+$/, '');
   const salamander = /^([A-G])s(\d)$/.exec(base);
@@ -119,6 +138,10 @@ function getScreenTitle(currentScreen: AppScreen): string {
       return 'Main Menu';
     case 'library':
       return 'Song Library';
+    case 'learn-hub':
+      return 'Learn';
+    case 'lesson':
+      return 'Lesson';
     case 'free-play':
       return 'Free Play';
     case 'theory-hub':
@@ -137,9 +160,15 @@ function getScreenTitle(currentScreen: AppScreen): string {
       return 'Keyboard Setup';
     case 'game':
       return 'In Game';
+    case 'lesson-drill':
+      return 'Lesson Drill';
     case 'results':
       return 'Results';
   }
+}
+
+function isLessonReturnTarget(value: KeyboardSetupReturnTarget): value is LessonReturnTarget {
+  return typeof value === 'object' && value !== null && 'lessonId' in value && 'stepIndex' in value;
 }
 
 export function App() {
@@ -162,6 +191,7 @@ export function App() {
   const [beatsVisible, setBeatsVisible] = useState(8);
   const [postureReminderMinutes, setPostureReminderMinutes] = useState<number | null>(null);
   const [breakReminderMinutes, setBreakReminderMinutes] = useState<number | null>(null);
+  const [learningProgress, setLearningProgress] = useState<LearningProgress>(EMPTY_LEARNING_PROGRESS);
 
   useEffect(() => {
     const service = new MidiInputService();
@@ -359,6 +389,12 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    void loadLearningProgress(window.appBridge).then((progress) => {
+      setLearningProgress(progress);
+    });
+  }, []);
+
+  useEffect(() => {
     if (achievementToastQueue.length === 0) {
       return;
     }
@@ -503,6 +539,66 @@ export function App() {
     setAchievementToastQueue((current) => [...current, ...achievementIds]);
   };
 
+  const updateLearningProgressState = (updater: (current: LearningProgress) => LearningProgress) => {
+    setLearningProgress((current) => {
+      const next = updater(current);
+      void saveLearningProgress(window.appBridge, next);
+      return next;
+    });
+  };
+
+  const navigateToLesson = (lessonId: string, stepIndex?: number) => {
+    setCurrentScreen({ screen: 'lesson', lessonId, stepIndex });
+  };
+
+  const handleCompleteLessonStep = (lessonId: string, stepIndex: number) => {
+    updateLearningProgressState((current) => markLessonStepCompleted(current, lessonId, stepIndex));
+  };
+
+  const handleCompleteLesson = (lessonId: string) => {
+    updateLearningProgressState((current) => markLessonCompleted(current, lessonId));
+  };
+
+  const handleLearningSessionResult = (lessonId: string, stepIndex: number, accuracy: number) => {
+    const lesson = getLessonById(lessonId);
+    const step = lesson?.steps[stepIndex];
+    if (!lesson || !step) {
+      navigateToLesson(lessonId, stepIndex);
+      return;
+    }
+
+    const passAccuracy = step.kind === 'tip' ? 100 : step.passAccuracy ?? 70;
+    const passed = accuracy >= passAccuracy;
+    if (passed) {
+      updateLearningProgressState((current) => markLessonStepCompleted(current, lessonId, stepIndex));
+    }
+
+    navigateToLesson(
+      lessonId,
+      passed ? Math.min(stepIndex + 1, Math.max(0, lesson.steps.length - 1)) : stepIndex,
+    );
+  };
+
+  const startLessonDrill = (lessonId: string, stepIndex: number) => {
+    const lesson = getLessonById(lessonId);
+    const step = lesson?.steps[stepIndex];
+    if (!lesson || !step || step.kind !== 'drill') {
+      return;
+    }
+
+    setCurrentScreen({
+      screen: 'lesson-drill',
+      lessonId,
+      stepIndex,
+      parsedSong: buildLessonDrill(step.title, step.drill),
+      sessionConfig: buildSessionConfig('learning', true, latencyCompMs, hitWindowMs, beatsVisible, {
+        handSize,
+        tempoMultiplier: step.tempoMultiplier ?? 1,
+        handFilter: step.handFilter ?? 'both',
+      }),
+    });
+  };
+
   const startSongSession = (
     song: SongRow,
     mode: SessionMode,
@@ -603,18 +699,33 @@ export function App() {
       case 'progress-dashboard':
       case 'settings':
       case 'results':
+      case 'learn-hub':
         setCurrentScreen({ screen: 'main-menu' });
+        return;
+      case 'lesson':
+        setCurrentScreen({ screen: 'learn-hub' });
         return;
       case 'scale-practice':
       case 'interval-trainer':
       case 'theory-quiz':
+        if (currentScreen.returnTo) {
+          setCurrentScreen({ screen: 'lesson', lessonId: currentScreen.returnTo.lessonId, stepIndex: currentScreen.returnTo.stepIndex });
+          return;
+        }
         setCurrentScreen({ screen: 'theory-hub' });
         return;
       case 'keyboard-setup':
+        if (isLessonReturnTarget(currentScreen.returnTo)) {
+          setCurrentScreen({ screen: 'lesson', lessonId: currentScreen.returnTo.lessonId, stepIndex: currentScreen.returnTo.stepIndex });
+          return;
+        }
         setCurrentScreen({ screen: currentScreen.returnTo });
         return;
       case 'game':
         setCurrentScreen({ screen: 'main-menu' });
+        return;
+      case 'lesson-drill':
+        setCurrentScreen({ screen: 'lesson', lessonId: currentScreen.lessonId, stepIndex: currentScreen.stepIndex });
         return;
     }
   };
@@ -645,7 +756,7 @@ export function App() {
         return;
       }
 
-      if (event.key === 'Escape' && currentScreen.screen !== 'game' && currentScreen.screen !== 'free-play') {
+      if (event.key === 'Escape' && currentScreen.screen !== 'game' && currentScreen.screen !== 'free-play' && currentScreen.screen !== 'lesson-drill') {
         event.preventDefault();
         handleBackNavigation();
         return;
@@ -706,6 +817,7 @@ export function App() {
       screenContent = (
         <MainMenuScreen
           onOpenLibrary={() => setCurrentScreen({ screen: 'library' })}
+          onOpenLearn={() => setCurrentScreen({ screen: 'learn-hub' })}
           onOpenFreePlay={() => setCurrentScreen({ screen: 'free-play' })}
           onOpenTheory={() => setCurrentScreen({ screen: 'theory-hub' })}
           onOpenProgress={() => setCurrentScreen({ screen: 'progress-dashboard' })}
@@ -725,6 +837,56 @@ export function App() {
         />
       );
       break;
+
+    case 'learn-hub':
+      screenContent = (
+        <LearnHubScreen
+          tiers={CURRICULUM}
+          progress={learningProgress}
+          onOpenLesson={(lessonId) => navigateToLesson(lessonId)}
+          onToggleGating={(enabled) => updateLearningProgressState((current) => setLearningGating(current, enabled))}
+        />
+      );
+      break;
+
+    case 'lesson': {
+      const lesson = getLessonById(currentScreen.lessonId);
+      const tier = getTierByLessonId(currentScreen.lessonId);
+      screenContent = lesson && tier ? (
+        <LessonScreen
+          lesson={lesson}
+          tier={tier}
+          curriculum={CURRICULUM}
+          progress={learningProgress}
+          initialStepIndex={currentScreen.stepIndex}
+          onBack={() => setCurrentScreen({ screen: 'learn-hub' })}
+          onOpenLesson={(lessonId) => navigateToLesson(lessonId)}
+          onStartDrill={startLessonDrill}
+          onStartScale={(lessonId, stepIndex, preset) =>
+            setCurrentScreen({ screen: 'scale-practice', preset, returnTo: { lessonId, stepIndex } })
+          }
+          onStartInterval={(lessonId, stepIndex, preset) =>
+            setCurrentScreen({ screen: 'interval-trainer', preset, returnTo: { lessonId, stepIndex } })
+          }
+          onStartQuiz={(lessonId, stepIndex, preset) =>
+            setCurrentScreen({ screen: 'theory-quiz', preset, returnTo: { lessonId, stepIndex } })
+          }
+          onCompleteStep={handleCompleteLessonStep}
+          onCompleteLesson={handleCompleteLesson}
+        />
+      ) : (
+        <main className="app-shell lesson-screen">
+          <section className="panel lesson-empty-state">
+            <p className="eyebrow">Learn Hub</p>
+            <h1>Lesson not found</h1>
+            <button className="secondary-button" onClick={() => setCurrentScreen({ screen: 'learn-hub' })}>
+              Back to Learn
+            </button>
+          </section>
+        </main>
+      );
+      break;
+    }
 
     case 'free-play':
       screenContent = (
@@ -776,6 +938,11 @@ export function App() {
           keyboardInputService={keyboardServiceRef.current}
           midiInputService={midiServiceRef.current}
           onAchievementsUnlocked={enqueueAchievementToasts}
+          onSessionComplete={(payload) => {
+            if (currentScreen.returnTo) {
+              handleLearningSessionResult(currentScreen.returnTo.lessonId, currentScreen.returnTo.stepIndex, payload.accuracy);
+            }
+          }}
           preset={currentScreen.preset}
         />
       );
@@ -785,10 +952,12 @@ export function App() {
       screenContent = (
         <IntervalTrainerScreen
           audioEngine={audioEngineRef.current}
-          inputMode={inputMode}
-          keyboardInputService={keyboardServiceRef.current}
-          midiInputService={midiServiceRef.current}
           onAchievementsUnlocked={enqueueAchievementToasts}
+          onSessionComplete={(payload) => {
+            if (currentScreen.returnTo) {
+              handleLearningSessionResult(currentScreen.returnTo.lessonId, currentScreen.returnTo.stepIndex, payload.accuracy);
+            }
+          }}
           preset={currentScreen.preset}
         />
       );
@@ -799,6 +968,11 @@ export function App() {
         <TheoryQuizScreen
           audioEngine={audioEngineRef.current}
           onAchievementsUnlocked={enqueueAchievementToasts}
+          onSessionComplete={(payload) => {
+            if (currentScreen.returnTo) {
+              handleLearningSessionResult(currentScreen.returnTo.lessonId, currentScreen.returnTo.stepIndex, payload.accuracy);
+            }
+          }}
           preset={currentScreen.preset}
         />
       );
@@ -821,16 +995,47 @@ export function App() {
           inputMode={inputMode}
           keyboardInputService={keyboardServiceRef.current}
           midiInputService={midiServiceRef.current}
-          song={currentScreen.song}
+          source={{ kind: 'library-song', song: currentScreen.song, playlistQueue: currentScreen.playlistQueue }}
           initialSessionConfig={currentScreen.sessionConfig}
-          playlistQueue={currentScreen.playlistQueue}
           colorBlindMode={colorBlindMode}
           noteLabels={noteLabels}
           keyboardOverlaySize={keyboardOverlaySize}
           breakReminderMinutes={breakReminderMinutes}
-          onBackToLibrary={() => setCurrentScreen({ screen: 'main-menu' })}
+          onExit={() => setCurrentScreen({ screen: 'main-menu' })}
           onGameFinished={handleGameFinished}
           onOpenKeyboardSetup={() => setCurrentScreen({ screen: 'keyboard-setup', returnTo: 'library' })}
+        />
+      );
+      break;
+
+    case 'lesson-drill':
+      screenContent = (
+        <GameScreen
+          audioEngine={audioEngineRef.current}
+          inputMode={inputMode}
+          keyboardInputService={keyboardServiceRef.current}
+          midiInputService={midiServiceRef.current}
+          source={{
+            kind: 'lesson-drill',
+            lessonId: currentScreen.lessonId,
+            stepIndex: currentScreen.stepIndex,
+            parsedSong: currentScreen.parsedSong,
+          }}
+          initialSessionConfig={currentScreen.sessionConfig}
+          colorBlindMode={colorBlindMode}
+          noteLabels={noteLabels}
+          keyboardOverlaySize={keyboardOverlaySize}
+          breakReminderMinutes={breakReminderMinutes}
+          onExit={() => navigateToLesson(currentScreen.lessonId, currentScreen.stepIndex)}
+          exitLabel="Back to Lesson"
+          onGameFinished={handleGameFinished}
+          onLessonDrillFinished={(payload) => handleLearningSessionResult(payload.lessonId, payload.stepIndex, payload.result.accuracy)}
+          onOpenKeyboardSetup={() =>
+            setCurrentScreen({
+              screen: 'keyboard-setup',
+              returnTo: { lessonId: currentScreen.lessonId, stepIndex: currentScreen.stepIndex },
+            })
+          }
         />
       );
       break;
@@ -862,7 +1067,7 @@ export function App() {
       break;
   }
 
-  const showAppChrome = currentScreen.screen !== 'game' && currentScreen.screen !== 'free-play';
+  const showAppChrome = currentScreen.screen !== 'game' && currentScreen.screen !== 'free-play' && currentScreen.screen !== 'lesson-drill';
   const canNavigateBack = currentScreen.screen !== 'setup' && currentScreen.screen !== 'main-menu';
 
   return (
@@ -894,3 +1099,6 @@ export function App() {
     </>
   );
 }
+
+
+

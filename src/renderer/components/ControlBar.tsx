@@ -6,12 +6,13 @@ interface ControlBarProps {
   songTitle: string;
   currentTimeLabel: string;
   durationLabel: string;
-  onImport: () => void;
+  onImport?: () => void;
   onPlayPause: () => void;
   onRestart: () => void;
   onTempoChange: (value: number) => void;
   onSeek: (progress: number) => void;
   onBackToLibrary?: () => void;
+  backLabel?: string;
 }
 
 export function ControlBar(props: ControlBarProps) {
@@ -23,14 +24,16 @@ export function ControlBar(props: ControlBarProps) {
           <h1>{props.songTitle !== 'No song loaded' ? props.songTitle : 'Piano Hero'}</h1>
         </div>
         <div className="transport-buttons">
-          {props.onBackToLibrary && (
+          {props.onBackToLibrary ? (
             <button className="secondary-button" onClick={props.onBackToLibrary}>
-              Main Menu
+              {props.backLabel ?? 'Main Menu'}
             </button>
-          )}
-          <button className="secondary-button" onClick={props.onImport}>
-            Import MIDI
-          </button>
+          ) : null}
+          {props.onImport ? (
+            <button className="secondary-button" onClick={props.onImport}>
+              Import MIDI
+            </button>
+          ) : null}
           <button className="primary-button" onClick={props.onPlayPause} disabled={!props.canPlay}>
             {props.isPlaying ? 'Pause' : 'Play'}
           </button>

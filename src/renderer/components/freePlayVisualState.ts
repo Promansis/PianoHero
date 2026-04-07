@@ -102,6 +102,11 @@ export function midiToLaneRatio(midi: number): number {
   return clamp((midi - 21) / 87, 0.04, 0.96);
 }
 
+export function adaptiveLaneRatio(midi: number, adaptiveMin: number, adaptiveMax: number): number {
+  const span = Math.max(adaptiveMax - adaptiveMin, 12);
+  return clamp((midi - adaptiveMin) / span, 0, 1) * 0.92 + 0.04;
+}
+
 export function midiToHue(midi: number): number {
   return (midi * 17 + 40) % 360;
 }

@@ -1174,6 +1174,7 @@ export class AppDatabase {
       this.db.prepare('DELETE FROM user_stats').run();
       this.db.prepare('DELETE FROM practice_days').run();
       this.db.prepare('DELETE FROM achievements').run();
+      this.db.prepare("DELETE FROM settings WHERE category = 'learning'").run();
       this.db.prepare('UPDATE songs SET times_played = 0').run();
       this.seedAchievements();
     })();

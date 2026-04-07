@@ -1,3 +1,5 @@
+export type VisualPreset = 'subtle' | 'balanced' | 'vivid';
+
 export type FreePlayVisualMode =
   | 'concert-stage'
   | 'classic-piano'

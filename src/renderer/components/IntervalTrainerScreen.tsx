@@ -1,16 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AudioEngine } from '../../lib/audio/audioEngine';
-import { ComputerKeyboardInputService } from '../../lib/input/computerKeyboardInputService';
-import type { InputMode } from '../../lib/input/types';
-import { MidiInputService } from '../../lib/midi/midiInputService';
-import { ALL_INTERVALS, EASY_INTERVALS, getCompoundInterval, HARD_INTERVALS, MEDIUM_INTERVALS } from '../../lib/theory/intervals';
+import { ALL_INTERVALS, EASY_INTERVALS, HARD_INTERVALS, MEDIUM_INTERVALS } from '../../lib/theory/intervals';
 
 interface IntervalTrainerScreenProps {
   audioEngine: AudioEngine;
-  midiInputService: MidiInputService;
-  keyboardInputService: ComputerKeyboardInputService;
-  inputMode: InputMode;
   onAchievementsUnlocked?: (achievementIds: string[]) => void;
+  onSessionComplete?: (payload: { accuracy: number; score: number; totalQuestions: number }) => void;
   preset?: { difficulty: string };
 }
 
@@ -48,6 +43,7 @@ function buildQuestion(difficulty: IntervalDifficulty): TrainerQuestion {
 export function IntervalTrainerScreen({
   audioEngine,
   onAchievementsUnlocked,
+  onSessionComplete,
   preset,
 }: IntervalTrainerScreenProps) {
   const [difficulty, setDifficulty] = useState<IntervalDifficulty>((preset?.difficulty as IntervalDifficulty) || 'easy');
@@ -63,6 +59,7 @@ export function IntervalTrainerScreen({
 
   const totalQuestions = 10;
   const sessionComplete = questionIndex >= totalQuestions;
+  const accuracy = useMemo(() => (questionIndex === 0 ? 0 : (score / questionIndex) * 100), [questionIndex, score]);
 
   useEffect(() => {
     setCurrentQuestion(buildQuestion(difficulty));
@@ -100,13 +97,18 @@ export function IntervalTrainerScreen({
     }
 
     savedSessionRef.current = true;
-    const accuracy = (score / totalQuestions) * 100;
+    const finalAccuracy = (score / totalQuestions) * 100;
+    onSessionComplete?.({
+      accuracy: finalAccuracy,
+      score,
+      totalQuestions,
+    });
     void window.appBridge
       ?.saveTheoryResult({
         type: 'interval-trainer',
         score,
         totalQuestions,
-        accuracy,
+        accuracy: finalAccuracy,
         details: {
           difficulty,
           maxStreak,
@@ -116,9 +118,7 @@ export function IntervalTrainerScreen({
       .then((outcome) => {
         onAchievementsUnlocked?.(outcome?.unlockedAchievementIds ?? []);
       });
-  }, [difficulty, history, maxStreak, onAchievementsUnlocked, score, sessionComplete]);
-
-  const accuracy = useMemo(() => (questionIndex === 0 ? 0 : (score / questionIndex) * 100), [questionIndex, score]);
+  }, [difficulty, history, maxStreak, onAchievementsUnlocked, onSessionComplete, score, sessionComplete]);
 
   const handleAnswer = (choice: string) => {
     if (!sessionActive || sessionComplete) {
@@ -168,11 +168,11 @@ export function IntervalTrainerScreen({
           >
             Start Session
           </button>
-          {sessionActive && !sessionComplete && (
+          {sessionActive && !sessionComplete ? (
             <button className="secondary-button" onClick={() => void playInterval(currentQuestion)}>
               Replay
             </button>
-          )}
+          ) : null}
         </div>
       </section>
 

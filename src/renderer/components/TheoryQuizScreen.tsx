@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AudioEngine } from '../../lib/audio/audioEngine';
 import { CHORD_TEMPLATES, detectChord, PITCH_CLASS_NAMES } from '../../lib/theory/chords';
 import { ALL_INTERVALS } from '../../lib/theory/intervals';
@@ -7,12 +7,12 @@ import { buildScale, SCALE_DEFINITIONS } from '../../lib/theory/scales';
 interface TheoryQuizScreenProps {
   audioEngine: AudioEngine;
   onAchievementsUnlocked?: (achievementIds: string[]) => void;
+  onSessionComplete?: (payload: { accuracy: number; score: number; totalQuestions: number }) => void;
   preset?: { quizType: string };
 }
 
-type QuizType = 'chord' | 'scale' | 'interval' | 'note-reading';
+type QuizType = 'chord' | 'scale' | 'interval' | 'mixed' | 'note-reading';
 
-// Staff rendering constants
 const LINE_SPACING = 18;
 const BOTTOM_LINE_Y = 72;
 const NOTE_X = 130;
@@ -21,11 +21,10 @@ const STAFF_RIGHT = 175;
 
 interface StaffNote {
   name: string;
-  step: number; // 0 = bottom line (E4), increments by 1 per semitone step up the staff
-  ledgerLines: number[]; // y-positions of extra ledger lines needed
+  step: number;
+  ledgerLines: number[];
 }
 
-// Treble clef staff: step 0 = E4 (bottom line), step 1 = F4 (space), step 2 = G4 (line), ...
 const STAFF_NOTES: StaffNote[] = [
   { name: 'C4', step: -2, ledgerLines: [BOTTOM_LINE_Y + LINE_SPACING] },
   { name: 'D4', step: -1, ledgerLines: [BOTTOM_LINE_Y + LINE_SPACING] },
@@ -42,39 +41,20 @@ const STAFF_NOTES: StaffNote[] = [
 
 function NoteStaff({ staffNote }: { staffNote: StaffNote }) {
   const noteY = BOTTOM_LINE_Y - staffNote.step * (LINE_SPACING / 2);
-  // Staff lines at steps 0, 2, 4, 6, 8
-  const staffLineYs = [0, 2, 4, 6, 8].map((s) => BOTTOM_LINE_Y - s * (LINE_SPACING / 2));
+  const staffLineYs = [0, 2, 4, 6, 8].map((step) => BOTTOM_LINE_Y - step * (LINE_SPACING / 2));
 
   return (
-    <svg
-      className="note-staff-svg"
-      width={190}
-      height={130}
-      viewBox="0 0 190 130"
-      aria-label={`Note on staff`}
-    >
-      {/* Treble clef */}
+    <svg className="note-staff-svg" width={190} height={130} viewBox="0 0 190 130" aria-label="Note on staff">
       <text x={14} y={84} fontSize={68} fontFamily="serif" fill="currentColor" aria-hidden="true">
-        𝄞
+        {'\u{1D11E}'}
       </text>
-      {/* Staff lines */}
       {staffLineYs.map((y) => (
         <line key={y} x1={STAFF_LEFT} y1={y} x2={STAFF_RIGHT} y2={y} stroke="currentColor" strokeWidth={1.5} />
       ))}
-      {/* Ledger lines */}
       {staffNote.ledgerLines.map((y) => (
         <line key={y} x1={NOTE_X - 14} y1={y} x2={NOTE_X + 14} y2={y} stroke="currentColor" strokeWidth={1.5} />
       ))}
-      {/* Note head */}
-      <ellipse
-        cx={NOTE_X}
-        cy={noteY}
-        rx={8}
-        ry={5.5}
-        fill="currentColor"
-        transform={`rotate(-15, ${NOTE_X}, ${noteY})`}
-      />
-      {/* Stem */}
+      <ellipse cx={NOTE_X} cy={noteY} rx={8} ry={5.5} fill="currentColor" transform={`rotate(-15, ${NOTE_X}, ${noteY})`} />
       {staffNote.step < 5 ? (
         <line x1={NOTE_X + 7} y1={noteY} x2={NOTE_X + 7} y2={noteY - 36} stroke="currentColor" strokeWidth={1.5} />
       ) : (
@@ -100,7 +80,7 @@ function shuffle<T>(items: T[]): T[] {
   return [...items].sort(() => Math.random() - 0.5);
 }
 
-export function TheoryQuizScreen({ audioEngine, onAchievementsUnlocked, preset }: TheoryQuizScreenProps) {
+export function TheoryQuizScreen({ audioEngine, onAchievementsUnlocked, onSessionComplete, preset }: TheoryQuizScreenProps) {
   const [quizType, setQuizType] = useState<QuizType>((preset?.quizType as QuizType) || 'chord');
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -109,13 +89,12 @@ export function TheoryQuizScreen({ audioEngine, onAchievementsUnlocked, preset }
 
   const buildNoteReadingQuestion = (): QuizQuestion & { staffNote: StaffNote } => {
     const note = pickRandom(STAFF_NOTES);
-    const otherNames = shuffle(STAFF_NOTES.filter((n) => n.name !== note.name).map((n) => n.name)).slice(0, 3);
+    const otherNames = shuffle(STAFF_NOTES.filter((entry) => entry.name !== note.name).map((entry) => entry.name)).slice(0, 3);
     return {
       prompt: 'Name this note',
       answer: note.name,
       choices: shuffle([note.name, ...otherNames]),
       play: () => {
-        // Map note name to MIDI: C4=60, D4=62, E4=64, F4=65, G4=67, A4=69, B4=71, C5=72, D5=74, E5=76, F5=77
         const midiMap: Record<string, number> = {
           C4: 60, D4: 62, E4: 64, F4: 65, G4: 67, A4: 69, B4: 71,
           C5: 72, D5: 74, E5: 76, F5: 77,
@@ -133,6 +112,11 @@ export function TheoryQuizScreen({ audioEngine, onAchievementsUnlocked, preset }
   };
 
   const buildQuestion = (type: QuizType): QuizQuestion => {
+    if (type === 'mixed') {
+      const nextType = pickRandom<QuizType>(['chord', 'scale', 'interval', 'note-reading']);
+      return buildQuestion(nextType);
+    }
+
     if (type === 'note-reading') {
       return buildNoteReadingQuestion();
     }
@@ -143,7 +127,10 @@ export function TheoryQuizScreen({ audioEngine, onAchievementsUnlocked, preset }
       return {
         prompt: 'Identify the interval',
         answer: interval.label,
-        choices: shuffle([interval.label, ...shuffle(ALL_INTERVALS.filter((entry) => entry.label !== interval.label).map((entry) => entry.label)).slice(0, 3)]),
+        choices: shuffle([
+          interval.label,
+          ...shuffle(ALL_INTERVALS.filter((entry) => entry.label !== interval.label).map((entry) => entry.label)).slice(0, 3),
+        ]),
         play: () => {
           void audioEngine.init().then(async () => {
             await audioEngine.noteOn(baseMidi, 0.8);
@@ -164,7 +151,10 @@ export function TheoryQuizScreen({ audioEngine, onAchievementsUnlocked, preset }
       return {
         prompt: 'Identify the scale',
         answer: definition.name,
-        choices: shuffle([definition.name, ...shuffle(SCALE_DEFINITIONS.filter((entry) => entry.name !== definition.name).map((entry) => entry.name)).slice(0, 3)]),
+        choices: shuffle([
+          definition.name,
+          ...shuffle(SCALE_DEFINITIONS.filter((entry) => entry.name !== definition.name).map((entry) => entry.name)).slice(0, 3),
+        ]),
         play: () => {
           void audioEngine.init().then(() => {
             scale.midiNotes.slice(0, -1).forEach((midi, index) => {
@@ -185,7 +175,14 @@ export function TheoryQuizScreen({ audioEngine, onAchievementsUnlocked, preset }
     return {
       prompt: 'Identify the chord',
       answer: label,
-      choices: shuffle([label, ...shuffle(CHORD_TEMPLATES.map((entry) => `${PITCH_CLASS_NAMES[root]}${entry.quality}`).filter((entry) => entry !== label)).slice(0, 3)]),
+      choices: shuffle([
+        label,
+        ...shuffle(
+          CHORD_TEMPLATES
+            .map((entry) => `${PITCH_CLASS_NAMES[root]}${entry.quality}`)
+            .filter((entry) => entry !== label),
+        ).slice(0, 3),
+      ]),
       play: () => {
         void audioEngine.init().then(() => {
           notes.forEach((midi) => void audioEngine.noteOn(midi, 0.75));
@@ -211,24 +208,37 @@ export function TheoryQuizScreen({ audioEngine, onAchievementsUnlocked, preset }
     }
   }, [preset?.quizType]);
 
+  const score = useMemo(
+    () => answers.filter((answer, index) => answer === questions[index]?.answer).length,
+    [answers, questions],
+  );
+  const accuracy = useMemo(
+    () => (questions.length === 0 ? 0 : (score / questions.length) * 100),
+    [questions.length, score],
+  );
+
   useEffect(() => {
     if (!isComplete || questions.length === 0) {
       return;
     }
 
-    const score = answers.filter((answer, index) => answer === questions[index].answer).length;
+    onSessionComplete?.({
+      accuracy,
+      score,
+      totalQuestions: questions.length,
+    });
     void window.appBridge
       ?.saveTheoryResult({
         type: 'quiz',
         score,
         totalQuestions: questions.length,
-        accuracy: (score / questions.length) * 100,
+        accuracy,
         details: { quizType, answers },
       })
       .then((outcome) => {
         onAchievementsUnlocked?.(outcome?.unlockedAchievementIds ?? []);
       });
-  }, [answers, isComplete, onAchievementsUnlocked, questions, quizType]);
+  }, [accuracy, answers, isComplete, onAchievementsUnlocked, onSessionComplete, questions, quizType, score]);
 
   const currentQuestion = questions[currentIndex];
 
@@ -241,15 +251,15 @@ export function TheoryQuizScreen({ audioEngine, onAchievementsUnlocked, preset }
           <p className="song-title">Chord, scale, interval, and note-reading identification in a short scored session.</p>
         </div>
         <div className="transport-buttons">
-          {currentQuestion && !isComplete && (
+          {currentQuestion && !isComplete ? (
             <button className="secondary-button" onClick={() => currentQuestion.play()}>
               Replay Audio
             </button>
-          )}
+          ) : null}
         </div>
       </section>
 
-      {questions.length === 0 && !isComplete && (
+      {questions.length === 0 && !isComplete ? (
         <section className="panel theory-type-select">
           <button className="primary-button" onClick={() => startQuiz('chord')}>
             Chord ID
@@ -260,21 +270,21 @@ export function TheoryQuizScreen({ audioEngine, onAchievementsUnlocked, preset }
           <button className="primary-button" onClick={() => startQuiz('interval')}>
             Interval ID
           </button>
-          <button className="primary-button" onClick={() => startQuiz('note-reading')}>
-            Note Reading
+          <button className="primary-button" onClick={() => startQuiz('mixed')}>
+            Mixed Checkpoint
           </button>
         </section>
-      )}
+      ) : null}
 
-      {currentQuestion && !isComplete && (
+      {currentQuestion && !isComplete ? (
         <section className="panel theory-question-panel">
           <p className="eyebrow">Question {currentIndex + 1} / {questions.length}</p>
           <h2>{currentQuestion.prompt}</h2>
-          {currentQuestion.staffNote && (
+          {currentQuestion.staffNote ? (
             <div className="note-staff-container">
               <NoteStaff staffNote={currentQuestion.staffNote} />
             </div>
-          )}
+          ) : null}
           <div className="theory-choice-grid">
             {currentQuestion.choices.map((choice) => (
               <button
@@ -296,11 +306,12 @@ export function TheoryQuizScreen({ audioEngine, onAchievementsUnlocked, preset }
             ))}
           </div>
         </section>
-      )}
+      ) : null}
 
-      {isComplete && (
+      {isComplete ? (
         <section className="panel theory-review-panel">
           <h2>Review</h2>
+          <p className="panel-copy">Score {score} / {questions.length}. Accuracy {accuracy.toFixed(1)}%.</p>
           <ul className="theory-review-list">
             {questions.map((question, index) => {
               const correct = answers[index] === question.answer;
@@ -313,7 +324,7 @@ export function TheoryQuizScreen({ audioEngine, onAchievementsUnlocked, preset }
             })}
           </ul>
         </section>
-      )}
+      ) : null}
     </main>
   );
 }

@@ -7,8 +7,32 @@ vi.mock('./components/AchievementToast', () => ({
 }));
 
 vi.mock('./components/MainMenuScreen', () => ({
-  MainMenuScreen: ({ onOpenFreePlay }: { onOpenFreePlay: () => void }) => (
-    <button onClick={onOpenFreePlay}>Open Free Play</button>
+  MainMenuScreen: ({
+    onOpenFreePlay,
+    onOpenLearn,
+  }: {
+    onOpenFreePlay: () => void;
+    onOpenLearn: () => void;
+  }) => (
+    <>
+      <button onClick={onOpenFreePlay}>Open Free Play</button>
+      <button onClick={onOpenLearn}>Open Learn</button>
+    </>
+  ),
+}));
+
+vi.mock('./components/LearnHubScreen', () => ({
+  LearnHubScreen: ({ onOpenLesson }: { onOpenLesson: (lessonId: string) => void }) => (
+    <button onClick={() => onOpenLesson('novice-02-finger-numbers')}>Open Lesson</button>
+  ),
+}));
+
+vi.mock('./components/LessonScreen', () => ({
+  LessonScreen: ({ onStartDrill }: { onStartDrill: (lessonId: string, stepIndex: number) => void }) => (
+    <>
+      <div>Lesson</div>
+      <button onClick={() => onStartDrill('novice-02-finger-numbers', 3)}>Start Drill</button>
+    </>
   ),
 }));
 
@@ -25,7 +49,12 @@ vi.mock('./components/LibraryScreen', () => ({
 }));
 
 vi.mock('./components/GameScreen', () => ({
-  GameScreen: () => <div>Game</div>,
+  GameScreen: ({ onOpenKeyboardSetup }: { onOpenKeyboardSetup: () => void }) => (
+    <>
+      <div>Game</div>
+      <button onClick={onOpenKeyboardSetup}>Open Keyboard Setup</button>
+    </>
+  ),
 }));
 
 vi.mock('./components/ResultsScreen', () => ({
@@ -71,6 +100,7 @@ vi.mock('../lib/audio/audioEngine', () => ({
     setCustomSampler() {
       return Promise.resolve();
     }
+    setMetronomeSound() {}
   },
 }));
 
@@ -124,5 +154,18 @@ describe('App', () => {
     fireEvent.keyDown(window, { key: 'Escape' });
 
     expect(screen.getByText('Mock Free Play')).toBeInTheDocument();
+  });
+
+  it('returns keyboard setup opened from a lesson drill back to that lesson', async () => {
+    render(<App />);
+
+    fireEvent.click(await screen.findByText('Open Learn'));
+    fireEvent.click(await screen.findByText('Open Lesson'));
+    fireEvent.click(await screen.findByText('Start Drill'));
+    fireEvent.click(await screen.findByText('Open Keyboard Setup'));
+    fireEvent.click(screen.getByText('Back'));
+
+    expect(screen.getByText('Start Drill')).toBeInTheDocument();
+    expect(screen.queryByText('Keyboard Setup')).not.toBeInTheDocument();
   });
 });

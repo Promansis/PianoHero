@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import type { FreePlayVisualMode, FreePlayVisualNote } from './FreePlayVisualTypes';
+import type { FreePlayVisualMode, FreePlayVisualNote, VisualPreset } from './FreePlayVisualTypes';
 import {
   applyNoteToHeatmap,
   buildHeatHistoryRow,
@@ -15,6 +15,7 @@ import {
   lerp,
   midiToHue,
   midiToLabel,
+  adaptiveLaneRatio,
   midiToLaneRatio,
   midiToWatercolorHue,
   pitchClassLabel,
@@ -31,7 +32,21 @@ interface FreePlayCanvasSceneProps {
   sustainOn: boolean;
   metronomeEnabled: boolean;
   metronomeBeat: number;
+  visualPreset: VisualPreset;
 }
+
+// Internal effect profile — per-preset tuning knobs for bloom and post-processing
+interface SceneEffectProfile {
+  bloomBlurMin: number;
+  bloomBlurMax: number;
+  bloomAlphaCap: number;
+  vignetteStrength: number;
+  colorGradeStrength: number;
+}
+
+// Placeholder shapes for a future layered render pipeline (not wired into live rendering)
+// interface FrameVisualMetrics { intensity: number; harmony: number; silence: number; }
+// interface RenderPassConfig { id: string; enabled: boolean; blendMode: string; }
 
 interface ScenePalette {
   bgTop: string;
@@ -297,6 +312,9 @@ interface SceneState {
   lastFogSpawnAt: number;
   lastMetronomeBeat: number;
   lastSustainOn: boolean;
+  lastFireworkFlashAt: number;
+  adaptiveMin: number;
+  adaptiveMax: number;
 }
 
 function createSceneState(): SceneState {
@@ -341,6 +359,9 @@ function createSceneState(): SceneState {
     lastFogSpawnAt: 0,
     lastMetronomeBeat: 0,
     lastSustainOn: false,
+    lastFireworkFlashAt: 0,
+    adaptiveMin: 21,
+    adaptiveMax: 108,
   };
 }
 
@@ -465,7 +486,7 @@ function trimSceneState(state: SceneState, now: number): void {
 }
 
 function addInkBloom(state: SceneState, note: FreePlayVisualNote): void {
-  const lane = midiToLaneRatio(note.midi);
+  const lane = adaptiveLaneRatio(note.midi, state.adaptiveMin, state.adaptiveMax);
   const seedX = seededUnit(note.id, 1);
   const seedY = seededUnit(note.id, 2);
   state.inkBlobs.push({
@@ -607,7 +628,7 @@ function addTreeGrowth(state: SceneState, note: FreePlayVisualNote): void {
 }
 
 function addGalaxyBurst(state: SceneState, note: FreePlayVisualNote, props: FreePlayCanvasSceneProps): void {
-  const lane = midiToLaneRatio(note.midi);
+  const lane = adaptiveLaneRatio(note.midi, state.adaptiveMin, state.adaptiveMax);
   const baseRadiusRatio = 0.14 + lane * 0.36;
   const armCount = props.activeNotes.length >= 3 ? 4 : 3;
   const particleCount = Math.round(10 + note.velocity * 20 + Math.max(0, props.activeNotes.length - 1) * 5);
@@ -646,7 +667,7 @@ function auroraHueForNote(midi: number, register: NoteRegister, id: string): num
 function addAuroraRibbon(state: SceneState, note: FreePlayVisualNote): void {
   const register = classifyNoteRegister(note.midi);
   const seed = seededUnit(note.id, 10);
-  const lane = midiToLaneRatio(note.midi);
+  const lane = adaptiveLaneRatio(note.midi, state.adaptiveMin, state.adaptiveMax);
   const baseY =
     register === 'low'
       ? lerp(0.7, 0.86, 1 - lane * 0.6)
@@ -673,7 +694,7 @@ function addAuroraRibbon(state: SceneState, note: FreePlayVisualNote): void {
 }
 
 function launchFireworkShells(state: SceneState, note: FreePlayVisualNote, props: FreePlayCanvasSceneProps): void {
-  const lane = midiToLaneRatio(note.midi);
+  const lane = adaptiveLaneRatio(note.midi, state.adaptiveMin, state.adaptiveMax);
   const shellCount = clamp(props.activeNotes.length >= 3 ? 3 : props.activeNotes.length >= 2 ? 2 : 1, 1, 3);
   for (let index = 0; index < shellCount; index += 1) {
     state.fireworkShells.push({
@@ -739,7 +760,7 @@ function syncSceneState(state: SceneState, props: FreePlayCanvasSceneProps, now:
       existingBody.mass = 1 + (stats?.hits ?? 1) * 0.03;
       existingBody.angularVelocity += (note.velocity - 0.45) * 0.004;
     } else {
-      const lane = midiToLaneRatio(note.midi);
+      const lane = adaptiveLaneRatio(note.midi, state.adaptiveMin, state.adaptiveMax);
       const semiMajor = 80 + lane * 260;
       state.orbitBodies.push({
         id: note.id,
@@ -765,7 +786,7 @@ function syncSceneState(state: SceneState, props: FreePlayCanvasSceneProps, now:
     const motifIndex = state.stars.length % motif.anchors.length;
     const motifCycle = Math.floor(state.stars.length / motif.anchors.length);
     const anchor = motif.anchors[motifIndex];
-    const lane = midiToLaneRatio(note.midi);
+    const lane = adaptiveLaneRatio(note.midi, state.adaptiveMin, state.adaptiveMax);
     const x = clamp(anchor.x + (lane - 0.5) * 0.14 + (motifCycle % 4) * 0.02 - 0.03, 0.08, 0.92);
     const y = clamp(anchor.y + ((note.midi % 5) - 2) * 0.02 - (motifCycle % 3) * 0.03, 0.12, 0.84);
     const starId = `star-${note.id}`;
@@ -811,8 +832,8 @@ function syncSceneState(state: SceneState, props: FreePlayCanvasSceneProps, now:
       id: note.id,
       midi: note.midi,
       hue: midiToHue(note.midi),
-      x: midiToLaneRatio(note.midi),
-      y: 0.75 - ((note.midi - 21) / 87) * 0.5,
+      x: adaptiveLaneRatio(note.midi, state.adaptiveMin, state.adaptiveMax),
+      y: 0.75 - adaptiveLaneRatio(note.midi, state.adaptiveMin, state.adaptiveMax) * 0.5,
       sides: [0, 3, 4, 5, 6][note.midi % 5],
       radius: 0,
       targetRadius: 30 + note.velocity * 90,
@@ -887,6 +908,9 @@ function updateGenerativeModes(
   }
 
   const explodedShells = state.fireworkShells.filter((shell) => shell.y <= shell.targetY);
+  if (explodedShells.length > 0) {
+    state.lastFireworkFlashAt = now;
+  }
   for (const shell of explodedShells) {
     for (let index = 0; index < shell.burstCount; index += 1) {
       const angle = (Math.PI * 2 * index) / shell.burstCount + seededUnit(`${shell.id}-${index}`, 12) * 0.2;
@@ -932,6 +956,26 @@ function updateDynamics(
   state.sustainEnvelope = lerp(state.sustainEnvelope, props.sustainOn ? 1 : 0, props.sustainOn ? 0.08 : 0.035);
   state.lidAngle = lerp(state.lidAngle, 0.2 + intensity * 0.16, 0.05);
   state.pageFlutter = lerp(state.pageFlutter, 0, 0.045);
+
+  // Adaptive pitch range: expand quickly when new extremes are played, contract slowly when idle
+  const recentMidis = state.noteHistory.filter((n) => now - n.createdAt <= 8000).map((n) => n.midi);
+  if (recentMidis.length >= 2) {
+    const observedMin = Math.min(...recentMidis);
+    const observedMax = Math.max(...recentMidis);
+    const expandRate = 0.22;
+    const contractRate = deltaMs * 0.00014;
+    state.adaptiveMin = lerp(state.adaptiveMin, observedMin, state.adaptiveMin > observedMin ? expandRate : contractRate);
+    state.adaptiveMax = lerp(state.adaptiveMax, observedMax, state.adaptiveMax < observedMax ? expandRate : contractRate);
+    const span = state.adaptiveMax - state.adaptiveMin;
+    if (span < 12) {
+      const mid = (state.adaptiveMin + state.adaptiveMax) / 2;
+      state.adaptiveMin = mid - 6;
+      state.adaptiveMax = mid + 6;
+    }
+  } else {
+    state.adaptiveMin = lerp(state.adaptiveMin, 21, deltaMs * 0.00014);
+    state.adaptiveMax = lerp(state.adaptiveMax, 108, deltaMs * 0.00014);
+  }
   state.starfieldRotation += deltaMs * 0.000012;
   state.heatValues = coolHeatValues(state.heatValues, deltaMs);
 
@@ -967,10 +1011,12 @@ function drawStageBursts(
   height: number,
   bursts: NoteBurst[],
   now: number,
+  adaptiveMin: number,
+  adaptiveMax: number,
 ): void {
   for (const burst of bursts) {
     const age = clamp((now - burst.createdAt) / 1800, 0, 1);
-    const x = midiToLaneRatio(burst.midi) * width;
+    const x = adaptiveLaneRatio(burst.midi, adaptiveMin, adaptiveMax) * width;
     const y = height * (0.72 - age * 0.2);
     const radius = (26 + burst.velocity * 44) * (0.8 + age * 0.8);
     const gradient = context.createRadialGradient(x, y, 0, x, y, radius);
@@ -1081,12 +1127,23 @@ function drawConcertStage(
     context.fill();
   }
 
-  const spotlightX = midiToLaneRatio(pitchCenter) * width;
+  const spotlightX = adaptiveLaneRatio(pitchCenter, state.adaptiveMin, state.adaptiveMax) * width;
+  // Warmth offset: lower pitch → warmer (+hue toward orange), higher pitch → cooler (−hue toward blue)
+  const pitchWarmthOffset = clamp((60 - pitchCenter) * 0.55, -20, 28);
   const spotlightGradient = context.createRadialGradient(spotlightX, height * 0.63, 0, spotlightX, height * 0.7, 180 + intensity * 150);
-  spotlightGradient.addColorStop(0, hsla(keyHue + 24, 94, 78, 0.24 + intensity * 0.18));
-  spotlightGradient.addColorStop(1, hsla(keyHue + 24, 94, 78, 0));
+  spotlightGradient.addColorStop(0, hsla(keyHue + 24 + pitchWarmthOffset, 94, 78, 0.24 + intensity * 0.18));
+  spotlightGradient.addColorStop(1, hsla(keyHue + 24 + pitchWarmthOffset, 94, 78, 0));
   context.fillStyle = spotlightGradient;
   context.fillRect(0, 0, width, height);
+
+  // Warm/cool atmosphere tint from pitch center
+  if (Math.abs(pitchWarmthOffset) > 3) {
+    const tintGrad = context.createLinearGradient(0, height * 0.35, 0, height * 0.85);
+    tintGrad.addColorStop(0, hsla(keyHue + pitchWarmthOffset * 1.2, 72, 56, 0.06 + intensity * 0.04));
+    tintGrad.addColorStop(1, 'rgba(0,0,0,0)');
+    context.fillStyle = tintGrad;
+    context.fillRect(0, 0, width, height);
+  }
 
   const floorGradient = context.createRadialGradient(width / 2, height * 0.9, 20, width / 2, height * 0.9, width * 0.55);
   floorGradient.addColorStop(0, 'rgba(255, 148, 94, 0.18)');
@@ -1096,7 +1153,7 @@ function drawConcertStage(
   context.fillRect(0, height * 0.55, width, height * 0.45);
 
   drawFog(context, width, height, state.fogPuffs, now, keyHue);
-  drawStageBursts(context, width, height, state.stageBursts, now);
+  drawStageBursts(context, width, height, state.stageBursts, now, state.adaptiveMin, state.adaptiveMax);
 
   const crowdTop = height * (0.88 - intensity * 0.04);
   context.fillStyle = 'rgba(3, 6, 14, 0.96)';
@@ -1215,6 +1272,16 @@ function drawClassicPiano(
   context.fillStyle = props.sustainOn ? 'rgba(246, 206, 118, 0.9)' : 'rgba(170, 140, 88, 0.42)';
   fillRoundedRect(context, width / 2 - 68, bodyY + bodyHeight + 18, 136, 10, 999);
   context.fill();
+
+  // Restrained key-bed glow beneath piano keys tied to intensity
+  if (intensity > 0.06) {
+    const bedGlowAlpha = clamp(intensity * 0.22, 0, 0.2);
+    const bedGlow = context.createRadialGradient(width / 2, bodyY + bodyHeight + 12, 20, width / 2, bodyY + bodyHeight + 12, bodyWidth * 0.52);
+    bedGlow.addColorStop(0, hsla(keyHue, 80, 72, bedGlowAlpha));
+    bedGlow.addColorStop(1, hsla(keyHue, 80, 72, 0));
+    context.fillStyle = bedGlow;
+    context.fillRect(bodyX - 20, bodyY + bodyHeight - 10, bodyWidth + 40, 80);
+  }
 }
 
 function drawColorRibbons(
@@ -1224,14 +1291,34 @@ function drawColorRibbons(
   ribbons: RibbonTrail[],
   now: number,
   keyHue: number,
+  adaptiveMin: number,
+  adaptiveMax: number,
 ): void {
   drawBackground(context, width, height, hsla(keyHue - 28, 54, 15, 1), '#050812');
 
   for (const ribbon of ribbons) {
     const age = clamp((now - ribbon.createdAt) / 3600, 0, 1);
-    const x = midiToLaneRatio(ribbon.midi) * width;
+    const x = adaptiveLaneRatio(ribbon.midi, adaptiveMin, adaptiveMax) * width;
     const widthScale = 18 + ribbon.velocity * 38;
     const sway = Math.sin((now - ribbon.createdAt) * 0.003 + ribbon.midi * 0.2) * 24;
+
+    // Pulse restroke: brief wide glow behind fresh ribbons (< 380ms)
+    const pulseAge = clamp((now - ribbon.createdAt) / 380, 0, 1);
+    if (pulseAge < 1) {
+      const pulseAlpha = (1 - pulseAge) * (0.12 + ribbon.velocity * 0.10);
+      const pulseGrad = context.createLinearGradient(x, 0, x + sway, height);
+      pulseGrad.addColorStop(0, hsla(ribbon.hue, 88, 78, 0));
+      pulseGrad.addColorStop(0.3, hsla(ribbon.hue, 88, 78, pulseAlpha));
+      pulseGrad.addColorStop(1, hsla(ribbon.hue, 88, 78, 0));
+      context.strokeStyle = pulseGrad;
+      context.lineWidth = (widthScale + ribbon.velocity * 22) * 1.6;
+      context.lineCap = 'round';
+      context.beginPath();
+      context.moveTo(x, height * 1.08);
+      context.bezierCurveTo(x + sway * 0.25, height * 0.7, x + sway * 0.8, height * 0.34, x + sway, -height * 0.08);
+      context.stroke();
+    }
+
     const gradient = context.createLinearGradient(x, 0, x + sway, height);
     gradient.addColorStop(0, hsla(ribbon.hue, 92, 74, 0));
     gradient.addColorStop(0.24, hsla(ribbon.hue, 92, 74, (1 - age) * 0.72));
@@ -1339,6 +1426,31 @@ function drawPulseOrbit(
   context.arc(centerX, centerY, 90, 0, Math.PI * 2);
   context.fill();
 
+  // Close-pass lens accents between nearby bodies
+  for (let index = 0; index < state.orbitBodies.length; index += 1) {
+    for (let inner = index + 1; inner < state.orbitBodies.length; inner += 1) {
+      const left = state.orbitBodies[index];
+      const right = state.orbitBodies[inner];
+      const dx = right.x - left.x;
+      const dy = right.y - left.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const threshold = (left.radius + right.radius) * 5.5;
+      if (dist < threshold && dist > 1) {
+        const proximity = 1 - dist / threshold;
+        const midX = (left.x + right.x) / 2;
+        const midY = (left.y + right.y) / 2;
+        const accentHue = (left.hue + right.hue) / 2;
+        context.strokeStyle = hsla(accentHue, 88, 82, proximity * 0.28);
+        context.lineWidth = proximity * 2.2;
+        context.beginPath();
+        context.moveTo(left.x, left.y);
+        context.lineTo(right.x, right.y);
+        context.stroke();
+        drawSoftGlow(context, midX, midY, dist * 0.3 + 12, accentHue, proximity * 0.14);
+      }
+    }
+  }
+
   for (const body of state.orbitBodies) {
     context.fillStyle = hsla(body.hue, 92, 70, 0.9);
     context.beginPath();
@@ -1375,12 +1487,30 @@ function drawConstellation(
 ): void {
   drawBackground(context, width, height, '#08101f', '#02050d');
 
+  // Primary nebula (hue-reactive)
   const nebulaGradient = context.createRadialGradient(width * 0.25, height * 0.22, 10, width * 0.25, height * 0.22, width * 0.36);
   nebulaGradient.addColorStop(0, hsla(keyHue, 82, 60, 0.18 + intensity * 0.14));
   nebulaGradient.addColorStop(0.65, hsla((keyHue + 70) % 360, 72, 52, 0.08));
   nebulaGradient.addColorStop(1, hsla(keyHue, 82, 60, 0));
   context.fillStyle = nebulaGradient;
   context.fillRect(0, 0, width, height);
+
+  // Secondary hue-reactive nebula clouds — low-alpha, slow drift
+  const nebulaDrift = now * 0.000018;
+  const nebulaClouds = [
+    { cx: 0.68 + Math.sin(nebulaDrift) * 0.04, cy: 0.34 + Math.cos(nebulaDrift * 0.7) * 0.03, r: 0.28, hueShift: 130, alpha: 0.07 + intensity * 0.05 },
+    { cx: 0.42 + Math.sin(nebulaDrift * 1.3 + 1.2) * 0.03, cy: 0.64 + Math.cos(nebulaDrift * 0.9) * 0.025, r: 0.22, hueShift: 220, alpha: 0.06 + intensity * 0.04 },
+  ];
+  for (const cloud of nebulaClouds) {
+    const cx = cloud.cx * width;
+    const cy = cloud.cy * height;
+    const r = cloud.r * Math.min(width, height);
+    const cloudGrad = context.createRadialGradient(cx, cy, r * 0.1, cx, cy, r);
+    cloudGrad.addColorStop(0, hsla((keyHue + cloud.hueShift) % 360, 68, 52, cloud.alpha));
+    cloudGrad.addColorStop(1, hsla((keyHue + cloud.hueShift) % 360, 68, 52, 0));
+    context.fillStyle = cloudGrad;
+    context.fillRect(0, 0, width, height);
+  }
 
   context.save();
   context.translate(width / 2, height / 2);
@@ -1451,6 +1581,7 @@ function drawHeatmap(
   state: SceneState,
   props: FreePlayCanvasSceneProps,
   keyHue: number,
+  now: number,
 ): void {
   drawBackground(context, width, height, '#0b1221', '#03070f');
 
@@ -1460,6 +1591,9 @@ function drawHeatmap(
   const rows = state.heatHistory;
   const cellWidth = plotWidth / 88;
   const rowHeight = Math.max(1.5, plotHeight / Math.max(rows.length, 1));
+
+  // Compute peaks early so they can be used for both background glow and labels
+  const peaks = findPeakHeatZones(state.heatValues);
 
   context.fillStyle = 'rgba(255,255,255,0.9)';
   context.font = '700 12px "Segoe UI", system-ui, sans-serif';
@@ -1475,6 +1609,21 @@ function drawHeatmap(
     context.lineTo(x, padding.top + plotHeight);
     context.stroke();
   }
+
+  // Gentle peak-zone glow/pulse behind heatmap cells — keeps analytical readability as priority
+  peaks.forEach((peak, index) => {
+    const zoneX = padding.left + (peak.startMidi - 21) * cellWidth;
+    const zoneW = (peak.endMidi - peak.startMidi + 1) * cellWidth;
+    const pulse = (Math.sin(now * 0.0022 + index * 1.9) + 1) * 0.5;
+    const glowAlpha = clamp(0.03 + pulse * 0.04 * clamp(peak.score, 0, 1), 0, 0.08);
+    const glowHue = (keyHue + index * 36) % 360;
+    const zoneGrad = context.createLinearGradient(zoneX, padding.top, zoneX, padding.top + plotHeight);
+    zoneGrad.addColorStop(0, hsla(glowHue, 80, 60, glowAlpha));
+    zoneGrad.addColorStop(0.55, hsla(glowHue, 80, 60, glowAlpha * 0.5));
+    zoneGrad.addColorStop(1, hsla(glowHue, 80, 60, 0));
+    context.fillStyle = zoneGrad;
+    context.fillRect(zoneX, padding.top, Math.max(2, zoneW), plotHeight);
+  });
 
   rows.forEach((row, rowIndex) => {
     const y = padding.top + plotHeight - (rowIndex + 1) * rowHeight;
@@ -1494,7 +1643,6 @@ function drawHeatmap(
     context.fillRect(x, padding.top, Math.max(1.4, cellWidth), plotHeight);
   }
 
-  const peaks = findPeakHeatZones(state.heatValues);
   peaks.forEach((peak, index) => {
     const x = padding.left + (peak.startMidi - 21) * cellWidth;
     context.fillStyle = hsla((keyHue + index * 36) % 360, 90, 74, 0.88);
@@ -1573,6 +1721,31 @@ function drawInkInWater(
     context.stroke();
   }
   context.restore();
+
+  // Surface-tension shimmer — slow-drifting light caustics, paper-like not neon
+  context.save();
+  const shimmerCount = 13;
+  for (let s = 0; s < shimmerCount; s += 1) {
+    const seedX = seededUnit(`ink-shim-${s}`, 1);
+    const seedY = seededUnit(`ink-shim-${s}`, 2);
+    const seedRate = seededUnit(`ink-shim-${s}`, 3);
+    const shimX = (seedX + Math.sin(now * 0.000096 * (0.5 + seedRate * 0.8) + s * 2.1) * 0.07) * width;
+    const shimY = (seedY + Math.cos(now * 0.000078 * (0.4 + seedRate * 0.7) + s * 2.7) * 0.055) * height;
+    const shimSize = 9 + seededUnit(`ink-shim-${s}`, 4) * 20;
+    const shimAlpha = (Math.sin(now * 0.0014 * (0.6 + seedRate * 0.5) + s * 3.3) + 1) * 0.5 * 0.048;
+    if (shimAlpha < 0.007) {
+      continue;
+    }
+    const shimGrad = context.createRadialGradient(shimX, shimY, 0, shimX, shimY, shimSize);
+    shimGrad.addColorStop(0, `rgba(255, 255, 255, ${shimAlpha})`);
+    shimGrad.addColorStop(0.45, `rgba(255, 255, 255, ${shimAlpha * 0.35})`);
+    shimGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    context.fillStyle = shimGrad;
+    context.beginPath();
+    context.ellipse(shimX, shimY, shimSize, shimSize * 0.48, now * 0.000072 + s * 0.44, 0, Math.PI * 2);
+    context.fill();
+  }
+  context.restore();
 }
 
 function drawTreeOfLight(
@@ -1581,6 +1754,8 @@ function drawTreeOfLight(
   height: number,
   state: SceneState,
   now: number,
+  pitchCenter: number,
+  intensity: number,
 ): void {
   drawBackground(context, width, height, '#08111d', '#010407');
 
@@ -1606,14 +1781,21 @@ function drawTreeOfLight(
     const controlX = lerp(startX, endX, 0.5) + sway * 0.7;
     const controlY = lerp(startY, endY, 0.52) - (segment.kind === 'root' ? -8 : 10);
 
-    context.strokeStyle = hsla(segment.hue, segment.kind === 'root' ? 58 : 72, segment.kind === 'root' ? 28 : 58, 0.18 + state.treeGlow * 0.12);
+    // Bass-centered playing brightens root/trunk segments
+    const bassBoost = segment.kind === 'root' || segment.kind === 'trunk'
+      ? clamp((55 - pitchCenter) * 0.04, 0, 0.22) * intensity
+      : 0;
+    const glowAlpha = 0.18 + state.treeGlow * 0.12 + bassBoost;
+    const coreL = segment.kind === 'root' ? 28 + bassBoost * 60 : 58;
+
+    context.strokeStyle = hsla(segment.hue, segment.kind === 'root' ? 58 : 72, segment.kind === 'root' ? 28 : 58, glowAlpha);
     context.lineWidth = segment.thickness + 7;
     context.beginPath();
     context.moveTo(startX, startY);
     context.quadraticCurveTo(controlX, controlY, endX, endY);
     context.stroke();
 
-    context.strokeStyle = hsla(segment.hue, segment.kind === 'root' ? 44 : 86, segment.kind === 'root' ? 34 : 66, 0.92);
+    context.strokeStyle = hsla(segment.hue, segment.kind === 'root' ? 44 : 86, segment.kind === 'root' ? coreL : 66, 0.92);
     context.lineWidth = segment.thickness;
     context.beginPath();
     context.moveTo(startX, startY);
@@ -1640,6 +1822,7 @@ function drawParticleGalaxy(
   height: number,
   state: SceneState,
   now: number,
+  harmony: number,
 ): void {
   drawBackground(context, width, height, '#040813', '#010205');
   const centerX = width / 2;
@@ -1687,14 +1870,16 @@ function drawParticleGalaxy(
     const tailY = centerY + Math.sin(tailAngle) * tailRadius * 0.58;
     const age = clamp((now - particle.createdAt) / 70000, 0, 1);
 
-    context.strokeStyle = hsla(particle.hue, 88, 72, particle.alpha * (1 - age) * 0.12);
-    context.lineWidth = particle.size * 1.6;
+    // Strengthen spiral-arm tail readability with harmony
+    const armAlphaBoost = harmony * 0.10;
+    context.strokeStyle = hsla(particle.hue, 88 + harmony * 8, 72, particle.alpha * (1 - age) * (0.12 + armAlphaBoost));
+    context.lineWidth = particle.size * (1.6 + harmony * 0.5);
     context.beginPath();
     context.moveTo(tailX, tailY);
     context.lineTo(x, y);
     context.stroke();
 
-    drawSoftGlow(context, x, y, particle.size * (13 + state.galaxySupernova * 5), particle.hue, particle.alpha * 0.18);
+    drawSoftGlow(context, x, y, particle.size * (13 + state.galaxySupernova * 5), particle.hue, particle.alpha * (0.18 + harmony * 0.06));
     context.fillStyle = hsla(particle.hue, 90, 72, particle.alpha * (0.7 + (Math.sin(now * 0.0022 + particle.sparkle) + 1) * 0.15));
     context.beginPath();
     context.arc(x, y, particle.size * (0.8 + state.galaxySupernova * 0.22), 0, Math.PI * 2);
@@ -1729,6 +1914,8 @@ function drawAuroraBorealis(
   state: SceneState,
   now: number,
   silence: number,
+  intensity: number,
+  harmony: number,
 ): void {
   const sky = context.createLinearGradient(0, 0, 0, height);
   sky.addColorStop(0, '#020816');
@@ -1798,8 +1985,10 @@ function drawAuroraBorealis(
     }
   }
 
+  // Horizon reflection — alpha responds to intensity and harmony instead of being fixed
+  const reflectionAlpha = clamp(0.05 + intensity * 0.16 + harmony * 0.12, 0.04, 0.32);
   context.save();
-  context.globalAlpha = 0.15;
+  context.globalAlpha = reflectionAlpha;
   for (const band of state.auroraBands) {
     const age = clamp((now - band.createdAt) / 40000, 0, 1);
     const bandAlpha = Math.max(0.03, band.alpha * (1 - age * 0.3) * (1 - silence * 0.5));
@@ -1841,6 +2030,14 @@ function drawFireworks(
   context.fillStyle = sky;
   context.fillRect(0, 0, width, height);
 
+  // Brief sky flash when a shell bursts (very short, low-alpha)
+  const flashAge = now - state.lastFireworkFlashAt;
+  if (flashAge < 220) {
+    const flashAlpha = (1 - flashAge / 220) * 0.18;
+    context.fillStyle = `rgba(255, 240, 210, ${flashAlpha})`;
+    context.fillRect(0, 0, width, height);
+  }
+
   for (const shell of state.fireworkShells) {
     for (let index = 1; index < shell.trail.length; index += 1) {
       const previous = shell.trail[index - 1];
@@ -1873,7 +2070,7 @@ function drawFireworks(
   }
 
   for (const midi of props.activeNotes) {
-    const lane = midiToLaneRatio(midi);
+    const lane = adaptiveLaneRatio(midi, state.adaptiveMin, state.adaptiveMax);
     const x = lerp(0.08, 0.92, lane) * width;
     const trail = context.createLinearGradient(x, height, x, height * 0.42);
     trail.addColorStop(0, hsla(midiToHue(midi), 92, 74, 0.34));
@@ -2020,6 +2217,107 @@ function drawBadges(
   context.fillText(text, width - badgeWidth - 10, height * 0.3 + 18);
 }
 
+export function getEffectProfile(preset: VisualPreset): SceneEffectProfile {
+  switch (preset) {
+    case 'subtle':
+      return { bloomBlurMin: 3, bloomBlurMax: 6, bloomAlphaCap: 0.10, vignetteStrength: 0.14, colorGradeStrength: 0.04 };
+    case 'vivid':
+      return { bloomBlurMin: 6, bloomBlurMax: 13, bloomAlphaCap: 0.26, vignetteStrength: 0.34, colorGradeStrength: 0.15 };
+    default: // 'balanced'
+      return { bloomBlurMin: 4, bloomBlurMax: 9, bloomAlphaCap: 0.18, vignetteStrength: 0.24, colorGradeStrength: 0.09 };
+  }
+}
+
+function applyDynamicBloom(
+  context: CanvasRenderingContext2D,
+  canvas: HTMLCanvasElement,
+  width: number,
+  height: number,
+  mode: FreePlayVisualMode,
+  preset: VisualPreset,
+  intensity: number,
+  harmony: number,
+  silence: number,
+  sustainEnvelope: number,
+): void {
+  // No bloom for scale-heatmap
+  if (mode === 'scale-heatmap') return;
+
+  const profile = getEffectProfile(preset);
+
+  // Reduced bloom caps for modes that should stay restrained
+  const modeAlphaCap =
+    mode === 'ink-in-water' ? Math.min(0.06, profile.bloomAlphaCap) :
+    mode === 'classic-piano' ? Math.min(0.08, profile.bloomAlphaCap) :
+    profile.bloomAlphaCap;
+
+  // Bloom energy driven by musical activity; decays in silence
+  const bloomEnergy = clamp(intensity * 0.52 + harmony * 0.28 + sustainEnvelope * 0.22 - silence * 0.38, 0, 1);
+  if (bloomEnergy < 0.01) return;
+
+  const blurRadius = lerp(profile.bloomBlurMin, profile.bloomBlurMax, bloomEnergy);
+  const bloomAlpha = clamp(bloomEnergy * modeAlphaCap, 0, modeAlphaCap);
+  if (bloomAlpha < 0.007) return;
+
+  context.save();
+  context.filter = `blur(${blurRadius.toFixed(1)}px)`;
+  context.globalCompositeOperation = 'lighter';
+  context.globalAlpha = bloomAlpha;
+  context.drawImage(canvas, 0, 0, width, height);
+  context.filter = 'none';
+  context.restore();
+}
+
+function applyDynamicVignette(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  preset: VisualPreset,
+): void {
+  const strength = getEffectProfile(preset).vignetteStrength;
+  if (strength < 0.01) return;
+  const gradient = context.createRadialGradient(
+    width / 2, height / 2, Math.min(width, height) * 0.28,
+    width / 2, height / 2, Math.max(width, height) * 0.74,
+  );
+  gradient.addColorStop(0, 'rgba(0,0,0,0)');
+  gradient.addColorStop(1, `rgba(0,0,0,${strength.toFixed(2)})`);
+  context.fillStyle = gradient;
+  context.fillRect(0, 0, width, height);
+}
+
+function applyKeyColorGrade(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  mode: FreePlayVisualMode,
+  preset: VisualPreset,
+  keyHue: number,
+  intensity: number,
+): void {
+  if (mode === 'scale-heatmap' || mode === 'ink-in-water') return;
+  const baseStrength = getEffectProfile(preset).colorGradeStrength;
+  if (baseStrength < 0.005) return;
+
+  const modeMultiplier =
+    mode === 'concert-stage' || mode === 'constellation' || mode === 'particle-galaxy' || mode === 'aurora-borealis' || mode === 'sacred-geometry' ? 1.0 :
+    mode === 'classic-piano' ? 0.28 :
+    0.60;
+
+  const gradeAlpha = baseStrength * modeMultiplier * clamp(intensity * 0.6 + 0.35, 0.35, 1.0);
+  if (gradeAlpha < 0.004) return;
+
+  const gradient = context.createLinearGradient(0, 0, 0, height);
+  gradient.addColorStop(0, hsla(keyHue, 70, 46, gradeAlpha * 0.55));
+  gradient.addColorStop(0.48, hsla(keyHue, 70, 46, 0));
+  gradient.addColorStop(1, hsla((keyHue + 180) % 360, 58, 36, gradeAlpha * 0.38));
+  context.save();
+  context.globalCompositeOperation = 'overlay';
+  context.fillStyle = gradient;
+  context.fillRect(0, 0, width, height);
+  context.restore();
+}
+
 export function FreePlayCanvasScene(props: FreePlayCanvasSceneProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -2084,7 +2382,7 @@ export function FreePlayCanvasScene(props: FreePlayCanvasSceneProps) {
           drawClassicPiano(context, width, height, state, nextProps, now, intensity, keyCenter.hue);
           break;
         case 'color-ribbons':
-          drawColorRibbons(context, width, height, state.ribbons, now, keyCenter.hue);
+          drawColorRibbons(context, width, height, state.ribbons, now, keyCenter.hue, state.adaptiveMin, state.adaptiveMax);
           break;
         case 'pulse-orbit':
           drawPulseOrbit(context, width, height, state, nextProps, now, deltaMs, keyCenter.hue);
@@ -2093,19 +2391,19 @@ export function FreePlayCanvasScene(props: FreePlayCanvasSceneProps) {
           drawConstellation(context, width, height, state, now, intensity, keyCenter.hue);
           break;
         case 'scale-heatmap':
-          drawHeatmap(context, width, height, state, nextProps, keyCenter.hue);
+          drawHeatmap(context, width, height, state, nextProps, keyCenter.hue, now);
           break;
         case 'ink-in-water':
           drawInkInWater(context, width, height, state, now, silence);
           break;
         case 'tree-of-light':
-          drawTreeOfLight(context, width, height, state, now);
+          drawTreeOfLight(context, width, height, state, now, pitchCenter, intensity);
           break;
         case 'particle-galaxy':
-          drawParticleGalaxy(context, width, height, state, now);
+          drawParticleGalaxy(context, width, height, state, now, harmony);
           break;
         case 'aurora-borealis':
-          drawAuroraBorealis(context, width, height, state, now, silence);
+          drawAuroraBorealis(context, width, height, state, now, silence, intensity, harmony);
           break;
         case 'fireworks':
           drawFireworks(context, width, height, state, nextProps, now);
@@ -2115,14 +2413,11 @@ export function FreePlayCanvasScene(props: FreePlayCanvasSceneProps) {
           break;
       }
 
-      if (nextProps.mode !== 'ink-in-water' && nextProps.mode !== 'scale-heatmap') {
-        context.save();
-        context.filter = 'blur(10px)';
-        context.globalCompositeOperation = 'lighter';
-        context.globalAlpha = 0.28;
-        context.drawImage(canvas, 0, 0, width, height);
-        context.filter = 'none';
-        context.restore();
+      // Phase 3: post-processing (before UI overlays so badges/metronome stay crisp)
+      applyKeyColorGrade(context, width, height, nextProps.mode, nextProps.visualPreset, keyCenter.hue, intensity);
+      applyDynamicBloom(context, canvas, width, height, nextProps.mode, nextProps.visualPreset, intensity, harmony, silence, state.sustainEnvelope);
+      if (nextProps.mode !== 'scale-heatmap') {
+        applyDynamicVignette(context, width, height, nextProps.visualPreset);
       }
 
       drawMetronomePulse(context, width, height, state.metronomePulses, now);

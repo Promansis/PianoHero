@@ -31,6 +31,7 @@ HTMLCanvasElement.prototype.getContext = vi.fn(() => ({
   restore: vi.fn(),
   translate: vi.fn(),
   rotate: vi.fn(),
+  drawImage: vi.fn(),
   measureText: vi.fn(() => ({ width: 80 })),
   createLinearGradient: vi.fn(() => gradientStub),
   createRadialGradient: vi.fn(() => gradientStub),
@@ -210,5 +211,49 @@ describe('FreePlayScreen', () => {
     expect(screen.getByText('Play Recording')).toBeEnabled();
 
     nowSpy.mockRestore();
+  });
+
+  it('visual preset buttons appear in overlay and switching preset does not interrupt recording or backing track', async () => {
+    const midiService = new MockMidiInputService();
+    const audioEngine = buildAudioEngineStub();
+    vi.spyOn(performance, 'now').mockReturnValue(1000);
+
+    render(
+      <FreePlayScreen
+        audioEngine={audioEngine}
+        midiInputService={midiService as unknown as MidiInputService}
+        keyboardInputService={new MockKeyboardInputService() as unknown as ComputerKeyboardInputService}
+        inputMode="both"
+        keyboardOverlaySize="medium"
+        postureReminderMinutes={null}
+        breakReminderMinutes={null}
+        onBackToMainMenu={vi.fn()}
+        onOpenKeyboardSetup={vi.fn()}
+      />,
+    );
+
+    // Open overlay
+    fireEvent.keyDown(window, { key: 'Escape' });
+
+    // Preset buttons are present
+    expect(screen.getByRole('button', { name: 'Subtle' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Balanced' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Vivid' })).toBeInTheDocument();
+
+    // Start recording and load a backing track
+    fireEvent.click(screen.getByText('Record'));
+    fireEvent.click(screen.getByText('Load Track'));
+    expect(await screen.findByText('jam.mp3')).toBeInTheDocument();
+
+    // Switch preset — should not clear recording or backing track
+    fireEvent.click(screen.getByRole('button', { name: 'Vivid' }));
+    expect(screen.getByText('jam.mp3')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Stop Recording' })).toBeInTheDocument();
+
+    // Switch back
+    fireEvent.click(screen.getByRole('button', { name: 'Subtle' }));
+    expect(screen.getByText('jam.mp3')).toBeInTheDocument();
+
+    vi.restoreAllMocks();
   });
 });

@@ -13,6 +13,7 @@ interface ScalePracticeScreenProps {
   keyboardInputService: ComputerKeyboardInputService;
   inputMode: InputMode;
   onAchievementsUnlocked?: (achievementIds: string[]) => void;
+  onSessionComplete?: (payload: { accuracy: number; score: number; totalQuestions: number }) => void;
   preset?: { root: number; scaleName: string };
 }
 
@@ -22,9 +23,12 @@ export function ScalePracticeScreen({
   keyboardInputService,
   inputMode,
   onAchievementsUnlocked,
+  onSessionComplete,
   preset,
 }: ScalePracticeScreenProps) {
-  const defaultScale = preset?.scaleName ? SCALE_DEFINITIONS.find((scale) => scale.name === preset.scaleName) ?? SCALE_DEFINITIONS[0] : SCALE_DEFINITIONS[0];
+  const defaultScale = preset?.scaleName
+    ? SCALE_DEFINITIONS.find((scale) => scale.name === preset.scaleName) ?? SCALE_DEFINITIONS[0]
+    : SCALE_DEFINITIONS[0];
   const [selectedScaleName, setSelectedScaleName] = useState(defaultScale.name);
   const [selectedRoot, setSelectedRoot] = useState(preset?.root ?? 0);
   const [octaves, setOctaves] = useState(1);
@@ -156,6 +160,11 @@ export function ScalePracticeScreen({
     savedSessionRef.current = true;
     setIsActive(false);
     setStatusMessage(`Scale complete. Accuracy ${accuracy.toFixed(1)}%.`);
+    onSessionComplete?.({
+      accuracy,
+      score: correctCount,
+      totalQuestions: validation.length,
+    });
     void window.appBridge
       ?.saveTheoryResult({
         type: 'scale-practice',
@@ -172,7 +181,18 @@ export function ScalePracticeScreen({
       .then((outcome) => {
         onAchievementsUnlocked?.(outcome?.unlockedAchievementIds ?? []);
       });
-  }, [currentScale, direction, isActive, octaves, onAchievementsUnlocked, playedNotes, selectedRoot, selectedScale.name, sequence.length]);
+  }, [
+    currentScale,
+    direction,
+    isActive,
+    octaves,
+    onAchievementsUnlocked,
+    onSessionComplete,
+    playedNotes,
+    selectedRoot,
+    selectedScale.name,
+    sequence.length,
+  ]);
 
   const progress = `${playedNotes.length} / ${sequence.length}`;
 
