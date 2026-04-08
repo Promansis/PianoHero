@@ -1,9 +1,11 @@
 import type { Hand } from '../../lib/game/types';
 import { BLACK_KEY_WIDTH, KEY_LAYOUT, WHITE_KEY_WIDTH } from '../../lib/piano/pianoLayout';
 
+export type NotePriority = 'next' | 'soon' | 'other';
+
 interface PianoKeyboardProps {
   activeNotes: number[];
-  upcomingNotes: Array<{ midi: number; hand: Hand; finger?: number }>;
+  upcomingNotes: Array<{ midi: number; hand: Hand; finger?: number; priority?: NotePriority }>;
   highlightedNotes?: number[];
   highlightColor?: 'scale' | 'chord';
   chordLabel?: string | null;
@@ -11,9 +13,9 @@ interface PianoKeyboardProps {
 }
 
 function upcomingMap(
-  upcomingNotes: Array<{ midi: number; hand: Hand; finger?: number }>,
-): Map<number, { hand: Hand; finger?: number }> {
-  return new Map(upcomingNotes.map((note) => [note.midi, { hand: note.hand, finger: note.finger }]));
+  upcomingNotes: Array<{ midi: number; hand: Hand; finger?: number; priority?: NotePriority }>,
+): Map<number, { hand: Hand; finger?: number; priority?: NotePriority }> {
+  return new Map(upcomingNotes.map((note) => [note.midi, { hand: note.hand, finger: note.finger, priority: note.priority }]));
 }
 
 function matchesHighlight(midi: number, highlightedNotes: number[]): boolean {
@@ -53,12 +55,14 @@ export function PianoKeyboard({
             return (
               <div
                 key={key.midi}
-                className={`white-key ${isActive ? 'active' : ''} ${cue ? `cue-${cue.hand}` : ''} ${isHighlighted ? `${highlightColor}-highlight` : ''}`}
+                className={`white-key ${isActive ? 'active' : ''} ${cue ? `cue-${cue.priority ?? cue.hand}` : ''} ${isHighlighted ? `${highlightColor}-highlight` : ''}`}
                 style={{ width: `${WHITE_KEY_WIDTH}%` }}
                 title={key.note}
               >
                 <span>{key.note.startsWith('C') ? key.note : ''}</span>
-                {cue?.finger !== undefined && <strong className="key-finger">{cue.finger}</strong>}
+                {cue?.finger !== undefined && (
+                  <strong className={`key-finger${cue.priority ? ` finger-${cue.priority}` : ''}`}>{cue.finger}</strong>
+                )}
               </div>
             );
           })}
@@ -72,11 +76,13 @@ export function PianoKeyboard({
             return (
               <div
                 key={key.midi}
-                className={`black-key ${isActive ? 'active' : ''} ${cue ? `cue-${cue.hand}` : ''} ${isHighlighted ? `${highlightColor}-highlight` : ''}`}
+                className={`black-key ${isActive ? 'active' : ''} ${cue ? `cue-${cue.priority ?? cue.hand}` : ''} ${isHighlighted ? `${highlightColor}-highlight` : ''}`}
                 style={{ left: `${key.left}%`, width: `${WHITE_KEY_WIDTH * BLACK_KEY_WIDTH}%` }}
                 title={key.note}
               >
-                {cue?.finger !== undefined && <strong className="key-finger black">{cue.finger}</strong>}
+                {cue?.finger !== undefined && (
+                  <strong className={`key-finger black${cue.priority ? ` finger-${cue.priority}` : ''}`}>{cue.finger}</strong>
+                )}
               </div>
             );
           })}

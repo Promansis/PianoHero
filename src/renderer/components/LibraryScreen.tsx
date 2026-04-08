@@ -608,9 +608,6 @@ export function LibraryScreen({
               <p className="panel-copy">{song.artist || 'Unknown artist'}</p>
             </div>
           </div>
-          <button className="secondary-button favorite-toggle" onClick={() => void handleToggleFavorite(song.id)}>
-            {song.isFavorite ? 'Favorite' : 'Mark Favorite'}
-          </button>
         </div>
 
         <div className="song-card-meta">
@@ -662,6 +659,9 @@ export function LibraryScreen({
           )}
           <button className="secondary-button" onClick={() => setEditingSongId(song.id)}>
             Edit Metadata
+          </button>
+          <button className="secondary-button favorite-toggle" onClick={() => void handleToggleFavorite(song.id)}>
+            {song.isFavorite ? 'Favorite' : 'Mark Favorite'}
           </button>
         </div>
       </article>
