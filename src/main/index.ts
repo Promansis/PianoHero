@@ -277,6 +277,8 @@ app.whenReady().then(async () => {
   ipcMain.handle('progress:get-stats', (_event, fromDate: string, toDate: string) =>
     db.getProgressStats(fromDate, toDate),
   );
+  ipcMain.handle('progress:get-top-songs', () => db.getProgressTopSongs());
+  ipcMain.handle('trouble-spots:get-all-unresolved', () => db.getAllUnresolvedTroubleSpots());
 
   ipcMain.handle('fingerings:get', (_event, songId: string) => db.getCustomFingerings(songId));
   ipcMain.handle(

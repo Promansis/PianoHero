@@ -4,6 +4,7 @@ import type {
   FingeringRow,
   FolderRow,
   GameResultRow,
+  GlobalTroubleSpot,
   LibraryImportResult,
   MeasureAccuracyHistoryRow,
   PlaylistRow,
@@ -17,6 +18,7 @@ import type {
   SongRow,
   TheoryResultRow,
   TheoryStatsRow,
+  TopSongStat,
   TroubleSpotRow,
   UserStatsRow,
 } from './dbTypes';
@@ -73,6 +75,8 @@ export interface AppBridge {
 
   getRecommendations: () => Promise<RecommendationResult>;
   getProgressStats: (fromDate: string, toDate: string) => Promise<ProgressStatsResult>;
+  getProgressTopSongs: () => Promise<TopSongStat[]>;
+  getAllUnresolvedTroubleSpots: () => Promise<GlobalTroubleSpot[]>;
 
   getCustomFingerings: (songId: string) => Promise<FingeringRow[]>;
   saveCustomFingering: (

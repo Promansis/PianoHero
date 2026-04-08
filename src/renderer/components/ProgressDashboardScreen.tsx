@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ACHIEVEMENTS } from '../../lib/achievements/achievementDefinitions';
-import type { AchievementRow, ProgressStatsResult, PracticeStreak } from '../../shared/dbTypes';
+import type { AchievementRow, GlobalTroubleSpot, PracticeStreak, ProgressStatsResult, TopSongStat } from '../../shared/dbTypes';
 import { BarChart } from './charts/BarChart';
 import { LineChart } from './charts/LineChart';
 
@@ -40,6 +40,8 @@ export function ProgressDashboardScreen() {
   const [weekComparison, setWeekComparison] = useState<WeekComparison | null>(null);
   const [dailyGoalMinutes, setDailyGoalMinutes] = useState<number | null>(null);
   const [todayMinutes, setTodayMinutes] = useState(0);
+  const [topSongs, setTopSongs] = useState<TopSongStat[]>([]);
+  const [troubleSpots, setTroubleSpots] = useState<GlobalTroubleSpot[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -57,18 +59,22 @@ export function ProgressDashboardScreen() {
         const thisWeekFrom = daysAgo(6);
         const lastWeekFrom = daysAgo(13);
         const lastWeekTo = daysAgo(7);
-        const [nextStats, nextStreak, nextAchievements, thisWeekStats, lastWeekStats, rawDailyGoal] = await Promise.all([
+        const [nextStats, nextStreak, nextAchievements, thisWeekStats, lastWeekStats, rawDailyGoal, nextTopSongs, nextTroubleSpots] = await Promise.all([
           window.appBridge.getProgressStats(fromDate, toDate),
           window.appBridge.getPracticeStreak(),
           window.appBridge.getAllAchievements(),
           window.appBridge.getProgressStats(thisWeekFrom, toDate),
           window.appBridge.getProgressStats(lastWeekFrom, lastWeekTo),
           window.appBridge.getSetting('practice', 'dailyGoalMinutes'),
+          window.appBridge.getProgressTopSongs(),
+          window.appBridge.getAllUnresolvedTroubleSpots(),
         ]);
 
         setStats(nextStats);
         setStreak(nextStreak);
         setAchievements(nextAchievements);
+        setTopSongs(nextTopSongs);
+        setTroubleSpots(nextTroubleSpots);
 
         const parsedGoal = Number(rawDailyGoal);
         if (Number.isFinite(parsedGoal) && parsedGoal > 0) {
@@ -236,6 +242,125 @@ export function ProgressDashboardScreen() {
             maxValue={100}
             emptyLabel="No scored song sessions yet."
           />
+        </article>
+      </section>
+
+      <section className="dashboard-chart-grid dashboard-chart-grid--two-col">
+        <article className="panel chart-panel">
+          <BarChart
+            title="Theory Sessions (Last 30 Days)"
+            color="var(--color-ok)"
+            data={stats.theorySessionsByDay.map((entry) => ({
+              label: entry.date.slice(5),
+              value: entry.sessions,
+            }))}
+            emptyLabel="No theory sessions recorded yet."
+          />
+        </article>
+        <article className="panel hit-quality-panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Hit Quality (Last 30 Days)</p>
+              <h2>Note breakdown</h2>
+            </div>
+          </div>
+          {(() => {
+            const { perfect, good, ok, misses } = stats.hitQuality;
+            const total = perfect + good + ok + misses;
+            if (total === 0) {
+              return <p className="empty-state">No scored sessions yet.</p>;
+            }
+            const pct = (n: number) => Math.round((n / total) * 100);
+            return (
+              <>
+                <div className="hit-quality-bar">
+                  <div className="hit-quality-segment hit-quality-perfect" style={{ width: `${pct(perfect)}%` }} />
+                  <div className="hit-quality-segment hit-quality-good" style={{ width: `${pct(good)}%` }} />
+                  <div className="hit-quality-segment hit-quality-ok" style={{ width: `${pct(ok)}%` }} />
+                  <div className="hit-quality-segment hit-quality-miss" style={{ width: `${pct(misses)}%` }} />
+                </div>
+                <div className="hit-quality-legend">
+                  <div className="hit-quality-legend-item">
+                    <span className="hit-quality-dot hit-quality-perfect" />
+                    <span>Perfect</span>
+                    <strong>{pct(perfect)}%</strong>
+                  </div>
+                  <div className="hit-quality-legend-item">
+                    <span className="hit-quality-dot hit-quality-good" />
+                    <span>Good</span>
+                    <strong>{pct(good)}%</strong>
+                  </div>
+                  <div className="hit-quality-legend-item">
+                    <span className="hit-quality-dot hit-quality-ok" />
+                    <span>OK</span>
+                    <strong>{pct(ok)}%</strong>
+                  </div>
+                  <div className="hit-quality-legend-item">
+                    <span className="hit-quality-dot hit-quality-miss" />
+                    <span>Miss</span>
+                    <strong>{pct(misses)}%</strong>
+                  </div>
+                </div>
+                <p className="panel-copy">{total.toLocaleString()} notes judged</p>
+              </>
+            );
+          })()}
+        </article>
+      </section>
+
+      <section className="dashboard-meta-grid">
+        <article className="panel top-songs-panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Most Played</p>
+              <h2>Top songs</h2>
+            </div>
+          </div>
+          {topSongs.length === 0 ? (
+            <p className="empty-state">No songs played yet.</p>
+          ) : (
+            <ol className="top-songs-list">
+              {topSongs.map((song, index) => (
+                <li key={song.songId} className="top-songs-item">
+                  <span className="top-songs-rank">{index + 1}</span>
+                  <span className="top-songs-title">{song.title}</span>
+                  <span className="top-songs-plays">{song.playCount}×</span>
+                  <span className="top-songs-accuracy">{Math.round(song.bestAccuracy)}%</span>
+                </li>
+              ))}
+            </ol>
+          )}
+        </article>
+
+        <article className="panel trouble-spots-global-panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Needs Work</p>
+              <h2>Trouble spots</h2>
+            </div>
+          </div>
+          {troubleSpots.length === 0 ? (
+            <p className="empty-state">No unresolved trouble spots.</p>
+          ) : (
+            <ul className="trouble-spots-global-list">
+              {troubleSpots.map((spot) => (
+                <li key={spot.id} className="trouble-spots-global-item">
+                  <div className="trouble-spots-global-main">
+                    <strong className="trouble-spots-global-song">{spot.songTitle}</strong>
+                    <span className="trouble-spots-global-range">Measures {spot.measureStart}–{spot.measureEnd}</span>
+                  </div>
+                  <div className="trouble-spots-global-stats">
+                    {spot.latestAccuracy !== null && (
+                      <span className="trouble-spots-global-acc">{Math.round(spot.latestAccuracy)}%</span>
+                    )}
+                    {spot.struggleCount > 0 && (
+                      <span className="trouble-spots-global-struggles">×{spot.struggleCount}</span>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </article>
       </section>
 
