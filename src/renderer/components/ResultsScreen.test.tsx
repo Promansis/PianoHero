@@ -54,7 +54,6 @@ describe('ResultsScreen', () => {
           folderId: null,
           trackAssignments: {},
         }}
-        songFilePath=""
         sessionConfig={{
           mode: 'piano-hero',
           tempoMultiplier: 1,
@@ -117,7 +116,6 @@ describe('ResultsScreen', () => {
           folderId: null,
           trackAssignments: {},
         }}
-        songFilePath=""
         sessionConfig={{
           mode: 'piano-hero',
           tempoMultiplier: 1,

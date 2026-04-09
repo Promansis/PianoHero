@@ -8,6 +8,9 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "tsc --noEmit && electron-vite build",
+    "dev:web": "concurrently \"tsx watch src/server/index.ts\" \"vite --config vite.web.config.ts\"",
+    "build:web": "tsc --noEmit -p tsconfig.server.json && vite build --config vite.web.config.ts && esbuild src/server/index.ts --bundle --platform=node --outfile=dist/server/index.cjs --external:better-sqlite3",
+    "start:web": "node dist/server/index.cjs",
     "package:local": "npm run build && electron-builder --config packaging/electron-builder.yml --linux AppImage dir",
     "package:win": "npm run build && electron-builder --config packaging/electron-builder.yml --win portable",
     "preview": "electron-vite preview",
@@ -19,7 +22,9 @@
   },
   "dependencies": {
     "@tonejs/midi": "^2.0.28",
+    "@hono/node-server": "^1.13.8",
     "better-sqlite3": "^12.8.0",
+    "hono": "^4.6.14",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "tone": "^15.0.4"
@@ -33,11 +38,14 @@
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.2",
     "electron": "^30.5.1",
     "electron-builder": "^24.13.3",
     "electron-rebuild": "^3.2.9",
     "electron-vite": "^2.3.0",
+    "esbuild": "^0.25.3",
     "jsdom": "^25.0.1",
+    "tsx": "^4.19.4",
     "typescript": "^5.7.2",
     "vite": "^5.4.10",
     "vitest": "^2.1.5"

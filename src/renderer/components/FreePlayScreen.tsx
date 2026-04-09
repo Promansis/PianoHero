@@ -718,19 +718,25 @@ export function FreePlayScreen({
                 >
                   Play Recording
                 </button>
-                <button className="secondary-button" onClick={() => void loadBackingTrack()}>
-                  Load Track
-                </button>
-                <button className="primary-button" onClick={() => void exportRecording()} disabled={recordedNotes.length === 0}>
-                  Export MIDI
-                </button>
-                <button
-                  className="primary-button"
-                  onClick={() => void exportWav()}
-                  disabled={recordedNotes.length === 0 || isExportingWav}
-                >
-                  {isExportingWav ? 'Rendering...' : 'Export WAV'}
-                </button>
+                {!IS_WEB ? (
+                  <button className="secondary-button" onClick={() => void loadBackingTrack()}>
+                    Load Track
+                  </button>
+                ) : null}
+                {!IS_WEB ? (
+                  <button className="primary-button" onClick={() => void exportRecording()} disabled={recordedNotes.length === 0}>
+                    Export MIDI
+                  </button>
+                ) : null}
+                {!IS_WEB ? (
+                  <button
+                    className="primary-button"
+                    onClick={() => void exportWav()}
+                    disabled={recordedNotes.length === 0 || isExportingWav}
+                  >
+                    {isExportingWav ? 'Rendering...' : 'Export WAV'}
+                  </button>
+                ) : null}
               </div>
 
               <div className="free-play-overlay-grid">

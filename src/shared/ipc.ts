@@ -118,7 +118,7 @@ export interface AppBridge {
   exportLibrary: () => Promise<string | null>;
   importLibrary: () => Promise<LibraryImportResult | null>;
 
-  loadMidiFileData: (filePath: string) => Promise<Uint8Array>;
+  loadMidiFileData: (songId: string) => Promise<Uint8Array>;
   saveMidiFile: (suggestedName: string, data: Uint8Array) => Promise<string | null>;
   saveWavFile: (suggestedName: string, data: Uint8Array) => Promise<string | null>;
   pickAudioFile: () => Promise<{ path: string; name: string } | null>;

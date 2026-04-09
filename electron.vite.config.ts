@@ -24,6 +24,9 @@ export default defineConfig({
   },
   renderer: {
     plugins: [react()],
+    define: {
+      IS_WEB: 'false',
+    },
     build: {
       rollupOptions: {
         input: 'src/renderer/index.html',

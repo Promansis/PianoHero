@@ -10,7 +10,6 @@ import { PerformanceGraph } from './PerformanceGraph';
 interface ResultsScreenProps {
   result: GameResult;
   song: SongRow;
-  songFilePath: string;
   sessionConfig: SessionConfig;
   baselineStats: UserStatsRow | null;
   onAchievementsUnlocked?: (achievementIds: string[]) => void;
@@ -73,7 +72,6 @@ function buildFeedback(result: GameResult): string {
 export function ResultsScreen({
   result,
   song,
-  songFilePath,
   sessionConfig,
   baselineStats,
   onAchievementsUnlocked,
@@ -136,12 +134,12 @@ export function ResultsScreen({
 
   useEffect(() => {
     const loadAnalysis = async () => {
-      if (!window.appBridge || !songFilePath) {
+      if (!window.appBridge) {
         return;
       }
 
       try {
-        const bytes = await window.appBridge.loadMidiFileData(songFilePath);
+        const bytes = await window.appBridge.loadMidiFileData(song.id);
         const parsedSong = parseMidiFile(bytes.slice().buffer, {
           songId: song.id,
           title: song.title,
@@ -154,7 +152,7 @@ export function ResultsScreen({
     };
 
     void loadAnalysis();
-  }, [song.id, song.title, songFilePath]);
+  }, [song.id, song.title]);
 
   const comparison = useMemo(() => {
     if (!baselineStats) {

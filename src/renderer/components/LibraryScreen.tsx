@@ -1,3 +1,4 @@
+import type { ChangeEvent } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AudioEngine } from '../../lib/audio/audioEngine';
 import type { SessionMode } from '../../lib/game/types';
@@ -136,6 +137,7 @@ export function LibraryScreen({
   onStartPlaylistQueue,
   onStartTheoryPractice,
 }: LibraryScreenProps) {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [songs, setSongs] = useState<SongRow[]>([]);
   const [statsBySongId, setStatsBySongId] = useState<Record<string, UserStatsRow | null>>({});
   const [folders, setFolders] = useState<FolderRow[]>([]);
@@ -240,6 +242,11 @@ export function LibraryScreen({
   );
 
   const handleImport = async () => {
+    if (IS_WEB) {
+      fileInputRef.current?.click();
+      return;
+    }
+
     if (!window.appBridge) {
       return;
     }
@@ -247,6 +254,45 @@ export function LibraryScreen({
     setIsImporting(true);
     try {
       const imported = await window.appBridge.importMidiFiles();
+      if (imported.length === 0) {
+        setStatusMessage('Import canceled.');
+      } else {
+        setStatusMessage(`Imported ${imported.length} song${imported.length === 1 ? '' : 's'}. Review the metadata before playing.`);
+        await refreshLibrary();
+        setEditingSongId(imported[0].songId);
+      }
+    } catch (error) {
+      setStatusMessage(`Import failed: ${(error as Error).message}`);
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const handleFileInputChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    event.target.value = '';
+
+    if (!files || files.length === 0) {
+      return;
+    }
+
+    setIsImporting(true);
+    try {
+      const formData = new FormData();
+      for (const file of files) {
+        formData.append('files', file);
+      }
+
+      const response = await fetch('/api/midi/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({ error: `Upload failed with status ${response.status}` }));
+        throw new Error(typeof payload.error === 'string' ? payload.error : 'Upload failed.');
+      }
+
+      const imported = await response.json() as Array<{ songId: string }>;
       if (imported.length === 0) {
         setStatusMessage('Import canceled.');
       } else {
@@ -443,7 +489,7 @@ export function LibraryScreen({
     setPreviewSongId(song.id);
     try {
       await audioEngine.init();
-      const bytes = await window.appBridge.loadMidiFileData(song.filePath);
+      const bytes = await window.appBridge.loadMidiFileData(song.id);
       const parsed = parseMidiFile(bytes.slice().buffer, { songId: song.id, title: song.title });
       const PREVIEW_DURATION_SEC = 20;
       const allNotes = parsed.notes
@@ -683,19 +729,35 @@ export function LibraryScreen({
           <h1>Your Library</h1>
           <p className="song-title">{statusMessage}</p>
         </div>
+        {IS_WEB ? (
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".mid,.midi"
+            multiple
+            hidden
+            onChange={(event) => void handleFileInputChange(event)}
+          />
+        ) : null}
         <div className="transport-buttons">
-          <button className="secondary-button" onClick={() => void handleExportLibrary()}>
-            Export Library
-          </button>
-          <button className="secondary-button" onClick={() => void handleImportLibrary()}>
-            Import Library
-          </button>
+          {!IS_WEB ? (
+            <button className="secondary-button" onClick={() => void handleExportLibrary()}>
+              Export Library
+            </button>
+          ) : null}
+          {!IS_WEB ? (
+            <button className="secondary-button" onClick={() => void handleImportLibrary()}>
+              Import Library
+            </button>
+          ) : null}
           <button className="secondary-button" onClick={() => void refreshLibrary()} disabled={isLoading}>
             Refresh
           </button>
-          <button className="secondary-button" onClick={() => void handleImportFolder()} disabled={isImporting}>
-            {isImporting ? 'Importing...' : 'Import Folder'}
-          </button>
+          {!IS_WEB ? (
+            <button className="secondary-button" onClick={() => void handleImportFolder()} disabled={isImporting}>
+              {isImporting ? 'Importing...' : 'Import Folder'}
+            </button>
+          ) : null}
           <button className="primary-button" onClick={() => void handleImport()} disabled={isImporting}>
             {isImporting ? 'Importing...' : 'Upload MIDI'}
           </button>

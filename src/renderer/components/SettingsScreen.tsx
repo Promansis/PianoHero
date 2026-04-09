@@ -95,7 +95,7 @@ export function SettingsScreen({
       setValues(nextValues);
 
       const savedSamplePath = await window.appBridge.getSetting('audio', 'customSamplePackPath');
-      if (savedSamplePath) {
+      if (!IS_WEB && savedSamplePath) {
         setSamplePackPath(savedSamplePath);
         const files = await window.appBridge.listAudioFiles(savedSamplePath);
         setSamplePackFileCount(files.length);
@@ -311,7 +311,8 @@ export function SettingsScreen({
                     'Choose a built-in voice for practice and playback.'}
                 </strong>
               </article>
-              <article className="settings-note-card">
+              {!IS_WEB ? (
+                <article className="settings-note-card">
                 <span>Custom Sample Pack</span>
                 {samplePackPath ? (
                   <strong>{samplePackPath} ({samplePackFileCount} file{samplePackFileCount !== 1 ? 's' : ''})</strong>
@@ -328,8 +329,9 @@ export function SettingsScreen({
                     </button>
                   )}
                 </div>
-                <em>Expected naming: A0.mp3, C1.mp3, Ds1.mp3, Fs1.mp3, etc. (Salamander-style)</em>
-              </article>
+                  <em>Expected naming: A0.mp3, C1.mp3, Ds1.mp3, Fs1.mp3, etc. (Salamander-style)</em>
+                </article>
+              ) : null}
             </div>
           )}
 

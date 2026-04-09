@@ -70,7 +70,6 @@ type AppScreen =
       result: GameResult;
       baselineStats: UserStatsRow | null;
       playlistQueue: PlaylistQueue | null;
-      songFilePath: string;
     };
 
 interface PlaylistQueue {
@@ -339,7 +338,7 @@ export function App() {
       audioEngineRef.current.setReverbLevel(parseStoredAudioNumber(rawReverbLevel, 20));
       void audioEngineRef.current.setInstrument(initialInstrumentId);
 
-      if (rawCustomSamplePath) {
+      if (!IS_WEB && rawCustomSamplePath) {
         void (async () => {
           const files = await window.appBridge!.listAudioFiles(rawCustomSamplePath);
           const urls: Record<string, string> = {};
@@ -420,6 +419,9 @@ export function App() {
         return;
       }
       if (key === 'customSamplePackPath') {
+        if (IS_WEB) {
+          return;
+        }
         if (!value) {
           return;
         }
@@ -624,7 +626,6 @@ export function App() {
       result,
       baselineStats,
       playlistQueue,
-      songFilePath: song.filePath,
     });
   };
 
@@ -1047,7 +1048,6 @@ export function App() {
           result={currentScreen.result}
           sessionConfig={currentScreen.sessionConfig}
           song={currentScreen.song}
-          songFilePath={currentScreen.songFilePath}
           onAchievementsUnlocked={enqueueAchievementToasts}
           onMainMenu={() => setCurrentScreen({ screen: 'main-menu' })}
           onPracticeSections={(loopRange) => startSongSession(currentScreen.song, 'learning', loopRange)}

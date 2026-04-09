@@ -57,8 +57,6 @@ const EMPTY_SNAPSHOT: PlaybackSnapshot = {
   },
 };
 
-type FileWithPath = File & { path?: string };
-
 interface FinishedGamePayload {
   result: ReturnType<GameSession['getFinalResult']>;
   song: SongRow;
@@ -134,13 +132,13 @@ function loopEndForSong(song: ParsedSong | null, sessionConfig: SessionConfig): 
   return getLoopRangeSeconds(song, sessionConfig.loopRange).endSec;
 }
 
-function buildTempSong(filePath: string, title: string): SongRow {
+function buildTempSong(title: string): SongRow {
   return {
     id: `temp-${title}`,
     title,
     artist: '',
     genre: '',
-    filePath,
+    filePath: '',
     difficulty: 1,
     durationSec: 0,
     bpm: 120,
@@ -577,7 +575,7 @@ export function GameScreen({
           return;
         }
 
-        const bytes = await bridge.loadMidiFileData(initialSong.filePath);
+        const bytes = await bridge.loadMidiFileData(initialSong.id);
         await loadSongFromBytes(toArrayBuffer(bytes), initialSong, nextSessionConfig, fingerings);
       } catch (error) {
         setStatusMessage(`Unable to load song: ${(error as Error).message}`);
@@ -749,7 +747,7 @@ export function GameScreen({
     }
 
     const nextSongId = await createSongId(toArrayBuffer(picked.data));
-    const tempSong = buildTempSong(picked.path ?? '', picked.name.replace(/\.(mid|midi)$/i, ''));
+    const tempSong = buildTempSong(picked.name.replace(/\.(mid|midi)$/i, ''));
     tempSong.id = nextSongId;
     currentSongRef.current = tempSong;
     baselineStatsRef.current = null;
@@ -764,8 +762,7 @@ export function GameScreen({
 
     const bytes = await file.arrayBuffer();
     const nextSongId = await createSongId(bytes);
-    const withPath = file as FileWithPath;
-    const tempSong = buildTempSong(withPath.path ?? '', file.name.replace(/\.(mid|midi)$/i, ''));
+    const tempSong = buildTempSong(file.name.replace(/\.(mid|midi)$/i, ''));
     tempSong.id = nextSongId;
     currentSongRef.current = tempSong;
     baselineStatsRef.current = null;
@@ -1033,7 +1030,7 @@ export function GameScreen({
   const progress = snapshot.durationSec > 0 ? (snapshot.currentTimeSec - loopStart) / snapshot.durationSec : 0;
   const currentTimeLabel = formatTime(snapshot.currentTimeSec - loopStart);
   const durationLabel = formatTime(snapshot.durationSec);
-  const canImportMidi = source.kind === 'library-song';
+  const canImportMidi = source.kind === 'library-song' && !IS_WEB;
   const canPersistCurrentSong = source.kind === 'library-song' && !currentSongRef.current.id.startsWith('temp-');
 
   const sessionToolbar = (
