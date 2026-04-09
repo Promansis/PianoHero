@@ -208,12 +208,33 @@ export interface RecommendationResult {
 
 export interface ProgressStatsResult {
   practiceTimeByDay: Array<{ date: string; minutes: number }>;
+  theorySessionsByDay: Array<{ date: string; sessions: number }>;
   songsPlayedByWeek: Array<{ weekStart: string; count: number }>;
   accuracyTrend: Array<{ date: string; avgAccuracy: number }>;
+  hitQuality: { perfect: number; good: number; ok: number; misses: number };
   totalStats: {
     totalSongs: number;
     songsMastered: number;
     totalPracticeTimeSec: number;
     favoriteGenre: string;
   };
+}
+
+export interface TopSongStat {
+  songId: string;
+  title: string;
+  playCount: number;
+  bestAccuracy: number;
+  totalPracticeTimeSec: number;
+}
+
+export interface GlobalTroubleSpot {
+  id: string;
+  songId: string;
+  songTitle: string;
+  measureStart: number;
+  measureEnd: number;
+  struggleCount: number;
+  lowestAccuracy: number | null;
+  latestAccuracy: number | null;
 }

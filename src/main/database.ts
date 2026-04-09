@@ -12,6 +12,7 @@ import type {
   FingeringRow,
   FolderRow,
   GameResultRow,
+  GlobalTroubleSpot,
   LibraryBackup,
   LibraryImportResult,
   MeasureAccuracyHistoryRow,
@@ -27,6 +28,7 @@ import type {
   SongRow,
   TheoryResultRow,
   TheoryStatsRow,
+  TopSongStat,
   TroubleSpotRow,
   UserStatsRow,
 } from '../shared/dbTypes';
@@ -987,8 +989,21 @@ export class AppDatabase {
       `)
       .get() as DbRow;
 
+    const hitQualityRow = this.db
+      .prepare(`
+        SELECT
+          COALESCE(SUM(perfect_hits), 0) AS perfect,
+          COALESCE(SUM(good_hits), 0) AS good,
+          COALESCE(SUM(ok_hits), 0) AS ok,
+          COALESCE(SUM(misses), 0) AS misses
+        FROM game_results
+        WHERE substr(timestamp, 1, 10) BETWEEN ? AND ?
+      `)
+      .get(fromDate, toDate) as DbRow;
+
     return {
       practiceTimeByDay: buildPracticeDaySeries(fromDate, toDate, practiceDaysByDate),
+      theorySessionsByDay: buildTheorySessionSeries(fromDate, toDate, practiceDaysByDate),
       songsPlayedByWeek: songsPlayedByWeekRows.map((row) => ({
         weekStart: row.week_start as string,
         count: row.count as number,
@@ -997,6 +1012,12 @@ export class AppDatabase {
         date: row.date as string,
         avgAccuracy: Math.round(((row.avg_accuracy as number) ?? 0) * 10) / 10,
       })),
+      hitQuality: {
+        perfect: hitQualityRow.perfect as number,
+        good: hitQualityRow.good as number,
+        ok: hitQualityRow.ok as number,
+        misses: hitQualityRow.misses as number,
+      },
       totalStats: {
         totalSongs: totalStats.total_songs as number,
         songsMastered: totalStats.songs_mastered as number,
@@ -1004,6 +1025,80 @@ export class AppDatabase {
         favoriteGenre: (totalStats.favorite_genre as string) || 'Unspecified',
       },
     };
+  }
+
+  getProgressTopSongs(limit = 8): TopSongStat[] {
+    const rows = this.db
+      .prepare(`
+        SELECT us.song_id, s.title, us.play_count, us.best_accuracy, us.total_practice_time_sec
+        FROM user_stats us
+        INNER JOIN songs s ON s.id = us.song_id
+        WHERE us.play_count > 0
+        ORDER BY us.play_count DESC, us.best_accuracy DESC
+        LIMIT ?
+      `)
+      .all(limit) as DbRow[];
+
+    return rows.map((row) => ({
+      songId: row.song_id as string,
+      title: row.title as string,
+      playCount: row.play_count as number,
+      bestAccuracy: row.best_accuracy as number,
+      totalPracticeTimeSec: row.total_practice_time_sec as number,
+    }));
+  }
+
+  getAllUnresolvedTroubleSpots(limit = 8): GlobalTroubleSpot[] {
+    const rows = this.db
+      .prepare(`
+        SELECT
+          ts.id,
+          ts.song_id,
+          s.title AS song_title,
+          ts.measure_start,
+          ts.measure_end,
+          (
+            SELECT COUNT(*)
+            FROM measure_accuracy_history mah
+            INNER JOIN game_results gr ON gr.id = mah.game_result_id
+            WHERE gr.song_id = ts.song_id
+              AND mah.measure BETWEEN ts.measure_start AND ts.measure_end
+              AND mah.accuracy < 70
+          ) AS struggle_count,
+          (
+            SELECT MIN(mah.accuracy)
+            FROM measure_accuracy_history mah
+            INNER JOIN game_results gr ON gr.id = mah.game_result_id
+            WHERE gr.song_id = ts.song_id
+              AND mah.measure BETWEEN ts.measure_start AND ts.measure_end
+          ) AS lowest_accuracy,
+          (
+            SELECT mah.accuracy
+            FROM measure_accuracy_history mah
+            INNER JOIN game_results gr ON gr.id = mah.game_result_id
+            WHERE gr.song_id = ts.song_id
+              AND mah.measure BETWEEN ts.measure_start AND ts.measure_end
+            ORDER BY gr.timestamp DESC, mah.rowid DESC
+            LIMIT 1
+          ) AS latest_accuracy
+        FROM trouble_spots ts
+        INNER JOIN songs s ON s.id = ts.song_id
+        WHERE ts.is_resolved = 0
+        ORDER BY struggle_count DESC, ts.first_detected ASC
+        LIMIT ?
+      `)
+      .all(limit) as DbRow[];
+
+    return rows.map((row) => ({
+      id: row.id as string,
+      songId: row.song_id as string,
+      songTitle: row.song_title as string,
+      measureStart: row.measure_start as number,
+      measureEnd: row.measure_end as number,
+      struggleCount: (row.struggle_count as number | undefined) ?? 0,
+      lowestAccuracy: (row.lowest_accuracy as number | null | undefined) ?? null,
+      latestAccuracy: (row.latest_accuracy as number | null | undefined) ?? null,
+    }));
   }
 
   private recordPracticeDayEntry(durationSec: number, songsPlayed: number, theorySessions: number): void {
@@ -1672,6 +1767,25 @@ function buildPracticeDaySeries(
       date,
       minutes: Math.round((((row?.totalPracticeTimeSec ?? 0) / 60) * 10)) / 10,
     });
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return series;
+}
+
+function buildTheorySessionSeries(
+  fromDate: string,
+  toDate: string,
+  rowsByDate: Map<string, PracticeDayRow>,
+): Array<{ date: string; sessions: number }> {
+  const series: Array<{ date: string; sessions: number }> = [];
+  const cursor = new Date(`${fromDate}T00:00:00`);
+  const end = new Date(`${toDate}T00:00:00`);
+
+  while (cursor.getTime() <= end.getTime()) {
+    const date = formatLocalDate(cursor);
+    const row = rowsByDate.get(date);
+    series.push({ date, sessions: row?.theorySessions ?? 0 });
     cursor.setDate(cursor.getDate() + 1);
   }
 

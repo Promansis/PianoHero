@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AudioEngine } from '../../lib/audio/audioEngine';
 import { ComputerKeyboardInputService } from '../../lib/input/computerKeyboardInputService';
 import type { InputEvent, InputMode } from '../../lib/input/types';
 import { MidiInputService } from '../../lib/midi/midiInputService';
 import { PITCH_CLASS_NAMES } from '../../lib/theory/chords';
-import { buildScale, SCALE_DEFINITIONS, type ScaleDirection, validateScaleSequence } from '../../lib/theory/scales';
+import { buildScale, getScaleFingering, SCALE_DEFINITIONS, type ScaleDirection, validateScaleSequence } from '../../lib/theory/scales';
 import { PianoKeyboard } from './PianoKeyboard';
 
 interface ScalePracticeScreenProps {
@@ -40,7 +40,10 @@ export function ScalePracticeScreen({
   const [activeNotes, setActiveNotes] = useState<number[]>([]);
   const [statusMessage, setStatusMessage] = useState('Choose a scale, start the drill, then play the notes in order.');
   const [lastResult, setLastResult] = useState<{ correct: boolean; expected: number } | null>(null);
+  const [isListening, setIsListening] = useState(false);
+  const [listenIndex, setListenIndex] = useState<number | null>(null);
   const savedSessionRef = useRef(false);
+  const listenTimeoutsRef = useRef<number[]>([]);
 
   const selectedScale = useMemo(
     () => SCALE_DEFINITIONS.find((definition) => definition.name === selectedScaleName) ?? SCALE_DEFINITIONS[0],
@@ -59,6 +62,51 @@ export function ScalePracticeScreen({
         : [...currentScale.midiNotes, ...currentScale.midiNotes.slice(0, -1).reverse()];
     return validationSeed;
   }, [currentScale, direction]);
+
+  const fingering = useMemo(
+    () => getScaleFingering(selectedRoot, selectedScale.name, octaves, direction),
+    [selectedRoot, selectedScale.name, octaves, direction],
+  );
+
+  // Pairs each note in the sequence with its name and fingers.
+  const sequenceNotes = useMemo(
+    () => sequence.map((midi, i) => ({
+      midi,
+      name: PITCH_CLASS_NAMES[midi % 12],
+      rh: fingering.rh[i] ?? 0,
+      lh: fingering.lh[i] ?? 0,
+    })),
+    [sequence, fingering],
+  );
+
+  const stopListen = useCallback(() => {
+    for (const id of listenTimeoutsRef.current) window.clearTimeout(id);
+    listenTimeoutsRef.current = [];
+    setIsListening(false);
+    setListenIndex(null);
+  }, []);
+
+  const handleListen = useCallback(async () => {
+    if (isListening) { stopListen(); return; }
+    await audioEngine.init();
+    setIsActive(false);
+    setIsListening(true);
+    const stepMs = (60 / Math.max(40, tempo)) * 1000;
+    const holdMs = stepMs * 0.8;
+    const ids: number[] = [];
+    sequence.forEach((midi, i) => {
+      ids.push(window.setTimeout(() => {
+        setListenIndex(i);
+        void audioEngine.noteOn(midi, 0.8);
+      }, i * stepMs));
+      ids.push(window.setTimeout(() => audioEngine.noteOff(midi), i * stepMs + holdMs));
+    });
+    ids.push(window.setTimeout(() => { setIsListening(false); setListenIndex(null); }, sequence.length * stepMs));
+    listenTimeoutsRef.current = ids;
+  }, [audioEngine, isListening, sequence, stopListen, tempo]);
+
+  // Stop listen when sequence/tempo change.
+  useEffect(() => { stopListen(); }, [sequence, stopListen]);
 
   useEffect(() => {
     const shouldHandleEvent = (event: InputEvent): boolean => {
@@ -196,6 +244,22 @@ export function ScalePracticeScreen({
 
   const progress = `${playedNotes.length} / ${sequence.length}`;
 
+  // Derive the "active" index: current listen note, next drill note, or 0 when idle.
+  const nextExpectedIndex = isActive ? playedNotes.length : null;
+  const highlightIndex = isListening ? listenIndex : nextExpectedIndex;
+
+  const upcomingNotes = useMemo(() => {
+    return sequenceNotes.map((note, i) => {
+      let priority: 'next' | 'soon' | 'other';
+      if (highlightIndex === null) {
+        priority = i === 0 ? 'next' : i === 1 ? 'soon' : 'other';
+      } else {
+        priority = i === highlightIndex ? 'next' : i === highlightIndex + 1 ? 'soon' : 'other';
+      }
+      return { midi: note.midi, hand: 'right' as const, finger: note.rh, priority };
+    });
+  }, [highlightIndex, sequenceNotes]);
+
   return (
     <main className="app-shell theory-practice-screen" onPointerDownCapture={() => void audioEngine.init()}>
       <section className="panel theory-screen-hero">
@@ -208,6 +272,7 @@ export function ScalePracticeScreen({
           <button
             className="primary-button"
             onClick={() => {
+              stopListen();
               savedSessionRef.current = false;
               setPlayedNotes([]);
               setLastResult(null);
@@ -216,6 +281,9 @@ export function ScalePracticeScreen({
             }}
           >
             Start Drill
+          </button>
+          <button className="secondary-button" onClick={() => void handleListen()}>
+            {isListening ? 'Stop' : 'Listen'}
           </button>
         </div>
       </section>
@@ -284,9 +352,33 @@ export function ScalePracticeScreen({
         </div>
       </section>
 
+      <section className="panel scale-fingering-panel">
+        <p className="eyebrow">Fingering Guide</p>
+        <div className="scale-fingering-rows">
+          <div className="scale-fingering-row">
+            <span className="fingering-hand-label">RH</span>
+            {sequenceNotes.map((note, i) => (
+              <div key={i} className={`fingering-cell${highlightIndex === i ? ' fingering-cell--active' : ''}`}>
+                <span className="fingering-finger">{note.rh}</span>
+                <span className="fingering-note">{note.name}</span>
+              </div>
+            ))}
+          </div>
+          <div className="scale-fingering-row">
+            <span className="fingering-hand-label">LH</span>
+            {sequenceNotes.map((note, i) => (
+              <div key={i} className={`fingering-cell${highlightIndex === i ? ' fingering-cell--active' : ''}`}>
+                <span className="fingering-finger">{note.lh}</span>
+                <span className="fingering-note">{note.name}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       <PianoKeyboard
         activeNotes={activeNotes}
-        upcomingNotes={[]}
+        upcomingNotes={upcomingNotes}
         highlightedNotes={currentScale.midiNotes}
         highlightColor="scale"
       />

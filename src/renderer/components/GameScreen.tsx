@@ -357,6 +357,7 @@ export function GameScreen({
   const songEndedRef = useRef(false);
   const currentSongRef = useRef(initialSong);
   const baselineStatsRef = useRef<UserStatsRow | null>(null);
+  const countdownCancelRef = useRef(false);
 
   const [sourceSong, setSourceSong] = useState<ParsedSong | null>(null);
   const [sessionSong, setSessionSong] = useState<ParsedSong | null>(null);
@@ -372,6 +373,7 @@ export function GameScreen({
   const [chordLabel, setChordLabel] = useState<string | null>(null);
   const [detectedKey, setDetectedKey] = useState<DetectedKey | null>(null);
   const [overlayVisible, setOverlayVisible] = useState(false);
+  const [countdownValue, setCountdownValue] = useState<number | null>(null);
   const [isEditingFingering, setIsEditingFingering] = useState(false);
   const [selectedFingeringNoteId, setSelectedFingeringNoteId] = useState<string | null>(null);
   const [fingeringEditorState, setFingeringEditorState] = useState<{
@@ -649,6 +651,7 @@ export function GameScreen({
     };
   }, []);
 
+
   const ensureAudioReady = async () => {
     try {
       await audioEngine.init();
@@ -770,6 +773,34 @@ export function GameScreen({
     await loadSongFromBytes(bytes, tempSong, sessionConfig, []);
   };
 
+  const runCountdown = async (song: ParsedSong) => {
+    countdownCancelRef.current = false;
+    await ensureAudioReady();
+
+    for (const count of [3, 2, 1] as const) {
+      if (countdownCancelRef.current) { setCountdownValue(null); return; }
+      setCountdownValue(count);
+      void audioEngine.playMetronomeClick(count === 1);
+      await new Promise<void>((resolve) => setTimeout(resolve, 1000));
+    }
+
+    if (countdownCancelRef.current) { setCountdownValue(null); return; }
+    setCountdownValue(null);
+
+    const game = gameSessionRef.current;
+    if (!game) return;
+    const now = performance.now();
+    if (shouldAutoplayMode(sessionConfig.mode)) {
+      await playSessionAudio(song, 0, sessionConfig);
+    }
+    game.play(now);
+    setStatusMessage(
+      sessionConfig.mode === 'learning'
+        ? 'Learning mode active. Progress pauses until the correct note is played.'
+        : 'Playback running. Play along at the hit line.',
+    );
+  };
+
   const handlePlayPause = async () => {
     const currentSessionSong = sessionSong;
     const game = gameSessionRef.current;
@@ -779,9 +810,22 @@ export function GameScreen({
 
     const now = performance.now();
     if (game.isTransportPlaying()) {
+      countdownCancelRef.current = true;
+      setCountdownValue(null);
       game.pause(now);
       audioEngine.pauseSong();
       setStatusMessage('Playback paused.');
+      return;
+    }
+
+    if (countdownValue !== null) {
+      countdownCancelRef.current = true;
+      setCountdownValue(null);
+      return;
+    }
+
+    if (game.getCurrentTimeSec(now) < 0.05) {
+      void runCountdown(currentSessionSong);
       return;
     }
 
@@ -804,6 +848,8 @@ export function GameScreen({
       return;
     }
 
+    countdownCancelRef.current = true;
+    setCountdownValue(null);
     songEndedRef.current = false;
     prevPlayingRef.current = false;
     const now = performance.now();
@@ -916,6 +962,21 @@ export function GameScreen({
       window.removeEventListener('pianohero-shortcut', handleShortcut);
     };
   }, [handlePlayPause]);
+
+  useEffect(() => {
+    const handleSpacePlay = (event: KeyboardEvent) => {
+      if (event.code !== 'Space') return;
+      if (overlayVisible) return;
+      const tag = (event.target as HTMLElement).tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      event.preventDefault();
+      void handlePlayPause();
+    };
+    window.addEventListener('keydown', handleSpacePlay, true);
+    return () => {
+      window.removeEventListener('keydown', handleSpacePlay, true);
+    };
+  }, [handlePlayPause, overlayVisible]);
 
   const handleSelectFingeringNote = (
     note: PlaybackSnapshot['visibleNotes'][number],
@@ -1099,6 +1160,11 @@ export function GameScreen({
       {/* Main canvas area — fills all available space */}
       <div className="immersive-canvas-area">
         {fallingNotesCanvas}
+        {countdownValue !== null && (
+          <div className="countdown-overlay" aria-live="assertive">
+            <span className="countdown-number" key={countdownValue}>{countdownValue}</span>
+          </div>
+        )}
       </div>
 
       {/* Piano keyboard anchored at the bottom */}

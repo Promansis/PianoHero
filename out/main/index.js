@@ -1063,8 +1063,18 @@ class AppDatabase {
             LIMIT 1
           ) AS favorite_genre
       `).get();
+    const hitQualityRow = this.db.prepare(`
+        SELECT
+          COALESCE(SUM(perfect_hits), 0) AS perfect,
+          COALESCE(SUM(good_hits), 0) AS good,
+          COALESCE(SUM(ok_hits), 0) AS ok,
+          COALESCE(SUM(misses), 0) AS misses
+        FROM game_results
+        WHERE substr(timestamp, 1, 10) BETWEEN ? AND ?
+      `).get(fromDate, toDate);
     return {
       practiceTimeByDay: buildPracticeDaySeries(fromDate, toDate, practiceDaysByDate),
+      theorySessionsByDay: buildTheorySessionSeries(fromDate, toDate, practiceDaysByDate),
       songsPlayedByWeek: songsPlayedByWeekRows.map((row) => ({
         weekStart: row.week_start,
         count: row.count
@@ -1073,6 +1083,12 @@ class AppDatabase {
         date: row.date,
         avgAccuracy: Math.round((row.avg_accuracy ?? 0) * 10) / 10
       })),
+      hitQuality: {
+        perfect: hitQualityRow.perfect,
+        good: hitQualityRow.good,
+        ok: hitQualityRow.ok,
+        misses: hitQualityRow.misses
+      },
       totalStats: {
         totalSongs: totalStats.total_songs,
         songsMastered: totalStats.songs_mastered,
@@ -1080,6 +1096,72 @@ class AppDatabase {
         favoriteGenre: totalStats.favorite_genre || "Unspecified"
       }
     };
+  }
+  getProgressTopSongs(limit = 8) {
+    const rows = this.db.prepare(`
+        SELECT us.song_id, s.title, us.play_count, us.best_accuracy, us.total_practice_time_sec
+        FROM user_stats us
+        INNER JOIN songs s ON s.id = us.song_id
+        WHERE us.play_count > 0
+        ORDER BY us.play_count DESC, us.best_accuracy DESC
+        LIMIT ?
+      `).all(limit);
+    return rows.map((row) => ({
+      songId: row.song_id,
+      title: row.title,
+      playCount: row.play_count,
+      bestAccuracy: row.best_accuracy,
+      totalPracticeTimeSec: row.total_practice_time_sec
+    }));
+  }
+  getAllUnresolvedTroubleSpots(limit = 8) {
+    const rows = this.db.prepare(`
+        SELECT
+          ts.id,
+          ts.song_id,
+          s.title AS song_title,
+          ts.measure_start,
+          ts.measure_end,
+          (
+            SELECT COUNT(*)
+            FROM measure_accuracy_history mah
+            INNER JOIN game_results gr ON gr.id = mah.game_result_id
+            WHERE gr.song_id = ts.song_id
+              AND mah.measure BETWEEN ts.measure_start AND ts.measure_end
+              AND mah.accuracy < 70
+          ) AS struggle_count,
+          (
+            SELECT MIN(mah.accuracy)
+            FROM measure_accuracy_history mah
+            INNER JOIN game_results gr ON gr.id = mah.game_result_id
+            WHERE gr.song_id = ts.song_id
+              AND mah.measure BETWEEN ts.measure_start AND ts.measure_end
+          ) AS lowest_accuracy,
+          (
+            SELECT mah.accuracy
+            FROM measure_accuracy_history mah
+            INNER JOIN game_results gr ON gr.id = mah.game_result_id
+            WHERE gr.song_id = ts.song_id
+              AND mah.measure BETWEEN ts.measure_start AND ts.measure_end
+            ORDER BY gr.timestamp DESC, mah.rowid DESC
+            LIMIT 1
+          ) AS latest_accuracy
+        FROM trouble_spots ts
+        INNER JOIN songs s ON s.id = ts.song_id
+        WHERE ts.is_resolved = 0
+        ORDER BY struggle_count DESC, ts.first_detected ASC
+        LIMIT ?
+      `).all(limit);
+    return rows.map((row) => ({
+      id: row.id,
+      songId: row.song_id,
+      songTitle: row.song_title,
+      measureStart: row.measure_start,
+      measureEnd: row.measure_end,
+      struggleCount: row.struggle_count ?? 0,
+      lowestAccuracy: row.lowest_accuracy ?? null,
+      latestAccuracy: row.latest_accuracy ?? null
+    }));
   }
   recordPracticeDayEntry(durationSec, songsPlayed, theorySessions) {
     const practiceDate = formatLocalDate(/* @__PURE__ */ new Date());
@@ -1624,6 +1706,18 @@ function buildPracticeDaySeries(fromDate, toDate, rowsByDate) {
   }
   return series;
 }
+function buildTheorySessionSeries(fromDate, toDate, rowsByDate) {
+  const series = [];
+  const cursor = /* @__PURE__ */ new Date(`${fromDate}T00:00:00`);
+  const end = /* @__PURE__ */ new Date(`${toDate}T00:00:00`);
+  while (cursor.getTime() <= end.getTime()) {
+    const date = formatLocalDate(cursor);
+    const row = rowsByDate.get(date);
+    series.push({ date, sessions: row?.theorySessions ?? 0 });
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return series;
+}
 let mainWindow = null;
 let db;
 async function createSongId(buffer) {
@@ -1838,6 +1932,8 @@ app.whenReady().then(async () => {
     "progress:get-stats",
     (_event, fromDate, toDate) => db.getProgressStats(fromDate, toDate)
   );
+  ipcMain.handle("progress:get-top-songs", () => db.getProgressTopSongs());
+  ipcMain.handle("trouble-spots:get-all-unresolved", () => db.getAllUnresolvedTroubleSpots());
   ipcMain.handle("fingerings:get", (_event, songId) => db.getCustomFingerings(songId));
   ipcMain.handle(
     "fingerings:save",
