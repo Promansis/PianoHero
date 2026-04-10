@@ -1,0 +1,14 @@
+services:
+  pianohero:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pianohero
+    restart: unless-stopped
+    environment:
+      PORT: 3001
+      PIANOHERO_DATA_DIR: /data
+    volumes:
+      - /media/storage/pianohero:/data
+    ports:
+      - "3001:3001"
