@@ -1,16 +1,26 @@
-import * as Tone from 'tone';
+import type * as Tone from 'tone';
 import { buildScheduledNotes } from '../game/songUtils';
 import type { ParsedSong } from '../game/types';
 import {
   DEFAULT_INSTRUMENT_ID,
+  DEFAULT_WEB_INSTRUMENT_ID,
   getInstrumentDefinition,
   type InstrumentDefinition,
   type InstrumentVoice,
 } from './instrumentCatalog';
 import { audioBufferToWav } from './wavEncoder';
 
-function midiToName(midi: number): string {
-  return Tone.Frequency(midi, 'midi').toNote();
+type ToneModule = typeof import('tone');
+
+let toneModulePromise: Promise<ToneModule> | null = null;
+
+async function loadTone(): Promise<ToneModule> {
+  toneModulePromise ??= import('tone');
+  return toneModulePromise;
+}
+
+function midiToName(tone: ToneModule, midi: number): string {
+  return tone.Frequency(midi, 'midi').toNote();
 }
 
 function clampPercent(value: number): number {
@@ -21,27 +31,27 @@ function clampPercent(value: number): number {
   return Math.max(0, Math.min(100, value));
 }
 
-function percentToDb(value: number): number {
+function percentToDb(tone: ToneModule | null, value: number): number {
   const gain = clampPercent(value) / 100;
   if (gain <= 0) {
     return -60;
   }
 
-  return Tone.gainToDb(gain);
+  return tone ? tone.gainToDb(gain) : 20 * Math.log10(gain);
 }
 
-function resolveVoiceConstructor(voice: InstrumentVoice): any {
+function resolveVoiceConstructor(tone: ToneModule, voice: InstrumentVoice): any {
   switch (voice) {
     case 'am':
-      return Tone.AMSynth;
+      return tone.AMSynth;
     case 'fm':
-      return Tone.FMSynth;
+      return tone.FMSynth;
     case 'mono':
-      return Tone.MonoSynth;
+      return tone.MonoSynth;
     case 'sampler':
     case 'synth':
     default:
-      return Tone.Synth;
+      return tone.Synth;
   }
 }
 
@@ -71,6 +81,7 @@ interface RecordedNoteForExport {
 }
 
 export class AudioEngine {
+  private tone: ToneModule | null = null;
   private sampler: Tone.Sampler | null = null;
   private synth: Tone.PolySynth | null = null;
   private metronomeSynth: Tone.Synth | null = null;
@@ -91,23 +102,56 @@ export class AudioEngine {
   private metronomeVolumePercent = 65;
   private reverbPercent = 20;
 
+  private async ensureTone(): Promise<ToneModule> {
+    if (this.tone) {
+      return this.tone;
+    }
+
+    this.tone = await loadTone();
+    return this.tone;
+  }
+
+  async preload(): Promise<void> {
+    await this.ensureTone();
+  }
+
+  async unlock(): Promise<void> {
+    const tone = await this.ensureTone();
+
+    // Start Tone.js - this creates the AudioContext if needed
+    await tone.start();
+
+    // Ensure context is running
+    const context = tone.getContext();
+    console.log('[AudioEngine] AudioContext state:', context.rawContext.state);
+    if (context.rawContext.state === 'suspended') {
+      await context.rawContext.resume();
+      console.log('[AudioEngine] AudioContext resumed, new state:', context.rawContext.state);
+    }
+    console.log('[AudioEngine] Audio unlocked successfully');
+  }
+
   async init(): Promise<void> {
     if (this.initialized) {
+      await this.unlock();
       return;
     }
 
-    await Tone.start();
-    Tone.getContext().lookAhead = 0.01;
-    this.masterVolumeNode = new Tone.Volume(percentToDb(this.masterVolumePercent)).toDestination();
-    this.instrumentOutputNode = new Tone.Volume(0).connect(this.masterVolumeNode);
-    this.instrumentReverbNode = new Tone.FeedbackDelay({
+    await this.unlock();
+    const tone = this.tone!;
+    tone.getContext().lookAhead = 0.01;
+    console.log('[AudioEngine] Initializing audio nodes...');
+    this.masterVolumeNode = new tone.Volume(percentToDb(tone, this.masterVolumePercent)).toDestination();
+    this.instrumentOutputNode = new tone.Volume(0).connect(this.masterVolumeNode);
+    this.instrumentReverbNode = new tone.FeedbackDelay({
       delayTime: 0.18,
       feedback: 0.22,
       wet: this.reverbPercent / 100,
     }).connect(this.masterVolumeNode);
-    this.metronomeVolumeNode = new Tone.Volume(percentToDb(this.metronomeVolumePercent)).connect(this.masterVolumeNode);
+    this.metronomeVolumeNode = new tone.Volume(percentToDb(tone, this.metronomeVolumePercent)).connect(this.masterVolumeNode);
+    console.log('[AudioEngine] Loading instrument...');
     await this.loadInstrument(getInstrumentDefinition(this.instrumentId));
-    this.metronomeSynth = new Tone.Synth({
+    this.metronomeSynth = new tone.Synth({
       oscillator: { type: 'square' },
       envelope: {
         attack: 0.001,
@@ -117,22 +161,29 @@ export class AudioEngine {
       },
     }).connect(this.metronomeVolumeNode);
     this.initialized = true;
+    console.log('[AudioEngine] Initialization complete');
   }
 
   async noteOn(note: number, velocity = 0.8): Promise<void> {
     await this.init();
-    const noteName = midiToName(note);
+    const tone = this.tone!;
+    const noteName = midiToName(tone, note);
+    console.log('[AudioEngine] noteOn:', noteName, 'velocity:', velocity, 'sampler:', !!this.sampler, 'synth:', !!this.synth);
     this.heldNotes.add(noteName);
     this.sustainedNotes.delete(noteName);
     if (this.sampler) {
-      this.sampler.triggerAttack(noteName, Tone.now(), velocity);
+      this.sampler.triggerAttack(noteName, tone.now(), velocity);
       return;
     }
-    this.synth?.triggerAttack(noteName, Tone.now(), velocity);
+    this.synth?.triggerAttack(noteName, tone.now(), velocity);
   }
 
   noteOff(note: number): void {
-    const noteName = midiToName(note);
+    if (!this.tone) {
+      return;
+    }
+
+    const noteName = midiToName(this.tone, note);
     this.heldNotes.delete(noteName);
     if (this.sustainDown) {
       this.sustainedNotes.add(noteName);
@@ -161,14 +212,15 @@ export class AudioEngine {
     loopEndSec?: number,
   ): Promise<void> {
     await this.init();
+    const tone = this.tone!;
 
     this.pauseSong();
-    Tone.Transport.cancel(0);
-    Tone.Transport.position = 0;
-    Tone.Transport.loop = false;
-    Tone.Transport.loopStart = 0;
-    Tone.Transport.loopEnd = 0;
-    Tone.Transport.bpm.value = song.bpm * tempoMultiplier;
+    tone.Transport.cancel(0);
+    tone.Transport.position = 0;
+    tone.Transport.loop = false;
+    tone.Transport.loopStart = 0;
+    tone.Transport.loopEnd = 0;
+    tone.Transport.bpm.value = song.bpm * tempoMultiplier;
 
     const clampedLoopEndSec =
       typeof loopEndSec === 'number' ? Math.max(startSec, Math.min(loopEndSec, song.durationSec)) : undefined;
@@ -188,8 +240,8 @@ export class AudioEngine {
           ? Math.min(note.durationSec, Math.max(0, clampedLoopEndSec - note.startSec))
           : note.durationSec;
       const duration = Math.max(0.05, unclampedDurationSec * releaseScale);
-      Tone.Transport.schedule((time) => {
-        const noteName = midiToName(note.midi);
+      tone.Transport.schedule((time: number) => {
+        const noteName = midiToName(tone, note.midi);
         if (this.sampler) {
           this.sampler.triggerAttackRelease(noteName, duration, time, note.velocity);
           return;
@@ -199,24 +251,37 @@ export class AudioEngine {
     }
 
     if (typeof clampedLoopEndSec === 'number' && clampedLoopEndSec > startSec) {
-      Tone.Transport.loopStart = 0;
-      Tone.Transport.loopEnd = (clampedLoopEndSec - startSec) / Math.max(tempoMultiplier, 0.01);
-      Tone.Transport.loop = true;
+      tone.Transport.loopStart = 0;
+      tone.Transport.loopEnd = (clampedLoopEndSec - startSec) / Math.max(tempoMultiplier, 0.01);
+      tone.Transport.loop = true;
     }
 
-    Tone.Transport.start('+0.02');
+    tone.Transport.start('+0.02');
   }
 
   pauseSong(): void {
-    Tone.Transport.stop();
-    Tone.Transport.loop = false;
-    Tone.Transport.loopStart = 0;
-    Tone.Transport.loopEnd = 0;
-    Tone.Transport.cancel(0);
+    if (!this.initialized) {
+      return;
+    }
+
+    const tone = this.tone;
+    if (!tone) {
+      return;
+    }
+
+    tone.Transport.stop();
+    tone.Transport.loop = false;
+    tone.Transport.loopStart = 0;
+    tone.Transport.loopEnd = 0;
+    tone.Transport.cancel(0);
     this.allNotesOff();
   }
 
   seek(): void {
+    if (!this.initialized) {
+      return;
+    }
+
     this.pauseSong();
   }
 
@@ -237,8 +302,9 @@ export class AudioEngine {
 
   async playMetronomeClick(accent = false): Promise<void> {
     await this.init();
+    const tone = this.tone!;
     const note = accent ? 'C6' : 'C5';
-    this.metronomeSynth?.triggerAttackRelease(note, 0.05, Tone.now(), accent ? 0.9 : 0.55);
+    this.metronomeSynth?.triggerAttackRelease(note, 0.05, tone.now(), accent ? 0.9 : 0.55);
   }
 
   allNotesOff(): void {
@@ -261,14 +327,14 @@ export class AudioEngine {
   setMasterVolume(value: number): void {
     this.masterVolumePercent = clampPercent(value);
     if (this.masterVolumeNode) {
-      this.masterVolumeNode.volume.value = percentToDb(this.masterVolumePercent);
+      this.masterVolumeNode.volume.value = percentToDb(this.tone, this.masterVolumePercent);
     }
   }
 
   setMetronomeVolume(value: number): void {
     this.metronomeVolumePercent = clampPercent(value);
     if (this.metronomeVolumeNode) {
-      this.metronomeVolumeNode.volume.value = percentToDb(this.metronomeVolumePercent);
+      this.metronomeVolumeNode.volume.value = percentToDb(this.tone, this.metronomeVolumePercent);
     }
   }
 
@@ -326,13 +392,14 @@ export class AudioEngine {
 
   async loadBackingTrack(src: string): Promise<void> {
     await this.init();
+    const tone = this.tone!;
     this.backingTrackPlayer?.dispose();
     this.backingTrackPlayer = null;
     if (!this.backingTrackVolumeNode) {
-      this.backingTrackVolumeNode = new Tone.Volume(0).connect(this.masterVolumeNode!);
+      this.backingTrackVolumeNode = new tone.Volume(0).connect(this.masterVolumeNode!);
     }
-    this.backingTrackPlayer = new Tone.Player(src).connect(this.backingTrackVolumeNode);
-    await Tone.loaded();
+    this.backingTrackPlayer = new tone.Player(src).connect(this.backingTrackVolumeNode);
+    await tone.loaded();
   }
 
   playBackingTrack(): void {
@@ -351,7 +418,7 @@ export class AudioEngine {
 
   setBackingTrackVolume(value: number): void {
     if (this.backingTrackVolumeNode) {
-      this.backingTrackVolumeNode.volume.value = percentToDb(clampPercent(value));
+      this.backingTrackVolumeNode.volume.value = percentToDb(this.tone, clampPercent(value));
     }
   }
 
@@ -366,54 +433,56 @@ export class AudioEngine {
       return;
     }
 
+    const tone = this.tone!;
     this.allNotesOff();
     this.sampler?.dispose();
     this.sampler = null;
     this.synth?.dispose();
     this.synth = null;
-    this.sampler = new Tone.Sampler({
+    this.sampler = new tone.Sampler({
       urls,
       baseUrl,
     }).connect(this.instrumentOutputNode!);
     if (this.instrumentReverbNode) {
       this.sampler.connect(this.instrumentReverbNode);
     }
-    await Tone.loaded();
+    await tone.loaded();
   }
 
   async renderRecordingToWav(notes: RecordedNoteForExport[], durationSec: number): Promise<Uint8Array> {
+    const tone = await this.ensureTone();
     const renderDuration = durationSec + 3;
     const definition = getInstrumentDefinition(this.instrumentId);
     const customUrls = this.customSamplerUrls;
     const customBaseUrl = this.customSamplerBaseUrl;
 
-    const toneBuffer = await Tone.Offline(async () => {
+    const toneBuffer = await tone.Offline(async () => {
       let instrument: Tone.Sampler | Tone.PolySynth;
 
       if (customUrls && customBaseUrl) {
-        instrument = new Tone.Sampler({ urls: customUrls, baseUrl: customBaseUrl }).toDestination();
-        await Tone.loaded();
+        instrument = new tone.Sampler({ urls: customUrls, baseUrl: customBaseUrl }).toDestination();
+        await tone.loaded();
       } else if (definition.voice === 'sampler' && definition.sampleUrls && definition.sampleBaseUrl) {
         const samplerOpts = definition.options as { release?: number };
-        instrument = new Tone.Sampler({
+        instrument = new tone.Sampler({
           urls: definition.sampleUrls,
           baseUrl: definition.sampleBaseUrl,
           release: samplerOpts.release,
         }).toDestination();
-        await Tone.loaded();
+        await tone.loaded();
       } else {
         const fallback = createSamplerFallbackDefinition(definition);
-        instrument = new Tone.PolySynth(
-          resolveVoiceConstructor(fallback.voice),
+        instrument = new tone.PolySynth(
+          resolveVoiceConstructor(tone, fallback.voice),
           fallback.options as never,
         ).toDestination();
       }
 
       for (const note of notes) {
-        Tone.Transport.schedule((time) => {
-          const noteName = midiToName(note.midi);
+        tone.Transport.schedule((time: number) => {
+          const noteName = midiToName(tone, note.midi);
           const duration = Math.max(0.05, note.durationSec);
-          if (instrument instanceof Tone.Sampler) {
+          if (instrument instanceof tone.Sampler) {
             instrument.triggerAttackRelease(noteName, duration, time, note.velocity);
           } else {
             (instrument as Tone.PolySynth).triggerAttackRelease(noteName, duration, time, note.velocity);
@@ -421,7 +490,7 @@ export class AudioEngine {
         }, note.startTimeSec);
       }
 
-      Tone.Transport.start();
+      tone.Transport.start();
     }, renderDuration);
 
     const audioBuffer = toneBuffer.get();
@@ -433,12 +502,16 @@ export class AudioEngine {
   }
 
   private releaseNote(noteName: string): void {
-    this.sustainedNotes.delete(noteName);
-    if (this.sampler) {
-      this.sampler.triggerRelease(noteName, Tone.now());
+    if (!this.tone) {
       return;
     }
-    this.synth?.triggerRelease(noteName, Tone.now());
+
+    this.sustainedNotes.delete(noteName);
+    if (this.sampler) {
+      this.sampler.triggerRelease(noteName, this.tone.now());
+      return;
+    }
+    this.synth?.triggerRelease(noteName, this.tone.now());
   }
 
   private async rebuildInstrument(definition: InstrumentDefinition): Promise<void> {
@@ -451,28 +524,42 @@ export class AudioEngine {
   }
 
   private async loadInstrument(definition: InstrumentDefinition): Promise<void> {
+    const tone = this.tone!;
+
+    console.log('[AudioEngine] loadInstrument - voice:', definition.voice);
+
     if (definition.voice === 'sampler' && definition.sampleUrls && definition.sampleBaseUrl) {
       try {
+        console.log('[AudioEngine] Loading sampler from:', definition.sampleBaseUrl);
+        console.log('[AudioEngine] Sample URLs:', definition.sampleUrls);
         const samplerOptions = definition.options as { release?: number };
-        this.sampler = new Tone.Sampler({
+        this.sampler = new tone.Sampler({
           urls: definition.sampleUrls,
           baseUrl: definition.sampleBaseUrl,
           release: samplerOptions.release,
+          onload: () => {
+            console.log('[AudioEngine] Sampler onload callback fired');
+          },
         }).connect(this.instrumentOutputNode!);
         if (this.instrumentReverbNode) {
           this.sampler.connect(this.instrumentReverbNode);
         }
-        await Tone.loaded();
+        console.log('[AudioEngine] Waiting for samples to load...');
+        await tone.loaded();
+        console.log('[AudioEngine] Sampler loaded successfully, loaded state:', this.sampler.loaded);
         return;
-      } catch {
+      } catch (err) {
+        console.error('[AudioEngine] Failed to load sampler:', err);
         this.sampler?.dispose();
         this.sampler = null;
       }
 
+      console.log('[AudioEngine] Using synth fallback for sampler');
       this.synth = this.createPolySynth(createSamplerFallbackDefinition(definition));
       return;
     }
 
+    console.log('[AudioEngine] Creating PolySynth with voice:', definition.voice);
     this.synth = this.createPolySynth(definition);
   }
 
@@ -481,7 +568,8 @@ export class AudioEngine {
       throw new Error('Audio engine effect chain is not initialized.');
     }
 
-    const synth = new Tone.PolySynth(resolveVoiceConstructor(definition.voice), definition.options as never).connect(
+    const tone = this.tone!;
+    const synth = new tone.PolySynth(resolveVoiceConstructor(tone, definition.voice), definition.options as never).connect(
       this.instrumentOutputNode,
     );
     if (this.instrumentReverbNode) {

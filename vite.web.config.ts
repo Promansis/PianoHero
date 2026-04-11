@@ -4,6 +4,7 @@ import { defineConfig } from 'vite';
 export default defineConfig({
   plugins: [react()],
   root: 'src/renderer',
+  publicDir: '../../public',
   define: {
     IS_WEB: 'true',
   },

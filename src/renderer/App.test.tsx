@@ -2,6 +2,9 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
 
+const preloadSpy = vi.fn(() => Promise.resolve());
+const unlockSpy = vi.fn(() => Promise.resolve());
+
 vi.mock('./components/AchievementToast', () => ({
   AchievementToast: () => null,
 }));
@@ -91,6 +94,8 @@ vi.mock('./components/KeyboardSetupScreen', () => ({
 
 vi.mock('../lib/audio/audioEngine', () => ({
   AudioEngine: class {
+    preload = preloadSpy;
+    unlock = unlockSpy;
     setMasterVolume() {}
     setMetronomeVolume() {}
     setReverbLevel() {}
@@ -128,6 +133,8 @@ vi.mock('../lib/input/computerKeyboardInputService', () => ({
 
 describe('App', () => {
   beforeEach(() => {
+    preloadSpy.mockClear();
+    unlockSpy.mockClear();
     window.appBridge = {
       getSetting: vi.fn(async (category: string, key: string) => {
         if (category === 'onboarding' && key === 'setupComplete') {
@@ -167,5 +174,19 @@ describe('App', () => {
 
     expect(screen.getByText('Start Drill')).toBeInTheDocument();
     expect(screen.queryByText('Keyboard Setup')).not.toBeInTheDocument();
+  });
+
+  it('keeps retrying audio unlock on later user gestures', async () => {
+    render(<App />);
+
+    await screen.findByText('Open Free Play');
+
+    expect(preloadSpy).toHaveBeenCalled();
+
+    fireEvent.pointerDown(window);
+    fireEvent.pointerDown(window);
+    fireEvent.keyDown(window, { key: 'a' });
+
+    expect(unlockSpy).toHaveBeenCalledTimes(3);
   });
 });

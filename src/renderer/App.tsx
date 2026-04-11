@@ -191,6 +191,7 @@ export function App() {
   const [postureReminderMinutes, setPostureReminderMinutes] = useState<number | null>(null);
   const [breakReminderMinutes, setBreakReminderMinutes] = useState<number | null>(null);
   const [learningProgress, setLearningProgress] = useState<LearningProgress>(EMPTY_LEARNING_PROGRESS);
+  const [audioUnlocked, setAudioUnlocked] = useState(false);
 
   useEffect(() => {
     const service = new MidiInputService();
@@ -214,6 +215,28 @@ export function App() {
       unsubscribeDevices();
       service.dispose();
       keyboardServiceRef.current.dispose();
+    };
+  }, []);
+
+  useEffect(() => {
+    // Don't preload Tone.js - let it load on first user interaction
+    // to avoid AudioContext autoplay policy violations
+
+    const unlockAudio = async () => {
+      try {
+        await audioEngineRef.current.unlock();
+        setAudioUnlocked(true);
+      } catch {
+        // A later user gesture will retry if the browser still blocks audio.
+      }
+    };
+
+    window.addEventListener('pointerdown', unlockAudio, { capture: true, once: true });
+    window.addEventListener('keydown', unlockAudio, { capture: true, once: true });
+
+    return () => {
+      window.removeEventListener('pointerdown', unlockAudio, true);
+      window.removeEventListener('keydown', unlockAudio, true);
     };
   }, []);
 
@@ -1072,6 +1095,49 @@ export function App() {
 
   return (
     <>
+      {!audioUnlocked && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.9)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            flexDirection: 'column',
+            gap: '20px',
+          }}
+        >
+          <div style={{ fontSize: '24px', color: 'white', textAlign: 'center' }}>
+            Click anywhere to enable audio
+          </div>
+          <button
+            style={{
+              padding: '15px 30px',
+              fontSize: '18px',
+              cursor: 'pointer',
+              backgroundColor: '#4CAF50',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+            }}
+            onClick={async () => {
+              try {
+                await audioEngineRef.current.unlock();
+                setAudioUnlocked(true);
+              } catch (err) {
+                console.error('Failed to unlock audio:', err);
+              }
+            }}
+          >
+            Enable Audio
+          </button>
+        </div>
+      )}
       {showAppChrome ? (
         <div className="app-frame">
           <header className="app-topbar">
@@ -1099,6 +1165,4 @@ export function App() {
     </>
   );
 }
-
-
 

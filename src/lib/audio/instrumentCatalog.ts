@@ -52,7 +52,7 @@ export const INSTRUMENTS: InstrumentDefinition[] = [
     options: {
       release: 1.2,
     },
-    sampleBaseUrl: 'https://tonejs.github.io/audio/salamander/',
+    sampleBaseUrl: '/samples/salamander/',
     sampleUrls: SALAMANDER_SAMPLE_MAP,
   },
   {
@@ -293,6 +293,7 @@ export const INSTRUMENTS: InstrumentDefinition[] = [
 ];
 
 export const DEFAULT_INSTRUMENT_ID = 'acoustic-piano';
+export const DEFAULT_WEB_INSTRUMENT_ID = 'electric-piano';
 
 export function getInstrumentDefinition(instrumentId: string): InstrumentDefinition {
   return INSTRUMENTS.find((instrument) => instrument.id === instrumentId) ?? INSTRUMENTS[0];
