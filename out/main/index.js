@@ -1,10 +1,10 @@
 import { app, ipcMain, dialog, BrowserWindow } from "electron";
-import { existsSync, readFileSync, renameSync, mkdirSync, copyFileSync, rmSync, writeFileSync, readdirSync } from "node:fs";
-import { readFile } from "node:fs/promises";
+import { existsSync, readFileSync, renameSync, mkdirSync, rmSync, writeFileSync, readdirSync } from "node:fs";
+import { writeFile, readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { createHash, randomUUID } from "node:crypto";
 import * as MidiPackage from "@tonejs/midi";
 import Database from "better-sqlite3";
-import { randomUUID } from "node:crypto";
 import __cjs_mod__ from "node:module";
 const __filename = import.meta.filename;
 const __dirname = import.meta.dirname;
@@ -76,6 +76,47 @@ function parseMidiFile(arrayBuffer, meta) {
     durationSec: midi.duration,
     tracks,
     notes: notes.sort((left, right) => left.startSec - right.startSec || left.midi - right.midi)
+  };
+}
+function toArrayBuffer(bytes) {
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+}
+async function createSongId(buffer) {
+  return createHash("sha256").update(buffer).digest("hex");
+}
+function calculateDifficulty(noteCount, durationSec) {
+  const safeDuration = Math.max(durationSec, 1);
+  return Math.max(1, Math.min(10, Math.round(noteCount / safeDuration * 1.2)));
+}
+async function importSongFromBuffer(buffer, title, { db: db2, midiFilesDir }) {
+  const fileData = Uint8Array.from(buffer);
+  const songId = await createSongId(fileData);
+  const destPath = join(midiFilesDir, `${songId}.mid`);
+  const parsedSong = parseMidiFile(toArrayBuffer(fileData), { songId, title });
+  const difficulty = calculateDifficulty(parsedSong.notes.length, parsedSong.durationSec);
+  await writeFile(destPath, fileData);
+  const row = db2.addSong({
+    id: songId,
+    title,
+    artist: "",
+    genre: "",
+    filePath: destPath,
+    difficulty,
+    durationSec: parsedSong.durationSec,
+    bpm: parsedSong.bpm,
+    noteCount: parsedSong.notes.length,
+    tags: [],
+    trackAssignments: getTrackAssignments(parsedSong)
+  });
+  return {
+    songId,
+    destPath,
+    fileData,
+    title: row.title,
+    durationSec: row.durationSec,
+    bpm: row.bpm,
+    noteCount: row.noteCount,
+    difficulty: row.difficulty
   };
 }
 function getUnlockableAchievementIds(metrics, unlockedIds) {
@@ -1720,13 +1761,6 @@ function buildTheorySessionSeries(fromDate, toDate, rowsByDate) {
 }
 let mainWindow = null;
 let db;
-async function createSongId(buffer) {
-  const { createHash } = await import("node:crypto");
-  return createHash("sha256").update(buffer).digest("hex");
-}
-function toArrayBuffer(buffer) {
-  return Uint8Array.from(buffer).buffer;
-}
 function collectMidiFiles(dir) {
   const results = [];
   let entries;
@@ -1744,10 +1778,6 @@ function collectMidiFiles(dir) {
     }
   }
   return results;
-}
-function calculateDifficulty(noteCount, durationSec) {
-  const safeDuration = Math.max(durationSec, 1);
-  return Math.max(1, Math.min(10, Math.round(noteCount / safeDuration * 1.2)));
 }
 function isLibraryBackup(value) {
   if (!value || typeof value !== "object") {
@@ -1819,36 +1849,14 @@ app.whenReady().then(async () => {
     }
     const importedSongs = [];
     for (const selectedPath of result.filePaths) {
-      const buffer = await readFile(selectedPath);
-      const songId = await createSongId(buffer);
-      const destPath = join(midiFilesDir, `${songId}.mid`);
       const title = selectedPath.split(/[\\/]/).pop()?.replace(/\.(mid|midi)$/i, "") ?? "Untitled";
-      const parsedSong = parseMidiFile(toArrayBuffer(buffer), { songId, title });
-      const difficulty = calculateDifficulty(parsedSong.notes.length, parsedSong.durationSec);
-      copyFileSync(selectedPath, destPath);
-      const row = db.addSong({
-        id: songId,
-        title,
-        artist: "",
-        genre: "",
-        filePath: destPath,
-        difficulty,
-        durationSec: parsedSong.durationSec,
-        bpm: parsedSong.bpm,
-        noteCount: parsedSong.notes.length,
-        tags: [],
-        trackAssignments: getTrackAssignments(parsedSong)
-      });
-      importedSongs.push({
-        songId,
-        destPath,
-        fileData: new Uint8Array(buffer),
-        title: row.title,
-        durationSec: row.durationSec,
-        bpm: row.bpm,
-        noteCount: row.noteCount,
-        difficulty: row.difficulty
-      });
+      const buffer = await readFile(selectedPath);
+      importedSongs.push(
+        await importSongFromBuffer(buffer, title, {
+          db,
+          midiFilesDir
+        })
+      );
     }
     return importedSongs;
   });
@@ -1870,34 +1878,13 @@ app.whenReady().then(async () => {
         skipped++;
         continue;
       }
-      const destPath = join(midiFilesDir, `${songId}.mid`);
       const title = selectedPath.split(/[\\/]/).pop()?.replace(/\.(mid|midi)$/i, "") ?? "Untitled";
-      const parsedSong = parseMidiFile(toArrayBuffer(buffer), { songId, title });
-      const difficulty = calculateDifficulty(parsedSong.notes.length, parsedSong.durationSec);
-      copyFileSync(selectedPath, destPath);
-      const row = db.addSong({
-        id: songId,
-        title,
-        artist: "",
-        genre: "",
-        filePath: destPath,
-        difficulty,
-        durationSec: parsedSong.durationSec,
-        bpm: parsedSong.bpm,
-        noteCount: parsedSong.notes.length,
-        tags: [],
-        trackAssignments: getTrackAssignments(parsedSong)
-      });
-      importedSongs.push({
-        songId,
-        destPath,
-        fileData: new Uint8Array(buffer),
-        title: row.title,
-        durationSec: row.durationSec,
-        bpm: row.bpm,
-        noteCount: row.noteCount,
-        difficulty: row.difficulty
-      });
+      importedSongs.push(
+        await importSongFromBuffer(buffer, title, {
+          db,
+          midiFilesDir
+        })
+      );
     }
     return { imported: importedSongs, skipped };
   });
@@ -2023,8 +2010,12 @@ app.whenReady().then(async () => {
     }
     return db.importLibraryData(raw);
   });
-  ipcMain.handle("file:load-midi", async (_event, selectedPath) => {
-    const data = await readFile(selectedPath);
+  ipcMain.handle("file:load-midi", async (_event, songId) => {
+    const song = db.getSong(songId);
+    if (!song) {
+      throw new Error(`Song not found: ${songId}`);
+    }
+    const data = await readFile(song.filePath);
     return new Uint8Array(data);
   });
   ipcMain.handle("file:save-midi", async (_event, suggestedName, data) => {
