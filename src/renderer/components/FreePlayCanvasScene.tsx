@@ -503,7 +503,7 @@ function trimSceneState(state: SceneState, now: number): void {
     .filter((ring) => ring.alpha > 0.015 && now - ring.createdAt <= 60000)
     .slice(-200);
 
-  const expiredBubbles = state.bubbles.filter((b) => now - b.createdAt > b.lifetime || b.y < -0.1);
+  const expiredBubbles = state.bubbles.filter((b) => now - b.createdAt > b.lifetime || b.y < -0.04);
   for (const b of expiredBubbles) {
     state.bubblePops.push({
       x: b.x,
@@ -516,7 +516,7 @@ function trimSceneState(state: SceneState, now: number): void {
       createdAt: now,
     });
   }
-  state.bubbles = state.bubbles.filter((b) => now - b.createdAt <= b.lifetime && b.y >= -0.1);
+  state.bubbles = state.bubbles.filter((b) => now - b.createdAt <= b.lifetime && b.y >= -0.04);
   state.bubblePops = state.bubblePops.filter((p) => now - p.createdAt < 500);
 
   if (state.processedOrder.length > 4000) {
