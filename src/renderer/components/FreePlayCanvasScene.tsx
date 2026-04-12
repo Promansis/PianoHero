@@ -286,6 +286,7 @@ interface Bubble {
   wobblePhase: number;
   createdAt: number;
   lifetime: number;
+  popThreshold: number; // y position (0-1) where bubble will pop
 }
 
 interface BubblePop {
@@ -503,7 +504,7 @@ function trimSceneState(state: SceneState, now: number): void {
     .filter((ring) => ring.alpha > 0.015 && now - ring.createdAt <= 60000)
     .slice(-200);
 
-  const expiredBubbles = state.bubbles.filter((b) => now - b.createdAt > b.lifetime || b.y < -0.04);
+  const expiredBubbles = state.bubbles.filter((b) => now - b.createdAt > b.lifetime || b.y < -0.04 || b.y <= b.popThreshold);
   for (const b of expiredBubbles) {
     state.bubblePops.push({
       x: b.x,
@@ -516,7 +517,7 @@ function trimSceneState(state: SceneState, now: number): void {
       createdAt: now,
     });
   }
-  state.bubbles = state.bubbles.filter((b) => now - b.createdAt <= b.lifetime && b.y >= -0.04);
+  state.bubbles = state.bubbles.filter((b) => now - b.createdAt <= b.lifetime && b.y >= -0.04 && b.y > b.popThreshold);
   state.bubblePops = state.bubblePops.filter((p) => now - p.createdAt < 500);
 
   if (state.processedOrder.length > 4000) {
@@ -885,6 +886,7 @@ function syncSceneState(state: SceneState, props: FreePlayCanvasSceneProps, now:
         wobblePhase: Math.random() * Math.PI * 2,
         createdAt: note.createdAt,
         lifetime: (3000 + Math.random() * 500) * (props.sustainOn ? 1.2 : 1.0),
+        popThreshold: Math.random() * 0.67,                                     // random y in top 2/3 (0 to 0.67)
       });
       if (state.bubbles.length > 60) state.bubbles.shift();
     }
