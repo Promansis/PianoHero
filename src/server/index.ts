@@ -21,6 +21,11 @@ const app = new Hono();
 
 app.onError((error, c) => c.json({ error: error.message }, 500));
 
+app.use('*', async (c, next) => {
+  c.header('Permissions-Policy', 'midi=(self)');
+  await next();
+});
+
 app.route('/api/bridge', createBridgeRouter({ db, midiFilesDir }));
 app.route('/api/midi', createMidiRouter({ db, midiFilesDir }));
 

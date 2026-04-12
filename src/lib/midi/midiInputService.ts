@@ -28,7 +28,7 @@ export class MidiInputService {
       this.access.removeEventListener('statechange', this.handleStateChange);
     }
 
-    this.access = await navigator.requestMIDIAccess();
+    this.access = await navigator.requestMIDIAccess({ sysex: false });
     this.refreshDevices();
     this.bindInputs();
     this.access.addEventListener('statechange', this.handleStateChange);
