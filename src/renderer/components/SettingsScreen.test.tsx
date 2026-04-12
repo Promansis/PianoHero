@@ -31,8 +31,10 @@ describe('SettingsScreen', () => {
       <SettingsScreen
         inputMode="both"
         midiDevices={[]}
+        midiError={false}
         onSettingChange={vi.fn()}
         onInputModeChange={vi.fn()}
+        onRetryMidi={vi.fn()}
         onOpenKeyboardSetup={vi.fn()}
       />,
     );

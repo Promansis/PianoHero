@@ -6,8 +6,10 @@ import type { MidiInputDevice } from '../../lib/midi/types';
 interface SettingsScreenProps {
   inputMode: InputMode;
   midiDevices: MidiInputDevice[];
+  midiError: boolean;
   onSettingChange: (category: string, key: string, value: string) => void;
   onInputModeChange: (nextMode: InputMode) => void;
+  onRetryMidi: () => void;
   onOpenKeyboardSetup: () => void;
 }
 
@@ -53,8 +55,10 @@ function getSettingKey(category: string, key: string): string {
 export function SettingsScreen({
   inputMode,
   midiDevices,
+  midiError,
   onSettingChange,
   onInputModeChange,
+  onRetryMidi,
   onOpenKeyboardSetup,
 }: SettingsScreenProps) {
   const [activeTab, setActiveTab] = useState<SettingsTab>('audio');
@@ -505,10 +509,20 @@ export function SettingsScreen({
                   ))}
                 </select>
               </label>
-              <article className="settings-note-card">
-                <span>Detected Device</span>
-                <strong>{selectedMidiDeviceName}</strong>
-              </article>
+              {midiError ? (
+                <article className="settings-note-card">
+                  <span>MIDI Status</span>
+                  <strong>Permission denied or unavailable</strong>
+                  <button className="secondary-button" onClick={onRetryMidi} style={{ marginTop: '0.5rem' }}>
+                    Retry MIDI Access
+                  </button>
+                </article>
+              ) : (
+                <article className="settings-note-card">
+                  <span>Detected Device</span>
+                  <strong>{selectedMidiDeviceName}</strong>
+                </article>
+              )}
               <button className="secondary-button" onClick={onOpenKeyboardSetup}>
                 Open Keyboard Mapping
               </button>

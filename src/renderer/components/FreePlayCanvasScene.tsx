@@ -275,6 +275,27 @@ interface GeometryRing {
   createdAt: number;
 }
 
+interface Bubble {
+  id: string;
+  x: number;
+  y: number;
+  radius: number;
+  hue: number;
+  vx: number;
+  vy: number;
+  wobblePhase: number;
+  createdAt: number;
+  lifetime: number;
+}
+
+interface BubblePop {
+  x: number;
+  y: number;
+  hue: number;
+  particles: Array<{ dx: number; dy: number }>;
+  createdAt: number;
+}
+
 interface SceneState {
   processedNoteIds: Set<string>;
   processedOrder: string[];
@@ -299,6 +320,8 @@ interface SceneState {
   fireworkParticles: FireworkParticle[];
   geometryRings: GeometryRing[];
   metronomePulses: MetronomePulse[];
+  bubbles: Bubble[];
+  bubblePops: BubblePop[];
   sustainEnvelope: number;
   lidAngle: number;
   pageFlutter: number;
@@ -346,6 +369,8 @@ function createSceneState(): SceneState {
     fireworkParticles: [],
     geometryRings: [],
     metronomePulses: [],
+    bubbles: [],
+    bubblePops: [],
     sustainEnvelope: 0,
     lidAngle: 0.2,
     pageFlutter: 0,
@@ -477,6 +502,23 @@ function trimSceneState(state: SceneState, now: number): void {
   state.geometryRings = state.geometryRings
     .filter((ring) => ring.alpha > 0.015 && now - ring.createdAt <= 60000)
     .slice(-200);
+
+  const expiredBubbles = state.bubbles.filter((b) => now - b.createdAt > b.lifetime || b.y < -0.1);
+  for (const b of expiredBubbles) {
+    state.bubblePops.push({
+      x: b.x,
+      y: b.y,
+      hue: b.hue,
+      particles: Array.from({ length: 7 }, () => ({
+        dx: (Math.random() - 0.5) * 4,
+        dy: (Math.random() - 0.5) * 4,
+      })),
+      createdAt: now,
+    });
+  }
+  state.bubbles = state.bubbles.filter((b) => now - b.createdAt <= b.lifetime && b.y >= -0.1);
+  state.bubblePops = state.bubblePops.filter((p) => now - p.createdAt < 500);
+
   if (state.processedOrder.length > 4000) {
     const excess = state.processedOrder.length - 4000;
     for (const id of state.processedOrder.splice(0, excess)) {
@@ -828,6 +870,25 @@ function syncSceneState(state: SceneState, props: FreePlayCanvasSceneProps, now:
     addGalaxyBurst(state, note, props);
     addAuroraRibbon(state, note);
     launchFireworkShells(state, note, props);
+
+    if (props.mode === 'bubble-pop') {
+      const hue = (note.midi % 12) * 30;
+      const sustainSlowdown = props.sustainOn ? 0.7 : 1.0;
+      state.bubbles.push({
+        id: note.id,
+        x: (note.midi - 21) / 87,                                              // normalized 0-1
+        y: 0.96,                                                                // near bottom
+        radius: 18 + note.velocity * 42,                                        // px
+        hue,
+        vx: (Math.random() - 0.5) * 0.00004,                                   // normalized/ms
+        vy: -(0.00035 + Math.random() * 0.00025) * sustainSlowdown,             // normalized/ms (upward)
+        wobblePhase: Math.random() * Math.PI * 2,
+        createdAt: note.createdAt,
+        lifetime: (3000 + Math.random() * 500) * (props.sustainOn ? 1.2 : 1.0),
+      });
+      if (state.bubbles.length > 60) state.bubbles.shift();
+    }
+
     state.geometryRings.push({
       id: note.id,
       midi: note.midi,
@@ -941,6 +1002,11 @@ function updateGenerativeModes(
     particle.vx *= Math.pow(particle.drag, dt * 60);
     particle.vy = particle.vy * Math.pow(particle.drag, dt * 60) + particle.gravity * dt;
     particle.alpha *= 0.992;
+  }
+
+  for (const bubble of state.bubbles) {
+    bubble.y += bubble.vy * deltaMs;
+    bubble.x += bubble.vx * deltaMs + Math.sin(bubble.wobblePhase + now * 0.002) * 0.00015;
   }
 }
 
@@ -2030,13 +2096,6 @@ function drawFireworks(
   context.fillStyle = sky;
   context.fillRect(0, 0, width, height);
 
-  // Brief sky flash when a shell bursts (very short, low-alpha)
-  const flashAge = now - state.lastFireworkFlashAt;
-  if (flashAge < 220) {
-    const flashAlpha = (1 - flashAge / 220) * 0.18;
-    context.fillStyle = `rgba(255, 240, 210, ${flashAlpha})`;
-    context.fillRect(0, 0, width, height);
-  }
 
   for (const shell of state.fireworkShells) {
     for (let index = 1; index < shell.trail.length; index += 1) {
@@ -2215,6 +2274,72 @@ function drawBadges(
   context.fillStyle = palette.text;
   context.textAlign = 'left';
   context.fillText(text, width - badgeWidth - 10, height * 0.3 + 18);
+}
+
+function drawBubblePop(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  state: SceneState,
+  now: number,
+): void {
+  // Soft sky background
+  const bg = context.createLinearGradient(0, 0, 0, height);
+  bg.addColorStop(0, '#b8e4f9');
+  bg.addColorStop(1, '#f0f8ff');
+  context.fillStyle = bg;
+  context.fillRect(0, 0, width, height);
+
+  // Draw bubbles
+  for (const b of state.bubbles) {
+    const age = now - b.createdAt;
+    const fadeStart = b.lifetime - 600;
+    const alpha = age > fadeStart ? 1 - (age - fadeStart) / 600 : 1;
+    const px = b.x * width;
+    const py = b.y * height;
+
+    // Bubble body
+    const grad = context.createRadialGradient(
+      px - b.radius * 0.3, py - b.radius * 0.3, b.radius * 0.1,
+      px, py, b.radius,
+    );
+    grad.addColorStop(0, `hsla(${b.hue}, 90%, 95%, ${0.55 * alpha})`);
+    grad.addColorStop(0.7, `hsla(${b.hue}, 80%, 70%, ${0.35 * alpha})`);
+    grad.addColorStop(1, `hsla(${b.hue}, 70%, 55%, ${0.15 * alpha})`);
+    context.beginPath();
+    context.arc(px, py, b.radius, 0, Math.PI * 2);
+    context.fillStyle = grad;
+    context.fill();
+
+    // Rim
+    context.beginPath();
+    context.arc(px, py, b.radius, 0, Math.PI * 2);
+    context.strokeStyle = `hsla(${b.hue}, 80%, 75%, ${0.6 * alpha})`;
+    context.lineWidth = 1.5;
+    context.stroke();
+
+    // Specular highlight
+    context.beginPath();
+    context.arc(px - b.radius * 0.32, py - b.radius * 0.32, b.radius * 0.2, 0, Math.PI * 2);
+    context.fillStyle = `rgba(255, 255, 255, ${0.7 * alpha})`;
+    context.fill();
+  }
+
+  // Pop sparkles
+  for (const p of state.bubblePops) {
+    const t = (now - p.createdAt) / 500;
+    const popAlpha = 1 - t;
+    const px = p.x * width;
+    const py = p.y * height;
+    for (const pt of p.particles) {
+      const sx = px + pt.dx * t * 30;
+      const sy = py + pt.dy * t * 30;
+      context.beginPath();
+      context.arc(sx, sy, Math.max(0.5, 3 * (1 - t)), 0, Math.PI * 2);
+      context.fillStyle = `hsla(${p.hue}, 90%, 75%, ${popAlpha})`;
+      context.fill();
+    }
+  }
 }
 
 export function getEffectProfile(preset: VisualPreset): SceneEffectProfile {
@@ -2411,12 +2536,17 @@ export function FreePlayCanvasScene(props: FreePlayCanvasSceneProps) {
         case 'sacred-geometry':
           drawSacredGeometry(context, width, height, state, now);
           break;
+        case 'bubble-pop':
+          drawBubblePop(context, width, height, state, now);
+          break;
       }
 
       // Phase 3: post-processing (before UI overlays so badges/metronome stay crisp)
-      applyKeyColorGrade(context, width, height, nextProps.mode, nextProps.visualPreset, keyCenter.hue, intensity);
-      applyDynamicBloom(context, canvas, width, height, nextProps.mode, nextProps.visualPreset, intensity, harmony, silence, state.sustainEnvelope);
-      if (nextProps.mode !== 'scale-heatmap') {
+      if (nextProps.mode !== 'bubble-pop') {
+        applyKeyColorGrade(context, width, height, nextProps.mode, nextProps.visualPreset, keyCenter.hue, intensity);
+        applyDynamicBloom(context, canvas, width, height, nextProps.mode, nextProps.visualPreset, intensity, harmony, silence, state.sustainEnvelope);
+      }
+      if (nextProps.mode !== 'scale-heatmap' && nextProps.mode !== 'bubble-pop') {
         applyDynamicVignette(context, width, height, nextProps.visualPreset);
       }
 

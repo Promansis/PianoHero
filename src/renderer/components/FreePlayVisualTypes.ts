@@ -12,7 +12,8 @@ export type FreePlayVisualMode =
   | 'particle-galaxy'
   | 'aurora-borealis'
   | 'fireworks'
-  | 'sacred-geometry';
+  | 'sacred-geometry'
+  | 'bubble-pop';
 
 export interface FreePlayVisualNote {
   id: string;
@@ -86,5 +87,10 @@ export const FREE_PLAY_VISUAL_MODE_OPTIONS: Array<{
     value: 'sacred-geometry',
     label: 'Sacred Geometry',
     description: 'Notes bloom into rotating geometric rings that overlap into mandalas.',
+  },
+  {
+    value: 'bubble-pop',
+    label: '🫧 Bubble Pop',
+    description: 'Colourful bubbles float up and pop as you play — great for young children.',
   },
 ];

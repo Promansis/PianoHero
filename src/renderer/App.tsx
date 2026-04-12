@@ -175,6 +175,7 @@ export function App() {
   const midiServiceRef = useRef<MidiInputService | null>(null);
   const keyboardServiceRef = useRef(new ComputerKeyboardInputService());
   const [midiReady, setMidiReady] = useState(false);
+  const [midiError, setMidiError] = useState(false);
   const [settingsReady, setSettingsReady] = useState(false);
   const [handSize, setHandSize] = useState<'small' | 'medium' | 'large'>('medium');
   const [inputMode, setInputMode] = useState<InputMode>('both');
@@ -202,16 +203,44 @@ export function App() {
       setMidiDevices(devices);
     });
 
-    service
-      .init()
-      .catch(() => {
-        // Individual screens surface device errors locally.
-      })
-      .finally(() => {
-        setMidiReady(true);
-      });
+    const tryInit = () => {
+      service
+        .init()
+        .then(() => {
+          setMidiError(false);
+        })
+        .catch(() => {
+          setMidiError(true);
+        })
+        .finally(() => {
+          setMidiReady(true);
+        });
+    };
+
+    tryInit();
+
+    // Auto-retry when the browser grants the midi permission (e.g. user
+    // allows via site settings after the initial prompt was dismissed).
+    let permissionStatus: PermissionStatus | null = null;
+    const handlePermissionChange = () => {
+      if (permissionStatus?.state === 'granted') {
+        setMidiError(false);
+        service.init().then(() => setMidiError(false)).catch(() => {});
+      }
+    };
+
+    if (typeof navigator.permissions?.query === 'function') {
+      navigator.permissions
+        .query({ name: 'midi' as PermissionName })
+        .then((status) => {
+          permissionStatus = status;
+          status.addEventListener('change', handlePermissionChange);
+        })
+        .catch(() => {});
+    }
 
     return () => {
+      permissionStatus?.removeEventListener('change', handlePermissionChange);
       unsubscribeDevices();
       service.dispose();
       keyboardServiceRef.current.dispose();
@@ -433,6 +462,16 @@ export function App() {
   const persistInputMode = (nextMode: InputMode) => {
     setInputMode(nextMode);
     void window.appBridge?.setSetting(INPUT_SETTINGS_CATEGORY, INPUT_MODE_SETTING_KEY, nextMode);
+  };
+
+  const retryMidiInit = () => {
+    if (!midiServiceRef.current) {
+      return;
+    }
+    midiServiceRef.current
+      .init()
+      .then(() => setMidiError(false))
+      .catch(() => setMidiError(true));
   };
 
   const applySettingChange = (category: string, key: string, value: string) => {
@@ -947,8 +986,10 @@ export function App() {
         <SettingsScreen
           inputMode={inputMode}
           midiDevices={midiDevices}
+          midiError={midiError}
           onSettingChange={applySettingChange}
           onInputModeChange={persistInputMode}
+          onRetryMidi={retryMidiInit}
           onOpenKeyboardSetup={() => setCurrentScreen({ screen: 'keyboard-setup', returnTo: 'settings' })}
         />
       );

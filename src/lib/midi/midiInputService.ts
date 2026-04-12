@@ -24,10 +24,17 @@ export class MidiInputService {
       throw new Error('Web MIDI API is not available in this environment.');
     }
 
+    if (this.access) {
+      this.access.removeEventListener('statechange', this.handleStateChange);
+    }
+
     this.access = await navigator.requestMIDIAccess();
     this.refreshDevices();
     this.bindInputs();
     this.access.addEventListener('statechange', this.handleStateChange);
+
+    const devices = this.getDevices();
+    this.deviceListeners.forEach((listener) => listener(devices));
   }
 
   getDevices(): MidiInputDevice[] {
