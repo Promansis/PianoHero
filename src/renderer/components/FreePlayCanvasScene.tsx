@@ -277,12 +277,14 @@ interface GeometryRing {
 
 interface Bubble {
   id: string;
+  midi: number;
   x: number;
   y: number;
   radius: number;
   hue: number;
   vx: number;
   vy: number;
+  baseVy: number; // full-speed vy; vy is adjusted dynamically when key is held
   wobblePhase: number;
   createdAt: number;
   lifetime: number;
@@ -328,6 +330,8 @@ interface SceneState {
   pageFlutter: number;
   starfieldRotation: number;
   treeGlow: number;
+  treeNoteCount: number;
+  treeNextBranchSide: number;
   galaxySupernova: number;
   auroraEnergy: number;
   skyWarmth: number;
@@ -377,6 +381,8 @@ function createSceneState(): SceneState {
     pageFlutter: 0,
     starfieldRotation: 0,
     treeGlow: 0,
+    treeNoteCount: 0,
+    treeNextBranchSide: 0,
     galaxySupernova: 0,
     auroraEnergy: 0,
     skyWarmth: 0,
@@ -557,122 +563,157 @@ function chooseTreeAnchor(anchors: TreeAnchor[], kind: TreeAnchor['kind'], seed:
 }
 
 function addTreeGrowth(state: SceneState, note: FreePlayVisualNote): void {
-  const register = classifyNoteRegister(note.midi);
   const seed = seededUnit(note.id, 5);
   const velocity = clamp(note.velocity, 0.1, 1.25);
-  const hue = register === 'high' ? (312 + seed * 30) % 360 : register === 'mid' ? 118 + seed * 24 : 34 + seed * 18;
 
-  if (register === 'low') {
-    const trunkCount = state.treeSegments.filter((segment) => segment.kind === 'trunk').length;
-    const kind: TreeSegment['kind'] = trunkCount < 8 || seed > 0.38 ? 'trunk' : 'root';
-    const anchor = chooseTreeAnchor(state.treeAnchors, kind === 'trunk' ? 'trunk' : 'root', seed);
-    const length = kind === 'trunk' ? 0.05 + velocity * 0.07 : 0.04 + velocity * 0.06;
-    const angle =
-      kind === 'trunk'
-        ? anchor.angle + (seed - 0.5) * 0.32
-        : anchor.angle + (seed - 0.5) * 0.92 + (seed > 0.5 ? 0.18 : -0.18);
-    const endX = clamp(anchor.x + Math.cos(angle) * length * (kind === 'root' ? 1.1 : 0.42), 0.14, 0.86);
-    const endY = clamp(anchor.y + Math.sin(angle) * length, 0.08, 0.96);
+  // Pitch → hue only (no longer controls growth type)
+  const lane = clamp((note.midi - 21) / 87, 0, 1);
+  const hue = lane < 0.33 ? 28 + seed * 20 : lane < 0.66 ? 112 + seed * 24 : 296 + seed * 28;
+
+  state.treeNoteCount += 1;
+  const n = state.treeNoteCount;
+
+  if (n <= 4) {
+    // === ROOTS: first 4 notes grow downward/outward from the base, alternating L/R ===
+    const side = state.treeNextBranchSide;
+    state.treeNextBranchSide = 1 - state.treeNextBranchSide;
+    const rootSpread = 0.4 + seed * 0.35;
+    const angle = side === 0 ? Math.PI - rootSpread : rootSpread;
+    const anchor = chooseTreeAnchor(state.treeAnchors, 'root', seed);
+    const length = 0.04 + velocity * 0.06;
+    const endX = clamp(anchor.x + Math.cos(angle) * length * 1.1, 0.1, 0.9);
+    const endY = clamp(anchor.y + Math.sin(angle) * length, 0.7, 0.98);
     state.treeSegments.push({
       id: `tree-${note.id}`,
       startX: anchor.x,
       startY: anchor.y,
       endX,
       endY,
-      thickness: kind === 'trunk' ? 5 + velocity * 7 : 2.8 + velocity * 4,
-      hue,
+      thickness: 2.8 + velocity * 4,
+      hue: 30 + seed * 14,
       createdAt: note.createdAt,
-      kind,
+      kind: 'root',
       swayOffset: seed * Math.PI * 2,
-      swaySpeed: 0.9 + seed * 0.7,
+      swaySpeed: 0.8 + seed * 0.5,
     });
     state.treeAnchors.push({
       x: endX,
       y: endY,
       angle,
       depth: anchor.depth + 1,
-      kind,
+      kind: 'root',
+      strength: clamp(anchor.strength * 0.95 + velocity * 0.1, 0.3, 1.2),
+    });
+
+  } else if (n <= 12) {
+    // === TRUNK: notes 5–12 grow upward, attached to the most recent trunk anchor ===
+    const anchor = chooseTreeAnchor(state.treeAnchors, 'trunk', seed);
+    const angle = -Math.PI / 2 + (seed - 0.5) * 0.24;
+    const length = 0.04 + velocity * 0.07;
+    const endX = clamp(anchor.x + Math.cos(angle) * length * 0.42, 0.18, 0.82);
+    const endY = clamp(anchor.y + Math.sin(angle) * length, 0.1, 0.92);
+    state.treeSegments.push({
+      id: `tree-${note.id}`,
+      startX: anchor.x,
+      startY: anchor.y,
+      endX,
+      endY,
+      thickness: 5 + velocity * 7,
+      hue: 30 + seed * 12,
+      createdAt: note.createdAt,
+      kind: 'trunk',
+      swayOffset: seed * Math.PI * 2,
+      swaySpeed: 0.7 + seed * 0.4,
+    });
+    state.treeAnchors.push({
+      x: endX,
+      y: endY,
+      angle,
+      depth: anchor.depth + 1,
+      kind: 'trunk',
       strength: clamp(anchor.strength * 0.95 + velocity * 0.1, 0.3, 1.4),
     });
-    if (kind === 'trunk' && anchor.depth >= 2) {
+
+  } else {
+    // === BRANCHES + ORNAMENTS: note 13 onwards, alternating L/R ===
+    // Every 3rd note after n=16 spawns only an ornament; all others grow a branch
+    const ornamentOnly = n > 16 && n % 3 === 0;
+
+    if (!ornamentOnly) {
+      const side = state.treeNextBranchSide;
+      state.treeNextBranchSide = 1 - state.treeNextBranchSide;
+      // Angle fixed relative to vertical (-π/2), not inherited from parent, preventing drift
+      const branchSpread = 0.62 + seed * 0.30;
+      const angle = -Math.PI / 2 + (side === 0 ? -branchSpread : branchSpread);
+      const hasBranches = state.treeAnchors.some((a) => a.kind === 'branch');
+      const anchor = chooseTreeAnchor(state.treeAnchors, hasBranches && n > 16 ? 'branch' : 'trunk', seed);
+      const length = 0.04 + velocity * 0.09;
+      const endX = clamp(anchor.x + Math.cos(angle) * length, 0.06, 0.94);
+      const endY = clamp(anchor.y + Math.sin(angle) * length, 0.08, 0.92);
+      state.treeSegments.push({
+        id: `tree-${note.id}`,
+        startX: anchor.x,
+        startY: anchor.y,
+        endX,
+        endY,
+        thickness: 2.2 + velocity * 4.2,
+        hue,
+        createdAt: note.createdAt,
+        kind: 'branch',
+        swayOffset: seed * Math.PI * 2,
+        swaySpeed: 1.1 + seed * 1.2,
+      });
       state.treeAnchors.push({
         x: endX,
         y: endY,
-        angle: -Math.PI / 2 + (seed > 0.5 ? 0.7 : -0.7),
+        angle,
         depth: anchor.depth + 1,
         kind: 'branch',
-        strength: 0.8 + velocity * 0.25,
+        strength: clamp(anchor.strength * 0.9 + velocity * 0.16, 0.22, 1.2),
       });
-    }
-  } else if (register === 'mid') {
-    const anchor = chooseTreeAnchor(
-      state.treeAnchors,
-      state.treeAnchors.some((candidate) => candidate.kind === 'branch') ? 'branch' : 'trunk',
-      seed,
-    );
-    const angle = anchor.angle + (seed > 0.5 ? 0.55 : -0.55) + (seed - 0.5) * 0.6;
-    const length = 0.05 + velocity * 0.09;
-    const endX = clamp(anchor.x + Math.cos(angle) * length, 0.08, 0.92);
-    const endY = clamp(anchor.y + Math.sin(angle) * length, 0.12, 0.88);
-    state.treeSegments.push({
-      id: `tree-${note.id}`,
-      startX: anchor.x,
-      startY: anchor.y,
-      endX,
-      endY,
-      thickness: 2.2 + velocity * 4.2,
-      hue,
-      createdAt: note.createdAt,
-      kind: 'branch',
-      swayOffset: seed * Math.PI * 2,
-      swaySpeed: 1.2 + seed * 1.1,
-    });
-    state.treeAnchors.push({
-      x: endX,
-      y: endY,
-      angle,
-      depth: anchor.depth + 1,
-      kind: 'branch',
-      strength: clamp(anchor.strength * 0.9 + velocity * 0.16, 0.22, 1.2),
-    });
-    if (velocity > 0.58) {
+
+      // Add a leaf/bloom at the branch tip when velocity is sufficient
+      if (velocity > 0.55) {
+        state.treeOrnaments.push({
+          id: `leaf-${note.id}`,
+          x: endX,
+          y: endY,
+          radius: 3 + velocity * 4,
+          hue: velocity > 0.75 ? 338 + seed * 18 : (lane < 0.5 ? 112 + seed * 32 : 132 + seed * 36),
+          createdAt: note.createdAt,
+          kind: velocity > 0.75 ? 'bloom' : 'leaf',
+          drift: (seed - 0.5) * 12,
+          shimmer: seededUnit(note.id, 6) * Math.PI * 2,
+        });
+      }
+
+    } else {
+      // Ornament-only notes: place a bloom/leaf near an existing branch tip
+      const anchor = chooseTreeAnchor(
+        state.treeAnchors,
+        state.treeAnchors.some((a) => a.kind === 'branch') ? 'branch' : 'trunk',
+        seed,
+      );
       state.treeOrnaments.push({
-        id: `leaf-${note.id}`,
-        x: endX,
-        y: endY,
-        radius: 3 + velocity * 4,
-        hue: 112 + seed * 32,
+        id: `bloom-${note.id}`,
+        x: clamp(anchor.x + (seed - 0.5) * 0.055, 0.08, 0.92),
+        y: clamp(anchor.y + (seededUnit(note.id, 7) - 0.7) * 0.05, 0.08, 0.88),
+        radius: 4 + velocity * 9,
+        hue: velocity > 0.75 ? 338 + seed * 18 : hue,
         createdAt: note.createdAt,
-        kind: 'leaf',
-        drift: (seed - 0.5) * 12,
-        shimmer: seededUnit(note.id, 6) * Math.PI * 2,
+        kind: velocity > 0.75 ? 'bloom' : 'leaf',
+        drift: (seed - 0.5) * 16,
+        shimmer: seededUnit(note.id, 8) * Math.PI * 2,
       });
     }
-  } else {
-    const anchor = chooseTreeAnchor(
-      state.treeAnchors,
-      state.treeAnchors.some((candidate) => candidate.kind === 'branch') ? 'branch' : 'trunk',
-      seed,
-    );
-    state.treeOrnaments.push({
-      id: `bloom-${note.id}`,
-      x: clamp(anchor.x + (seed - 0.5) * 0.055, 0.1, 0.9),
-      y: clamp(anchor.y + (seededUnit(note.id, 7) - 0.7) * 0.05, 0.08, 0.88),
-      radius: 4 + velocity * 8,
-      hue: velocity > 0.82 ? 338 + seed * 16 : 132 + seed * 36,
-      createdAt: note.createdAt,
-      kind: velocity > 0.82 ? 'bloom' : 'leaf',
-      drift: (seed - 0.5) * 16,
-      shimmer: seededUnit(note.id, 8) * Math.PI * 2,
-    });
   }
 
   state.treeGlow = clamp(state.treeGlow + note.velocity * 0.22, 0, 1.5);
 }
 
 function addGalaxyBurst(state: SceneState, note: FreePlayVisualNote, props: FreePlayCanvasSceneProps): void {
-  const lane = adaptiveLaneRatio(note.midi, state.adaptiveMin, state.adaptiveMax);
-  const baseRadiusRatio = 0.14 + lane * 0.36;
+  const baseSeed = seededUnit(note.id, 20);
+  const baseRadiusRatio = 0.07 + baseSeed * 0.40;
   const armCount = props.activeNotes.length >= 3 ? 4 : 3;
   const particleCount = Math.round(10 + note.velocity * 20 + Math.max(0, props.activeNotes.length - 1) * 5);
   for (let index = 0; index < particleCount; index += 1) {
@@ -684,8 +725,8 @@ function addGalaxyBurst(state: SceneState, note: FreePlayVisualNote, props: Free
       arm,
       angle: seed * Math.PI * 2 + arm * ((Math.PI * 2) / armCount),
       baseRadiusRatio,
-      radiusRatio: Math.max(0.06, baseRadiusRatio * (0.6 + seed * 0.35)),
-      targetRadiusRatio: baseRadiusRatio * (0.96 + seed * 0.18),
+      radiusRatio: Math.max(0.04, baseRadiusRatio * (0.45 + seed * 0.75)),
+      targetRadiusRatio: baseRadiusRatio * (0.90 + seed * 0.22),
       spin: 0.0005 + note.velocity * 0.0013 + seed * 0.0006,
       size: 1.4 + note.velocity * 3.1 + seed * 1.2,
       hue: (midiToHue(note.midi) + seed * 26) % 360,
@@ -745,7 +786,13 @@ function launchFireworkShells(state: SceneState, note: FreePlayVisualNote, props
       midi: note.midi,
       x: clamp(0.08 + lane * 0.84 + (index - (shellCount - 1) / 2) * 0.05, 0.08, 0.92),
       y: 1.02,
-      targetY: lerp(0.82, 0.18, lane) - index * 0.035,
+      targetY: clamp(
+        lerp(0.78, 0.22, lane)
+          + (seededUnit(`${note.id}-shell-${index}`, 19) - 0.5) * 0.32
+          - index * 0.025,
+        0.05,
+        0.90,
+      ),
       vy: 0.34 + note.velocity * 0.26 + index * 0.02,
       hue: (midiToHue(note.midi) + index * 22) % 360,
       size: 2 + note.velocity * 3,
@@ -874,15 +921,17 @@ function syncSceneState(state: SceneState, props: FreePlayCanvasSceneProps, now:
 
     if (props.mode === 'bubble-pop') {
       const hue = (note.midi % 12) * 30;
-      const sustainSlowdown = props.sustainOn ? 0.7 : 1.0;
+      const baseVy = -(0.00035 + Math.random() * 0.00025);
       state.bubbles.push({
         id: note.id,
+        midi: note.midi,
         x: (note.midi - 21) / 87,                                              // normalized 0-1
         y: 0.96,                                                                // near bottom
         radius: 18 + note.velocity * 42,                                        // px
         hue,
         vx: (Math.random() - 0.5) * 0.00004,                                   // normalized/ms
-        vy: -(0.00035 + Math.random() * 0.00025) * sustainSlowdown,             // normalized/ms (upward)
+        vy: baseVy,                                                              // normalized/ms (upward); slowed dynamically on hold
+        baseVy,
         wobblePhase: Math.random() * Math.PI * 2,
         createdAt: note.createdAt,
         lifetime: (3000 + Math.random() * 500) * (props.sustainOn ? 1.2 : 1.0),
@@ -896,7 +945,12 @@ function syncSceneState(state: SceneState, props: FreePlayCanvasSceneProps, now:
       midi: note.midi,
       hue: midiToHue(note.midi),
       x: adaptiveLaneRatio(note.midi, state.adaptiveMin, state.adaptiveMax),
-      y: 0.75 - adaptiveLaneRatio(note.midi, state.adaptiveMin, state.adaptiveMax) * 0.5,
+      y: clamp(
+        (classifyNoteRegister(note.midi) === 'low' ? 0.72 : classifyNoteRegister(note.midi) === 'mid' ? 0.47 : 0.22)
+          + (seededUnit(note.id, 22) - 0.5) * 0.28,
+        0.06,
+        0.92,
+      ),
       sides: [0, 3, 4, 5, 6][note.midi % 5],
       radius: 0,
       targetRadius: 30 + note.velocity * 90,
@@ -1006,7 +1060,11 @@ function updateGenerativeModes(
     particle.alpha *= 0.992;
   }
 
+  const BUBBLE_HOLD_THRESHOLD_MS = 350;
   for (const bubble of state.bubbles) {
+    // Slow this specific bubble if its key is still held down after the hold threshold
+    const keyStillHeld = props.activeNotes.includes(bubble.midi) && (now - bubble.createdAt) >= BUBBLE_HOLD_THRESHOLD_MS;
+    bubble.vy = keyStillHeld ? bubble.baseVy * 0.7 : bubble.baseVy;
     bubble.y += bubble.vy * deltaMs;
     bubble.x += bubble.vx * deltaMs + Math.sin(bubble.wobblePhase + now * 0.002) * 0.00015;
   }
