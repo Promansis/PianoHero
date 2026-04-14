@@ -43,6 +43,39 @@ const SALAMANDER_SAMPLE_MAP = {
   C8: 'C8.mp3',
 } as const;
 
+const PHILHARMONIA_FLUTE_SAMPLE_MAP = {
+  A4: 'flute_A4_15_piano_normal.mp3',
+  C5: 'flute_C5_15_piano_normal.mp3',
+  A5: 'flute_A5_15_piano_normal.mp3',
+  C6: 'flute_C6_15_mezzo-piano_normal.mp3',
+  A6: 'flute_A6_15_piano_normal.mp3',
+} as const;
+
+const PHILHARMONIA_CLARINET_SAMPLE_MAP = {
+  A3: 'clarinet_A3_15_piano_normal.mp3',
+  C4: 'clarinet_C4_15_piano_normal.mp3',
+  A4: 'clarinet_A4_15_piano_normal.mp3',
+  C5: 'clarinet_C5_15_piano_normal.mp3',
+  A5: 'clarinet_A5_15_piano_normal.mp3',
+  C6: 'clarinet_C6_15_piano_normal.mp3',
+} as const;
+
+const PHILHARMONIA_TRUMPET_SAMPLE_MAP = {
+  'A#3': 'trumpet_As3_long_piano_normal.mp3',
+  A4: 'trumpet_A4_long_piano_normal.mp3',
+  C5: 'trumpet_C5_long_piano_normal.mp3',
+  A5: 'trumpet_A5_15_mezzo-forte_normal.mp3',
+} as const;
+
+const PHILHARMONIA_FRENCH_HORN_SAMPLE_MAP = {
+  A2: 'french-horn_A2_15_piano_normal.mp3',
+  C3: 'french-horn_C3_15_piano_normal.mp3',
+  A3: 'french-horn_A3_15_piano_normal.mp3',
+  C4: 'french-horn_C4_15_piano_normal.mp3',
+  A4: 'french-horn_A4_15_piano_normal.mp3',
+  C5: 'french-horn_C5_15_piano_normal.mp3',
+} as const;
+
 export const INSTRUMENTS: InstrumentDefinition[] = [
   {
     id: 'acoustic-piano',
@@ -135,26 +168,46 @@ export const INSTRUMENTS: InstrumentDefinition[] = [
   {
     id: 'flute',
     label: 'Flute',
-    description: 'A breathy lead voice that works well for melodies.',
-    voice: 'mono',
+    description: 'Private-use Philharmonia flute samples for a more natural melody voice.',
+    voice: 'sampler',
     options: {
-      oscillator: { type: 'triangle' },
-      filter: { Q: 1, type: 'lowpass', rolloff: -24 },
-      envelope: {
-        attack: 0.03,
-        decay: 0.15,
-        sustain: 0.7,
-        release: 0.7,
-      },
-      filterEnvelope: {
-        attack: 0.02,
-        decay: 0.2,
-        sustain: 0.5,
-        release: 0.8,
-        baseFrequency: 700,
-        octaves: 2,
-      },
+      release: 1.1,
     },
+    sampleBaseUrl: '/samples/philharmonia/flute/',
+    sampleUrls: PHILHARMONIA_FLUTE_SAMPLE_MAP,
+  },
+  {
+    id: 'clarinet',
+    label: 'Clarinet',
+    description: 'Private-use Philharmonia clarinet samples with a warm centered tone.',
+    voice: 'sampler',
+    options: {
+      release: 1.2,
+    },
+    sampleBaseUrl: '/samples/philharmonia/clarinet/',
+    sampleUrls: PHILHARMONIA_CLARINET_SAMPLE_MAP,
+  },
+  {
+    id: 'trumpet',
+    label: 'Trumpet',
+    description: 'Private-use Philharmonia trumpet samples for bright fanfare lines.',
+    voice: 'sampler',
+    options: {
+      release: 0.9,
+    },
+    sampleBaseUrl: '/samples/philharmonia/trumpet/',
+    sampleUrls: PHILHARMONIA_TRUMPET_SAMPLE_MAP,
+  },
+  {
+    id: 'french-horn',
+    label: 'French Horn',
+    description: 'Private-use Philharmonia horn samples with a rounded orchestral color.',
+    voice: 'sampler',
+    options: {
+      release: 1.2,
+    },
+    sampleBaseUrl: '/samples/philharmonia/french-horn/',
+    sampleUrls: PHILHARMONIA_FRENCH_HORN_SAMPLE_MAP,
   },
   {
     id: 'marimba',

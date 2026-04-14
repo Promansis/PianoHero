@@ -8,7 +8,19 @@ describe('instrumentCatalog', () => {
 
   it('recognizes valid instrument ids', () => {
     expect(isInstrumentId(INSTRUMENTS[0].id)).toBe(true);
+    expect(isInstrumentId('clarinet')).toBe(true);
+    expect(isInstrumentId('trumpet')).toBe(true);
+    expect(isInstrumentId('french-horn')).toBe(true);
     expect(isInstrumentId('totally-made-up')).toBe(false);
     expect(isInstrumentId(null)).toBe(false);
+  });
+
+  it('ships Philharmonia-backed sampled instruments for the private-use expansion', () => {
+    expect(getInstrumentDefinition('flute').voice).toBe('sampler');
+    expect(getInstrumentDefinition('clarinet').sampleBaseUrl).toBe('/samples/philharmonia/clarinet/');
+    expect(getInstrumentDefinition('trumpet').sampleUrls).toMatchObject({
+      'A#3': 'trumpet_As3_long_piano_normal.mp3',
+      A4: 'trumpet_A4_long_piano_normal.mp3',
+    });
   });
 });

@@ -4,6 +4,7 @@ interface MainMenuScreenProps {
   onOpenLibrary: () => void;
   onOpenLearn: () => void;
   onOpenFreePlay: () => void;
+  onOpenSoundboard: () => void;
   onOpenTheory: () => void;
   onOpenProgress: () => void;
   onOpenSettings: () => void;
@@ -37,6 +38,13 @@ const MENU_CARDS: Array<{
     subtitle: 'Practice without scoring, record ideas, and load backing tracks.',
     accent: 'var(--color-good)',
     onSelect: (props) => props.onOpenFreePlay(),
+  },
+  {
+    icon: '!',
+    title: 'Soundboard',
+    subtitle: 'Trigger kid-friendly one-shots with big buttons and number keys.',
+    accent: 'var(--color-ok)',
+    onSelect: (props) => props.onOpenSoundboard(),
   },
   {
     icon: '\u266b',

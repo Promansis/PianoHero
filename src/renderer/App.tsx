@@ -36,6 +36,7 @@ import { LearnHubScreen } from './components/LearnHubScreen';
 import { LessonScreen } from './components/LessonScreen';
 import { LibraryScreen } from './components/LibraryScreen';
 import { MainMenuScreen } from './components/MainMenuScreen';
+import { NoveltySoundboardScreen } from './components/NoveltySoundboardScreen';
 import { ProgressDashboardScreen } from './components/ProgressDashboardScreen';
 import { ResultsScreen } from './components/ResultsScreen';
 import { ScalePracticeScreen } from './components/ScalePracticeScreen';
@@ -45,7 +46,7 @@ import { TheoryHubScreen } from './components/TheoryHubScreen';
 import { TheoryQuizScreen } from './components/TheoryQuizScreen';
 
 type LessonReturnTarget = { lessonId: string; stepIndex: number };
-type KeyboardSetupReturnTarget = 'setup' | 'library' | 'settings' | 'free-play' | LessonReturnTarget;
+type KeyboardSetupReturnTarget = 'setup' | 'library' | 'settings' | 'free-play' | 'soundboard' | LessonReturnTarget;
 
 type AppScreen =
   | { screen: 'setup' }
@@ -54,6 +55,7 @@ type AppScreen =
   | { screen: 'learn-hub' }
   | { screen: 'lesson'; lessonId: string; stepIndex?: number }
   | { screen: 'free-play' }
+  | { screen: 'soundboard' }
   | { screen: 'theory-hub' }
   | { screen: 'progress-dashboard' }
   | { screen: 'settings' }
@@ -143,6 +145,8 @@ function getScreenTitle(currentScreen: AppScreen): string {
       return 'Lesson';
     case 'free-play':
       return 'Free Play';
+    case 'soundboard':
+      return 'Soundboard';
     case 'theory-hub':
       return 'Theory';
     case 'progress-dashboard':
@@ -758,6 +762,7 @@ export function App() {
         return;
       case 'library':
       case 'free-play':
+      case 'soundboard':
       case 'theory-hub':
       case 'progress-dashboard':
       case 'settings':
@@ -882,6 +887,7 @@ export function App() {
           onOpenLibrary={() => setCurrentScreen({ screen: 'library' })}
           onOpenLearn={() => setCurrentScreen({ screen: 'learn-hub' })}
           onOpenFreePlay={() => setCurrentScreen({ screen: 'free-play' })}
+          onOpenSoundboard={() => setCurrentScreen({ screen: 'soundboard' })}
           onOpenTheory={() => setCurrentScreen({ screen: 'theory-hub' })}
           onOpenProgress={() => setCurrentScreen({ screen: 'progress-dashboard' })}
           onOpenSettings={() => setCurrentScreen({ screen: 'settings' })}
@@ -963,6 +969,20 @@ export function App() {
           breakReminderMinutes={breakReminderMinutes}
           onBackToMainMenu={() => setCurrentScreen({ screen: 'main-menu' })}
           onOpenKeyboardSetup={() => setCurrentScreen({ screen: 'keyboard-setup', returnTo: 'free-play' })}
+        />
+      );
+      break;
+
+    case 'soundboard':
+      screenContent = (
+        <NoveltySoundboardScreen
+          audioEngine={audioEngineRef.current}
+          inputMode={inputMode}
+          keyboardInputService={keyboardServiceRef.current}
+          midiInputService={midiServiceRef.current}
+          keyboardOverlaySize={keyboardOverlaySize}
+          onBackToMainMenu={() => setCurrentScreen({ screen: 'main-menu' })}
+          onOpenKeyboardSetup={() => setCurrentScreen({ screen: 'keyboard-setup', returnTo: 'soundboard' })}
         />
       );
       break;
@@ -1131,7 +1151,10 @@ export function App() {
       break;
   }
 
-  const showAppChrome = currentScreen.screen !== 'game' && currentScreen.screen !== 'free-play' && currentScreen.screen !== 'lesson-drill';
+  const showAppChrome =
+    currentScreen.screen !== 'game' &&
+    currentScreen.screen !== 'free-play' &&
+    currentScreen.screen !== 'lesson-drill';
   const canNavigateBack = currentScreen.screen !== 'setup' && currentScreen.screen !== 'main-menu';
 
   return (

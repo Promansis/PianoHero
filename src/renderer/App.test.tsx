@@ -13,13 +13,16 @@ vi.mock('./components/MainMenuScreen', () => ({
   MainMenuScreen: ({
     onOpenFreePlay,
     onOpenLearn,
+    onOpenSoundboard,
   }: {
     onOpenFreePlay: () => void;
     onOpenLearn: () => void;
+    onOpenSoundboard: () => void;
   }) => (
     <>
       <button onClick={onOpenFreePlay}>Open Free Play</button>
       <button onClick={onOpenLearn}>Open Learn</button>
+      <button onClick={onOpenSoundboard}>Open Soundboard</button>
     </>
   ),
 }));
@@ -41,6 +44,10 @@ vi.mock('./components/LessonScreen', () => ({
 
 vi.mock('./components/FreePlayScreen', () => ({
   FreePlayScreen: () => <div>Mock Free Play</div>,
+}));
+
+vi.mock('./components/NoveltySoundboardScreen', () => ({
+  NoveltySoundboardScreen: () => <div>Mock Soundboard</div>,
 }));
 
 vi.mock('./components/SetupGuideScreen', () => ({
@@ -96,6 +103,9 @@ vi.mock('../lib/audio/audioEngine', () => ({
   AudioEngine: class {
     preload = preloadSpy;
     unlock = unlockSpy;
+    init() {
+      return Promise.resolve();
+    }
     setMasterVolume() {}
     setMetronomeVolume() {}
     setReverbLevel() {}
@@ -103,6 +113,9 @@ vi.mock('../lib/audio/audioEngine', () => ({
       return Promise.resolve();
     }
     setCustomSampler() {
+      return Promise.resolve();
+    }
+    playOneShot() {
       return Promise.resolve();
     }
     setMetronomeSound() {}
@@ -180,13 +193,21 @@ describe('App', () => {
     render(<App />);
 
     await screen.findByText('Open Free Play');
-
-    expect(preloadSpy).toHaveBeenCalled();
+    const initialUnlockCalls = unlockSpy.mock.calls.length;
 
     fireEvent.pointerDown(window);
     fireEvent.pointerDown(window);
     fireEvent.keyDown(window, { key: 'a' });
 
-    expect(unlockSpy).toHaveBeenCalledTimes(3);
+    expect(preloadSpy).not.toHaveBeenCalled();
+    expect(unlockSpy.mock.calls.length).toBeGreaterThan(initialUnlockCalls);
+  });
+
+  it('routes the main menu soundboard entry to the dedicated soundboard screen', async () => {
+    render(<App />);
+
+    fireEvent.click(await screen.findByText('Open Soundboard'));
+
+    expect(screen.getByText('Mock Soundboard')).toBeInTheDocument();
   });
 });

@@ -89,8 +89,10 @@ export class AudioEngine {
   private instrumentOutputNode: Tone.Volume | null = null;
   private instrumentReverbNode: Tone.FeedbackDelay | null = null;
   private metronomeVolumeNode: Tone.Volume | null = null;
+  private oneShotVolumeNode: Tone.Volume | null = null;
   private backingTrackPlayer: Tone.Player | null = null;
   private backingTrackVolumeNode: Tone.Volume | null = null;
+  private oneShotPlayers = new Map<string, Tone.Player>();
   private initialized = false;
   private sustainDown = false;
   private heldNotes = new Set<string>();
@@ -149,6 +151,7 @@ export class AudioEngine {
       wet: this.reverbPercent / 100,
     }).connect(this.masterVolumeNode);
     this.metronomeVolumeNode = new tone.Volume(percentToDb(tone, this.metronomeVolumePercent)).connect(this.masterVolumeNode);
+    this.oneShotVolumeNode = new tone.Volume(0).connect(this.masterVolumeNode);
     console.log('[AudioEngine] Loading instrument...');
     await this.loadInstrument(getInstrumentDefinition(this.instrumentId));
     this.metronomeSynth = new tone.Synth({
@@ -426,6 +429,16 @@ export class AudioEngine {
     return this.backingTrackPlayer?.buffer.duration ?? 0;
   }
 
+  async playOneShot(src: string, volumeDb = 0): Promise<void> {
+    await this.init();
+    const player = await this.getOrCreateOneShotPlayer(src);
+    player.volume.value = volumeDb;
+    if (player.state === 'started') {
+      player.stop();
+    }
+    player.start();
+  }
+
   async setCustomSampler(urls: Record<string, string>, baseUrl: string): Promise<void> {
     this.customSamplerUrls = urls;
     this.customSamplerBaseUrl = baseUrl;
@@ -577,5 +590,21 @@ export class AudioEngine {
     }
 
     return synth;
+  }
+
+  private async getOrCreateOneShotPlayer(src: string): Promise<Tone.Player> {
+    if (this.oneShotPlayers.has(src)) {
+      return this.oneShotPlayers.get(src)!;
+    }
+
+    if (!this.oneShotVolumeNode) {
+      throw new Error('Audio engine one-shot output is not initialized.');
+    }
+
+    const tone = this.tone!;
+    const player = new tone.Player(src).connect(this.oneShotVolumeNode);
+    this.oneShotPlayers.set(src, player);
+    await tone.loaded();
+    return player;
   }
 }

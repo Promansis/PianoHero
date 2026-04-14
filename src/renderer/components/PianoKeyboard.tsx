@@ -10,6 +10,9 @@ interface PianoKeyboardProps {
   highlightColor?: 'scale' | 'chord';
   chordLabel?: string | null;
   size?: 'small' | 'medium' | 'large';
+  keyLabels?: Partial<Record<number, string>>;
+  heading?: string;
+  copy?: string;
 }
 
 function upcomingMap(
@@ -29,6 +32,9 @@ export function PianoKeyboard({
   highlightColor = 'scale',
   chordLabel = null,
   size = 'medium',
+  keyLabels = {},
+  heading = 'Live + upcoming notes',
+  copy = 'Blue cues the left hand. Orange cues the right.',
 }: PianoKeyboardProps) {
   const activeSet = new Set(activeNotes);
   const upcoming = upcomingMap(upcomingNotes);
@@ -40,9 +46,9 @@ export function PianoKeyboard({
       <div className="panel-heading">
         <div>
           <p className="eyebrow">Keyboard</p>
-          <h2>Live + upcoming notes</h2>
+          <h2>{heading}</h2>
         </div>
-        <p className="panel-copy">Blue cues the left hand. Orange cues the right.</p>
+        <p className="panel-copy">{copy}</p>
       </div>
 
       <div className="keyboard-stage">
@@ -59,7 +65,9 @@ export function PianoKeyboard({
                 style={{ width: `${WHITE_KEY_WIDTH}%` }}
                 title={key.note}
               >
-                <span>{key.note.startsWith('C') ? key.note : ''}</span>
+                <span className={`key-caption${keyLabels[key.midi] ? ' custom' : ''}`}>
+                  {keyLabels[key.midi] ?? (key.note.startsWith('C') ? key.note : '')}
+                </span>
                 {cue?.finger !== undefined && (
                   <strong className={`key-finger${cue.priority ? ` finger-${cue.priority}` : ''}`}>{cue.finger}</strong>
                 )}
@@ -80,6 +88,7 @@ export function PianoKeyboard({
                 style={{ left: `${key.left}%`, width: `${WHITE_KEY_WIDTH * BLACK_KEY_WIDTH}%` }}
                 title={key.note}
               >
+                {keyLabels[key.midi] && <span className="key-caption black">{keyLabels[key.midi]}</span>}
                 {cue?.finger !== undefined && (
                   <strong className={`key-finger black${cue.priority ? ` finger-${cue.priority}` : ''}`}>{cue.finger}</strong>
                 )}

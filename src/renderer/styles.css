@@ -1048,6 +1048,15 @@ select:focus {
   color: var(--color-key-label);
 }
 
+.key-caption.custom {
+  width: calc(100% - 10px);
+  text-align: center;
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1.05;
+  color: color-mix(in srgb, var(--color-text) 80%, black);
+}
+
 .black-keys {
   position: absolute;
   inset: 16px 16px 18px;
@@ -1060,6 +1069,19 @@ select:focus {
   height: 58%;
   background: linear-gradient(180deg, var(--color-black-key-start) 0%, var(--color-black-key-end) 100%);
   border-radius: 0 0 12px 12px;
+}
+
+.black-key .key-caption {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 6px);
+  text-align: center;
+  font-size: 0.5rem;
+  font-weight: 700;
+  line-height: 1;
+  color: rgba(255, 248, 241, 0.92);
 }
 
 .white-key.active {
@@ -1853,7 +1875,8 @@ select:focus {
 .setup-actions,
 .setup-grid,
 .metadata-grid,
-.free-play-summary {
+.free-play-summary,
+.soundboard-summary {
   display: grid;
   gap: 16px;
 }
@@ -1944,17 +1967,96 @@ select:focus {
 }
 
 .setup-screen,
-.free-play-screen {
+.free-play-screen,
+.soundboard-screen {
   align-content: start;
 }
 
 .setup-hero,
-.free-play-hero {
+.free-play-hero,
+.soundboard-hero {
   border-radius: 24px;
   padding: 24px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.soundboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 18px;
+}
+
+.soundboard-summary {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.soundboard-summary span {
+  display: block;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.soundboard-summary strong {
+  display: block;
+  margin-top: 8px;
+}
+
+.soundboard-hero-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.soundboard-clip-card {
+  border: 1px solid color-mix(in srgb, var(--color-accent) 18%, transparent);
+  border-radius: 24px;
+  padding: 18px;
+  text-align: left;
+  display: grid;
+  gap: 8px;
+  appearance: none;
+  cursor: pointer;
+  background: color-mix(in srgb, var(--sub-panel-bg) 88%, transparent);
+  transition:
+    transform 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    background 140ms ease;
+}
+
+.soundboard-clip-card:hover,
+.soundboard-clip-card.active {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--color-ok) 48%, transparent);
+  box-shadow: var(--color-panel-shadow);
+  background: color-mix(in srgb, var(--panel-bg-solid) 82%, var(--color-ok) 18%);
+}
+
+.soundboard-shortcut {
+  min-width: 56px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 10px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+  color: var(--color-text);
+}
+
+.soundboard-clip-card strong {
+  font-size: 1.05rem;
+}
+
+.soundboard-clip-card span,
+.soundboard-clip-card em {
+  color: var(--color-text-secondary);
 }
 
 .setup-grid {
@@ -2004,7 +2106,8 @@ select:focus {
 @media (max-width: 1180px) {
   .session-toolbar,
   .metadata-grid,
-  .free-play-summary {
+  .free-play-summary,
+  .soundboard-summary {
     grid-template-columns: 1fr;
   }
 
@@ -2021,10 +2124,16 @@ select:focus {
 @media (max-width: 780px) {
   .setup-hero,
   .free-play-hero,
+  .soundboard-hero,
   .setup-footer,
   .reminder-overlay {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .soundboard-hero-actions {
+    width: 100%;
+    justify-content: flex-start;
   }
 
   .session-chip-group {
