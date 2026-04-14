@@ -8,7 +8,7 @@ export const DEFAULT_INPUT_MODE: InputMode = 'both';
 export const MIN_MIDI_NOTE = 21;
 export const MAX_MIDI_NOTE = 108;
 export const DEFAULT_KEYBOARD_ROOT_MIDI = 48;
-export const KEYBOARD_NOTE_SLOT_COUNT = 24;
+export const KEYBOARD_NOTE_SLOT_COUNT = 30;
 export const MIN_OCTAVE_SHIFT = Math.ceil((MIN_MIDI_NOTE - DEFAULT_KEYBOARD_ROOT_MIDI) / 12);
 export const MAX_OCTAVE_SHIFT = Math.floor(
   (MAX_MIDI_NOTE - (DEFAULT_KEYBOARD_ROOT_MIDI + KEYBOARD_NOTE_SLOT_COUNT - 1)) / 12,
@@ -39,6 +39,12 @@ const NOTE_ACTIONS: KeyboardNoteAction[] = [
   'note-21',
   'note-22',
   'note-23',
+  'note-24',
+  'note-25',
+  'note-26',
+  'note-27',
+  'note-28',
+  'note-29',
 ];
 
 export const KEYBOARD_ACTIONS: KeyboardAction[] = [...NOTE_ACTIONS, 'sustain', 'octave-down', 'octave-up'];
@@ -68,6 +74,12 @@ const DEFAULT_MAPPING_CODES: Record<KeyboardAction, string> = {
   'note-21': 'KeyY',
   'note-22': 'Digit7',
   'note-23': 'KeyU',
+  'note-24': 'Digit8',
+  'note-25': 'KeyI',
+  'note-26': 'Digit9',
+  'note-27': 'KeyO',
+  'note-28': 'Digit0',
+  'note-29': 'KeyP',
   sustain: 'Space',
   'octave-down': 'BracketLeft',
   'octave-up': 'BracketRight',
@@ -209,7 +221,7 @@ export function isSupportedKeyboardCode(code: string): boolean {
   if (UNSUPPORTED_CODES.has(code)) {
     return false;
   }
-  return /^[A-Za-z0-9]+$/.test(code) || ['Space', 'BracketLeft', 'BracketRight', 'Minus', 'Equal'].includes(code);
+  return /^[A-Za-z0-9]+$/.test(code) || ['Space', 'BracketLeft', 'BracketRight', 'Minus', 'Equal', 'Comma', 'Period', 'Slash'].includes(code);
 }
 
 export function formatKeyboardCode(code: string | null): string {
@@ -230,6 +242,15 @@ export function formatKeyboardCode(code: string | null): string {
   }
   if (code === 'BracketRight') {
     return ']';
+  }
+  if (code === 'Comma') {
+    return ',';
+  }
+  if (code === 'Period') {
+    return '.';
+  }
+  if (code === 'Slash') {
+    return '/';
   }
   return code;
 }
