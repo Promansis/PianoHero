@@ -10,9 +10,9 @@ export interface KeyLayout {
   left: number;
 }
 
-function buildWhiteKeys(): number[] {
+function buildWhiteKeys(minMidi = MIN_MIDI, maxMidi = MAX_MIDI): number[] {
   const whiteKeys: number[] = [];
-  for (let midi = MIN_MIDI; midi <= MAX_MIDI; midi += 1) {
+  for (let midi = minMidi; midi <= maxMidi; midi += 1) {
     if (!BLACK_CLASSES.has(midi % 12)) {
       whiteKeys.push(midi);
     }
@@ -20,24 +20,34 @@ function buildWhiteKeys(): number[] {
   return whiteKeys;
 }
 
-function midiToLabel(midi: number): string {
+export function midiToLabel(midi: number): string {
   const pitchNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
   return `${pitchNames[midi % 12]}${Math.floor(midi / 12) - 1}`;
 }
 
-function blackKeyLeft(blackMidi: number, whiteIndexMap: Map<number, number>): number {
+export function isBlackMidi(midi: number): boolean {
+  return BLACK_CLASSES.has(midi % 12);
+}
+
+function blackKeyLeft(
+  blackMidi: number,
+  whiteIndexMap: Map<number, number>,
+  whiteKeyWidth: number,
+  minMidi = MIN_MIDI,
+  maxMidi = MAX_MIDI,
+): number {
   let previousWhiteMidi: number | null = null;
   let nextWhiteMidi: number | null = null;
 
-  for (let midi = blackMidi - 1; midi >= MIN_MIDI; midi -= 1) {
-    if (!BLACK_CLASSES.has(midi % 12)) {
+  for (let midi = blackMidi - 1; midi >= minMidi; midi -= 1) {
+    if (!isBlackMidi(midi)) {
       previousWhiteMidi = midi;
       break;
     }
   }
 
-  for (let midi = blackMidi + 1; midi <= MAX_MIDI; midi += 1) {
-    if (!BLACK_CLASSES.has(midi % 12)) {
+  for (let midi = blackMidi + 1; midi <= maxMidi; midi += 1) {
+    if (!isBlackMidi(midi)) {
       nextWhiteMidi = midi;
       break;
     }
@@ -51,36 +61,42 @@ function blackKeyLeft(blackMidi: number, whiteIndexMap: Map<number, number>): nu
   const nextWhiteIndex = whiteIndexMap.get(nextWhiteMidi) ?? previousWhiteIndex + 1;
   const boundaryIndex = nextWhiteIndex;
 
-  return (boundaryIndex - BLACK_KEY_WIDTH / 2) * WHITE_KEY_WIDTH;
+  return (boundaryIndex - BLACK_KEY_WIDTH / 2) * whiteKeyWidth;
 }
 
 export const WHITE_KEYS = buildWhiteKeys();
 export const WHITE_KEY_WIDTH = 100 / WHITE_KEYS.length;
 
-export function buildKeyLayout(): KeyLayout[] {
+export function buildKeyRangeLayout(minMidi = MIN_MIDI, maxMidi = MAX_MIDI): KeyLayout[] {
+  const whiteKeys = buildWhiteKeys(minMidi, maxMidi);
+  const whiteKeyWidth = 100 / whiteKeys.length;
   const whiteIndexMap = new Map<number, number>();
-  WHITE_KEYS.forEach((midi, index) => {
+  whiteKeys.forEach((midi, index) => {
     whiteIndexMap.set(midi, index);
   });
 
   const layout: KeyLayout[] = [];
-  for (let midi = MIN_MIDI; midi <= MAX_MIDI; midi += 1) {
+  for (let midi = minMidi; midi <= maxMidi; midi += 1) {
     const pitchClass = midi % 12;
     const note = midiToLabel(midi);
     const isBlack = BLACK_CLASSES.has(pitchClass);
 
     if (!isBlack) {
-      const left = (whiteIndexMap.get(midi) ?? 0) * WHITE_KEY_WIDTH;
+      const left = (whiteIndexMap.get(midi) ?? 0) * whiteKeyWidth;
       layout.push({ midi, note, isBlack, left });
       continue;
     }
 
-    const left = blackKeyLeft(midi, whiteIndexMap);
-    const normalizedLeft = Math.max(0, Math.min(100 - WHITE_KEY_WIDTH * BLACK_KEY_WIDTH, left));
+    const left = blackKeyLeft(midi, whiteIndexMap, whiteKeyWidth, minMidi, maxMidi);
+    const normalizedLeft = Math.max(0, Math.min(100 - whiteKeyWidth * BLACK_KEY_WIDTH, left));
     layout.push({ midi, note, isBlack, left: normalizedLeft });
   }
 
   return layout;
+}
+
+export function buildKeyLayout(): KeyLayout[] {
+  return buildKeyRangeLayout(MIN_MIDI, MAX_MIDI);
 }
 
 export const KEY_LAYOUT = buildKeyLayout();

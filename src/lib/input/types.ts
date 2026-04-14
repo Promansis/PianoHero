@@ -47,7 +47,11 @@ export type KeyboardNoteAction =
   | 'note-26'
   | 'note-27'
   | 'note-28'
-  | 'note-29';
+  | 'note-29'
+  | 'note-30'
+  | 'note-31'
+  | 'note-32'
+  | 'note-33';
 
 export type KeyboardAction = KeyboardNoteAction | KeyboardControlAction;
 

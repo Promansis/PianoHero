@@ -1051,10 +1051,12 @@ select:focus {
 .black-keys {
   position: absolute;
   inset: 16px 16px 18px;
+  z-index: 1;
 }
 
 .black-key {
   position: absolute;
+  top: 0;
   height: 58%;
   background: linear-gradient(180deg, var(--color-black-key-start) 0%, var(--color-black-key-end) 100%);
   border-radius: 0 0 12px 12px;
@@ -2095,14 +2097,36 @@ select:focus {
   margin-top: 16px;
 }
 
-.keyboard-mapping-row {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 12px;
-}
-
 .keyboard-control-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.keyboard-mapping-scroller {
+  margin-top: 16px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+.keyboard-mapping-board {
+  min-width: 980px;
+}
+
+.keyboard-binding-stage {
+  height: 280px;
+  margin-top: 0;
+}
+
+.keyboard-binding-white-keys {
+  display: flex;
+  align-items: flex-end;
+  height: 100%;
+}
+
+.keyboard-binding-black-keys {
+  position: absolute;
+  inset: 16px 16px 18px;
+  z-index: 1;
+  pointer-events: none;
 }
 
 .keyboard-bind-card {
@@ -2129,12 +2153,107 @@ select:focus {
   color: var(--color-text-muted);
 }
 
+.keyboard-selected-bind-card {
+  margin-top: 16px;
+}
+
+.keyboard-bind-status {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.keyboard-bind-key {
+  appearance: none;
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
+  position: absolute;
+  overflow: hidden;
+  font: inherit;
+  color: inherit;
+  border: 0;
+  background: none;
+}
+
+.keyboard-binding-white-key {
+  position: relative;
+  height: 100%;
+  border: 1px solid color-mix(in srgb, var(--color-border-strong) 80%, transparent);
+  background: linear-gradient(180deg, var(--color-white-key-start) 0%, var(--color-white-key-end) 100%);
+  border-radius: 0 0 10px 10px;
+}
+
+.keyboard-binding-black-key {
+  top: 0;
+  height: 58%;
+  background: linear-gradient(180deg, var(--color-black-key-start) 0%, var(--color-black-key-end) 100%);
+  border-radius: 0 0 12px 12px;
+  border: 1px solid color-mix(in srgb, var(--color-border-strong) 58%, transparent);
+  pointer-events: auto;
+}
+
+.keyboard-binding-white-key.active {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--color-accent) 22%, white) 0%, var(--color-accent) 100%);
+  box-shadow: 0 0 18px var(--color-active-key-glow);
+}
+
+.keyboard-binding-black-key.active {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--color-accent) 18%, white) 0%, color-mix(in srgb, var(--color-accent) 78%, black) 100%);
+  box-shadow: 0 0 20px var(--color-active-key-glow);
+}
+
+.keyboard-bind-key.selected {
+  box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--color-accent-secondary) 45%, white);
+}
+
+.keyboard-bind-key.capturing {
+  box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--color-accent) 62%, white);
+}
+
+.keyboard-bind-key.unbound {
+  opacity: 0.72;
+}
+
+.keyboard-bind-note,
+.keyboard-bind-code {
+  display: block;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
+  z-index: 1;
+  white-space: nowrap;
+}
+
+.keyboard-binding-stage .keyboard-binding-white-key .keyboard-bind-note {
+  color: var(--color-key-label);
+  font-size: 0.72rem;
+  bottom: 36px;
+}
+
+.keyboard-binding-stage .keyboard-binding-white-key .keyboard-bind-code {
+  color: var(--color-text);
+  font-size: 0.95rem;
+  bottom: 12px;
+}
+
+.keyboard-binding-stage .keyboard-binding-black-key .keyboard-bind-note {
+  color: color-mix(in srgb, var(--color-text) 78%, white);
+  font-size: 0.66rem;
+  bottom: 30px;
+}
+
+.keyboard-binding-stage .keyboard-binding-black-key .keyboard-bind-code {
+  color: white;
+  font-size: 0.82rem;
+  bottom: 10px;
+}
+
 .status-card .secondary-button {
   margin-top: 8px;
 }
 
 @media (max-width: 1180px) {
-  .keyboard-mapping-row,
   .keyboard-control-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -2147,7 +2266,6 @@ select:focus {
     align-items: flex-start;
   }
 
-  .keyboard-mapping-row,
   .keyboard-control-grid {
     grid-template-columns: 1fr;
   }

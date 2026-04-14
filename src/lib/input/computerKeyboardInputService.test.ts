@@ -76,7 +76,7 @@ describe('ComputerKeyboardInputService', () => {
     dispatch('keydown', 'KeyP');
     dispatch('keyup', 'KeyP');
 
-    expect(events.at(0)).toBe(101);
+    expect(events.at(0)).toBe(105);
   });
 
   it('releases held notes and sustain on blur', () => {

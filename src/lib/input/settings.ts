@@ -8,13 +8,13 @@ export const DEFAULT_INPUT_MODE: InputMode = 'both';
 export const MIN_MIDI_NOTE = 21;
 export const MAX_MIDI_NOTE = 108;
 export const DEFAULT_KEYBOARD_ROOT_MIDI = 48;
-export const KEYBOARD_NOTE_SLOT_COUNT = 30;
+export const KEYBOARD_NOTE_SLOT_COUNT = 34;
 export const MIN_OCTAVE_SHIFT = Math.ceil((MIN_MIDI_NOTE - DEFAULT_KEYBOARD_ROOT_MIDI) / 12);
 export const MAX_OCTAVE_SHIFT = Math.floor(
   (MAX_MIDI_NOTE - (DEFAULT_KEYBOARD_ROOT_MIDI + KEYBOARD_NOTE_SLOT_COUNT - 1)) / 12,
 );
 
-const NOTE_ACTIONS: KeyboardNoteAction[] = [
+export const KEYBOARD_NOTE_ACTIONS: KeyboardNoteAction[] = [
   'note-0',
   'note-1',
   'note-2',
@@ -45,9 +45,13 @@ const NOTE_ACTIONS: KeyboardNoteAction[] = [
   'note-27',
   'note-28',
   'note-29',
+  'note-30',
+  'note-31',
+  'note-32',
+  'note-33',
 ];
 
-export const KEYBOARD_ACTIONS: KeyboardAction[] = [...NOTE_ACTIONS, 'sustain', 'octave-down', 'octave-up'];
+export const KEYBOARD_ACTIONS: KeyboardAction[] = [...KEYBOARD_NOTE_ACTIONS, 'sustain', 'octave-down', 'octave-up'];
 
 const DEFAULT_MAPPING_CODES: Record<KeyboardAction, string> = {
   'note-0': 'KeyZ',
@@ -62,24 +66,28 @@ const DEFAULT_MAPPING_CODES: Record<KeyboardAction, string> = {
   'note-9': 'KeyN',
   'note-10': 'KeyJ',
   'note-11': 'KeyM',
-  'note-12': 'KeyQ',
-  'note-13': 'Digit2',
-  'note-14': 'KeyW',
-  'note-15': 'Digit3',
-  'note-16': 'KeyE',
-  'note-17': 'KeyR',
-  'note-18': 'Digit5',
-  'note-19': 'KeyT',
-  'note-20': 'Digit6',
-  'note-21': 'KeyY',
-  'note-22': 'Digit7',
-  'note-23': 'KeyU',
-  'note-24': 'Digit8',
-  'note-25': 'KeyI',
-  'note-26': 'Digit9',
-  'note-27': 'KeyO',
-  'note-28': 'Digit0',
-  'note-29': 'KeyP',
+  'note-12': 'Comma',
+  'note-13': 'KeyL',
+  'note-14': 'Period',
+  'note-15': 'Semicolon',
+  'note-16': 'Slash',
+  'note-17': 'KeyQ',
+  'note-18': 'Digit2',
+  'note-19': 'KeyW',
+  'note-20': 'Digit3',
+  'note-21': 'KeyE',
+  'note-22': 'Digit4',
+  'note-23': 'KeyR',
+  'note-24': 'KeyT',
+  'note-25': 'Digit6',
+  'note-26': 'KeyY',
+  'note-27': 'Digit7',
+  'note-28': 'KeyU',
+  'note-29': 'KeyI',
+  'note-30': 'Digit9',
+  'note-31': 'KeyO',
+  'note-32': 'Digit0',
+  'note-33': 'KeyP',
   sustain: 'Space',
   'octave-down': 'BracketLeft',
   'octave-up': 'BracketRight',
@@ -221,7 +229,7 @@ export function isSupportedKeyboardCode(code: string): boolean {
   if (UNSUPPORTED_CODES.has(code)) {
     return false;
   }
-  return /^[A-Za-z0-9]+$/.test(code) || ['Space', 'BracketLeft', 'BracketRight', 'Minus', 'Equal', 'Comma', 'Period', 'Slash'].includes(code);
+  return /^[A-Za-z0-9]+$/.test(code) || ['Space', 'BracketLeft', 'BracketRight', 'Minus', 'Equal', 'Comma', 'Period', 'Slash', 'Semicolon'].includes(code);
 }
 
 export function formatKeyboardCode(code: string | null): string {
@@ -251,6 +259,12 @@ export function formatKeyboardCode(code: string | null): string {
   }
   if (code === 'Slash') {
     return '/';
+  }
+  if (code === 'Semicolon') {
+    return ';';
+  }
+  if (code === 'Minus') {
+    return '-';
   }
   return code;
 }
