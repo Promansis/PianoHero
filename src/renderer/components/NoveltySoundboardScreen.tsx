@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AudioEngine } from '../../lib/audio/audioEngine';
-import { SOUNDBOARD_CLIPS, getSoundboardClipForMidi } from '../../lib/audio/soundboardCatalog';
+import {
+  SOUNDBOARD_CLIPS,
+  SOUNDBOARD_MAX_MIDI,
+  SOUNDBOARD_MIN_MIDI,
+  getSoundboardClipForMidi,
+} from '../../lib/audio/soundboardCatalog';
 import { ComputerKeyboardInputService } from '../../lib/input/computerKeyboardInputService';
 import type { InputEvent, InputMode } from '../../lib/input/types';
 import { MidiInputService } from '../../lib/midi/midiInputService';
@@ -164,6 +169,8 @@ export function NoveltySoundboardScreen({
         keyLabels={keyLabels}
         heading="Mapped novelty triggers"
         copy="Use your piano or the computer-keyboard piano mapping. Only labeled keys trigger sounds."
+        minMidi={SOUNDBOARD_MIN_MIDI}
+        maxMidi={SOUNDBOARD_MAX_MIDI}
       />
 
       <section className="soundboard-grid">

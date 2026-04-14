@@ -1,5 +1,5 @@
 import type { Hand } from '../../lib/game/types';
-import { BLACK_KEY_WIDTH, KEY_LAYOUT, WHITE_KEY_WIDTH } from '../../lib/piano/pianoLayout';
+import { BLACK_KEY_WIDTH, buildKeyRangeLayout, KEY_LAYOUT, WHITE_KEY_WIDTH } from '../../lib/piano/pianoLayout';
 
 export type NotePriority = 'next' | 'soon' | 'other';
 
@@ -13,6 +13,8 @@ interface PianoKeyboardProps {
   keyLabels?: Partial<Record<number, string>>;
   heading?: string;
   copy?: string;
+  minMidi?: number;
+  maxMidi?: number;
 }
 
 function upcomingMap(
@@ -35,11 +37,16 @@ export function PianoKeyboard({
   keyLabels = {},
   heading = 'Live + upcoming notes',
   copy = 'Blue cues the left hand. Orange cues the right.',
+  minMidi,
+  maxMidi,
 }: PianoKeyboardProps) {
   const activeSet = new Set(activeNotes);
   const upcoming = upcomingMap(upcomingNotes);
-  const whiteKeys = KEY_LAYOUT.filter((key) => !key.isBlack);
-  const blackKeys = KEY_LAYOUT.filter((key) => key.isBlack);
+  const layout =
+    typeof minMidi === 'number' && typeof maxMidi === 'number' ? buildKeyRangeLayout(minMidi, maxMidi) : KEY_LAYOUT;
+  const whiteKeys = layout.filter((key) => !key.isBlack);
+  const blackKeys = layout.filter((key) => key.isBlack);
+  const whiteKeyWidth = 100 / whiteKeys.length;
 
   return (
     <section className={`keyboard-shell panel keyboard-size-${size}`}>
@@ -62,7 +69,7 @@ export function PianoKeyboard({
               <div
                 key={key.midi}
                 className={`white-key ${isActive ? 'active' : ''} ${cue ? `cue-${cue.priority ?? cue.hand}` : ''} ${isHighlighted ? `${highlightColor}-highlight` : ''}`}
-                style={{ width: `${WHITE_KEY_WIDTH}%` }}
+                style={{ width: `${whiteKeyWidth}%` }}
                 title={key.note}
               >
                 <span className={`key-caption${keyLabels[key.midi] ? ' custom' : ''}`}>
@@ -85,7 +92,7 @@ export function PianoKeyboard({
               <div
                 key={key.midi}
                 className={`black-key ${isActive ? 'active' : ''} ${cue ? `cue-${cue.priority ?? cue.hand}` : ''} ${isHighlighted ? `${highlightColor}-highlight` : ''}`}
-                style={{ left: `${key.left}%`, width: `${WHITE_KEY_WIDTH * BLACK_KEY_WIDTH}%` }}
+                style={{ left: `${key.left}%`, width: `${whiteKeyWidth * BLACK_KEY_WIDTH}%` }}
                 title={key.note}
               >
                 {keyLabels[key.midi] && <span className="key-caption black">{keyLabels[key.midi]}</span>}
