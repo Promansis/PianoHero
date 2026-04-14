@@ -76,6 +76,36 @@ const PHILHARMONIA_FRENCH_HORN_SAMPLE_MAP = {
   C5: 'french-horn_C5_15_piano_normal.mp3',
 } as const;
 
+// nbrosowsky/tonejs-instruments (MIT) — downloaded by scripts/download-samples.mjs
+const NBROSOWSKY_ORGAN_SAMPLE_MAP = {
+  A1: 'A1.mp3', A2: 'A2.mp3', A3: 'A3.mp3', A4: 'A4.mp3', A5: 'A5.mp3',
+  C1: 'C1.mp3', C2: 'C2.mp3', C3: 'C3.mp3', C4: 'C4.mp3', C5: 'C5.mp3', C6: 'C6.mp3',
+  'D#1': 'Ds1.mp3', 'D#2': 'Ds2.mp3', 'D#3': 'Ds3.mp3', 'D#4': 'Ds4.mp3', 'D#5': 'Ds5.mp3',
+  'F#1': 'Fs1.mp3', 'F#2': 'Fs2.mp3', 'F#3': 'Fs3.mp3', 'F#4': 'Fs4.mp3', 'F#5': 'Fs5.mp3',
+} as const;
+
+const NBROSOWSKY_HARP_SAMPLE_MAP = {
+  A2: 'A2.mp3', A4: 'A4.mp3', A6: 'A6.mp3',
+  B1: 'B1.mp3', B3: 'B3.mp3', B5: 'B5.mp3', B6: 'B6.mp3',
+  C3: 'C3.mp3', C5: 'C5.mp3',
+  D2: 'D2.mp3', D4: 'D4.mp3', D6: 'D6.mp3', D7: 'D7.mp3',
+  E1: 'E1.mp3', E3: 'E3.mp3', E5: 'E5.mp3',
+  F2: 'F2.mp3', F4: 'F4.mp3', F6: 'F6.mp3', F7: 'F7.mp3',
+  G1: 'G1.mp3', G3: 'G3.mp3', G5: 'G5.mp3',
+} as const;
+
+const NBROSOWSKY_XYLOPHONE_SAMPLE_MAP = {
+  G4: 'G4.mp3', G5: 'G5.mp3', G6: 'G6.mp3', G7: 'G7.mp3',
+  C5: 'C5.mp3', C6: 'C6.mp3', C7: 'C7.mp3', C8: 'C8.mp3',
+} as const;
+
+const NBROSOWSKY_BASS_ELECTRIC_SAMPLE_MAP = {
+  'A#1': 'As1.mp3', 'A#2': 'As2.mp3', 'A#3': 'As3.mp3', 'A#4': 'As4.mp3',
+  'C#1': 'Cs1.mp3', 'C#2': 'Cs2.mp3', 'C#3': 'Cs3.mp3', 'C#4': 'Cs4.mp3', 'C#5': 'Cs5.mp3',
+  E1: 'E1.mp3', E2: 'E2.mp3', E3: 'E3.mp3', E4: 'E4.mp3',
+  G1: 'G1.mp3', G2: 'G2.mp3', G3: 'G3.mp3', G4: 'G4.mp3',
+} as const;
+
 export const INSTRUMENTS: InstrumentDefinition[] = [
   {
     id: 'acoustic-piano',
@@ -115,17 +145,13 @@ export const INSTRUMENTS: InstrumentDefinition[] = [
   {
     id: 'organ',
     label: 'Organ',
-    description: 'Full sustained tone without a piano-like decay.',
-    voice: 'synth',
+    description: 'Sampled pipe organ with a full, sustained tone.',
+    voice: 'sampler',
     options: {
-      oscillator: { type: 'sine4' },
-      envelope: {
-        attack: 0.01,
-        decay: 0.08,
-        sustain: 0.95,
-        release: 0.35,
-      },
+      release: 0.5,
     },
+    sampleBaseUrl: '/samples/nbrosowsky/organ/',
+    sampleUrls: NBROSOWSKY_ORGAN_SAMPLE_MAP,
   },
   {
     id: 'harpsichord',
@@ -212,74 +238,35 @@ export const INSTRUMENTS: InstrumentDefinition[] = [
   {
     id: 'marimba',
     label: 'Marimba',
-    description: 'Percussive mallet attack with woody decay.',
-    voice: 'fm',
+    description: 'Sampled harp, giving a resonant plucked character with natural decay.',
+    voice: 'sampler',
     options: {
-      harmonicity: 1.4,
-      modulationIndex: 12,
-      oscillator: { type: 'triangle' },
-      envelope: {
-        attack: 0.001,
-        decay: 0.32,
-        sustain: 0,
-        release: 0.28,
-      },
-      modulation: { type: 'square' },
-      modulationEnvelope: {
-        attack: 0.001,
-        decay: 0.14,
-        sustain: 0,
-        release: 0.12,
-      },
+      release: 0.8,
     },
+    sampleBaseUrl: '/samples/nbrosowsky/harp/',
+    sampleUrls: NBROSOWSKY_HARP_SAMPLE_MAP,
   },
   {
     id: 'bell',
     label: 'Bell',
-    description: 'Glassy, metallic tone for interval and melody drills.',
-    voice: 'fm',
+    description: 'Sampled xylophone/glockenspiel for a bright, metallic tone.',
+    voice: 'sampler',
     options: {
-      harmonicity: 7,
-      modulationIndex: 18,
-      oscillator: { type: 'sine' },
-      envelope: {
-        attack: 0.001,
-        decay: 1.2,
-        sustain: 0,
-        release: 1.8,
-      },
-      modulation: { type: 'square' },
-      modulationEnvelope: {
-        attack: 0.001,
-        decay: 0.5,
-        sustain: 0,
-        release: 0.8,
-      },
+      release: 1.5,
     },
+    sampleBaseUrl: '/samples/nbrosowsky/xylophone/',
+    sampleUrls: NBROSOWSKY_XYLOPHONE_SAMPLE_MAP,
   },
   {
     id: 'bass',
-    label: 'Synth Bass',
-    description: 'Low, punchy voice that exaggerates left-hand lines.',
-    voice: 'mono',
+    label: 'Bass',
+    description: 'Sampled electric bass for a punchy, low-end voice on left-hand lines.',
+    voice: 'sampler',
     options: {
-      oscillator: { type: 'sawtooth' },
-      filter: { Q: 2, type: 'lowpass', rolloff: -24 },
-      envelope: {
-        attack: 0.01,
-        decay: 0.18,
-        sustain: 0.45,
-        release: 0.35,
-      },
-      filterEnvelope: {
-        attack: 0.002,
-        decay: 0.2,
-        sustain: 0.1,
-        release: 0.3,
-        baseFrequency: 120,
-        octaves: 2.5,
-      },
+      release: 0.4,
     },
+    sampleBaseUrl: '/samples/nbrosowsky/bass-electric/',
+    sampleUrls: NBROSOWSKY_BASS_ELECTRIC_SAMPLE_MAP,
   },
   {
     id: '8-bit',
