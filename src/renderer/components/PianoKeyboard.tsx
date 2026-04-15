@@ -3,6 +3,13 @@ import { BLACK_KEY_WIDTH, buildKeyRangeLayout, KEY_LAYOUT, WHITE_KEY_WIDTH } fro
 
 export type NotePriority = 'next' | 'soon' | 'other';
 
+export interface KeyboardOverlayEffect {
+  id: string;
+  midi: number;
+  src: string;
+  alt: string;
+}
+
 interface PianoKeyboardProps {
   activeNotes: number[];
   upcomingNotes: Array<{ midi: number; hand: Hand; finger?: number; priority?: NotePriority }>;
@@ -15,6 +22,7 @@ interface PianoKeyboardProps {
   copy?: string;
   minMidi?: number;
   maxMidi?: number;
+  overlayEffects?: KeyboardOverlayEffect[];
 }
 
 function upcomingMap(
@@ -39,6 +47,7 @@ export function PianoKeyboard({
   copy = 'Blue cues the left hand. Orange cues the right.',
   minMidi,
   maxMidi,
+  overlayEffects = [],
 }: PianoKeyboardProps) {
   const activeSet = new Set(activeNotes);
   const upcoming = upcomingMap(upcomingNotes);
@@ -47,6 +56,7 @@ export function PianoKeyboard({
   const whiteKeys = layout.filter((key) => !key.isBlack);
   const blackKeys = layout.filter((key) => key.isBlack);
   const whiteKeyWidth = 100 / whiteKeys.length;
+  const layoutByMidi = new Map(layout.map((key) => [key.midi, key]));
 
   return (
     <section className={`keyboard-shell panel keyboard-size-${size}`}>
@@ -60,6 +70,29 @@ export function PianoKeyboard({
 
       <div className="keyboard-stage">
         {chordLabel && <div className="chord-label">{chordLabel}</div>}
+        {overlayEffects.length > 0 && (
+          <div className="keyboard-overlay-layer" aria-hidden="true">
+            {overlayEffects.map((effect) => {
+              const key = layoutByMidi.get(effect.midi);
+              if (!key) {
+                return null;
+              }
+
+              const widthPercent = key.isBlack ? whiteKeyWidth * BLACK_KEY_WIDTH : whiteKeyWidth;
+              const leftPercent = key.left + widthPercent / 2;
+
+              return (
+                <div
+                  key={effect.id}
+                  className={`keyboard-overlay-effect${key.isBlack ? ' black-key-origin' : ''}`}
+                  style={{ left: `${leftPercent}%` }}
+                >
+                  <img src={effect.src} alt={effect.alt} />
+                </div>
+              );
+            })}
+          </div>
+        )}
         <div className="white-keys">
           {whiteKeys.map((key) => {
             const cue = upcoming.get(key.midi);

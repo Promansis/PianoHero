@@ -1,4 +1,21 @@
-export type SoundboardCategory = 'drum' | 'shuffle' | 'jingle' | 'horn' | 'sparkle' | 'metal' | 'scrape' | 'impact';
+import animalManifest from './animalSoundboardManifest.json';
+
+export type SoundboardCategory =
+  | 'drum'
+  | 'shuffle'
+  | 'jingle'
+  | 'horn'
+  | 'sparkle'
+  | 'metal'
+  | 'scrape'
+  | 'impact'
+  | 'pet'
+  | 'farm'
+  | 'bird'
+  | 'wild'
+  | 'bug';
+
+export type SoundboardModeId = 'classic' | 'animals';
 
 export interface SoundboardClip {
   id: string;
@@ -9,14 +26,33 @@ export interface SoundboardClip {
   src: string;
   gainDb: number;
   source: string;
+  visualSrc?: string;
+  attribution?: string;
+  author?: string;
+  license?: string;
+  sourcePage?: string;
+  sourceTitle?: string;
+  description?: string;
+}
+
+export interface SoundboardModeDefinition {
+  id: SoundboardModeId;
+  label: string;
+  description: string;
+  heading: string;
+  copy: string;
+  statusTemplate: (clip: SoundboardClip) => string;
+  clipSourceLabel: string;
+  creditsHeading: string;
+  clips: SoundboardClip[];
 }
 
 export const SOUNDBOARD_MIN_MIDI = 36;
 export const SOUNDBOARD_MAX_MIDI = 96;
 
-const SOUND_SOURCE = 'Philharmonia Orchestra Sound Samples';
+const CLASSIC_SOUND_SOURCE = 'Philharmonia Orchestra Sound Samples';
 
-const SOUND_DATA: Array<Omit<SoundboardClip, 'midi' | 'source'>> = [
+const CLASSIC_DATA: Array<Omit<SoundboardClip, 'midi' | 'source'>> = [
   { id: 'bass-boom', label: 'Bass Boom', shortLabel: 'Boom', category: 'drum', src: '/soundboard/bass-drum__025_forte_bass-drum-mallet.mp3', gainDb: -5 },
   { id: 'bass-flam', label: 'Bass Flam', shortLabel: 'Flam', category: 'drum', src: '/soundboard/bass-drum__1_mezzo-forte_flam.mp3', gainDb: -6 },
   { id: 'bass-rumble', label: 'Bass Rumble', shortLabel: 'Rumb', category: 'drum', src: '/soundboard/bass-drum__15_mezzo-piano_rhythm.mp3', gainDb: -7 },
@@ -80,16 +116,52 @@ const SOUND_DATA: Array<Omit<SoundboardClip, 'midi' | 'source'>> = [
   { id: 'tamtam-wash', label: 'Tam-Tam Wash', shortLabel: 'Wash', category: 'metal', src: '/soundboard/tam-tam__long_mezzo-piano_undamped.mp3', gainDb: -8 },
 ];
 
-export const SOUNDBOARD_CLIPS: SoundboardClip[] = SOUND_DATA.map((clip, index) => ({
+const CLASSIC_CLIPS: SoundboardClip[] = CLASSIC_DATA.map((clip, index) => ({
   ...clip,
   midi: SOUNDBOARD_MIN_MIDI + index,
-  source: SOUND_SOURCE,
+  source: CLASSIC_SOUND_SOURCE,
 }));
 
-export function getSoundboardClipForMidi(midi: number): SoundboardClip | undefined {
+const ANIMAL_CLIPS: SoundboardClip[] = animalManifest as SoundboardClip[];
+
+export const SOUNDBOARD_MODES: SoundboardModeDefinition[] = [
+  {
+    id: 'classic',
+    label: 'Classic',
+    description: 'Percussion toys, jingles, horns, and silly sparkles.',
+    heading: 'Play novelty sounds from the keyboard',
+    copy: 'Use your piano or the computer-keyboard mapping. Only labeled keys trigger sounds.',
+    statusTemplate: (clip) => `Played ${clip.label}.`,
+    clipSourceLabel: CLASSIC_SOUND_SOURCE,
+    creditsHeading: 'Bundled orchestral percussion credits',
+    clips: CLASSIC_CLIPS,
+  },
+  {
+    id: 'animals',
+    label: 'Animals',
+    description: 'Real animal calls with bubble-pop cartoon sprites.',
+    heading: 'Play animal sounds from the keyboard',
+    copy: 'Each key triggers an animal sound and launches a floating cartoon sprite from that key.',
+    statusTemplate: (clip) => `${clip.label} pops out of the keyboard.`,
+    clipSourceLabel: 'Mixed sourced animal recordings',
+    creditsHeading: 'Animal sound credits',
+    clips: ANIMAL_CLIPS,
+  },
+];
+
+export const DEFAULT_SOUNDBOARD_MODE_ID: SoundboardModeId = 'classic';
+
+export const SOUNDBOARD_CLIPS = CLASSIC_CLIPS;
+
+export function getSoundboardMode(modeId: SoundboardModeId): SoundboardModeDefinition {
+  return SOUNDBOARD_MODES.find((mode) => mode.id === modeId) ?? SOUNDBOARD_MODES[0];
+}
+
+export function getSoundboardClipForMidi(modeId: SoundboardModeId, midi: number): SoundboardClip | undefined {
+  const mode = getSoundboardMode(modeId);
   const index = midi - SOUNDBOARD_MIN_MIDI;
-  if (index < 0 || index >= SOUNDBOARD_CLIPS.length) {
+  if (index < 0 || index >= mode.clips.length) {
     return undefined;
   }
-  return SOUNDBOARD_CLIPS[index];
+  return mode.clips[index];
 }

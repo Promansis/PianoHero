@@ -1,16 +1,20 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AudioEngine } from '../../lib/audio/audioEngine';
 import {
-  SOUNDBOARD_CLIPS,
+  DEFAULT_SOUNDBOARD_MODE_ID,
   SOUNDBOARD_MAX_MIDI,
   SOUNDBOARD_MIN_MIDI,
+  SOUNDBOARD_MODES,
   getSoundboardClipForMidi,
+  getSoundboardMode,
+  type SoundboardClip,
+  type SoundboardModeId,
 } from '../../lib/audio/soundboardCatalog';
 import { ComputerKeyboardInputService } from '../../lib/input/computerKeyboardInputService';
 import type { InputEvent, InputMode } from '../../lib/input/types';
 import { MidiInputService } from '../../lib/midi/midiInputService';
 import { midiToLabel } from '../../lib/piano/pianoLayout';
-import { PianoKeyboard } from './PianoKeyboard';
+import { PianoKeyboard, type KeyboardOverlayEffect } from './PianoKeyboard';
 
 interface NoveltySoundboardScreenProps {
   audioEngine: AudioEngine;
@@ -21,6 +25,8 @@ interface NoveltySoundboardScreenProps {
   onBackToMainMenu: () => void;
   onOpenKeyboardSetup: () => void;
 }
+
+interface FloatingEffect extends KeyboardOverlayEffect {}
 
 function formatInputMode(inputMode: InputMode): string {
   if (inputMode === 'both') {
@@ -43,23 +49,56 @@ export function NoveltySoundboardScreen({
 }: NoveltySoundboardScreenProps) {
   const [activeNotes, setActiveNotes] = useState<number[]>([]);
   const [lastPlayedId, setLastPlayedId] = useState<string | null>(null);
-  const [statusMessage, setStatusMessage] = useState('Play the highlighted piano keys to trigger novelty sounds.');
+  const [modeId, setModeId] = useState<SoundboardModeId>(DEFAULT_SOUNDBOARD_MODE_ID);
+  const [showCredits, setShowCredits] = useState(false);
+  const [floatingEffects, setFloatingEffects] = useState<FloatingEffect[]>([]);
   const [keyboardOctaveShift, setKeyboardOctaveShift] = useState(keyboardInputService.getState().octaveShift);
+  const effectCounterRef = useRef(0);
 
+  const mode = useMemo(() => getSoundboardMode(modeId), [modeId]);
+  const highlightedNotes = useMemo(() => mode.clips.map((clip) => clip.midi), [mode]);
   const keyLabels = useMemo(
-    () => Object.fromEntries(SOUNDBOARD_CLIPS.map((clip) => [clip.midi, clip.shortLabel])),
-    [],
+    () => Object.fromEntries(mode.clips.map((clip) => [clip.midi, clip.shortLabel])),
+    [mode],
   );
+  const statusFallback = `${mode.heading}.`;
+  const [statusMessage, setStatusMessage] = useState(statusFallback);
 
-  const triggerClip = async (midi: number) => {
-    const clip = getSoundboardClipForMidi(midi);
-    if (!clip) {
+  useEffect(() => {
+    setStatusMessage(mode.copy);
+    setLastPlayedId(null);
+    setActiveNotes([]);
+    setFloatingEffects([]);
+  }, [mode]);
+
+  const spawnFloatingEffect = (clip: SoundboardClip) => {
+    if (!clip.visualSrc || mode.id !== 'animals') {
       return;
     }
 
+    const visualSrc = clip.visualSrc;
+    const effectId = `${clip.id}-${effectCounterRef.current}`;
+    effectCounterRef.current += 1;
+    setFloatingEffects((current) => [
+      ...current,
+      {
+        id: effectId,
+        midi: clip.midi,
+        src: visualSrc,
+        alt: clip.label,
+      },
+    ]);
+
+    window.setTimeout(() => {
+      setFloatingEffects((current) => current.filter((effect) => effect.id !== effectId));
+    }, 1500);
+  };
+
+  const triggerClip = async (clip: SoundboardClip) => {
     await audioEngine.playOneShot(clip.src, clip.gainDb);
     setLastPlayedId(clip.id);
-    setStatusMessage(`Played ${clip.label} on ${midiToLabel(clip.midi)}.`);
+    setStatusMessage(`${mode.statusTemplate(clip)} Key ${midiToLabel(clip.midi)}.`);
+    spawnFloatingEffect(clip);
   };
 
   useEffect(() => {
@@ -80,7 +119,7 @@ export function NoveltySoundboardScreen({
         return;
       }
 
-      const clip = getSoundboardClipForMidi(event.note);
+      const clip = getSoundboardClipForMidi(modeId, event.note);
       if (!clip) {
         return;
       }
@@ -91,7 +130,7 @@ export function NoveltySoundboardScreen({
         heldByNote.set(event.note, heldSources);
         setActiveNotes([...heldByNote.keys()].sort((left, right) => left - right));
         if (heldSources.size === 1) {
-          await triggerClip(event.note);
+          await triggerClip(clip);
         }
         return;
       }
@@ -125,17 +164,20 @@ export function NoveltySoundboardScreen({
       unsubscribeKeyboard();
       unsubscribeKeyboardState();
     };
-  }, [audioEngine, inputMode, keyboardInputService, midiInputService]);
+  }, [audioEngine, inputMode, keyboardInputService, midiInputService, modeId]);
 
   return (
     <main className="app-shell soundboard-screen" onPointerDownCapture={() => void audioEngine.init()}>
       <section className="panel soundboard-hero">
         <div>
           <p className="eyebrow">Kids Soundboard</p>
-          <h1>Play novelty sounds from the keyboard</h1>
-          <p className="song-title">{statusMessage}</p>
+          <h1>{mode.heading}</h1>
+          <p className="song-title">{statusMessage || statusFallback}</p>
         </div>
         <div className="soundboard-hero-actions">
+          <button className="secondary-button" onClick={() => setShowCredits((current) => !current)}>
+            {showCredits ? 'Hide Credits' : 'Show Credits'}
+          </button>
           <button className="secondary-button" onClick={onOpenKeyboardSetup}>
             Keyboard Setup
           </button>
@@ -145,6 +187,20 @@ export function NoveltySoundboardScreen({
         </div>
       </section>
 
+      <section className="soundboard-mode-grid">
+        {SOUNDBOARD_MODES.map((candidateMode) => (
+          <button
+            key={candidateMode.id}
+            className={`panel soundboard-mode-card${candidateMode.id === modeId ? ' active' : ''}`}
+            onClick={() => setModeId(candidateMode.id)}
+          >
+            <strong>{candidateMode.label}</strong>
+            <span>{candidateMode.description}</span>
+            <em>{candidateMode.clipSourceLabel}</em>
+          </button>
+        ))}
+      </section>
+
       <section className="soundboard-summary panel">
         <div>
           <span>Input</span>
@@ -152,7 +208,7 @@ export function NoveltySoundboardScreen({
         </div>
         <div>
           <span>Mapped Sounds</span>
-          <strong>{SOUNDBOARD_CLIPS.length}</strong>
+          <strong>{mode.clips.length}</strong>
         </div>
         <div>
           <span>Keyboard Octave</span>
@@ -160,25 +216,53 @@ export function NoveltySoundboardScreen({
         </div>
       </section>
 
+      {showCredits && (
+        <section className="panel soundboard-credits-panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Credits</p>
+              <h2>{mode.creditsHeading}</h2>
+            </div>
+            <p className="panel-copy">{mode.clipSourceLabel}</p>
+          </div>
+          <div className="soundboard-credits-list">
+            {mode.clips.map((clip) => (
+              <article key={`${mode.id}-${clip.id}`} className="soundboard-credit-item">
+                <strong>{clip.label}</strong>
+                <span>{clip.attribution ?? clip.source}</span>
+                {clip.sourcePage ? (
+                  <a href={clip.sourcePage} target="_blank" rel="noreferrer">
+                    {clip.sourceTitle ?? clip.source}
+                  </a>
+                ) : (
+                  <em>{clip.sourceTitle ?? clip.source}</em>
+                )}
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
       <PianoKeyboard
         activeNotes={activeNotes}
         upcomingNotes={[]}
-        highlightedNotes={SOUNDBOARD_CLIPS.map((clip) => clip.midi)}
+        highlightedNotes={highlightedNotes}
         highlightColor="chord"
         size={keyboardOverlaySize}
         keyLabels={keyLabels}
-        heading="Mapped novelty triggers"
-        copy="Use your piano or the computer-keyboard piano mapping. Only labeled keys trigger sounds."
+        heading={mode.id === 'animals' ? 'Animal keys and pop-up sprites' : 'Mapped novelty triggers'}
+        copy={mode.copy}
         minMidi={SOUNDBOARD_MIN_MIDI}
         maxMidi={SOUNDBOARD_MAX_MIDI}
+        overlayEffects={floatingEffects}
       />
 
       <section className="soundboard-grid">
-        {SOUNDBOARD_CLIPS.map((clip) => (
+        {mode.clips.map((clip) => (
           <button
-            key={clip.id}
+            key={`${mode.id}-${clip.id}`}
             className={`panel soundboard-clip-card${lastPlayedId === clip.id ? ' active' : ''}`}
-            onClick={() => void triggerClip(clip.midi)}
+            onClick={() => void triggerClip(clip)}
           >
             <span className="soundboard-shortcut">{midiToLabel(clip.midi)}</span>
             <strong>{clip.label}</strong>

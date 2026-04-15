@@ -2019,6 +2019,46 @@ select:focus {
   gap: 18px;
 }
 
+.soundboard-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 18px;
+}
+
+.soundboard-mode-card {
+  border: 1px solid color-mix(in srgb, var(--color-border) 88%, transparent);
+  border-radius: 24px;
+  padding: 20px;
+  text-align: left;
+  display: grid;
+  gap: 10px;
+  appearance: none;
+  cursor: pointer;
+  background: color-mix(in srgb, var(--sub-panel-bg) 92%, transparent);
+  transition:
+    transform 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    background 140ms ease;
+}
+
+.soundboard-mode-card:hover,
+.soundboard-mode-card.active {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--color-accent) 42%, transparent);
+  box-shadow: var(--color-panel-shadow);
+  background: color-mix(in srgb, var(--panel-bg-solid) 78%, var(--color-accent-soft) 22%);
+}
+
+.soundboard-mode-card strong {
+  font-size: 1.08rem;
+}
+
+.soundboard-mode-card span,
+.soundboard-mode-card em {
+  color: var(--color-text-secondary);
+}
+
 .soundboard-summary {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
@@ -2089,6 +2129,80 @@ select:focus {
 .soundboard-clip-card span,
 .soundboard-clip-card em {
   color: var(--color-text-secondary);
+}
+
+.soundboard-credits-panel {
+  border-radius: 24px;
+  padding: 24px;
+}
+
+.soundboard-credits-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.soundboard-credit-item {
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--sub-panel-bg) 90%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-border) 82%, transparent);
+}
+
+.soundboard-credit-item span,
+.soundboard-credit-item em,
+.soundboard-credit-item a {
+  color: var(--color-text-secondary);
+  word-break: break-word;
+}
+
+.keyboard-overlay-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.keyboard-overlay-effect {
+  position: absolute;
+  bottom: 8px;
+  width: 84px;
+  height: 84px;
+  transform: translateX(-50%);
+  animation: soundboard-pop-float 1.45s ease-out forwards;
+  filter: drop-shadow(0 14px 24px color-mix(in srgb, var(--color-accent) 28%, transparent));
+}
+
+.keyboard-overlay-effect.black-key-origin {
+  bottom: 58px;
+}
+
+.keyboard-overlay-effect img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+@keyframes soundboard-pop-float {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(14px) scale(0.5);
+  }
+
+  14% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1.06);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-110px) scale(0.92);
+  }
 }
 
 .setup-grid {
