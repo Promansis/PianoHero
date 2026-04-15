@@ -81,25 +81,6 @@ function lesson(
   };
 }
 
-function stubLesson(
-  tier: LearningTier['id'],
-  order: number,
-  slug: string,
-  title: string,
-  summary: string,
-): Lesson {
-  return {
-    id: `${tier}-${String(order).padStart(2, '0')}-${slug}`,
-    tier,
-    order,
-    title,
-    summary,
-    estMinutes: 5,
-    steps: [],
-    isStub: true,
-  };
-}
-
 export const CURRICULUM: LearningTier[] = [
   {
     id: 'novice',
@@ -265,8 +246,93 @@ export const CURRICULUM: LearningTier[] = [
           ),
         ],
       ),
-      stubLesson('novice', 5, 'rhythm-values', 'Reading Note Values', 'Quarter, half, and whole-note timing coming soon.'),
-      stubLesson('novice', 6, 'first-song', 'First Song Builder', 'A guided beginner melody lesson is coming soon.'),
+      lesson(
+        'novice',
+        5,
+        'rhythm-values',
+        'Reading Note Values',
+        'Count quarter, half, and whole notes accurately with a steady pulse.',
+        9,
+        [
+          tip(
+            'Feel the beat before you count notes',
+            'A beat is the steady pulse underneath the music. Quarter notes last for one beat, half notes last for two beats, and whole notes last for four beats.',
+          ),
+          tip(
+            'Count all the way through long notes',
+            'Do not stop counting when you hold a note. Say the beats evenly out loud so the note lasts its full value and releases exactly on time.',
+          ),
+          drill(
+            'Quarter-note taps on middle C',
+            'Play middle C with the right hand for one beat at a time. Keep each attack even and let the pulse stay steady from note to note.',
+            {
+              kind: 'single-note-rhythm',
+              bpm: 72,
+              midi: 60,
+              hand: 'right',
+              patternBeats: [1, 1, 1, 1],
+              repetitions: 3,
+            },
+          ),
+          drill(
+            'Half notes and whole notes on middle C',
+            'Hold each note all the way to the end of its count. Stay relaxed in the hand while the sound lasts.',
+            {
+              kind: 'single-note-rhythm',
+              bpm: 66,
+              midi: 60,
+              hand: 'right',
+              patternBeats: [2, 2, 4, 2, 4],
+            },
+          ),
+        ],
+      ),
+      lesson(
+        'novice',
+        6,
+        'first-song',
+        'First Song Builder',
+        'Build and play a simple C-position melody with good preparation habits.',
+        10,
+        [
+          tip(
+            'Prepare a song before you play it',
+            'First find the starting note, then check which fingers you need, then look for repeated notes and small steps. That short preview helps beginners play with fewer stops.',
+          ),
+          keyboardTip(
+            'Right hand stays in C position',
+            'Place fingers 1 to 5 on C, D, E, F, and G. Keep the hand quiet and let each finger wait above its own key.',
+            [60, 62, 64, 65, 67],
+            { 60: '1', 62: '2', 64: '3', 65: '4', 67: '5' },
+          ),
+          drill(
+            'Build your first C-position tune',
+            'Play this short melody slowly. Keep repeated notes matched and let each step move to the next key without lifting the whole hand.',
+            {
+              kind: 'melody',
+              bpm: 72,
+              notes: [
+                { midi: 60, beats: 1, hand: 'right' },
+                { midi: 62, beats: 1, hand: 'right' },
+                { midi: 64, beats: 1, hand: 'right' },
+                { midi: 62, beats: 1, hand: 'right' },
+                { midi: 60, beats: 1, hand: 'right' },
+                { midi: 60, beats: 1, hand: 'right' },
+                { midi: 62, beats: 1, hand: 'right' },
+                { midi: 64, beats: 1, hand: 'right' },
+                { midi: 65, beats: 1, hand: 'right' },
+                { midi: 64, beats: 1, hand: 'right' },
+                { midi: 62, beats: 1, hand: 'right' },
+                { midi: 60, beats: 2, hand: 'right' },
+              ],
+            },
+          ),
+          tip(
+            'Practice in small phrases',
+            'Work in two- or four-note groups, then connect them. If you make a mistake, stop calmly, reset the hand, and begin the phrase again with the same steady count.',
+          ),
+        ],
+      ),
     ],
   },
   {
@@ -401,8 +467,89 @@ export const CURRICULUM: LearningTier[] = [
           ),
         ],
       ),
-      stubLesson('beginner', 5, 'note-values', 'Quarter, Half, Whole Notes', 'A rhythm-reading unit is coming soon.'),
-      stubLesson('beginner', 6, 'metronome-basics', 'Play With the Click', 'A slow-metronome coordination lesson is coming soon.'),
+      lesson(
+        'beginner',
+        5,
+        'note-values',
+        'Quarter, Half, Whole Notes',
+        'Read and play mixed note values inside short four-beat phrases.',
+        9,
+        [
+          tip(
+            'Count note values inside a four-beat bar',
+            'In common beginner music, quarter notes get one beat, half notes get two beats, and whole notes fill all four beats. Keep the count moving even while one note lasts longer than another.',
+          ),
+          drill(
+            'Single-note value reading',
+            'Stay on one key so you can focus only on rhythm. Count 1-2-3-4 out loud and make the note lengths match the beat exactly.',
+            {
+              kind: 'single-note-rhythm',
+              bpm: 72,
+              midi: 64,
+              hand: 'right',
+              patternBeats: [1, 1, 2, 1, 1, 4],
+            },
+          ),
+          drill(
+            'Short melody with mixed note values',
+            'Read the rhythm first, then play. Let the longer notes ring fully instead of clipping them short.',
+            {
+              kind: 'melody',
+              bpm: 72,
+              notes: [
+                { midi: 60, beats: 1, hand: 'right' },
+                { midi: 62, beats: 1, hand: 'right' },
+                { midi: 64, beats: 2, hand: 'right' },
+                { midi: 65, beats: 1, hand: 'right' },
+                { midi: 64, beats: 1, hand: 'right' },
+                { midi: 62, beats: 2, hand: 'right' },
+                { midi: 60, beats: 4, hand: 'right' },
+              ],
+            },
+          ),
+        ],
+      ),
+      lesson(
+        'beginner',
+        6,
+        'metronome-basics',
+        'Play With the Click',
+        'Use a slow metronome to line up your hands with a reliable beat.',
+        10,
+        [
+          tip(
+            'Meet the click instead of chasing it',
+            'Start by listening for one full bar before you play. Count along with the click so your hands arrive with the beat instead of reacting late to it.',
+          ),
+          drill(
+            'Quarter notes with the metronome',
+            'Play one steady note exactly with each click. If the timing wobbles, lower the tempo and make the pulse comfortable again.',
+            {
+              kind: 'single-note-rhythm',
+              bpm: 64,
+              midi: 60,
+              hand: 'right',
+              patternBeats: [1, 1, 1, 1, 1, 1, 1, 1],
+            },
+          ),
+          drill(
+            'Five-finger pattern with a slow click',
+            'Keep every note aligned to the beat. Accuracy matters more than speed, so keep the hand calm and the tone even.',
+            {
+              kind: 'five-finger-pattern',
+              bpm: 68,
+              startMidi: 60,
+              handMode: 'right',
+              direction: 'up-down',
+              repetitions: 2,
+            },
+          ),
+          tip(
+            'Raise the tempo only after clean repetitions',
+            'A good metronome habit is to stay at one tempo until you can play it accurately twice in a row with relaxed shoulders and steady counting. Then move up only a little.',
+          ),
+        ],
+      ),
     ],
   },
   {
@@ -516,8 +663,96 @@ export const CURRICULUM: LearningTier[] = [
           ),
         ],
       ),
-      stubLesson('intermediate', 5, 'dotted-rhythms', 'Dotted Rhythms', 'A dotted-rhythm lesson is coming soon.'),
-      stubLesson('intermediate', 6, 'more-inversions', 'Broken Chords in Motion', 'A broken-chord practice lesson is coming soon.'),
+      lesson(
+        'intermediate',
+        5,
+        'dotted-rhythms',
+        'Dotted Rhythms',
+        'Learn to count and play long-short dotted rhythms without rushing.',
+        10,
+        [
+          tip(
+            'A dot adds half of the original note value',
+            'A dotted quarter note lasts for one and a half beats, so an eighth note often follows to complete beat two. Count the long note fully before the short note arrives.',
+          ),
+          drill(
+            'Long-short dotted pulse',
+            'Feel the long-short shape clearly instead of rushing the short note. Keep the beat steady underneath the uneven rhythm.',
+            {
+              kind: 'single-note-rhythm',
+              bpm: 76,
+              midi: 67,
+              hand: 'right',
+              patternBeats: [1.5, 0.5, 1.5, 0.5, 1.5, 0.5, 2],
+            },
+          ),
+          drill(
+            'Dotted-rhythm phrase in one hand',
+            'Read the rhythm first, then play the notes. Let the dotted notes stretch fully and drop into the short notes cleanly.',
+            {
+              kind: 'melody',
+              bpm: 74,
+              notes: [
+                { midi: 64, beats: 1.5, hand: 'right' },
+                { midi: 67, beats: 0.5, hand: 'right' },
+                { midi: 65, beats: 1.5, hand: 'right' },
+                { midi: 69, beats: 0.5, hand: 'right' },
+                { midi: 67, beats: 1, hand: 'right' },
+                { midi: 65, beats: 1, hand: 'right' },
+                { midi: 64, beats: 2, hand: 'right' },
+              ],
+            },
+          ),
+          tip(
+            'Do not shorten the long note to make room',
+            'Most dotted-rhythm problems come from clipping the long note and hurrying the short one. Count through the long value, then let the short note land lightly and exactly.',
+          ),
+        ],
+      ),
+      lesson(
+        'intermediate',
+        6,
+        'more-inversions',
+        'Broken Chords in Motion',
+        'Turn chord shapes into smooth broken-chord motion with relaxed technique.',
+        11,
+        [
+          tip(
+            'Broken chords are one harmony spread across time',
+            'Instead of striking the notes together, you play them one after another. Keep the wrist loose and think of the notes as one grouped shape, not separate finger jobs.',
+          ),
+          drill(
+            'C major broken chord',
+            'Travel through the chord smoothly and keep the hand compact between finger changes.',
+            {
+              kind: 'arpeggio',
+              bpm: 82,
+              rootMidi: 60,
+              quality: 'major',
+              hands: 'right',
+              octaves: 2,
+              direction: 'up-down',
+            },
+          ),
+          drill(
+            'A minor broken chord',
+            'Use the same grouped feeling in a minor sound. Listen for an even tone from bottom to top and back down.',
+            {
+              kind: 'arpeggio',
+              bpm: 82,
+              rootMidi: 57,
+              quality: 'minor',
+              hands: 'left',
+              octaves: 2,
+              direction: 'up-down',
+            },
+          ),
+          tip(
+            'Hear the harmony while the fingers move',
+            'Practice broken chords as one harmonic gesture. If the hand gets tight, slow down and regroup the notes mentally before you try again.',
+          ),
+        ],
+      ),
     ],
   },
   {
@@ -621,8 +856,82 @@ export const CURRICULUM: LearningTier[] = [
           ),
         ],
       ),
-      stubLesson('advanced', 5, 'syncopation', 'Syncopation', 'A syncopation lesson is coming soon.'),
-      stubLesson('advanced', 6, 'faster-scale-presets', 'Fast Scale Presets', 'A faster scale-automation lesson is coming soon.'),
+      lesson(
+        'advanced',
+        5,
+        'syncopation',
+        'Syncopation',
+        'Feel off-beat motion clearly while the underlying pulse stays steady.',
+        11,
+        [
+          tip(
+            'Syncopation leans across the beat',
+            'Instead of always changing notes on strong beats, syncopation carries motion into weaker parts of the bar. The pulse must stay solid even when the accents feel displaced.',
+          ),
+          tip(
+            'Subdivide before you play',
+            'Count smaller parts of the beat out loud before touching the keys. That keeps off-beat entries relaxed and prevents guessing.',
+          ),
+          drill(
+            'Syncopated single-note pattern',
+            'Keep the internal beat steady while the note changes arrive away from the strongest beats. Think long-short-long instead of stiff counting.',
+            {
+              kind: 'single-note-rhythm',
+              bpm: 84,
+              midi: 69,
+              hand: 'right',
+              patternBeats: [0.5, 1.5, 0.5, 1.5, 1, 1, 2],
+            },
+          ),
+          drill(
+            'Short syncopated phrase',
+            'Let the held notes connect across the beat and avoid punching every attack the same way.',
+            {
+              kind: 'melody',
+              bpm: 82,
+              notes: [
+                { midi: 69, beats: 0.5, hand: 'right' },
+                { midi: 71, beats: 1.5, hand: 'right' },
+                { midi: 72, beats: 0.5, hand: 'right' },
+                { midi: 71, beats: 1.5, hand: 'right' },
+                { midi: 69, beats: 1, hand: 'right' },
+                { midi: 67, beats: 1, hand: 'right' },
+                { midi: 69, beats: 2, hand: 'right' },
+              ],
+            },
+          ),
+        ],
+      ),
+      lesson(
+        'advanced',
+        6,
+        'faster-scale-presets',
+        'Fast Scale Presets',
+        'Practice faster scales with efficient motion, even tone, and clean crossings.',
+        11,
+        [
+          tip(
+            'Speed comes from efficient motion',
+            'At faster tempos, keep the fingertips close to the keys, use only the motion you need, and avoid pressing harder. Even tone matters more than maximum speed.',
+          ),
+          scale(
+            'E major speed check',
+            'Run E major with a controlled tempo and clean thumb crossings. Stay loose through the sharper key shape.',
+            4,
+            'Major',
+          ),
+          scale(
+            'B major speed check',
+            'Repeat the same approach in B major. Group the pattern in small units instead of trying to push the whole scale at once.',
+            11,
+            'Major',
+          ),
+          tip(
+            'Increase tempo only after relaxed accuracy',
+            'Play the scale evenly at least twice with no stumbles before you move the metronome higher. If tension appears, back down immediately and rebuild the motion.',
+          ),
+        ],
+      ),
     ],
   },
   {
@@ -729,8 +1038,85 @@ export const CURRICULUM: LearningTier[] = [
           ),
         ],
       ),
-      stubLesson('expert', 5, 'polyrhythms', 'Polyrhythms', 'A triplets-against-eighths lesson is coming soon.'),
-      stubLesson('expert', 6, 'full-checkpoint', 'Full Expert Checkpoint', 'A capstone assessment lesson is coming soon.'),
+      lesson(
+        'expert',
+        5,
+        'polyrhythms',
+        'Polyrhythms',
+        'Prepare 3:2 coordination by stabilizing each rhythmic layer against one pulse.',
+        11,
+        [
+          tip(
+            'Polyrhythms need a shared pulse',
+            'For a 3:2 pattern, both rhythms must fit inside the same beat space. Count the common pulse first so neither hand tries to speed up independently.',
+          ),
+          tip(
+            'Separate the layers before combining them',
+            'Practice the triplet layer alone, then the duple layer alone. Only combine them after both feel automatic and relaxed.',
+          ),
+          drill(
+            'Triplet-layer preparation',
+            'Play three even notes inside each beat group. Keep the spacing exact and do not let the hand tighten as the notes get closer together.',
+            {
+              kind: 'single-note-rhythm',
+              bpm: 72,
+              midi: 72,
+              hand: 'right',
+              patternBeats: [0.6667, 0.6667, 0.6667, 0.6667, 0.6667, 0.6667],
+            },
+          ),
+          drill(
+            'Duple-layer preparation',
+            'Now play the simpler two-note layer with the same steady pulse. This is groundwork for later true hands-together polyrhythm practice.',
+            {
+              kind: 'single-note-rhythm',
+              bpm: 72,
+              midi: 48,
+              hand: 'left',
+              patternBeats: [1, 1, 1, 1],
+            },
+          ),
+        ],
+      ),
+      lesson(
+        'expert',
+        6,
+        'full-checkpoint',
+        'Full Expert Checkpoint',
+        'Review expert technique and theory with a short capstone checkpoint.',
+        12,
+        [
+          tip(
+            'Treat this as a musical checkup',
+            'Start for accuracy, then continuity, then speed. The goal is controlled playing under pressure, not forcing every step at full intensity.',
+          ),
+          scale(
+            'Chromatic control review',
+            'Run the chromatic scale with even touch and precise fingering. Every semitone should sound equally deliberate.',
+            0,
+            'Chromatic',
+          ),
+          drill(
+            'Dominant seventh arpeggio review',
+            'Keep the pattern light and organized while both hands travel through the full shape.',
+            {
+              kind: 'arpeggio',
+              bpm: 104,
+              rootMidi: 55,
+              quality: 'dominant7',
+              hands: 'parallel',
+              octaves: 2,
+              direction: 'up-down',
+              noteBeats: 0.5,
+            },
+          ),
+          quiz(
+            'Mixed expert checkpoint',
+            'Finish with a mixed theory session so your listening and recognition stay connected to your technique work.',
+            'mixed',
+          ),
+        ],
+      ),
     ],
   },
 ];

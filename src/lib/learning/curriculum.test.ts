@@ -19,8 +19,13 @@ describe('curriculum', () => {
     expect(activeLessons.every((lesson) => lesson.steps.length > 0)).toBe(true);
   });
 
-  it('skips stub lessons when choosing the next lesson', () => {
-    expect(getNextLesson(CURRICULUM, 'novice-04-first-c-pattern')?.id).toBe('beginner-01-finger-independence');
+  it('has no remaining stub lessons in the published curriculum', () => {
+    expect(ALL_LESSONS.every((lesson) => !lesson.isStub)).toBe(true);
+  });
+
+  it('chooses the next lesson in sequence now that lesson 5 and 6 are populated', () => {
+    expect(getNextLesson(CURRICULUM, 'novice-04-first-c-pattern')?.id).toBe('novice-05-rhythm-values');
+    expect(getNextLesson(CURRICULUM, 'novice-06-first-song')?.id).toBe('beginner-01-finger-independence');
   });
 
   it('locks later lessons when sequential gating is enabled', () => {
