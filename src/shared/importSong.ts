@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import type { ParsedSong } from '../lib/game/types';
 import { getTrackAssignments } from '../lib/game/songUtils';
 import { parseMidiFile } from '../lib/midi/midiFileParser';
 import type { AppDatabase } from '../main/database';
@@ -14,9 +15,39 @@ export async function createSongId(buffer: Uint8Array): Promise<string> {
   return createHash('sha256').update(buffer).digest('hex');
 }
 
-export function calculateDifficulty(noteCount: number, durationSec: number): number {
+export function calculateDifficulty(song: ParsedSong): number {
+  const { notes, durationSec, bpm } = song;
+  if (notes.length === 0) return 1;
+
   const safeDuration = Math.max(durationSec, 1);
-  return Math.max(1, Math.min(10, Math.round((noteCount / safeDuration) * 1.2)));
+
+  // Note density: notes per second (normalized to a reasonable scale)
+  const density = notes.length / safeDuration;
+  const densityScore = Math.min(10, density * 1.4);
+
+  // Pitch range: wider span = harder
+  const midiValues = notes.map((n) => n.midi);
+  const pitchRange = Math.max(...midiValues) - Math.min(...midiValues);
+  const rangeScore = Math.min(10, pitchRange / 8);
+
+  // Chord density: max simultaneous notes within a 50ms window
+  let maxSimultaneous = 1;
+  for (let i = 0; i < notes.length; i++) {
+    const start = notes[i].startSec;
+    let count = 1;
+    for (let j = i + 1; j < notes.length && notes[j].startSec - start < 0.05; j++) {
+      count++;
+    }
+    if (count > maxSimultaneous) maxSimultaneous = count;
+  }
+  const chordScore = Math.min(10, (maxSimultaneous - 1) * 2.5);
+
+  // Tempo: faster tempos demand faster reactions
+  const tempoScore = Math.min(10, bpm / 30);
+
+  // Weighted combination
+  const raw = densityScore * 0.40 + rangeScore * 0.25 + chordScore * 0.20 + tempoScore * 0.15;
+  return Math.max(1, Math.min(10, Math.round(raw)));
 }
 
 interface ImportSongOptions {
@@ -33,7 +64,7 @@ export async function importSongFromBuffer(
   const songId = await createSongId(fileData);
   const destPath = join(midiFilesDir, `${songId}.mid`);
   const parsedSong = parseMidiFile(toArrayBuffer(fileData), { songId, title });
-  const difficulty = calculateDifficulty(parsedSong.notes.length, parsedSong.durationSec);
+  const difficulty = calculateDifficulty(parsedSong);
 
   await writeFile(destPath, fileData);
 

@@ -19,7 +19,21 @@ export function defaultHandForMidi(midi: number): 'left' | 'right' {
   return midi < 60 ? 'left' : 'right';
 }
 
-export function defaultAssignmentForNotes(notes: Array<{ midi: number }>): TrackAssignment {
+const LEFT_HAND_TRACK_PATTERN = /\b(lh|left|bass|l\.h\.|lower|basso)\b/i;
+const RIGHT_HAND_TRACK_PATTERN = /\b(rh|right|treble|r\.h\.|upper|soprano)\b/i;
+
+export function assignmentFromTrackName(trackName: string): TrackAssignment | null {
+  if (LEFT_HAND_TRACK_PATTERN.test(trackName)) return 'left';
+  if (RIGHT_HAND_TRACK_PATTERN.test(trackName)) return 'right';
+  return null;
+}
+
+export function defaultAssignmentForNotes(notes: Array<{ midi: number }>, trackName?: string): TrackAssignment {
+  if (trackName) {
+    const fromName = assignmentFromTrackName(trackName);
+    if (fromName) return fromName;
+  }
+
   if (notes.length === 0) {
     return 'both';
   }
@@ -33,6 +47,11 @@ export function defaultAssignmentForNotes(notes: Array<{ midi: number }>): Track
   if (allRight) {
     return 'right';
   }
+
+  // Use pitch centroid: if average pitch is significantly below/above C4, lean that way
+  const avgMidi = notes.reduce((sum, note) => sum + note.midi, 0) / notes.length;
+  if (avgMidi < 52) return 'left';
+  if (avgMidi > 68) return 'right';
 
   return 'both';
 }

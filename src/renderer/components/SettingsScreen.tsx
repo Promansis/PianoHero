@@ -404,6 +404,7 @@ export function SettingsScreen({
                   value={values['visual.leftHandColor'] || '#1f3d7a'}
                   onChange={(event) => void persistSetting('visual', 'leftHandColor', event.target.value)}
                 />
+                <em>Color of falling notes assigned to the left hand</em>
                 {values['visual.leftHandColor'] && (
                   <button
                     className="secondary-button"
@@ -420,6 +421,7 @@ export function SettingsScreen({
                   value={values['visual.rightHandColor'] || '#9a4c33'}
                   onChange={(event) => void persistSetting('visual', 'rightHandColor', event.target.value)}
                 />
+                <em>Color of falling notes assigned to the right hand</em>
                 {values['visual.rightHandColor'] && (
                   <button
                     className="secondary-button"
@@ -429,13 +431,8 @@ export function SettingsScreen({
                   </button>
                 )}
               </label>
-            </div>
-          )}
-
-          {activeTab === 'gameplay' && (
-            <div className="settings-grid">
               <label>
-                <span>Fingering Display</span>
+                <span>Fingering Numbers</span>
                 <select
                   value={values['fingering.displayMode']}
                   onChange={(event) => void persistSetting('fingering', 'displayMode', event.target.value)}
@@ -444,15 +441,13 @@ export function SettingsScreen({
                   <option value="learning-only">Learning Only</option>
                   <option value="never">Never</option>
                 </select>
+                <em>Show finger numbers (1–5) on falling notes during play</em>
               </label>
-              <label>
-                <span>Posture Reminder (minutes)</span>
-                <input
-                  type="number"
-                  value={values['practice.postureReminderMinutes']}
-                  onChange={(event) => void persistSetting('practice', 'postureReminderMinutes', event.target.value)}
-                />
-              </label>
+            </div>
+          )}
+
+          {activeTab === 'gameplay' && (
+            <div className="settings-grid">
               <label>
                 <span>Wait Mode Default</span>
                 <select
@@ -535,14 +530,29 @@ export function SettingsScreen({
                 <span>Daily Goal (minutes)</span>
                 <input
                   type="number"
+                  min={1}
+                  max={600}
                   value={values['practice.dailyGoalMinutes']}
                   onChange={(event) => void persistSetting('practice', 'dailyGoalMinutes', event.target.value)}
                 />
               </label>
               <label>
+                <span>Posture Reminder (minutes)</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={120}
+                  value={values['practice.postureReminderMinutes']}
+                  onChange={(event) => void persistSetting('practice', 'postureReminderMinutes', event.target.value)}
+                />
+                <em>Reminds you to check your hand position and posture</em>
+              </label>
+              <label>
                 <span>Break Reminder (minutes)</span>
                 <input
                   type="number"
+                  min={1}
+                  max={120}
                   value={values['practice.breakReminderMinutes']}
                   onChange={(event) => void persistSetting('practice', 'breakReminderMinutes', event.target.value)}
                 />

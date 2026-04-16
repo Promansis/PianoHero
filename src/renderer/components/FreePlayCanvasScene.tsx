@@ -549,7 +549,7 @@ function addInkBloom(state: SceneState, note: FreePlayVisualNote): void {
     hue: midiToWatercolorHue(note.midi),
     radius: 14 + note.velocity * 24,
     targetRadius: 34 + note.velocity * 82,
-    spreadRate: lerp(0.016, 0.034, lane),
+    spreadRate: lerp(0.016, 0.034, lane) * (0.7 + note.velocity * 0.6),
     alpha: 0.11 + note.velocity * 0.16,
     driftX: (seededUnit(note.id, 3) - 0.5) * 0.000012,
     driftY: (seededUnit(note.id, 4) - 0.5) * 0.00001,
@@ -815,7 +815,8 @@ function addTreeGrowth(state: SceneState, note: FreePlayVisualNote): void {
 
 function addGalaxyBurst(state: SceneState, note: FreePlayVisualNote, props: FreePlayCanvasSceneProps): void {
   const baseSeed = seededUnit(note.id, 20);
-  const baseRadiusRatio = 0.07 + baseSeed * 0.40;
+  const pitchRatio = clamp((note.midi - state.adaptiveMin) / Math.max(1, state.adaptiveMax - state.adaptiveMin), 0, 1);
+  const baseRadiusRatio = clamp(0.10 + pitchRatio * 0.55 + (baseSeed - 0.5) * 0.08, 0.08, 0.72);
   const armCount = props.activeNotes.length >= 3 ? 4 : 3;
   const particleCount = Math.round(10 + note.velocity * 20 + Math.max(0, props.activeNotes.length - 1) * 5);
   for (let index = 0; index < particleCount; index += 1) {
@@ -1023,23 +1024,28 @@ function syncSceneState(state: SceneState, props: FreePlayCanvasSceneProps, now:
 
     if (props.mode === 'bubble-pop') {
       const hue = (note.midi % 12) * 30;
-      const baseVy = -(0.00035 + Math.random() * 0.00025);
-      state.bubbles.push({
-        id: note.id,
-        midi: note.midi,
-        x: (note.midi - 21) / 87,                                              // normalized 0-1
-        y: 0.96,                                                                // near bottom
-        radius: 18 + note.velocity * 42,                                        // px
-        hue,
-        vx: (Math.random() - 0.5) * 0.00004,                                   // normalized/ms
-        vy: baseVy,                                                              // normalized/ms (upward); slowed dynamically on hold
-        baseVy,
-        wobblePhase: Math.random() * Math.PI * 2,
-        createdAt: note.createdAt,
-        lifetime: (3000 + Math.random() * 500) * (props.sustainOn ? 1.2 : 1.0),
-        popThreshold: Math.random() * 0.67,                                     // random y in top 2/3 (0 to 0.67)
-      });
-      if (state.bubbles.length > 60) state.bubbles.shift();
+      const spawnCount = props.sustainOn ? 2 : 1;
+      for (let bi = 0; bi < spawnCount; bi++) {
+        const xOffset = bi === 0 ? 0 : (Math.random() - 0.5) * 0.06;
+        const baseVy = -(0.00028 + note.velocity * 0.00022 + Math.random() * 0.00012);
+        const id = bi === 0 ? note.id : `${note.id}-s${bi}`;
+        state.bubbles.push({
+          id,
+          midi: note.midi,
+          x: clamp((note.midi - 21) / 87 + xOffset, 0.02, 0.98),
+          y: 0.96,
+          radius: (12 + note.velocity * 30) * (bi === 0 ? 1 : 0.7),
+          hue: (hue + bi * 15) % 360,
+          vx: (Math.random() - 0.5) * 0.00004,
+          vy: baseVy,
+          baseVy,
+          wobblePhase: Math.random() * Math.PI * 2,
+          createdAt: note.createdAt,
+          lifetime: 2800 + Math.random() * 600,
+          popThreshold: Math.random() * 0.67,
+        });
+      }
+      if (state.bubbles.length > 80) state.bubbles.splice(0, state.bubbles.length - 80);
     }
 
     state.geometryRings.push({
@@ -1053,7 +1059,7 @@ function syncSceneState(state: SceneState, props: FreePlayCanvasSceneProps, now:
         0.06,
         0.92,
       ),
-      sides: [0, 3, 4, 5, 6][note.midi % 5],
+      sides: 3 + (note.midi % 12),
       radius: 0,
       targetRadius: 30 + note.velocity * 90,
       rotation: seededUnit(note.id, 9) * Math.PI * 2,
@@ -1146,7 +1152,7 @@ function updateGenerativeModes(
         drag: 0.986,
         gravity: 0.1 + seededUnit(`${shell.id}-${index}`, 16) * 0.06,
         createdAt: now,
-        lifeMs: 1200 + seededUnit(`${shell.id}-${index}`, 17) * 900,
+        lifeMs: 900 + ((shell.size - 2) / 3) * 1200 + seededUnit(`${shell.id}-${index}`, 17) * 600,
         sparkle: seededUnit(`${shell.id}-${index}`, 18) * Math.PI * 2,
       });
     }
@@ -1163,10 +1169,12 @@ function updateGenerativeModes(
   }
 
   const BUBBLE_HOLD_THRESHOLD_MS = 350;
+  const sustainSlow = props.sustainOn ? 0.55 : 1;
   for (const bubble of state.bubbles) {
     // Slow this specific bubble if its key is still held down after the hold threshold
     const keyStillHeld = props.activeNotes.includes(bubble.midi) && (now - bubble.createdAt) >= BUBBLE_HOLD_THRESHOLD_MS;
-    bubble.vy = keyStillHeld ? bubble.baseVy * 0.7 : bubble.baseVy;
+    const holdSlow = keyStillHeld ? 0.7 : 1;
+    bubble.vy = bubble.baseVy * holdSlow * sustainSlow;
     bubble.y += bubble.vy * deltaMs;
     bubble.x += bubble.vx * deltaMs + Math.sin(bubble.wobblePhase + now * 0.002) * 0.00015;
   }
@@ -1615,6 +1623,7 @@ function drawConstellation(
   now: number,
   intensity: number,
   keyHue: number,
+  sustainOn: boolean,
 ): void {
   drawBackground(context, width, height, '#08101f', '#02050d');
 
@@ -1668,6 +1677,7 @@ function drawConstellation(
     context.fill();
   }
 
+  const sustainBoost = sustainOn ? 0.28 : 0;
   for (const path of state.constellationPaths) {
     const age = clamp((now - path.createdAt) / 16000, 0, 1);
     const points = path.starIds
@@ -1676,8 +1686,8 @@ function drawConstellation(
     if (points.length < 2) {
       continue;
     }
-    context.strokeStyle = hsla(path.hue, 88, 72, 0.18 + (1 - age) * 0.34);
-    context.lineWidth = 1.4;
+    context.strokeStyle = hsla(path.hue, 88, 72, clamp(0.18 + (1 - age) * 0.34 + sustainBoost, 0, 0.82));
+    context.lineWidth = sustainOn ? 2.2 : 1.4;
     context.beginPath();
     context.moveTo(points[0].x * width, points[0].y * height);
     for (let index = 1; index < points.length; index += 1) {
@@ -1792,6 +1802,7 @@ function drawInkInWater(
   state: SceneState,
   now: number,
   silence: number,
+  sustainOn: boolean,
 ): void {
   drawBackground(context, width, height, '#eff6fb', '#ccd9e6');
 
@@ -1853,23 +1864,26 @@ function drawInkInWater(
   }
   context.restore();
 
-  // Surface-tension shimmer — slow-drifting light caustics, paper-like not neon
+  // Surface-tension shimmer — slow-drifting light caustics, paper-like not neon; doubles on sustain
   context.save();
-  const shimmerCount = 13;
+  const shimmerCount = sustainOn ? 26 : 13;
+  const shimmerAlphaBoost = sustainOn ? 2.0 : 1.0;
   for (let s = 0; s < shimmerCount; s += 1) {
-    const seedX = seededUnit(`ink-shim-${s}`, 1);
-    const seedY = seededUnit(`ink-shim-${s}`, 2);
-    const seedRate = seededUnit(`ink-shim-${s}`, 3);
-    const shimX = (seedX + Math.sin(now * 0.000096 * (0.5 + seedRate * 0.8) + s * 2.1) * 0.07) * width;
-    const shimY = (seedY + Math.cos(now * 0.000078 * (0.4 + seedRate * 0.7) + s * 2.7) * 0.055) * height;
-    const shimSize = 9 + seededUnit(`ink-shim-${s}`, 4) * 20;
-    const shimAlpha = (Math.sin(now * 0.0014 * (0.6 + seedRate * 0.5) + s * 3.3) + 1) * 0.5 * 0.048;
+    const baseIndex = s % 13;
+    const seedX = seededUnit(`ink-shim-${baseIndex}`, 1);
+    const seedY = seededUnit(`ink-shim-${baseIndex}`, 2);
+    const seedRate = seededUnit(`ink-shim-${baseIndex}`, 3);
+    const phaseShift = s >= 13 ? Math.PI : 0;
+    const shimX = (seedX + Math.sin(now * 0.000096 * (0.5 + seedRate * 0.8) + baseIndex * 2.1 + phaseShift) * 0.07) * width;
+    const shimY = (seedY + Math.cos(now * 0.000078 * (0.4 + seedRate * 0.7) + baseIndex * 2.7 + phaseShift) * 0.055) * height;
+    const shimSize = 9 + seededUnit(`ink-shim-${baseIndex}`, 4) * 20;
+    const shimAlpha = (Math.sin(now * 0.0014 * (0.6 + seedRate * 0.5) + baseIndex * 3.3) + 1) * 0.5 * 0.048 * shimmerAlphaBoost;
     if (shimAlpha < 0.007) {
       continue;
     }
     const shimGrad = context.createRadialGradient(shimX, shimY, 0, shimX, shimY, shimSize);
-    shimGrad.addColorStop(0, `rgba(255, 255, 255, ${shimAlpha})`);
-    shimGrad.addColorStop(0.45, `rgba(255, 255, 255, ${shimAlpha * 0.35})`);
+    shimGrad.addColorStop(0, `rgba(255, 255, 255, ${Math.min(shimAlpha, 0.18)})`);
+    shimGrad.addColorStop(0.45, `rgba(255, 255, 255, ${Math.min(shimAlpha * 0.35, 0.08)})`);
     shimGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
     context.fillStyle = shimGrad;
     context.beginPath();
@@ -2100,6 +2114,7 @@ function drawAuroraBorealis(
   silence: number,
   intensity: number,
   harmony: number,
+  sustainOn: boolean,
 ): void {
   const sky = context.createLinearGradient(0, 0, 0, height);
   sky.addColorStop(0, '#020816');
@@ -2139,13 +2154,15 @@ function drawAuroraBorealis(
       context.stroke();
     }
 
-    const curtainCount = Math.floor(width / 14);
+    const curtainStep = sustainOn ? 7 : 14;
+    const curtainAlphaBoost = sustainOn ? 0.3 : 0;
+    const curtainCount = Math.floor(width / curtainStep);
     for (let c = 0; c < curtainCount; c += 1) {
       const cx = (c / curtainCount) * width;
       const waveY = band.baseY * height + Math.sin(cx * 0.007 + band.phase) * band.amplitude;
       const curtainLen = 40 + Math.sin(cx * 0.04 + now * 0.001 + band.shimmer) * 25;
       const curtainGrad = context.createLinearGradient(cx, waveY, cx, waveY + curtainLen);
-      curtainGrad.addColorStop(0, hsla(band.hue, 90, 72, bandAlpha * 0.55));
+      curtainGrad.addColorStop(0, hsla(band.hue, 90, 72, clamp(bandAlpha * 0.55 + curtainAlphaBoost, 0, 0.9)));
       curtainGrad.addColorStop(1, hsla(band.hue, 90, 72, 0));
       context.strokeStyle = curtainGrad;
       context.lineWidth = 1;
@@ -2331,9 +2348,9 @@ function drawSacredGeometry(
     if (ring.radius < 2) continue;
     const cx = ring.x * width;
     const cy = ring.y * height;
-    const outerSides = ring.sides === 0 ? 12 : ring.sides;
-    const innerSides = ring.sides === 0 ? 12 : ring.sides;
-    const innerRotationOffset = ring.sides === 0 ? Math.PI / 12 : Math.PI / ring.sides;
+    const outerSides = ring.sides;
+    const innerSides = ring.sides;
+    const innerRotationOffset = Math.PI / ring.sides;
 
     drawSoftGlow(context, cx, cy, ring.radius * 1.8, ring.hue, ring.alpha * 0.22);
 
@@ -2634,13 +2651,13 @@ export function FreePlayCanvasScene(props: FreePlayCanvasSceneProps) {
           drawPulseOrbit(context, width, height, state, nextProps, now, deltaMs, keyCenter.hue);
           break;
         case 'constellation':
-          drawConstellation(context, width, height, state, now, intensity, keyCenter.hue);
+          drawConstellation(context, width, height, state, now, intensity, keyCenter.hue, nextProps.sustainOn);
           break;
         case 'scale-heatmap':
           drawHeatmap(context, width, height, state, nextProps, keyCenter.hue, now);
           break;
         case 'ink-in-water':
-          drawInkInWater(context, width, height, state, now, silence);
+          drawInkInWater(context, width, height, state, now, silence, nextProps.sustainOn);
           break;
         case 'tree-of-light':
           drawTreeOfLight(context, width, height, state, now, pitchCenter, intensity);
@@ -2649,7 +2666,7 @@ export function FreePlayCanvasScene(props: FreePlayCanvasSceneProps) {
           drawParticleGalaxy(context, width, height, state, now, harmony);
           break;
         case 'aurora-borealis':
-          drawAuroraBorealis(context, width, height, state, now, silence, intensity, harmony);
+          drawAuroraBorealis(context, width, height, state, now, silence, intensity, harmony, nextProps.sustainOn);
           break;
         case 'fireworks':
           drawFireworks(context, width, height, state, nextProps, now);

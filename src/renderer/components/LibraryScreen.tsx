@@ -1167,7 +1167,11 @@ export function LibraryScreen({
             />
           ) : visibleSongs.length === 0 ? (
             <section className="panel empty-state-panel">
-              <p className="empty-state">No songs match the current filters.</p>
+              {songs.length === 0 ? (
+                <p className="empty-state">No songs imported yet. Use the Import button above to add MIDI files to your library.</p>
+              ) : (
+                <p className="empty-state">No songs match the current filters. Try clearing the search or adjusting the difficulty filter.</p>
+              )}
             </section>
           ) : (
             <section className={viewMode === 'grid' ? 'song-grid' : 'song-list'}>

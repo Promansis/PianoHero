@@ -53,12 +53,14 @@ export function parseMidiFile(arrayBuffer: ArrayBuffer, meta: MidiSourceMeta): P
 
   const tracks: ParsedTrack[] = midi.tracks.map((track: MidiTrack, index: number) => {
     const trackId = `track-${index}`;
+    const trackName = track.name?.trim() || `Track ${index + 1}`;
+    const assignment = defaultAssignmentForNotes(track.notes, trackName);
     return {
       id: trackId,
-      name: track.name?.trim() || `Track ${index + 1}`,
+      name: trackName,
       sourceTrackIndex: index,
-      defaultAssignment: defaultAssignmentForNotes(track.notes),
-      assignment: defaultAssignmentForNotes(track.notes),
+      defaultAssignment: assignment,
+      assignment,
     };
   });
 
