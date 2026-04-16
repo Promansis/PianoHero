@@ -2273,17 +2273,20 @@ function drawSacredGeometry(
     if (ring.radius < 2) continue;
     const cx = ring.x * width;
     const cy = ring.y * height;
+    const outerSides = ring.sides === 0 ? 12 : ring.sides;
+    const innerSides = ring.sides === 0 ? 12 : ring.sides;
+    const innerRotationOffset = ring.sides === 0 ? Math.PI / 12 : Math.PI / ring.sides;
 
     drawSoftGlow(context, cx, cy, ring.radius * 1.8, ring.hue, ring.alpha * 0.22);
 
     context.strokeStyle = hsla(ring.hue, 90, 72, ring.alpha * 0.85);
     context.lineWidth = 1.5;
-    drawPolygon(context, cx, cy, ring.radius, ring.sides, ring.rotation);
+    drawPolygon(context, cx, cy, ring.radius, outerSides, ring.rotation);
     context.stroke();
 
     context.strokeStyle = hsla((ring.hue + 180) % 360, 80, 68, ring.alpha * 0.35);
     context.lineWidth = 0.8;
-    drawPolygon(context, cx, cy, ring.radius * 0.6, ring.sides, ring.rotation + Math.PI / (ring.sides || 6));
+    drawPolygon(context, cx, cy, ring.radius * 0.6, innerSides, ring.rotation + innerRotationOffset);
     context.stroke();
 
     const dotR = 2 + ring.alpha * 2;
