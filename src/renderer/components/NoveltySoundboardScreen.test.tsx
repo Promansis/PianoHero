@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { AudioEngine } from '../../lib/audio/audioEngine';
 import type { ComputerKeyboardInputService } from '../../lib/input/computerKeyboardInputService';
@@ -50,18 +50,40 @@ class MockKeyboardInputService {
 
 function buildAudioEngineStub(): AudioEngine {
   return {
+    prepareForPlayback: vi.fn().mockResolvedValue(undefined),
     init: vi.fn().mockResolvedValue(undefined),
     playOneShot: vi.fn().mockResolvedValue(undefined),
   } as unknown as AudioEngine;
 }
 
+function buildCanvasContextStub(): CanvasRenderingContext2D {
+  return {
+    setTransform: vi.fn(),
+    clearRect: vi.fn(),
+    fillRect: vi.fn(),
+    beginPath: vi.fn(),
+    moveTo: vi.fn(),
+    lineTo: vi.fn(),
+    quadraticCurveTo: vi.fn(),
+    closePath: vi.fn(),
+    arc: vi.fn(),
+    fill: vi.fn(),
+    fillText: vi.fn(),
+    stroke: vi.fn(),
+    createLinearGradient: vi.fn(() => ({ addColorStop: vi.fn() })),
+    createRadialGradient: vi.fn(() => ({ addColorStop: vi.fn() })),
+  } as unknown as CanvasRenderingContext2D;
+}
+
 describe('NoveltySoundboardScreen', () => {
   afterEach(() => {
+    cleanup();
     vi.restoreAllMocks();
   });
 
-  it('switches to animal mode, shows credits, and spawns a floating overlay on note trigger', async () => {
+  it('opens the immersive overlay with Escape, switches modes there, and keeps note triggering live', async () => {
     vi.useFakeTimers();
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(buildCanvasContextStub());
     const midiService = new MockMidiInputService();
     const audioEngine = buildAudioEngineStub();
 
@@ -77,12 +99,20 @@ describe('NoveltySoundboardScreen', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /Animals/i }));
-    expect(screen.getByText('Play animal sounds from the keyboard')).toBeInTheDocument();
+    expect(screen.queryByText('Soundboard Modes')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Animals$/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Menu/i })).toBeInTheDocument();
 
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.getByText('Soundboard Modes')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Animals Real animal calls/i }));
+    expect(screen.getByRole('button', { name: /Show animal key map/i })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Show Credits/i }));
     expect(screen.getByText('Animal sound credits')).toBeInTheDocument();
-    expect(screen.getAllByText('Dog').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('🐶 Dog').length).toBeGreaterThan(0);
+    expect(screen.getByText('🐶', { selector: '.key-caption.custom' })).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByText('Soundboard Modes')).not.toBeInTheDocument();
 
     await act(async () => {
       midiService.emit({
@@ -96,7 +126,8 @@ describe('NoveltySoundboardScreen', () => {
     });
 
     expect(audioEngine.playOneShot).toHaveBeenCalled();
-    expect(screen.getByAltText('Dog')).toBeInTheDocument();
+    expect(screen.queryByAltText('Dog')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('animal-emoji-burst')).not.toBeInTheDocument();
 
     await act(async () => {
       vi.advanceTimersByTime(1600);
@@ -104,5 +135,42 @@ describe('NoveltySoundboardScreen', () => {
 
     expect(screen.queryByAltText('Dog')).not.toBeInTheDocument();
     vi.useRealTimers();
+  });
+
+  it('shows the animal key map from the paw toggle and keeps it out of classic mode', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(buildCanvasContextStub());
+    render(
+      <NoveltySoundboardScreen
+        audioEngine={buildAudioEngineStub()}
+        midiInputService={new MockMidiInputService() as unknown as MidiInputService}
+        keyboardInputService={new MockKeyboardInputService() as unknown as ComputerKeyboardInputService}
+        inputMode="both"
+        keyboardOverlaySize="medium"
+        onBackToMainMenu={vi.fn()}
+        onOpenKeyboardSetup={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Menu/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Animals Real animal calls/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Resume/i }));
+    const popout = screen.getByTestId('animal-key-map-popout');
+    expect(popout).toHaveAttribute('aria-hidden', 'true');
+
+    fireEvent.click(screen.getByRole('button', { name: /Show animal key map/i }));
+    expect(popout).toHaveAttribute('aria-hidden', 'false');
+    expect(screen.getByText('Tap any animal')).toBeInTheDocument();
+    expect(screen.getByText('🐶 Dog')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Show animal key map/i }));
+    expect(popout).toHaveAttribute('aria-hidden', 'true');
+
+    fireEvent.click(screen.getByRole('button', { name: /Menu/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Classic Percussion toys/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Resume/i }));
+    expect(screen.queryByTestId('animal-key-map-popout')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Show animal key map/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Menu/i })).toBeInTheDocument();
+    expect(screen.queryByText('Bass Boom')).not.toBeInTheDocument();
   });
 });

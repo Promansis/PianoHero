@@ -22,6 +22,8 @@ export interface SoundboardClip {
   label: string;
   shortLabel: string;
   category: SoundboardCategory;
+  emoji?: string;
+  accent?: string;
   midi: number;
   src: string;
   gainDb: number;
