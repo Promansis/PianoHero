@@ -1309,105 +1309,8 @@ function drawClassicPiano(
   context: CanvasRenderingContext2D,
   width: number,
   height: number,
-  state: SceneState,
-  props: FreePlayCanvasSceneProps,
-  now: number,
-  intensity: number,
-  keyHue: number,
 ): void {
   drawBackground(context, width, height, '#141a27', '#05070d');
-
-  const pianoWidth = Math.min(width * 0.6, 700);
-  const bodyWidth = pianoWidth * 0.72;
-  const bodyHeight = height * 0.2;
-  const bodyX = width / 2 - bodyWidth / 2;
-  const bodyY = height * 0.62;
-  const lidHeight = height * 0.22;
-  const lidBackX = width / 2 + pianoWidth * 0.34;
-  const lidTopY = bodyY - lidHeight - state.lidAngle * 110;
-
-  context.fillStyle = 'rgba(10, 12, 18, 0.96)';
-  fillRoundedRect(context, bodyX, bodyY, bodyWidth, bodyHeight, 28);
-  context.fill();
-
-  context.save();
-  context.beginPath();
-  context.moveTo(width / 2 - pianoWidth * 0.42, bodyY + 24);
-  context.lineTo(width / 2 + pianoWidth * 0.44, bodyY + 24);
-  context.lineTo(lidBackX, bodyY - 12);
-  context.lineTo(width / 2 - pianoWidth * 0.28, bodyY - 12);
-  context.closePath();
-  context.clip();
-  context.fillStyle = 'rgba(17, 22, 31, 0.95)';
-  context.fillRect(width / 2 - pianoWidth * 0.42, bodyY - 14, pianoWidth * 0.9, 160);
-
-  const recent = state.noteHistory.filter((event) => now - event.createdAt <= 1800);
-  for (const event of recent) {
-    const age = clamp((now - event.createdAt) / 1800, 0, 1);
-    const x = width / 2 - pianoWidth * 0.38 + midiToLaneRatio(event.midi) * pianoWidth * 0.72;
-    const amplitude = (1 - age) * (8 + event.velocity * 24);
-    context.strokeStyle = hsla(midiToHue(event.midi), 84, 72, 0.2 + (1 - age) * 0.6);
-    context.lineWidth = 1.2;
-    context.beginPath();
-    context.moveTo(x, bodyY + 28);
-    context.lineTo(x + Math.sin(now * 0.018 + event.midi) * amplitude, bodyY + 28 + height * 0.12);
-    context.stroke();
-  }
-  context.restore();
-
-  context.fillStyle = 'rgba(7, 9, 14, 0.98)';
-  context.beginPath();
-  context.moveTo(width / 2 - pianoWidth * 0.45, bodyY - 10);
-  context.lineTo(width / 2 + pianoWidth * 0.36, bodyY - 10);
-  context.lineTo(lidBackX, lidTopY);
-  context.lineTo(width / 2 - pianoWidth * 0.28, lidTopY);
-  context.closePath();
-  context.fill();
-
-  const reflection = context.createLinearGradient(width / 2 - pianoWidth * 0.22, lidTopY + 18, width / 2 + pianoWidth * 0.22, bodyY);
-  reflection.addColorStop(0, `rgba(255,255,255,${0.1 + intensity * 0.14})`);
-  reflection.addColorStop(0.5, hsla(keyHue, 72, 78, 0.18 + intensity * 0.18));
-  reflection.addColorStop(1, 'rgba(255,255,255,0)');
-  context.fillStyle = reflection;
-  context.beginPath();
-  context.moveTo(width / 2 - pianoWidth * 0.18, lidTopY + 20);
-  context.lineTo(width / 2 + pianoWidth * 0.16, lidTopY + 12);
-  context.lineTo(width / 2 + pianoWidth * 0.08, bodyY - 30);
-  context.lineTo(width / 2 - pianoWidth * 0.24, bodyY - 14);
-  context.closePath();
-  context.fill();
-
-  const standX = width / 2 - 50;
-  const standY = bodyY - 96;
-  const flutter = Math.sin(now * 0.01) * 4 + state.pageFlutter * 16;
-  context.fillStyle = 'rgba(242, 236, 220, 0.92)';
-  fillRoundedRect(context, standX - 54, standY, 60, 76, 8);
-  context.fill();
-  fillRoundedRect(context, standX + 6, standY + 4 + flutter * 0.08, 60, 76, 8);
-  context.fill();
-  context.strokeStyle = 'rgba(74, 61, 39, 0.3)';
-  context.lineWidth = 1;
-  for (let line = 0; line < 5; line += 1) {
-    const y = standY + 18 + line * 10 + flutter * 0.02;
-    context.beginPath();
-    context.moveTo(standX - 44, y);
-    context.lineTo(standX + 54, y);
-    context.stroke();
-  }
-
-  context.fillStyle = props.sustainOn ? 'rgba(246, 206, 118, 0.9)' : 'rgba(170, 140, 88, 0.42)';
-  fillRoundedRect(context, width / 2 - 68, bodyY + bodyHeight + 18, 136, 10, 999);
-  context.fill();
-
-  // Restrained key-bed glow beneath piano keys tied to intensity
-  if (intensity > 0.06) {
-    const bedGlowAlpha = clamp(intensity * 0.22, 0, 0.2);
-    const bedGlow = context.createRadialGradient(width / 2, bodyY + bodyHeight + 12, 20, width / 2, bodyY + bodyHeight + 12, bodyWidth * 0.52);
-    bedGlow.addColorStop(0, hsla(keyHue, 80, 72, bedGlowAlpha));
-    bedGlow.addColorStop(1, hsla(keyHue, 80, 72, 0));
-    context.fillStyle = bedGlow;
-    context.fillRect(bodyX - 20, bodyY + bodyHeight - 10, bodyWidth + 40, 80);
-  }
 }
 
 function drawColorRibbons(
@@ -2567,7 +2470,7 @@ export function FreePlayCanvasScene(props: FreePlayCanvasSceneProps) {
           drawConcertStage(context, width, height, state, nextProps, now, intensity, pitchCenter, keyCenter.hue);
           break;
         case 'classic-piano':
-          drawClassicPiano(context, width, height, state, nextProps, now, intensity, keyCenter.hue);
+          drawClassicPiano(context, width, height);
           break;
         case 'color-ribbons':
           drawColorRibbons(context, width, height, state.ribbons, now, keyCenter.hue, state.adaptiveMin, state.adaptiveMax);

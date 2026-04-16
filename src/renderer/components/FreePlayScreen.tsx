@@ -88,7 +88,7 @@ export function FreePlayScreen({
   const [backingTrackVolume, setBackingTrackVolume] = useState(70);
   const [isExportingWav, setIsExportingWav] = useState(false);
   const [overlayVisible, setOverlayVisible] = useState(false);
-  const [visualMode, setVisualMode] = useState<FreePlayVisualMode>('concert-stage');
+  const [visualMode, setVisualMode] = useState<FreePlayVisualMode>('classic-piano');
   const [visualPreset, setVisualPreset] = useState<VisualPreset>('balanced');
   const [sustainOn, setSustainOn] = useState(false);
   const [visualNotes, setVisualNotes] = useState<FreePlayVisualNote[]>([]);
