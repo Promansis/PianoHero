@@ -115,6 +115,34 @@ async function runCommand(command, args) {
   });
 }
 
+async function captureCommandOutput(command, args) {
+  return await new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk.toString();
+    });
+
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk.toString();
+    });
+
+    child.on('error', reject);
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolve({ stdout, stderr });
+        return;
+      }
+      reject(new Error(`${command} exited with code ${code}\n${stderr}`));
+    });
+  });
+}
+
 async function trimAudioBuffer(buffer, extension, trim) {
   const tempDir = await mkdtemp(join(tmpdir(), 'animal-trim-'));
   const inputPath = join(tempDir, `input${extension}`);
@@ -154,6 +182,72 @@ async function trimAudioBuffer(buffer, extension, trim) {
       force: true,
     });
   }
+}
+
+async function analyzeVolume(buffer, extension) {
+  const tempDir = await mkdtemp(join(tmpdir(), 'animal-volume-'));
+  const inputPath = join(tempDir, `input${extension}`);
+
+  try {
+    await writeFile(inputPath, buffer);
+    const { stderr } = await captureCommandOutput('ffmpeg', [
+      '-hide_banner',
+      '-i',
+      inputPath,
+      '-af',
+      'volumedetect',
+      '-f',
+      'null',
+      '-',
+    ]);
+
+    const meanMatch = stderr.match(/mean_volume:\s*(-?\d+(?:\.\d+)?)\s*dB/);
+    const maxMatch = stderr.match(/max_volume:\s*(-?\d+(?:\.\d+)?)\s*dB/);
+
+    if (!meanMatch || !maxMatch) {
+      throw new Error('Unable to parse ffmpeg volumedetect output');
+    }
+
+    return {
+      meanVolumeDb: Number(meanMatch[1]),
+      maxVolumeDb: Number(maxMatch[1]),
+    };
+  } finally {
+    await rm(tempDir, {
+      recursive: true,
+      force: true,
+    });
+  }
+}
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function computePlaybackGainDb(category, volumeAnalysis) {
+  const targetMeanDbByCategory = {
+    bug: -22,
+    bird: -20,
+    farm: -19,
+    impact: -19,
+    jingle: -20,
+    metal: -20,
+    pet: -19,
+    scrape: -20,
+    shuffle: -20,
+    sparkle: -20,
+    horn: -18,
+    drum: -18,
+    wild: -18.5,
+  };
+
+  const targetMeanDb = targetMeanDbByCategory[category] ?? -19;
+  const targetPeakDb = -1;
+  const desiredGainDb = targetMeanDb - volumeAnalysis.meanVolumeDb;
+  const clippingSafeGainDb = targetPeakDb - volumeAnalysis.maxVolumeDb;
+  const boundedGainDb = clamp(Math.min(desiredGainDb, clippingSafeGainDb), -12, 12);
+
+  return Math.round(boundedGainDb * 10) / 10;
 }
 
 async function resolveDirectoryAudioSource(entry) {
@@ -258,6 +352,9 @@ for (const entry of sourceEntries) {
   const audioBuffer = entry.trim
     ? await trimAudioBuffer(sourceBuffer, extension, entry.trim)
     : sourceBuffer;
+  const gainDb = typeof entry.gainDb === 'number'
+    ? entry.gainDb
+    : computePlaybackGainDb(entry.category, await analyzeVolume(audioBuffer, '.mp3'));
   const audioFileName = `${entry.id}.mp3`;
   const audioDest = join(AUDIO_DIR, audioFileName);
   await writeFile(audioDest, audioBuffer);
@@ -273,7 +370,7 @@ for (const entry of sourceEntries) {
     midi: 36 + manifest.length,
     src: `/soundboard/animals/${audioFileName}?v=${audioVersion}`,
     visualSrc: `/soundboard/animals-sprites/${entry.id}.svg`,
-    gainDb: entry.category === 'bug' ? -7 : entry.category === 'bird' ? -5 : -4,
+    gainDb,
     source: resolvedSource.source,
     sourcePage: resolvedSource.sourcePage,
     sourceTitle: resolvedSource.sourceTitle,
