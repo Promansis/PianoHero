@@ -44,6 +44,31 @@ const CONTENT_TYPES: Record<string, string> = {
   '.woff2': 'font/woff2',
 };
 
+const IMMUTABLE_ASSET_PATH_PATTERN = /^\/assets\/.+-[A-Za-z0-9_-]+\.(?:css|js)$/;
+
+function setStaticCacheHeaders(pathname: string, absolutePath: string, setHeader: (name: string, value: string) => void): void {
+  const extension = extname(absolutePath);
+
+  if (extension === '.html' || pathname === '/') {
+    setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    setHeader('Pragma', 'no-cache');
+    setHeader('Expires', '0');
+    return;
+  }
+
+  if (IMMUTABLE_ASSET_PATH_PATTERN.test(pathname)) {
+    setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    return;
+  }
+
+  if (extension === '.json') {
+    setHeader('Cache-Control', 'no-cache, must-revalidate');
+    return;
+  }
+
+  setHeader('Cache-Control', 'public, max-age=3600');
+}
+
 function resolveStaticPath(pathname: string): string {
   const trimmedPath = pathname === '/' ? '/index.html' : pathname;
   const normalizedPath = normalize(trimmedPath).replace(/^([.][.][/\\])+/, '');
@@ -63,6 +88,7 @@ app.get('*', async (c) => {
     if (fileStats.isFile()) {
       const body = await readFile(absolutePath);
       c.header('Content-Type', CONTENT_TYPES[extname(absolutePath)] ?? 'application/octet-stream');
+      setStaticCacheHeaders(requestedPath, absolutePath, (name, value) => c.header(name, value));
       return c.body(body);
     }
   } catch {
@@ -75,6 +101,7 @@ app.get('*', async (c) => {
     const indexPath = join(webRoot, 'index.html');
     const body = await readFile(indexPath);
     c.header('Content-Type', 'text/html; charset=utf-8');
+    setStaticCacheHeaders('/', indexPath, (name, value) => c.header(name, value));
     return c.body(body);
   } catch {
     return c.text('Web build not found. Run npm run build:web first.', 404);

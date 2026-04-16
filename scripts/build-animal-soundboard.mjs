@@ -1,6 +1,9 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, extname, join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = join(__dirname, '..');
@@ -96,6 +99,63 @@ async function fetchBuffer(url) {
   }
 }
 
+async function runCommand(command, args) {
+  await new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      stdio: 'ignore',
+    });
+    child.on('error', reject);
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolve();
+        return;
+      }
+      reject(new Error(`${command} exited with code ${code}`));
+    });
+  });
+}
+
+async function trimAudioBuffer(buffer, extension, trim) {
+  const tempDir = await mkdtemp(join(tmpdir(), 'animal-trim-'));
+  const inputPath = join(tempDir, `input${extension}`);
+  const outputPath = join(tempDir, `output.mp3`);
+  try {
+    await writeFile(inputPath, buffer);
+
+    const fadeOutStart = Math.max(0, trim.durationSec - trim.fadeOutSec);
+    const audioFilter = [
+      `atrim=start=${trim.startSec}:duration=${trim.durationSec}`,
+      'asetpts=PTS-STARTPTS',
+      `afade=t=in:st=0:d=${trim.fadeInSec}`,
+      `afade=t=out:st=${fadeOutStart}:d=${trim.fadeOutSec}`,
+    ].join(',');
+
+    await runCommand('ffmpeg', [
+      '-hide_banner',
+      '-loglevel',
+      'error',
+      '-y',
+      '-i',
+      inputPath,
+      '-vn',
+      '-af',
+      audioFilter,
+      '-c:a',
+      'libmp3lame',
+      '-q:a',
+      '4',
+      outputPath,
+    ]);
+
+    return await readFile(outputPath);
+  } finally {
+    await rm(tempDir, {
+      recursive: true,
+      force: true,
+    });
+  }
+}
+
 async function resolveDirectoryAudioSource(entry) {
   const pageUrl = `${DIRECTORY_AUDIO_BASE_URL}${entry.pagePath}`;
   const html = await fetchText(pageUrl);
@@ -123,6 +183,23 @@ async function resolveExplicitSource(entry) {
   let sourceTitle = source.sourceTitle;
   let author = source.author;
   let license = source.license;
+
+  if (source.type === 'local') {
+    if (!source.path) {
+      throw new Error(`Local source for ${entry.id} is missing audio.path`);
+    }
+
+    return {
+      localPath: join(ROOT_DIR, source.path),
+      fileExtension: source.fileExtension ?? (extname(source.path) || '.mp3'),
+      source: source.source,
+      sourcePage,
+      sourceTitle,
+      description,
+      author,
+      license,
+    };
+  }
 
   if (source.type === 'deadsounds') {
     const html = await fetchText(source.pageUrl);
@@ -174,11 +251,17 @@ for (const entry of sourceEntries) {
   await writeFile(spriteDest, buildSprite(entry));
 
   const resolvedSource = entry.pagePath ? await resolveDirectoryAudioSource(entry) : await resolveExplicitSource(entry);
-  const audioBuffer = await fetchBuffer(resolvedSource.downloadUrl);
+  const sourceBuffer = resolvedSource.localPath
+    ? await readFile(resolvedSource.localPath)
+    : await fetchBuffer(resolvedSource.downloadUrl);
   const extension = resolvedSource.fileExtension || '.mp3';
-  const audioFileName = `${entry.id}${extension}`;
+  const audioBuffer = entry.trim
+    ? await trimAudioBuffer(sourceBuffer, extension, entry.trim)
+    : sourceBuffer;
+  const audioFileName = `${entry.id}.mp3`;
   const audioDest = join(AUDIO_DIR, audioFileName);
   await writeFile(audioDest, audioBuffer);
+  const audioVersion = createHash('sha1').update(audioBuffer).digest('hex').slice(0, 10);
 
   const manifestEntry = {
     id: entry.id,
@@ -188,7 +271,7 @@ for (const entry of sourceEntries) {
     emoji: entry.emoji,
     accent: entry.accent,
     midi: 36 + manifest.length,
-    src: `/soundboard/animals/${audioFileName}`,
+    src: `/soundboard/animals/${audioFileName}?v=${audioVersion}`,
     visualSrc: `/soundboard/animals-sprites/${entry.id}.svg`,
     gainDb: entry.category === 'bug' ? -7 : entry.category === 'bird' ? -5 : -4,
     source: resolvedSource.source,
@@ -197,6 +280,7 @@ for (const entry of sourceEntries) {
     description: resolvedSource.description,
     license: resolvedSource.license,
     author: resolvedSource.author,
+    trim: entry.trim,
     attribution: buildAttribution({
       ...entry,
       ...resolvedSource,
