@@ -161,6 +161,7 @@ interface TreeAnchor {
   depth: number;
   kind: 'root' | 'trunk' | 'branch';
   strength: number;
+  branchDepth: number; // 0 for root/trunk, 1+ for branch generations
 }
 
 interface TreeSegment {
@@ -183,8 +184,11 @@ interface TreeOrnament {
   y: number;
   radius: number;
   hue: number;
+  sat: number;
+  light: number;
   createdAt: number;
-  kind: 'leaf' | 'bloom';
+  kind: 'leaf' | 'bloom' | 'fruit' | 'star' | 'diamond';
+  shape: 'ellipse' | 'circle' | 'star' | 'diamond' | 'heart' | 'teardrop';
   drift: number;
   shimmer: number;
 }
@@ -362,9 +366,9 @@ function createSceneState(): SceneState {
     fogPuffs: [],
     inkBlobs: [],
     treeAnchors: [
-      { x: 0.5, y: 0.88, angle: -Math.PI / 2, depth: 0, kind: 'trunk', strength: 1 },
-      { x: 0.5, y: 0.89, angle: Math.PI * 0.82, depth: 0, kind: 'root', strength: 0.9 },
-      { x: 0.5, y: 0.89, angle: Math.PI * 0.18, depth: 0, kind: 'root', strength: 0.9 },
+      { x: 0.5, y: 0.88, angle: -Math.PI / 2, depth: 0, kind: 'trunk', strength: 1, branchDepth: 0 },
+      { x: 0.5, y: 0.89, angle: Math.PI * 0.82, depth: 0, kind: 'root', strength: 0.9, branchDepth: 0 },
+      { x: 0.5, y: 0.89, angle: Math.PI * 0.18, depth: 0, kind: 'root', strength: 0.9, branchDepth: 0 },
     ],
     treeSegments: [],
     treeOrnaments: [],
@@ -562,13 +566,82 @@ function chooseTreeAnchor(anchors: TreeAnchor[], kind: TreeAnchor['kind'], seed:
   return recent[Math.min(recent.length - 1, Math.floor(seed * recent.length))];
 }
 
+function chooseTreeAnchorByDepth(
+  anchors: TreeAnchor[],
+  kind: TreeAnchor['kind'],
+  targetBranchDepth: number,
+  seed: number,
+): TreeAnchor {
+  const matching = anchors.filter(
+    (a) => a.kind === kind && (a.branchDepth ?? 0) === targetBranchDepth,
+  );
+  if (matching.length === 0) {
+    // Fall back to any trunk anchor
+    return chooseTreeAnchor(anchors, 'trunk', seed);
+  }
+  const recent = matching.slice(-Math.min(8, matching.length));
+  return recent[Math.min(recent.length - 1, Math.floor(seed * recent.length))];
+}
+
+const NEON_PALETTE = [
+  { hue: 330, sat: 100, light: 65 }, // hot pink
+  { hue: 195, sat: 100, light: 58 }, // electric blue
+  { hue: 120, sat: 95, light: 55 },  // lime green
+  { hue: 28, sat: 100, light: 60 },  // bright orange
+  { hue: 180, sat: 100, light: 55 }, // cyan
+  { hue: 295, sat: 95, light: 62 },  // magenta
+  { hue: 60, sat: 100, light: 58 },  // electric yellow
+  { hue: 160, sat: 90, light: 52 },  // teal
+];
+
+function pickOrnament(
+  noteId: string,
+  x: number,
+  y: number,
+  velocity: number,
+  seed: number,
+): TreeOrnament {
+  const kindSeed = seededUnit(noteId, 9);
+  const paletteSeed = seededUnit(noteId, 10);
+  const paletteIdx = Math.floor(paletteSeed * NEON_PALETTE.length);
+  const color = NEON_PALETTE[paletteIdx];
+  const hueJitter = (seed - 0.5) * 30;
+
+  let kind: TreeOrnament['kind'];
+  let shape: TreeOrnament['shape'];
+  let radius: number;
+
+  if (kindSeed < 0.35) {
+    kind = 'leaf'; shape = 'ellipse'; radius = 3 + velocity * 4;
+  } else if (kindSeed < 0.55) {
+    kind = 'bloom'; shape = 'circle'; radius = 3.5 + velocity * 5;
+  } else if (kindSeed < 0.70) {
+    kind = 'fruit'; shape = 'teardrop'; radius = 4 + velocity * 5;
+  } else if (kindSeed < 0.85) {
+    kind = 'star'; shape = 'star'; radius = 3 + velocity * 4.5;
+  } else {
+    kind = 'diamond'; shape = 'diamond'; radius = 3 + velocity * 4;
+  }
+
+  return {
+    id: `orn-${noteId}`,
+    x,
+    y,
+    radius,
+    hue: (color.hue + hueJitter + 360) % 360,
+    sat: color.sat,
+    light: color.light,
+    createdAt: Date.now(),
+    kind,
+    shape,
+    drift: (seed - 0.5) * 14,
+    shimmer: seededUnit(noteId, 6) * Math.PI * 2,
+  };
+}
+
 function addTreeGrowth(state: SceneState, note: FreePlayVisualNote): void {
   const seed = seededUnit(note.id, 5);
   const velocity = clamp(note.velocity, 0.1, 1.25);
-
-  // Pitch → hue only (no longer controls growth type)
-  const lane = clamp((note.midi - 21) / 87, 0, 1);
-  const hue = lane < 0.33 ? 28 + seed * 20 : lane < 0.66 ? 112 + seed * 24 : 296 + seed * 28;
 
   state.treeNoteCount += 1;
   const n = state.treeNoteCount;
@@ -597,16 +670,13 @@ function addTreeGrowth(state: SceneState, note: FreePlayVisualNote): void {
       swaySpeed: 0.8 + seed * 0.5,
     });
     state.treeAnchors.push({
-      x: endX,
-      y: endY,
-      angle,
-      depth: anchor.depth + 1,
-      kind: 'root',
+      x: endX, y: endY, angle, depth: anchor.depth + 1, kind: 'root',
       strength: clamp(anchor.strength * 0.95 + velocity * 0.1, 0.3, 1.2),
+      branchDepth: 0,
     });
 
   } else if (n <= 12) {
-    // === TRUNK: notes 5–12 grow upward, attached to the most recent trunk anchor ===
+    // === TRUNK: notes 5–12 always grow upward ===
     const anchor = chooseTreeAnchor(state.treeAnchors, 'trunk', seed);
     const angle = -Math.PI / 2 + (seed - 0.5) * 0.24;
     const length = 0.04 + velocity * 0.07;
@@ -614,10 +684,7 @@ function addTreeGrowth(state: SceneState, note: FreePlayVisualNote): void {
     const endY = clamp(anchor.y + Math.sin(angle) * length, 0.1, 0.92);
     state.treeSegments.push({
       id: `tree-${note.id}`,
-      startX: anchor.x,
-      startY: anchor.y,
-      endX,
-      endY,
+      startX: anchor.x, startY: anchor.y, endX, endY,
       thickness: 5 + velocity * 7,
       hue: 30 + seed * 12,
       createdAt: note.createdAt,
@@ -626,85 +693,120 @@ function addTreeGrowth(state: SceneState, note: FreePlayVisualNote): void {
       swaySpeed: 0.7 + seed * 0.4,
     });
     state.treeAnchors.push({
-      x: endX,
-      y: endY,
-      angle,
-      depth: anchor.depth + 1,
-      kind: 'trunk',
+      x: endX, y: endY, angle, depth: anchor.depth + 1, kind: 'trunk',
       strength: clamp(anchor.strength * 0.95 + velocity * 0.1, 0.3, 1.4),
+      branchDepth: 0,
     });
 
   } else {
-    // === BRANCHES + ORNAMENTS: note 13 onwards, alternating L/R ===
-    // Every 3rd note after n=16 spawns only an ornament; all others grow a branch
-    const ornamentOnly = n > 16 && n % 3 === 0;
+    // === TRUNK or BRANCHES: probability-based ===
+    // Trunk keeps growing (up to ~28 segments) even after branching starts
+    const trunkAnchorCount = state.treeAnchors.filter((a) => a.kind === 'trunk').length;
+    const trunkProbability = clamp(1.0 - trunkAnchorCount / 28, 0.12, 1.0);
+    const growTrunk = seed < trunkProbability;
 
-    if (!ornamentOnly) {
-      const side = state.treeNextBranchSide;
-      state.treeNextBranchSide = 1 - state.treeNextBranchSide;
-      // Angle fixed relative to vertical (-π/2), not inherited from parent, preventing drift
-      const branchSpread = 0.62 + seed * 0.30;
-      const angle = -Math.PI / 2 + (side === 0 ? -branchSpread : branchSpread);
-      const hasBranches = state.treeAnchors.some((a) => a.kind === 'branch');
-      const anchor = chooseTreeAnchor(state.treeAnchors, hasBranches && n > 16 ? 'branch' : 'trunk', seed);
-      const length = 0.04 + velocity * 0.09;
-      const endX = clamp(anchor.x + Math.cos(angle) * length, 0.06, 0.94);
-      const endY = clamp(anchor.y + Math.sin(angle) * length, 0.08, 0.92);
+    // Ornament-only: every 3rd note after n=18, once there are some branches
+    const branchAnchors = state.treeAnchors.filter((a) => a.kind === 'branch');
+    const ornamentOnly = n > 18 && n % 3 === 0 && branchAnchors.length >= 3;
+
+    if (growTrunk && !ornamentOnly) {
+      // === Continue growing trunk ===
+      const anchor = chooseTreeAnchor(state.treeAnchors, 'trunk', seed);
+      const angle = -Math.PI / 2 + (seed - 0.5) * 0.20;
+      const length = 0.035 + velocity * 0.06;
+      const endX = clamp(anchor.x + Math.cos(angle) * length * 0.42, 0.18, 0.82);
+      const endY = clamp(anchor.y + Math.sin(angle) * length, 0.06, 0.92);
       state.treeSegments.push({
         id: `tree-${note.id}`,
-        startX: anchor.x,
-        startY: anchor.y,
-        endX,
-        endY,
-        thickness: 2.2 + velocity * 4.2,
-        hue,
+        startX: anchor.x, startY: anchor.y, endX, endY,
+        thickness: 4 + velocity * 5,
+        hue: 30 + seed * 12,
+        createdAt: note.createdAt,
+        kind: 'trunk',
+        swayOffset: seed * Math.PI * 2,
+        swaySpeed: 0.7 + seed * 0.4,
+      });
+      state.treeAnchors.push({
+        x: endX, y: endY, angle, depth: anchor.depth + 1, kind: 'trunk',
+        strength: clamp(anchor.strength * 0.95 + velocity * 0.1, 0.3, 1.4),
+        branchDepth: 0,
+      });
+
+    } else if (!ornamentOnly) {
+      // === Grow a branch ===
+      const side = state.treeNextBranchSide;
+      state.treeNextBranchSide = 1 - state.treeNextBranchSide;
+
+      // Determine allowed branch depth based on how many branches already exist
+      const depth1Branches = branchAnchors.filter((a) => a.branchDepth === 1).length;
+      const depth2Branches = branchAnchors.filter((a) => a.branchDepth === 2).length;
+      let targetParentDepth = 0; // attach to trunk by default
+      if (depth1Branches >= 6 && seed < 0.55) {
+        targetParentDepth = 1; // sub-branch off a primary branch
+      }
+      if (depth2Branches >= 4 && seed < 0.3) {
+        targetParentDepth = 2; // sub-sub-branch
+      }
+      targetParentDepth = Math.min(targetParentDepth, 2);
+
+      const parentKind = targetParentDepth === 0 ? 'trunk' : 'branch';
+      const anchor = chooseTreeAnchorByDepth(state.treeAnchors, parentKind, targetParentDepth, seed);
+      const newBranchDepth = Math.min((anchor.branchDepth ?? 0) + 1, 3);
+
+      // Angle radiates outward from trunk with natural spread
+      const branchSpread = 0.55 + seed * 0.35;
+      const angle = -Math.PI / 2 + (side === 0 ? -branchSpread : branchSpread) + (seed - 0.5) * 0.15;
+
+      // Scale size by branch depth
+      const depthFactor = [1, 0.8, 0.6, 0.45][newBranchDepth] ?? 0.45;
+      const length = (0.035 + velocity * 0.07) * depthFactor;
+      const thickness = (3 + velocity * 4) * depthFactor;
+
+      const endX = clamp(anchor.x + Math.cos(angle) * length, 0.06, 0.94);
+      const endY = clamp(anchor.y + Math.sin(angle) * length, 0.06, 0.92);
+
+      // Branch hue -- clearly separated from trunk brown, pitch-mapped
+      const lane = clamp((note.midi - 21) / 87, 0, 1);
+      const branchHue = (
+        lane < 0.33 ? 80 + seed * 30
+        : lane < 0.66 ? 140 + seed * 40
+        : 260 + seed * 50
+      ) + newBranchDepth * 15;
+
+      state.treeSegments.push({
+        id: `tree-${note.id}`,
+        startX: anchor.x, startY: anchor.y, endX, endY,
+        thickness,
+        hue: branchHue % 360,
         createdAt: note.createdAt,
         kind: 'branch',
         swayOffset: seed * Math.PI * 2,
         swaySpeed: 1.1 + seed * 1.2,
       });
       state.treeAnchors.push({
-        x: endX,
-        y: endY,
-        angle,
-        depth: anchor.depth + 1,
-        kind: 'branch',
+        x: endX, y: endY, angle, depth: anchor.depth + 1, kind: 'branch',
         strength: clamp(anchor.strength * 0.9 + velocity * 0.16, 0.22, 1.2),
+        branchDepth: newBranchDepth,
       });
 
-      // Add a leaf/bloom at the branch tip when velocity is sufficient
-      if (velocity > 0.55) {
-        state.treeOrnaments.push({
-          id: `leaf-${note.id}`,
-          x: endX,
-          y: endY,
-          radius: 3 + velocity * 4,
-          hue: velocity > 0.75 ? 338 + seed * 18 : (lane < 0.5 ? 112 + seed * 32 : 132 + seed * 36),
-          createdAt: note.createdAt,
-          kind: velocity > 0.75 ? 'bloom' : 'leaf',
-          drift: (seed - 0.5) * 12,
-          shimmer: seededUnit(note.id, 6) * Math.PI * 2,
-        });
+      // Add ornament at branch tip
+      if (velocity > 0.45) {
+        const orn = pickOrnament(note.id, endX, endY, velocity, seed);
+        state.treeOrnaments.push(orn);
       }
 
     } else {
-      // Ornament-only notes: place a bloom/leaf near an existing branch tip
+      // === Ornament-only notes ===
       const anchor = chooseTreeAnchor(
         state.treeAnchors,
-        state.treeAnchors.some((a) => a.kind === 'branch') ? 'branch' : 'trunk',
+        branchAnchors.length > 0 ? 'branch' : 'trunk',
         seed,
       );
-      state.treeOrnaments.push({
-        id: `bloom-${note.id}`,
-        x: clamp(anchor.x + (seed - 0.5) * 0.055, 0.08, 0.92),
-        y: clamp(anchor.y + (seededUnit(note.id, 7) - 0.7) * 0.05, 0.08, 0.88),
-        radius: 4 + velocity * 9,
-        hue: velocity > 0.75 ? 338 + seed * 18 : hue,
-        createdAt: note.createdAt,
-        kind: velocity > 0.75 ? 'bloom' : 'leaf',
-        drift: (seed - 0.5) * 16,
-        shimmer: seededUnit(note.id, 8) * Math.PI * 2,
-      });
+      const ox = clamp(anchor.x + (seed - 0.5) * 0.06, 0.08, 0.92);
+      const oy = clamp(anchor.y + (seededUnit(note.id, 7) - 0.6) * 0.05, 0.08, 0.88);
+      const orn = pickOrnament(`extra-${note.id}`, ox, oy, velocity, seed);
+      orn.radius = 4 + velocity * 8; // extra ornaments are larger
+      state.treeOrnaments.push(orn);
     }
   }
 
@@ -1815,16 +1917,22 @@ function drawTreeOfLight(
       ? clamp((55 - pitchCenter) * 0.04, 0, 0.22) * intensity
       : 0;
     const glowAlpha = 0.18 + state.treeGlow * 0.12 + bassBoost;
-    const coreL = segment.kind === 'root' ? 28 + bassBoost * 60 : 58;
+    const coreL = segment.kind === 'root' ? 28 + bassBoost * 60 : 38;
 
-    context.strokeStyle = hsla(segment.hue, segment.kind === 'root' ? 58 : 72, segment.kind === 'root' ? 28 : 58, glowAlpha);
+    // Differentiate trunk (brown) from branches (vibrant) in glow and core layers
+    const glowSat = segment.kind === 'root' ? 58 : segment.kind === 'trunk' ? 48 : 72;
+    const glowLight = segment.kind === 'root' ? 28 : segment.kind === 'trunk' ? 32 : 52;
+    const coreSat = segment.kind === 'root' ? 44 : segment.kind === 'trunk' ? 44 : 78;
+    const coreLightFinal = segment.kind === 'root' ? coreL : segment.kind === 'trunk' ? 38 : 62;
+
+    context.strokeStyle = hsla(segment.hue, glowSat, glowLight, glowAlpha);
     context.lineWidth = segment.thickness + 7;
     context.beginPath();
     context.moveTo(startX, startY);
     context.quadraticCurveTo(controlX, controlY, endX, endY);
     context.stroke();
 
-    context.strokeStyle = hsla(segment.hue, segment.kind === 'root' ? 44 : 86, segment.kind === 'root' ? coreL : 66, 0.92);
+    context.strokeStyle = hsla(segment.hue, coreSat, coreLightFinal, 0.92);
     context.lineWidth = segment.thickness;
     context.beginPath();
     context.moveTo(startX, startY);
@@ -1834,14 +1942,61 @@ function drawTreeOfLight(
 
   for (const ornament of state.treeOrnaments) {
     const twinkle = 0.65 + (Math.sin(now * 0.0024 + ornament.shimmer) + 1) * 0.22;
-    const x = ornament.x * width + Math.sin(now * 0.0016 + ornament.drift) * (ornament.kind === 'leaf' ? 2.5 : 4);
+    const driftAmt = ornament.kind === 'leaf' ? 2.5 : 4;
+    const x = ornament.x * width + Math.sin(now * 0.0016 + ornament.drift) * driftAmt;
     const y = ornament.y * height + Math.cos(now * 0.0012 + ornament.drift) * 2.2;
     const radius = ornament.radius * twinkle;
-    drawSoftGlow(context, x, y, radius * (ornament.kind === 'bloom' ? 5 : 3.5), ornament.hue, ornament.kind === 'bloom' ? 0.28 : 0.16);
-    context.fillStyle = hsla(ornament.hue, ornament.kind === 'bloom' ? 94 : 72, ornament.kind === 'bloom' ? 74 : 62, 0.94);
+    const shape = ornament.shape ?? (ornament.kind === 'leaf' ? 'ellipse' : 'circle');
+    const sat = ornament.sat ?? (ornament.kind === 'bloom' ? 94 : 72);
+    const light = ornament.light ?? (ornament.kind === 'bloom' ? 74 : 62);
+
+    // Per-shape glow
+    const glowRadiusMult = shape === 'star' ? 6 : ornament.kind === 'bloom' ? 5 : shape === 'diamond' ? 4.5 : shape === 'teardrop' ? 4 : 3.5;
+    const glowAlpha2 = shape === 'star' ? 0.32 : ornament.kind === 'bloom' ? 0.28 : shape === 'diamond' ? 0.24 : shape === 'teardrop' ? 0.22 : 0.16;
+    drawSoftGlow(context, x, y, radius * glowRadiusMult, ornament.hue, glowAlpha2);
+
+    context.fillStyle = hsla(ornament.hue, sat, light, 0.94);
     context.beginPath();
-    context.ellipse(x, y, radius, radius * (ornament.kind === 'leaf' ? 0.72 : 1), ornament.kind === 'leaf' ? 0.6 : 0, 0, Math.PI * 2);
-    context.fill();
+
+    if (shape === 'ellipse') {
+      context.ellipse(x, y, radius, radius * 0.72, 0.6, 0, Math.PI * 2);
+      context.fill();
+    } else if (shape === 'circle') {
+      context.ellipse(x, y, radius, radius, 0, 0, Math.PI * 2);
+      context.fill();
+    } else if (shape === 'star') {
+      const outerR = radius;
+      const innerR = radius * 0.45;
+      for (let i = 0; i < 5; i++) {
+        const outerAngle = (i * 2 * Math.PI / 5) - Math.PI / 2;
+        const innerAngle = outerAngle + Math.PI / 5;
+        if (i === 0) context.moveTo(x + Math.cos(outerAngle) * outerR, y + Math.sin(outerAngle) * outerR);
+        else context.lineTo(x + Math.cos(outerAngle) * outerR, y + Math.sin(outerAngle) * outerR);
+        context.lineTo(x + Math.cos(innerAngle) * innerR, y + Math.sin(innerAngle) * innerR);
+      }
+      context.closePath();
+      context.fill();
+    } else if (shape === 'diamond') {
+      context.moveTo(x, y - radius);
+      context.lineTo(x + radius * 0.7, y);
+      context.lineTo(x, y + radius);
+      context.lineTo(x - radius * 0.7, y);
+      context.closePath();
+      context.fill();
+    } else if (shape === 'heart') {
+      const s = radius * 0.9;
+      context.moveTo(x, y + s * 0.7);
+      context.bezierCurveTo(x - s * 1.1, y + s * 0.2, x - s * 1.1, y - s * 0.6, x, y - s * 0.1);
+      context.bezierCurveTo(x + s * 1.1, y - s * 0.6, x + s * 1.1, y + s * 0.2, x, y + s * 0.7);
+      context.fill();
+    } else if (shape === 'teardrop') {
+      // Circle top, pointed bottom
+      context.arc(x, y - radius * 0.3, radius * 0.65, Math.PI, 0);
+      context.bezierCurveTo(x + radius * 0.65, y + radius * 0.3, x + radius * 0.25, y + radius * 0.9, x, y + radius);
+      context.bezierCurveTo(x - radius * 0.25, y + radius * 0.9, x - radius * 0.65, y + radius * 0.3, x - radius * 0.65, y - radius * 0.3);
+      context.closePath();
+      context.fill();
+    }
   }
 }
 
