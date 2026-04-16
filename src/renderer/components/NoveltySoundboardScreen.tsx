@@ -167,7 +167,7 @@ export function NoveltySoundboardScreen({
   }, [audioEngine, inputMode, keyboardInputService, midiInputService, modeId]);
 
   return (
-    <main className="app-shell soundboard-screen" onPointerDownCapture={() => void audioEngine.init()}>
+    <main className="app-shell soundboard-screen" onPointerDownCapture={() => void audioEngine.prepareForPlayback()}>
       <section className="panel soundboard-hero">
         <div>
           <p className="eyebrow">Kids Soundboard</p>

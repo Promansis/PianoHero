@@ -92,6 +92,7 @@ class MockKeyboardInputService {
 
 function buildAudioEngineStub(): AudioEngine {
   return {
+    prepareForPlayback: vi.fn().mockResolvedValue(undefined),
     init: vi.fn().mockResolvedValue(undefined),
     noteOn: vi.fn().mockResolvedValue(undefined),
     noteOff: vi.fn(),
@@ -123,6 +124,28 @@ describe('FreePlayScreen', () => {
       saveMidiFile: vi.fn().mockResolvedValue('C:\\Exports\\free-play.mid'),
       saveWavFile: vi.fn().mockResolvedValue('C:\\Exports\\free-play.wav'),
     } as unknown as typeof window.appBridge;
+  });
+
+  it('warms audio on first pointer interaction before note playback', () => {
+    const audioEngine = buildAudioEngineStub();
+
+    render(
+      <FreePlayScreen
+        audioEngine={audioEngine}
+        midiInputService={new MockMidiInputService() as unknown as MidiInputService}
+        keyboardInputService={new MockKeyboardInputService() as unknown as ComputerKeyboardInputService}
+        inputMode="both"
+        keyboardOverlaySize="medium"
+        postureReminderMinutes={null}
+        breakReminderMinutes={null}
+        onBackToMainMenu={vi.fn()}
+        onOpenKeyboardSetup={vi.fn()}
+      />,
+    );
+
+    fireEvent.pointerDown(screen.getByRole('main'));
+
+    expect(audioEngine.prepareForPlayback).toHaveBeenCalledTimes(1);
   });
 
   it('toggles the immersive overlay with Escape', () => {

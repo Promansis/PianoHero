@@ -243,7 +243,7 @@ export function TheoryQuizScreen({ audioEngine, onAchievementsUnlocked, onSessio
   const currentQuestion = questions[currentIndex];
 
   return (
-    <main className="app-shell theory-practice-screen" onPointerDownCapture={() => void audioEngine.init()}>
+    <main className="app-shell theory-practice-screen" onPointerDownCapture={() => void audioEngine.prepareForPlayback()}>
       <section className="panel theory-screen-hero">
         <div>
           <p className="eyebrow">Theory Quiz</p>

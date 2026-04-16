@@ -338,7 +338,7 @@ export function FreePlayScreen({
 
   const ensureAudioReady = async () => {
     try {
-      await audioEngine.init();
+      await audioEngine.prepareForPlayback();
     } catch (error) {
       setStatusMessage(`Audio failed to initialize: ${(error as Error).message}`);
     }
@@ -382,7 +382,7 @@ export function FreePlayScreen({
       return;
     }
 
-    await audioEngine.init();
+    await audioEngine.prepareForPlayback();
     playbackTimeoutsRef.current.forEach((timeout) => window.clearTimeout(timeout));
     playbackTimeoutsRef.current = [];
     setIsPlayingRecording(true);

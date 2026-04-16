@@ -4,6 +4,7 @@ import { App } from './App';
 
 const preloadSpy = vi.fn(() => Promise.resolve());
 const unlockSpy = vi.fn(() => Promise.resolve());
+const prepareForPlaybackSpy = vi.fn(() => Promise.resolve());
 
 vi.mock('./components/AchievementToast', () => ({
   AchievementToast: () => null,
@@ -103,6 +104,7 @@ vi.mock('../lib/audio/audioEngine', () => ({
   AudioEngine: class {
     preload = preloadSpy;
     unlock = unlockSpy;
+    prepareForPlayback = prepareForPlaybackSpy;
     init() {
       return Promise.resolve();
     }
@@ -148,6 +150,7 @@ describe('App', () => {
   beforeEach(() => {
     preloadSpy.mockClear();
     unlockSpy.mockClear();
+    prepareForPlaybackSpy.mockClear();
     window.appBridge = {
       getSetting: vi.fn(async (category: string, key: string) => {
         if (category === 'onboarding' && key === 'setupComplete') {
@@ -193,14 +196,16 @@ describe('App', () => {
     render(<App />);
 
     await screen.findByText('Open Free Play');
-    const initialUnlockCalls = unlockSpy.mock.calls.length;
+    expect(screen.queryByText('Enable Audio')).not.toBeInTheDocument();
+    const initialPrepareCalls = prepareForPlaybackSpy.mock.calls.length;
 
     fireEvent.pointerDown(window);
     fireEvent.pointerDown(window);
     fireEvent.keyDown(window, { key: 'a' });
 
     expect(preloadSpy).not.toHaveBeenCalled();
-    expect(unlockSpy.mock.calls.length).toBeGreaterThan(initialUnlockCalls);
+    expect(unlockSpy).not.toHaveBeenCalled();
+    expect(prepareForPlaybackSpy.mock.calls.length).toBeGreaterThan(initialPrepareCalls);
   });
 
   it('routes the main menu soundboard entry to the dedicated soundboard screen', async () => {

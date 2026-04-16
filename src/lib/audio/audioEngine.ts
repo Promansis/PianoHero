@@ -3,7 +3,6 @@ import { buildScheduledNotes } from '../game/songUtils';
 import type { ParsedSong } from '../game/types';
 import {
   DEFAULT_INSTRUMENT_ID,
-  DEFAULT_WEB_INSTRUMENT_ID,
   getInstrumentDefinition,
   type InstrumentDefinition,
   type InstrumentVoice,
@@ -103,6 +102,7 @@ export class AudioEngine {
   private masterVolumePercent = 80;
   private metronomeVolumePercent = 65;
   private reverbPercent = 20;
+  private preparePromise: Promise<void> | null = null;
 
   private async ensureTone(): Promise<ToneModule> {
     if (this.tone) {
@@ -133,42 +133,28 @@ export class AudioEngine {
     console.log('[AudioEngine] Audio unlocked successfully');
   }
 
-  async init(): Promise<void> {
+  async prepareForPlayback(): Promise<void> {
     if (this.initialized) {
       await this.unlock();
       return;
     }
 
-    await this.unlock();
-    const tone = this.tone!;
-    tone.getContext().lookAhead = 0.01;
-    console.log('[AudioEngine] Initializing audio nodes...');
-    this.masterVolumeNode = new tone.Volume(percentToDb(tone, this.masterVolumePercent)).toDestination();
-    this.instrumentOutputNode = new tone.Volume(0).connect(this.masterVolumeNode);
-    this.instrumentReverbNode = new tone.FeedbackDelay({
-      delayTime: 0.18,
-      feedback: 0.22,
-      wet: this.reverbPercent / 100,
-    }).connect(this.masterVolumeNode);
-    this.metronomeVolumeNode = new tone.Volume(percentToDb(tone, this.metronomeVolumePercent)).connect(this.masterVolumeNode);
-    this.oneShotVolumeNode = new tone.Volume(0).connect(this.masterVolumeNode);
-    console.log('[AudioEngine] Loading instrument...');
-    await this.loadInstrument(getInstrumentDefinition(this.instrumentId));
-    this.metronomeSynth = new tone.Synth({
-      oscillator: { type: 'square' },
-      envelope: {
-        attack: 0.001,
-        decay: 0.04,
-        sustain: 0,
-        release: 0.05,
-      },
-    }).connect(this.metronomeVolumeNode);
-    this.initialized = true;
-    console.log('[AudioEngine] Initialization complete');
+    this.preparePromise ??= this.prepareAudioGraph();
+    try {
+      await this.preparePromise;
+    } finally {
+      if (this.initialized) {
+        this.preparePromise = null;
+      }
+    }
+  }
+
+  async init(): Promise<void> {
+    await this.prepareForPlayback();
   }
 
   async noteOn(note: number, velocity = 0.8): Promise<void> {
-    await this.init();
+    await this.prepareForPlayback();
     const tone = this.tone!;
     const noteName = midiToName(tone, note);
     console.log('[AudioEngine] noteOn:', noteName, 'velocity:', velocity, 'sampler:', !!this.sampler, 'synth:', !!this.synth);
@@ -214,7 +200,7 @@ export class AudioEngine {
     tempoMultiplier: number,
     loopEndSec?: number,
   ): Promise<void> {
-    await this.init();
+    await this.prepareForPlayback();
     const tone = this.tone!;
 
     this.pauseSong();
@@ -304,7 +290,7 @@ export class AudioEngine {
   }
 
   async playMetronomeClick(accent = false): Promise<void> {
-    await this.init();
+    await this.prepareForPlayback();
     const tone = this.tone!;
     const note = accent ? 'C6' : 'C5';
     this.metronomeSynth?.triggerAttackRelease(note, 0.05, tone.now(), accent ? 0.9 : 0.55);
@@ -394,7 +380,7 @@ export class AudioEngine {
   }
 
   async loadBackingTrack(src: string): Promise<void> {
-    await this.init();
+    await this.prepareForPlayback();
     const tone = this.tone!;
     this.backingTrackPlayer?.dispose();
     this.backingTrackPlayer = null;
@@ -430,7 +416,7 @@ export class AudioEngine {
   }
 
   async playOneShot(src: string, volumeDb = 0): Promise<void> {
-    await this.init();
+    await this.prepareForPlayback();
     const player = await this.getOrCreateOneShotPlayer(src);
     player.volume.value = volumeDb;
     if (player.state === 'started') {
@@ -534,6 +520,35 @@ export class AudioEngine {
     this.synth?.dispose();
     this.synth = null;
     await this.loadInstrument(definition);
+  }
+
+  private async prepareAudioGraph(): Promise<void> {
+    await this.unlock();
+    const tone = this.tone!;
+    tone.getContext().lookAhead = 0.01;
+    console.log('[AudioEngine] Initializing audio nodes...');
+    this.masterVolumeNode = new tone.Volume(percentToDb(tone, this.masterVolumePercent)).toDestination();
+    this.instrumentOutputNode = new tone.Volume(0).connect(this.masterVolumeNode);
+    this.instrumentReverbNode = new tone.FeedbackDelay({
+      delayTime: 0.18,
+      feedback: 0.22,
+      wet: this.reverbPercent / 100,
+    }).connect(this.masterVolumeNode);
+    this.metronomeVolumeNode = new tone.Volume(percentToDb(tone, this.metronomeVolumePercent)).connect(this.masterVolumeNode);
+    this.oneShotVolumeNode = new tone.Volume(0).connect(this.masterVolumeNode);
+    console.log('[AudioEngine] Loading instrument...');
+    await this.loadInstrument(getInstrumentDefinition(this.instrumentId));
+    this.metronomeSynth = new tone.Synth({
+      oscillator: { type: 'square' },
+      envelope: {
+        attack: 0.001,
+        decay: 0.04,
+        sustain: 0,
+        release: 0.05,
+      },
+    }).connect(this.metronomeVolumeNode);
+    this.initialized = true;
+    console.log('[AudioEngine] Initialization complete');
   }
 
   private async loadInstrument(definition: InstrumentDefinition): Promise<void> {
