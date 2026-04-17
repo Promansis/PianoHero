@@ -35,6 +35,7 @@ const DEFAULT_SETTINGS: SettingsValues = {
   'visual.theme': 'dark',
   'visual.colorBlindMode': 'false',
   'visual.noteLabels': 'alphabetic',
+  'visual.noteLabelSize': 'medium',
   'visual.keyboardOverlaySize': 'medium',
   'visual.beatsVisible': '8',
   'visual.leftHandColor': '',
@@ -361,6 +362,17 @@ export function SettingsScreen({
                   <option value="symbols">Symbols</option>
                   <option value="both">Both</option>
                   <option value="none">None</option>
+                </select>
+              </label>
+              <label>
+                <span>Note Label Size</span>
+                <select
+                  value={values['visual.noteLabelSize'] ?? 'medium'}
+                  onChange={(event) => void persistSetting('visual', 'noteLabelSize', event.target.value)}
+                >
+                  <option value="small">Small</option>
+                  <option value="medium">Medium</option>
+                  <option value="large">Large</option>
                 </select>
               </label>
               <label>

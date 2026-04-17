@@ -85,6 +85,7 @@ interface GameScreenProps {
   initialSessionConfig: SessionConfig;
   colorBlindMode: boolean;
   noteLabels: 'alphabetic' | 'symbols' | 'both' | 'none';
+  noteLabelSize?: 'small' | 'medium' | 'large';
   keyboardOverlaySize: 'small' | 'medium' | 'large';
   breakReminderMinutes: number | null;
   onGameFinished: (payload: FinishedGamePayload) => void;
@@ -331,6 +332,7 @@ export function GameScreen({
   initialSessionConfig,
   colorBlindMode,
   noteLabels,
+  noteLabelSize = 'medium',
   keyboardOverlaySize,
   breakReminderMinutes,
   onGameFinished,
@@ -1084,6 +1086,7 @@ export function GameScreen({
         }}
         colorBlindMode={colorBlindMode}
         noteLabels={noteLabels}
+        noteLabelSize={noteLabelSize}
       />
       {fingeringEditorState && (
         <FingeringEditor

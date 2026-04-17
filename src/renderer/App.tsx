@@ -197,6 +197,7 @@ export function App() {
   const [currentScreen, setCurrentScreen] = useState<AppScreen>({ screen: 'main-menu' });
   const [colorBlindMode, setColorBlindMode] = useState(false);
   const [noteLabels, setNoteLabels] = useState<'alphabetic' | 'symbols' | 'both' | 'none'>('alphabetic');
+  const [noteLabelSize, setNoteLabelSize] = useState<'small' | 'medium' | 'large'>('medium');
   const [keyboardOverlaySize, setKeyboardOverlaySize] = useState<'small' | 'medium' | 'large'>('medium');
   const [latencyCompMs, setLatencyCompMs] = useState(0);
   const [waitModeDefault, setWaitModeDefault] = useState(false);
@@ -312,6 +313,7 @@ export function App() {
         rawRightHandColor,
         rawMetronomeSound,
         rawLeadInBeats,
+        rawNoteLabelSize,
       ] = await Promise.all([
         window.appBridge.getSetting('onboarding', 'setupComplete'),
         window.appBridge.getSetting('practice', 'postureReminderMinutes'),
@@ -338,6 +340,7 @@ export function App() {
         window.appBridge.getSetting('visual', 'rightHandColor'),
         window.appBridge.getSetting('audio', 'metronomeSound'),
         window.appBridge.getSetting('gameplay', 'leadInBeats'),
+        window.appBridge.getSetting('visual', 'noteLabelSize'),
       ]);
 
       if (reminder) {
@@ -440,6 +443,10 @@ export function App() {
       const parsedLeadIn = Number(rawLeadInBeats);
       if (Number.isFinite(parsedLeadIn) && parsedLeadIn >= 0) {
         setLeadInBeats(Math.round(parsedLeadIn));
+      }
+
+      if (rawNoteLabelSize === 'small' || rawNoteLabelSize === 'large') {
+        setNoteLabelSize(rawNoteLabelSize);
       }
 
       if (rawLeftHandColor) {
@@ -549,6 +556,8 @@ export function App() {
         setNoteLabels(value);
       } else if (key === 'keyboardOverlaySize' && (value === 'small' || value === 'medium' || value === 'large')) {
         setKeyboardOverlaySize(value);
+      } else if (key === 'noteLabelSize' && (value === 'small' || value === 'medium' || value === 'large')) {
+        setNoteLabelSize(value);
       }
       return;
     }
@@ -1143,6 +1152,7 @@ export function App() {
           initialSessionConfig={currentScreen.sessionConfig}
           colorBlindMode={colorBlindMode}
           noteLabels={noteLabels}
+          noteLabelSize={noteLabelSize}
           keyboardOverlaySize={keyboardOverlaySize}
           breakReminderMinutes={breakReminderMinutes}
           onExit={() => setCurrentScreen({ screen: 'main-menu' })}
@@ -1168,6 +1178,7 @@ export function App() {
           initialSessionConfig={currentScreen.sessionConfig}
           colorBlindMode={colorBlindMode}
           noteLabels={noteLabels}
+          noteLabelSize={noteLabelSize}
           keyboardOverlaySize={keyboardOverlaySize}
           breakReminderMinutes={breakReminderMinutes}
           onExit={() => navigateToLesson(currentScreen.lessonId, currentScreen.stepIndex)}
@@ -1201,6 +1212,7 @@ export function App() {
           initialSessionConfig={currentScreen.sessionConfig}
           colorBlindMode={colorBlindMode}
           noteLabels={noteLabels}
+          noteLabelSize={noteLabelSize}
           keyboardOverlaySize={keyboardOverlaySize}
           breakReminderMinutes={breakReminderMinutes}
           onExit={() => setCurrentScreen({ screen: 'learn-hub' })}

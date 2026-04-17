@@ -10,6 +10,7 @@ interface FallingNotesCanvasProps {
   onNoteSelect?: (note: VisibleNote, anchorPoint: { x: number; y: number }) => void;
   colorBlindMode?: boolean;
   noteLabels?: 'alphabetic' | 'symbols' | 'both' | 'none';
+  noteLabelSize?: 'small' | 'medium' | 'large';
 }
 
 interface CanvasPalette {
@@ -102,6 +103,7 @@ export function FallingNotesCanvas({
   onNoteSelect,
   colorBlindMode = false,
   noteLabels = 'alphabetic',
+  noteLabelSize = 'medium',
 }: FallingNotesCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -166,7 +168,7 @@ export function FallingNotesCanvas({
     // Draw scene
     context.clearRect(0, 0, width, height);
     drawGrid(context, width, height, snapshot.hitLineRatio, palette);
-    drawNotes(context, width, height, snapshot.visibleNotes, selectedNoteId, colorBlindMode, noteLabels, palette);
+    drawNotes(context, width, height, snapshot.visibleNotes, selectedNoteId, colorBlindMode, noteLabels, palette, noteLabelSize);
 
     // Hit line glow (behind the line)
     drawHitLineGlow(context, width, height, snapshot.hitLineRatio, snapshot.score.combo, palette);
@@ -179,7 +181,7 @@ export function FallingNotesCanvas({
     drawParticles(context, eff.particles, now);
     drawPopups(context, eff.popups, now);
     drawVignette(context, width, height, eff.vignette, now);
-  }, [colorBlindMode, noteLabels, selectedNoteId, snapshot]);
+  }, [colorBlindMode, noteLabels, noteLabelSize, selectedNoteId, snapshot]);
 
   return (
     <div
@@ -264,7 +266,10 @@ function drawNotes(
   colorBlindMode: boolean,
   noteLabels: 'alphabetic' | 'symbols' | 'both' | 'none',
   palette: CanvasPalette,
+  noteLabelSize: 'small' | 'medium' | 'large' = 'medium',
 ): void {
+  const labelPx = noteLabelSize === 'small' ? 10 : noteLabelSize === 'large' ? 15 : 12;
+  const fingerPx = noteLabelSize === 'small' ? 9 : noteLabelSize === 'large' ? 13 : 11;
   for (const note of notes) {
     const x = note.xRatio * width;
     const noteWidth = Math.max(width * note.widthRatio * 0.92, 12);
@@ -282,16 +287,16 @@ function drawNotes(
 
     if (noteLabels !== 'none') {
       context.fillStyle = palette.text;
-      context.font = '12px "Segoe UI", system-ui, sans-serif';
+      context.font = `${labelPx}px "Segoe UI", system-ui, sans-serif`;
       context.textAlign = 'center';
-      context.fillText(note.label, x + noteWidth / 2, y + Math.min(18, noteHeight - 4));
+      context.fillText(note.label, x + noteWidth / 2, y + Math.min(labelPx + 6, noteHeight - 4));
     }
 
     if (note.finger !== undefined) {
       context.fillStyle = palette.text;
-      context.font = 'bold 11px "Segoe UI", system-ui, sans-serif';
+      context.font = `bold ${fingerPx}px "Segoe UI", system-ui, sans-serif`;
       context.textAlign = 'center';
-      context.fillText(String(note.finger), x + noteWidth / 2, y + Math.min(32, noteHeight - 4));
+      context.fillText(String(note.finger), x + noteWidth / 2, y + Math.min(labelPx + 20, noteHeight - 4));
     }
   }
 }
