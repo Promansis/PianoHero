@@ -12,6 +12,7 @@ interface ResultsScreenProps {
   song: SongRow;
   sessionConfig: SessionConfig;
   baselineStats: UserStatsRow | null;
+  unlockedRewardIds?: Set<string>;
   onAchievementsUnlocked?: (achievementIds: string[]) => void;
   onDailyGoalReached?: () => void;
   onSongGoalReached?: () => void;
@@ -76,6 +77,7 @@ export function ResultsScreen({
   song,
   sessionConfig,
   baselineStats,
+  unlockedRewardIds,
   onAchievementsUnlocked,
   onDailyGoalReached,
   onSongGoalReached,
@@ -95,6 +97,7 @@ export function ResultsScreen({
   const [troubleSpotsLoading, setTroubleSpotsLoading] = useState(true);
   const grade = getGrade(result.accuracy);
   const stars = getStarCount(result.accuracy);
+  const isMaestro = unlockedRewardIds?.has('title:maestro') ?? false;
   const troubleSpots = result.measureAccuracy.filter((entry) => entry.accuracy < 70);
   const feedback = buildFeedback(result);
 
@@ -174,8 +177,11 @@ export function ResultsScreen({
     };
     resize();
 
-    const COLORS = ['#f9a825', '#e53935', '#43a047', '#1e88e5', '#8e24aa', '#fb8c00', '#00acc1'];
-    const COUNT = grade === 'S' ? 120 : 60;
+    const COLORS = isMaestro
+      ? ['#ffd54f', '#ffecb3', '#fff59d', '#f9a825', '#ffb300', '#ffffff']
+      : ['#f9a825', '#e53935', '#43a047', '#1e88e5', '#8e24aa', '#fb8c00', '#00acc1'];
+    const BASE_COUNT = grade === 'S' ? 120 : 60;
+    const COUNT = isMaestro ? Math.round(BASE_COUNT * 1.8) : BASE_COUNT;
     type Piece = { x: number; y: number; vx: number; vy: number; rot: number; rotV: number; w: number; h: number; color: string; opacity: number };
     const pieces: Piece[] = Array.from({ length: COUNT }, () => ({
       x: Math.random() * canvas.width,
@@ -212,7 +218,7 @@ export function ResultsScreen({
     };
     rafId = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(rafId);
-  }, [grade]);
+  }, [grade, isMaestro]);
 
   const comparison = useMemo(() => {
     if (!baselineStats) {
@@ -268,6 +274,16 @@ export function ResultsScreen({
     <main className="app-shell results-screen">
       {(grade === 'S' || grade === 'A') && (
         <canvas ref={confettiCanvasRef} className="confetti-canvas" aria-hidden="true" />
+      )}
+      {isMaestro && (grade === 'S' || grade === 'A') && (
+        <section className="panel maestro-banner" aria-label="Maestro title active">
+          <div className="maestro-banner-icon">★</div>
+          <div>
+            <p className="eyebrow">Maestro</p>
+            <strong>Another clean pass, Maestro.</strong>
+            <p className="panel-copy">Your 90%+ streak across the library has earned a richer celebration.</p>
+          </div>
+        </section>
       )}
       <section className="panel results-hero">
         <div>

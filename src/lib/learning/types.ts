@@ -31,7 +31,15 @@ export interface Lesson {
   isStub?: boolean;
 }
 
-export type LessonStep = TipStep | DrillStep | ScaleStep | IntervalStep | QuizStep;
+export type LessonStep =
+  | TipStep
+  | DrillStep
+  | ScaleStep
+  | IntervalStep
+  | QuizStep
+  | NotationReadingStep
+  | EarTrainingStep
+  | RhythmClappingStep;
 
 export interface TipStep {
   kind: 'tip';
@@ -72,6 +80,45 @@ export interface QuizStep {
   title: string;
   body?: string;
   quizType: 'chord' | 'scale' | 'interval' | 'mixed';
+  passAccuracy?: number;
+}
+
+export interface NotationReadingPrompt {
+  midi: number;
+  clef: 'treble' | 'bass';
+}
+
+export interface NotationReadingStep {
+  kind: 'notation-reading';
+  title: string;
+  body?: string;
+  prompts: NotationReadingPrompt[];
+  passAccuracy?: number;
+}
+
+export interface EarTrainingPrompt {
+  kind: 'interval' | 'chord-quality';
+  rootMidi: number;
+  answer: string;
+  choices: string[];
+}
+
+export interface EarTrainingStep {
+  kind: 'ear-training';
+  title: string;
+  body?: string;
+  prompts: EarTrainingPrompt[];
+  passAccuracy?: number;
+}
+
+export interface RhythmClappingStep {
+  kind: 'rhythm-clapping';
+  title: string;
+  body?: string;
+  bpm: number;
+  patternBeats: number[];
+  measures?: number;
+  toleranceMs?: number;
   passAccuracy?: number;
 }
 

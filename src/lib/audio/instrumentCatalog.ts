@@ -1,10 +1,10 @@
 export type InstrumentVoice = 'synth' | 'am' | 'fm' | 'mono' | 'sampler';
 export type InstrumentReverbPreset = 'short' | 'medium' | 'hall';
 
-export const REVERB_PRESETS: Record<InstrumentReverbPreset, { delayTime: number; feedback: number }> = {
-  short:  { delayTime: 0.08, feedback: 0.12 },
-  medium: { delayTime: 0.18, feedback: 0.22 },
-  hall:   { delayTime: 0.35, feedback: 0.45 },
+export const REVERB_PRESETS: Record<InstrumentReverbPreset, { roomSize: number; dampening: number }> = {
+  short:  { roomSize: 0.25, dampening: 3500 },
+  medium: { roomSize: 0.55, dampening: 2500 },
+  hall:   { roomSize: 0.80, dampening: 1500 },
 };
 
 export interface InstrumentDefinition {

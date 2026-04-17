@@ -4,6 +4,7 @@ import type { AudioEngine } from '../../lib/audio/audioEngine';
 import { isRewardUnlocked, REWARD_CATALOG } from '../../lib/rewards/rewardCatalog';
 import { LatencyWizard } from './LatencyWizard';
 import { LoadingPanel } from './LoadingPanel';
+import { toastBus } from './Toast';
 import type { InputMode } from '../../lib/input/types';
 import type { MidiInputDevice } from '../../lib/midi/types';
 
@@ -208,6 +209,11 @@ export function SettingsScreen({
     } catch {
       setIsResetting(false);
       setStatusMessage('Reset failed. Your data was not fully cleared.');
+      toastBus.push({
+        variant: 'error',
+        title: 'Reset failed',
+        message: 'Your data was not fully cleared. Please try again.',
+      });
     }
   };
 
@@ -225,6 +231,11 @@ export function SettingsScreen({
       window.location.reload();
     } catch {
       setStatusMessage('Progress reset failed. Your history was not fully cleared.');
+      toastBus.push({
+        variant: 'error',
+        title: 'Progress reset failed',
+        message: 'Your history was not fully cleared.',
+      });
     } finally {
       setIsResettingProgress(false);
     }

@@ -31,6 +31,7 @@ import type { MidiInputDevice } from '../lib/midi/types';
 import type { TheorySuggestion } from '../lib/theory/songAnalysis';
 import type { SongRow, UserStatsRow } from '../shared/dbTypes';
 import { AchievementToast } from './components/AchievementToast';
+import { ToastHost } from './components/Toast';
 import { FreePlayScreen } from './components/FreePlayScreen';
 import { GameScreen } from './components/GameScreen';
 import { IntervalTrainerScreen } from './components/IntervalTrainerScreen';
@@ -1251,6 +1252,7 @@ export function App() {
           result={currentScreen.result}
           sessionConfig={currentScreen.sessionConfig}
           song={currentScreen.song}
+          unlockedRewardIds={unlockedRewardIds}
           onAchievementsUnlocked={enqueueAchievementToasts}
           onDailyGoalReached={handleDailyGoalReached}
           onSongGoalReached={handleSongGoalReached}
@@ -1330,6 +1332,7 @@ export function App() {
         achievementId={achievementToastQueue[0] ?? null}
         onClose={() => setAchievementToastQueue((current) => current.slice(1))}
       />
+      <ToastHost />
     </>
   );
 }

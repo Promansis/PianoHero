@@ -17,7 +17,18 @@ function noteNumberToName(midi) {
 function defaultHandForMidi(midi) {
   return midi < 60 ? "left" : "right";
 }
-function defaultAssignmentForNotes(notes) {
+const LEFT_HAND_TRACK_PATTERN = /\b(lh|left|bass|l\.h\.|lower|basso)\b/i;
+const RIGHT_HAND_TRACK_PATTERN = /\b(rh|right|treble|r\.h\.|upper|soprano)\b/i;
+function assignmentFromTrackName(trackName) {
+  if (LEFT_HAND_TRACK_PATTERN.test(trackName)) return "left";
+  if (RIGHT_HAND_TRACK_PATTERN.test(trackName)) return "right";
+  return null;
+}
+function defaultAssignmentForNotes(notes, trackName) {
+  if (trackName) {
+    const fromName = assignmentFromTrackName(trackName);
+    if (fromName) return fromName;
+  }
   if (notes.length === 0) {
     return "both";
   }
@@ -29,6 +40,9 @@ function defaultAssignmentForNotes(notes) {
   if (allRight) {
     return "right";
   }
+  const avgMidi = notes.reduce((sum, note) => sum + note.midi, 0) / notes.length;
+  if (avgMidi < 52) return "left";
+  if (avgMidi > 68) return "right";
   return "both";
 }
 function getTrackAssignments(song) {
@@ -43,17 +57,35 @@ function resolveMidiConstructor() {
   return constructor;
 }
 const MidiCtor = resolveMidiConstructor();
+function extractMidiMeta(arrayBuffer) {
+  const midi = new MidiCtor(arrayBuffer);
+  const result = {};
+  const rawName = midi.header.name?.trim();
+  if (rawName) result.suggestedTitle = rawName;
+  for (const event of midi.header.meta ?? []) {
+    const text = event.text?.trim();
+    if (!text) continue;
+    if (event.type === "copyright" && !result.suggestedArtist) {
+      result.suggestedArtist = text;
+    } else if ((event.type === "trackName" || event.type === "text") && !result.suggestedTitle) {
+      result.suggestedTitle = text;
+    }
+  }
+  return result;
+}
 function parseMidiFile(arrayBuffer, meta) {
   const midi = new MidiCtor(arrayBuffer);
   const bpm = midi.header.tempos[0]?.bpm ?? 120;
   const tracks = midi.tracks.map((track, index) => {
     const trackId = `track-${index}`;
+    const trackName = track.name?.trim() || `Track ${index + 1}`;
+    const assignment = defaultAssignmentForNotes(track.notes, trackName);
     return {
       id: trackId,
-      name: track.name?.trim() || `Track ${index + 1}`,
+      name: trackName,
       sourceTrackIndex: index,
-      defaultAssignment: defaultAssignmentForNotes(track.notes),
-      assignment: defaultAssignmentForNotes(track.notes)
+      defaultAssignment: assignment,
+      assignment
     };
   });
   const notes = midi.tracks.flatMap(
@@ -84,21 +116,42 @@ function toArrayBuffer(bytes) {
 async function createSongId(buffer) {
   return createHash("sha256").update(buffer).digest("hex");
 }
-function calculateDifficulty(noteCount, durationSec) {
+function calculateDifficulty(song) {
+  const { notes, durationSec, bpm } = song;
+  if (notes.length === 0) return 1;
   const safeDuration = Math.max(durationSec, 1);
-  return Math.max(1, Math.min(10, Math.round(noteCount / safeDuration * 1.2)));
+  const density = notes.length / safeDuration;
+  const densityScore = Math.min(10, density * 1.4);
+  const midiValues = notes.map((n) => n.midi);
+  const pitchRange = Math.max(...midiValues) - Math.min(...midiValues);
+  const rangeScore = Math.min(10, pitchRange / 8);
+  let maxSimultaneous = 1;
+  for (let i = 0; i < notes.length; i++) {
+    const start = notes[i].startSec;
+    let count = 1;
+    for (let j = i + 1; j < notes.length && notes[j].startSec - start < 0.05; j++) {
+      count++;
+    }
+    if (count > maxSimultaneous) maxSimultaneous = count;
+  }
+  const chordScore = Math.min(10, (maxSimultaneous - 1) * 2.5);
+  const tempoScore = Math.min(10, bpm / 30);
+  const raw = densityScore * 0.4 + rangeScore * 0.25 + chordScore * 0.2 + tempoScore * 0.15;
+  return Math.max(1, Math.min(10, Math.round(raw)));
 }
 async function importSongFromBuffer(buffer, title, { db: db2, midiFilesDir }) {
   const fileData = Uint8Array.from(buffer);
   const songId = await createSongId(fileData);
   const destPath = join(midiFilesDir, `${songId}.mid`);
-  const parsedSong = parseMidiFile(toArrayBuffer(fileData), { songId, title });
-  const difficulty = calculateDifficulty(parsedSong.notes.length, parsedSong.durationSec);
+  const midiMeta = extractMidiMeta(toArrayBuffer(fileData));
+  const effectiveTitle = midiMeta.suggestedTitle || title;
+  const parsedSong = parseMidiFile(toArrayBuffer(fileData), { songId, title: effectiveTitle });
+  const difficulty = calculateDifficulty(parsedSong);
   await writeFile(destPath, fileData);
   const row = db2.addSong({
     id: songId,
-    title,
-    artist: "",
+    title: effectiveTitle,
+    artist: midiMeta.suggestedArtist ?? "",
     genre: "",
     filePath: destPath,
     difficulty,
@@ -140,43 +193,43 @@ const ACHIEVEMENTS = [
     id: "first-song",
     name: "First Steps",
     description: "Complete your first song.",
-    icon: "1"
+    icon: "♪"
   },
   {
     id: "perfect-score",
     name: "Perfectionist",
     description: "Reach 100% accuracy on any song.",
-    icon: "*"
+    icon: "★"
   },
   {
     id: "streak-7",
     name: "Week Warrior",
     description: "Maintain a 7-day practice streak.",
-    icon: "7"
+    icon: "🔥"
   },
   {
     id: "streak-30",
     name: "Monthly Master",
     description: "Maintain a 30-day practice streak.",
-    icon: "30"
+    icon: "🏆"
   },
   {
     id: "century-club",
     name: "Century Club",
     description: "Complete 100 song sessions.",
-    icon: "100"
+    icon: "💯"
   },
   {
     id: "theorist",
     name: "Music Theorist",
     description: "Complete 10 theory sessions.",
-    icon: "10"
+    icon: "📚"
   },
   {
     id: "master-10",
     name: "Master",
     description: "Reach 90%+ accuracy on 10 songs.",
-    icon: "10x"
+    icon: "🥇"
   }
 ];
 function average(values) {
@@ -879,10 +932,22 @@ class AppDatabase {
           `).run({ playCount, bestScore, newAvg, bestAccuracy, now, totalTime, songId: payload.songId });
       }
       this.db.prepare("UPDATE songs SET times_played = times_played + 1 WHERE id = ?").run(payload.songId);
+      const practiceDate = formatLocalDate(/* @__PURE__ */ new Date());
+      const priorRow = this.db.prepare("SELECT total_practice_time_sec FROM practice_days WHERE date = ?").get(practiceDate);
+      const priorSec = priorRow?.total_practice_time_sec ?? 0;
       this.recordPracticeDayEntry(payload.durationSec, 1, 0);
       this.updateTroubleSpotsForSong(payload.songId, payload.measureAccuracy, now);
+      const goalSetting = this.getSetting("practice", "dailyGoalMinutes");
+      const goalSec = goalSetting ? Number(goalSetting) * 60 : 0;
+      const dailyGoalReached = goalSec > 0 && priorSec < goalSec && priorSec + payload.durationSec >= goalSec;
+      const songGoalSetting = this.getSetting("song-goal", payload.songId);
+      const songGoalAccuracy = songGoalSetting ? Number(songGoalSetting) : 0;
+      const prevBest = this.db.prepare("SELECT MAX(accuracy) AS best FROM game_results WHERE song_id = ? AND id != ?").get(payload.songId, id)?.best ?? 0;
+      const songGoalReached = songGoalAccuracy > 0 && prevBest < songGoalAccuracy && payload.accuracy >= songGoalAccuracy;
       return {
-        unlockedAchievementIds: this.checkAndUnlockAchievements()
+        unlockedAchievementIds: this.checkAndUnlockAchievements(),
+        dailyGoalReached,
+        songGoalReached
       };
     });
     return saveTransaction();
@@ -915,7 +980,9 @@ class AppDatabase {
       });
       this.recordPracticeDayEntry(0, 0, 1);
       return {
-        unlockedAchievementIds: this.checkAndUnlockAchievements()
+        unlockedAchievementIds: this.checkAndUnlockAchievements(),
+        dailyGoalReached: false,
+        songGoalReached: false
       };
     });
     return saveTransaction();
@@ -957,7 +1024,58 @@ class AppDatabase {
   }
   getPracticeStreak() {
     const rows = this.db.prepare("SELECT date FROM practice_days WHERE total_practice_time_sec > 0 OR songs_played > 0 OR theory_sessions > 0 ORDER BY date ASC").all();
-    return calculatePracticeStreak(rows.map((row) => row.date), /* @__PURE__ */ new Date());
+    const freezeDates = this.getStreakFreezeUsedDates();
+    const streakFreezes = this.getStreakFreezeCount();
+    return { ...calculatePracticeStreak(rows.map((row) => row.date), /* @__PURE__ */ new Date(), freezeDates), streakFreezes };
+  }
+  getStreakFreezeCount() {
+    const val = this.getSetting("progress", "streakFreezes");
+    return val ? Math.max(0, parseInt(val, 10)) : 0;
+  }
+  getStreakFreezeUsedDates() {
+    const val = this.getSetting("progress", "streakFreezeUsedDates");
+    if (!val) return [];
+    try {
+      return JSON.parse(val);
+    } catch {
+      return [];
+    }
+  }
+  applyStreakFreezeIfNeeded() {
+    const practiceDates = this.db.prepare("SELECT date FROM practice_days WHERE total_practice_time_sec > 0 OR songs_played > 0 OR theory_sessions > 0 ORDER BY date DESC").all().map((r) => r.date);
+    if (practiceDates.length === 0) return;
+    const today = formatLocalDate(/* @__PURE__ */ new Date());
+    const dateSet = new Set(practiceDates);
+    if (!dateSet.has(today)) return;
+    const yesterday = formatLocalDate(new Date((/* @__PURE__ */ new Date()).getTime() - 864e5));
+    const usedDates = this.getStreakFreezeUsedDates();
+    const usedSet = new Set(usedDates);
+    if (dateSet.has(yesterday) || usedSet.has(yesterday)) return;
+    const prevPractice = practiceDates.find((d) => d < today && !usedSet.has(d));
+    if (!prevPractice) return;
+    const prevDate = /* @__PURE__ */ new Date(`${prevPractice}T00:00:00`);
+    const todayDate = /* @__PURE__ */ new Date(`${today}T00:00:00`);
+    const gapDays = Math.round((todayDate.getTime() - prevDate.getTime()) / 864e5);
+    if (gapDays !== 2) return;
+    const freezes = this.getStreakFreezeCount();
+    if (freezes <= 0) return;
+    usedDates.push(yesterday);
+    this.setSetting("progress", "streakFreezeUsedDates", JSON.stringify(usedDates));
+    this.setSetting("progress", "streakFreezes", String(freezes - 1));
+  }
+  awardStreakFreezeForMilestone() {
+    const rows = this.db.prepare("SELECT date FROM practice_days WHERE total_practice_time_sec > 0 OR songs_played > 0 OR theory_sessions > 0 ORDER BY date ASC").all().map((r) => r.date);
+    const usedDates = this.getStreakFreezeUsedDates();
+    const streak = calculatePracticeStreak(rows, /* @__PURE__ */ new Date(), usedDates);
+    const current = streak.currentStreak;
+    if (current > 0 && current % 14 === 0) {
+      const already = this.getSetting("progress", `streakFreezeMilestone${current}`);
+      if (!already) {
+        this.setSetting("progress", `streakFreezeMilestone${current}`, "1");
+        const cur = this.getStreakFreezeCount();
+        this.setSetting("progress", "streakFreezes", String(cur + 1));
+      }
+    }
   }
   getAllAchievements() {
     const rows = this.db.prepare("SELECT * FROM achievements ORDER BY id ASC").all();
@@ -1219,6 +1337,8 @@ class AppDatabase {
       songsPlayed,
       theorySessions
     });
+    this.applyStreakFreezeIfNeeded();
+    this.awardStreakFreezeForMilestone();
   }
   updateTroubleSpotsForSong(songId, measureAccuracy, practicedAt) {
     const existingRows = this.db.prepare("SELECT * FROM trouble_spots WHERE song_id = ? ORDER BY measure_start ASC").all(songId);
@@ -1699,14 +1819,14 @@ function formatLocalDate(date) {
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
-function calculatePracticeStreak(dates, currentDate) {
+function calculatePracticeStreak(dates, currentDate, freezeDates = []) {
   if (dates.length === 0) {
     return {
       currentStreak: 0,
       longestStreak: 0
     };
   }
-  const uniqueDates = [...new Set(dates)].sort((left, right) => left.localeCompare(right));
+  const uniqueDates = [.../* @__PURE__ */ new Set([...dates, ...freezeDates])].sort((left, right) => left.localeCompare(right));
   let longestStreak = 1;
   let runningStreak = 1;
   for (let index = 1; index < uniqueDates.length; index += 1) {
@@ -1838,29 +1958,32 @@ app.whenReady().then(async () => {
   );
   ipcMain.handle("songs:delete", (_event, songId) => db.deleteSong(songId));
   ipcMain.handle("songs:toggle-favorite", (_event, songId) => db.toggleFavorite(songId));
-  ipcMain.handle("songs:import-midi-files", async () => {
+  ipcMain.handle("songs:import-midi-files", async (event) => {
     const options = {
       properties: ["openFile", "multiSelections"],
       filters: [{ name: "MIDI Files", extensions: ["mid", "midi"] }]
     };
     const result = mainWindow ? await dialog.showOpenDialog(mainWindow, options) : await dialog.showOpenDialog(options);
     if (result.canceled || result.filePaths.length === 0) {
-      return [];
+      return { songs: [], errors: [] };
     }
-    const importedSongs = [];
-    for (const selectedPath of result.filePaths) {
+    const songs = [];
+    const errors = [];
+    const total = result.filePaths.length;
+    for (let i = 0; i < total; i++) {
+      const selectedPath = result.filePaths[i];
       const title = selectedPath.split(/[\\/]/).pop()?.replace(/\.(mid|midi)$/i, "") ?? "Untitled";
-      const buffer = await readFile(selectedPath);
-      importedSongs.push(
-        await importSongFromBuffer(buffer, title, {
-          db,
-          midiFilesDir
-        })
-      );
+      event.sender.send("import:progress", { current: i + 1, total, filename: title });
+      try {
+        const buffer = await readFile(selectedPath);
+        songs.push(await importSongFromBuffer(buffer, title, { db, midiFilesDir }));
+      } catch (err) {
+        errors.push({ filename: title, message: err.message });
+      }
     }
-    return importedSongs;
+    return { songs, errors };
   });
-  ipcMain.handle("songs:import-folder", async () => {
+  ipcMain.handle("songs:import-folder", async (event) => {
     const options = {
       properties: ["openDirectory"]
     };
@@ -1870,23 +1993,26 @@ app.whenReady().then(async () => {
     }
     const filePaths = collectMidiFiles(result.filePaths[0]);
     const importedSongs = [];
+    const errors = [];
     let skipped = 0;
-    for (const selectedPath of filePaths) {
-      const buffer = await readFile(selectedPath);
-      const songId = await createSongId(buffer);
-      if (db.getSong(songId)) {
-        skipped++;
-        continue;
-      }
+    const total = filePaths.length;
+    for (let i = 0; i < total; i++) {
+      const selectedPath = filePaths[i];
       const title = selectedPath.split(/[\\/]/).pop()?.replace(/\.(mid|midi)$/i, "") ?? "Untitled";
-      importedSongs.push(
-        await importSongFromBuffer(buffer, title, {
-          db,
-          midiFilesDir
-        })
-      );
+      event.sender.send("import:progress", { current: i + 1, total, filename: title });
+      try {
+        const buffer = await readFile(selectedPath);
+        const songId = await createSongId(buffer);
+        if (db.getSong(songId)) {
+          skipped++;
+          continue;
+        }
+        importedSongs.push(await importSongFromBuffer(buffer, title, { db, midiFilesDir }));
+      } catch (err) {
+        errors.push({ filename: title, message: err.message });
+      }
     }
-    return { imported: importedSongs, skipped };
+    return { imported: importedSongs, skipped, errors };
   });
   ipcMain.handle("results:save", (_event, payload) => db.saveGameResult(payload));
   ipcMain.handle("results:for-song", (_event, songId) => db.getGameResults(songId));
@@ -2016,6 +2142,12 @@ app.whenReady().then(async () => {
       throw new Error(`Song not found: ${songId}`);
     }
     const data = await readFile(song.filePath);
+    return new Uint8Array(data);
+  });
+  ipcMain.handle("file:load-curriculum-midi", async (_event, filename) => {
+    const safe = filename.replace(/[^a-zA-Z0-9._-]/g, "");
+    const midiPath = join(__dirname, "../renderer/curriculum-midis", safe);
+    const data = await readFile(midiPath);
     return new Uint8Array(data);
   });
   ipcMain.handle("file:save-midi", async (_event, suggestedName, data) => {

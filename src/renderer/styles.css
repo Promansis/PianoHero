@@ -3387,6 +3387,39 @@ select:focus {
   border-color: color-mix(in srgb, var(--color-hero) 30%, transparent);
 }
 
+.toast-host {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.toast-host .toast-item {
+  pointer-events: auto;
+}
+
+.toast-item--success {
+  border-color: color-mix(in srgb, var(--color-good) 40%, transparent);
+}
+
+.toast-item--warn {
+  border-color: color-mix(in srgb, var(--color-warn, #d4a017) 40%, transparent);
+}
+
+.toast-item--error {
+  border-color: color-mix(in srgb, var(--color-bad, #e5484d) 40%, transparent);
+}
+
+.toast-item--error .achievement-toast-icon {
+  background: color-mix(in srgb, var(--color-bad, #e5484d) 20%, transparent);
+  color: var(--color-bad, #e5484d);
+}
+
+.toast-item--warn .achievement-toast-icon {
+  background: color-mix(in srgb, var(--color-warn, #d4a017) 20%, transparent);
+  color: var(--color-warn, #d4a017);
+}
+
 .achievement-toast--song-goal {
   bottom: 220px;
 }
@@ -3411,6 +3444,66 @@ select:focus {
   border-top-color: var(--color-accent);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
+}
+
+.maestro-banner {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  gap: 16px;
+  align-items: center;
+  padding: 18px 22px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, color-mix(in srgb, #f9a825 18%, var(--panel-bg-solid)), color-mix(in srgb, #ffd54f 10%, var(--panel-bg-solid)));
+  border: 1px solid color-mix(in srgb, #f9a825 40%, transparent);
+}
+
+.maestro-banner-icon {
+  display: inline-flex;
+  width: 56px;
+  height: 56px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, #ffd54f 40%, transparent);
+  color: #5a3a00;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.loading-panel-inline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.loading-panel-inline-heading h2 {
+  margin: 4px 0 0;
+}
+
+.lesson-inline-activity {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.notation-reading-exercise svg {
+  color: var(--color-accent);
+}
+
+.notation-answer-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.notation-feedback--correct {
+  color: var(--color-good);
+}
+
+.notation-feedback--wrong {
+  color: var(--color-bad, #e5484d);
 }
 
 .trouble-spot-resolved {

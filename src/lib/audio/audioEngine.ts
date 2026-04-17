@@ -87,7 +87,7 @@ export class AudioEngine {
   private metronomeSynth: Tone.Synth | null = null;
   private masterVolumeNode: Tone.Volume | null = null;
   private instrumentOutputNode: Tone.Volume | null = null;
-  private instrumentReverbNode: Tone.FeedbackDelay | null = null;
+  private instrumentReverbNode: Tone.Freeverb | null = null;
   private metronomeVolumeNode: Tone.Volume | null = null;
   private oneShotVolumeNode: Tone.Volume | null = null;
   private backingTrackPlayer: Tone.Player | null = null;
@@ -443,9 +443,6 @@ export class AudioEngine {
       urls,
       baseUrl,
     }).connect(this.instrumentOutputNode!);
-    if (this.instrumentReverbNode) {
-      this.sampler.connect(this.instrumentReverbNode);
-    }
     await tone.loaded();
   }
 
@@ -523,8 +520,8 @@ export class AudioEngine {
     await this.loadInstrument(definition);
     if (this.instrumentReverbNode && definition.reverbPreset) {
       const preset = REVERB_PRESETS[definition.reverbPreset];
-      this.instrumentReverbNode.delayTime.value = preset.delayTime;
-      this.instrumentReverbNode.feedback.value = preset.feedback;
+      this.instrumentReverbNode.roomSize.value = preset.roomSize;
+      this.instrumentReverbNode.dampening = preset.dampening;
     }
   }
 
@@ -534,12 +531,12 @@ export class AudioEngine {
     tone.getContext().lookAhead = 0.01;
     console.log('[AudioEngine] Initializing audio nodes...');
     this.masterVolumeNode = new tone.Volume(percentToDb(tone, this.masterVolumePercent)).toDestination();
-    this.instrumentOutputNode = new tone.Volume(0).connect(this.masterVolumeNode);
-    this.instrumentReverbNode = new tone.FeedbackDelay({
-      delayTime: 0.18,
-      feedback: 0.22,
+    this.instrumentReverbNode = new tone.Freeverb({
+      roomSize: 0.55,
+      dampening: 2500,
       wet: this.reverbPercent / 100,
     }).connect(this.masterVolumeNode);
+    this.instrumentOutputNode = new tone.Volume(0).connect(this.instrumentReverbNode);
     this.metronomeVolumeNode = new tone.Volume(percentToDb(tone, this.metronomeVolumePercent)).connect(this.masterVolumeNode);
     this.oneShotVolumeNode = new tone.Volume(0).connect(this.masterVolumeNode);
     console.log('[AudioEngine] Loading instrument...');
@@ -547,8 +544,8 @@ export class AudioEngine {
     await this.loadInstrument(initialDef);
     if (this.instrumentReverbNode && initialDef.reverbPreset) {
       const preset = REVERB_PRESETS[initialDef.reverbPreset];
-      this.instrumentReverbNode.delayTime.value = preset.delayTime;
-      this.instrumentReverbNode.feedback.value = preset.feedback;
+      this.instrumentReverbNode.roomSize.value = preset.roomSize;
+      this.instrumentReverbNode.dampening = preset.dampening;
     }
     this.metronomeSynth = new tone.Synth({
       oscillator: { type: 'square' },
@@ -581,9 +578,6 @@ export class AudioEngine {
             console.log('[AudioEngine] Sampler onload callback fired');
           },
         }).connect(this.instrumentOutputNode!);
-        if (this.instrumentReverbNode) {
-          this.sampler.connect(this.instrumentReverbNode);
-        }
         console.log('[AudioEngine] Waiting for samples to load...');
         await tone.loaded();
         console.log('[AudioEngine] Sampler loaded successfully, loaded state:', this.sampler.loaded);
@@ -609,14 +603,9 @@ export class AudioEngine {
     }
 
     const tone = this.tone!;
-    const synth = new tone.PolySynth(resolveVoiceConstructor(tone, definition.voice), definition.options as never).connect(
+    return new tone.PolySynth(resolveVoiceConstructor(tone, definition.voice), definition.options as never).connect(
       this.instrumentOutputNode,
     );
-    if (this.instrumentReverbNode) {
-      synth.connect(this.instrumentReverbNode);
-    }
-
-    return synth;
   }
 
   private async getOrCreateOneShotPlayer(src: string): Promise<Tone.Player> {

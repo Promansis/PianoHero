@@ -7,6 +7,7 @@ import {
   isLessonStepCompleted,
 } from '../../lib/learning/learningProgress';
 import { LessonDiagram } from './LessonDiagram';
+import { NotationReadingExercise } from './NotationReadingExercise';
 
 interface LessonScreenProps {
   lesson: Lesson;
@@ -181,6 +182,41 @@ export function LessonScreen({
               >
                 Start Quiz
               </button>
+            ) : null}
+
+            {step.kind === 'notation-reading' ? (
+              <NotationReadingExercise
+                step={step}
+                onComplete={() => onCompleteStep(lesson.id, currentStepIndex)}
+              />
+            ) : null}
+
+            {step.kind === 'ear-training' ? (
+              <div className="lesson-inline-activity">
+                <p className="panel-copy">
+                  Ear training is available inside the Theory Quiz trainer. Use the button below to start a matching quiz.
+                </p>
+                <button
+                  className="primary-button"
+                  onClick={() => onStartQuiz(lesson.id, currentStepIndex, { quizType: 'interval' })}
+                >
+                  Start Ear Training Quiz
+                </button>
+              </div>
+            ) : null}
+
+            {step.kind === 'rhythm-clapping' ? (
+              <div className="lesson-inline-activity">
+                <p className="panel-copy">
+                  Rhythm clapping drills launch in Play mode at {step.bpm} BPM. Spacebar acts as your clap.
+                </p>
+                <button
+                  className="primary-button"
+                  onClick={() => onStartDrill(lesson.id, currentStepIndex)}
+                >
+                  Start Rhythm Drill
+                </button>
+              </div>
             ) : null}
 
             {step.kind !== 'tip' && stepCompleted && !isFinalStep ? (

@@ -7,6 +7,7 @@ import type { FolderRow, PlaylistRow, RecommendationResult, SongRow, UserStatsRo
 import { AdvancedFilters, type LibraryAdvancedFilters } from './AdvancedFilters';
 import { BulkActionBar } from './BulkActionBar';
 import { LibrarySidebar, type LibraryActiveView } from './LibrarySidebar';
+import { LoadingPanel } from './LoadingPanel';
 import { PlaylistView } from './PlaylistView';
 import { TagChips } from './TagChips';
 
@@ -1209,9 +1210,12 @@ export function LibraryScreen({
           )}
 
           {isLoading ? (
-            <section className="panel empty-state-panel">
-              <p className="empty-state">Loading library...</p>
-            </section>
+            <LoadingPanel
+              inline
+              eyebrow="Library"
+              title="Loading library"
+              message="Reading your imported songs, playlists, and folders."
+            />
           ) : activeView.type === 'playlist' ? (
             <PlaylistView
               songs={visibleSongs}

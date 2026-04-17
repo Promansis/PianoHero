@@ -94,7 +94,7 @@ export const FREE_PLAY_VISUAL_MODE_OPTIONS: Array<{
   },
   {
     value: 'bubble-pop',
-    label: '🫧 Bubble Pop',
+    label: 'Bubble Pop',
     description: 'Colourful bubbles float up and pop as you play — great for young children.',
   },
 ];
