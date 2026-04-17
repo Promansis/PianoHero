@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { getEffectProfile } from './FreePlayCanvasScene';
+import {
+  auroraPhaseDirection,
+  bubbleRadiusForNote,
+  bubbleRiseVelocityForNote,
+  bubbleSwayAmplitudeForNote,
+  fireworkParticleLifetimeMs,
+  geometrySidesForMidi,
+  getEffectProfile,
+  nextGalaxySupernova,
+} from './FreePlayCanvasScene';
 import { calculateSilenceProgress } from './freePlayVisualState';
 import type { RollingNoteEvent } from './freePlayVisualState';
 
@@ -60,5 +69,35 @@ describe('silence-driven bloom decay via calculateSilenceProgress', () => {
     const energyAfterShortGap = 0.52 * 0.2 - longSilence * 0.38;
     const energyAfterLongGap = 0.52 * 0.2 - shortSilence * 0.38;
     expect(energyAfterLongGap).toBeGreaterThan(energyAfterShortGap);
+  });
+});
+
+describe('phase 5 visual helpers', () => {
+  it('maps sacred-geometry sides from C=12 down to B=1', () => {
+    expect(geometrySidesForMidi(60)).toBe(12);
+    expect(geometrySidesForMidi(61)).toBe(11);
+    expect(geometrySidesForMidi(71)).toBe(1);
+  });
+
+  it('uses the planned firework particle lifetime formula', () => {
+    expect(fireworkParticleLifetimeMs(0)).toBe(1600);
+    expect(fireworkParticleLifetimeMs(1)).toBe(2400);
+  });
+
+  it('uses note-dependent bubble radius, rise, and sway formulas', () => {
+    expect(bubbleRadiusForNote(36, 0.9)).toBeGreaterThan(bubbleRadiusForNote(84, 0.2));
+    expect(Math.abs(bubbleRiseVelocityForNote(36, 0.9))).toBeGreaterThan(Math.abs(bubbleRiseVelocityForNote(84, 0.2)));
+    expect(bubbleSwayAmplitudeForNote(72, 0.8)).toBeGreaterThan(bubbleSwayAmplitudeForNote(48, 0.2));
+  });
+
+  it('advances aurora phase by pitch direction', () => {
+    expect(auroraPhaseDirection(72, 60)).toBe(1);
+    expect(auroraPhaseDirection(55, 60)).toBe(-1);
+  });
+
+  it('uses the specified 0.94 supernova decay while a sustained chord is active', () => {
+    const decayed = nextGalaxySupernova(1, 16.6667, true);
+    expect(decayed).toBeCloseTo(0.94, 2);
+    expect(nextGalaxySupernova(decayed, 16.6667, false)).toBeLessThan(decayed);
   });
 });

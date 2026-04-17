@@ -16,6 +16,8 @@ export interface LearningTier {
   order: number;
   title: string;
   summary: string;
+  learningGoals?: string[];
+  completionChecks?: LessonCheckSpec[];
   lessons: Lesson[];
   capstone?: TierCapstone;
 }
@@ -27,8 +29,41 @@ export interface Lesson {
   title: string;
   summary: string;
   estMinutes: number;
+  learningGoals?: string[];
+  coachNotes?: string[];
+  miniTest?: MiniCheckSpec;
+  completionChecks?: LessonCheckSpec[];
   steps: LessonStep[];
   isStub?: boolean;
+}
+
+export interface MiniCheckChoice {
+  label: string;
+  explanation?: string;
+  value?: string;
+}
+
+export interface MiniCheckSpec {
+  kind: 'self-check' | 'multiple-choice' | 'listen-and-identify' | 'tap-pattern';
+  prompt: string;
+  successLabel?: string;
+  choices?: MiniCheckChoice[];
+  expectedAnswer?: string;
+  toleranceMs?: number;
+}
+
+export interface LessonCheckSpec {
+  kind: 'accuracy' | 'completion' | 'attempts';
+  label: string;
+  minimumAccuracy?: number;
+  minimumAttempts?: number;
+}
+
+interface RichLessonStepFields {
+  learningGoal?: string;
+  coachTip?: string;
+  miniCheck?: MiniCheckSpec;
+  completionCheck?: LessonCheckSpec;
 }
 
 export type LessonStep =
@@ -41,14 +76,14 @@ export type LessonStep =
   | EarTrainingStep
   | RhythmClappingStep;
 
-export interface TipStep {
+export interface TipStep extends RichLessonStepFields {
   kind: 'tip';
   title: string;
   body: string;
   diagram?: DiagramSpec;
 }
 
-export interface DrillStep {
+export interface DrillStep extends RichLessonStepFields {
   kind: 'drill';
   title: string;
   body?: string;
@@ -58,7 +93,7 @@ export interface DrillStep {
   passAccuracy?: number;
 }
 
-export interface ScaleStep {
+export interface ScaleStep extends RichLessonStepFields {
   kind: 'scale';
   title: string;
   body?: string;
@@ -67,7 +102,7 @@ export interface ScaleStep {
   passAccuracy?: number;
 }
 
-export interface IntervalStep {
+export interface IntervalStep extends RichLessonStepFields {
   kind: 'interval';
   title: string;
   body?: string;
@@ -75,7 +110,7 @@ export interface IntervalStep {
   passAccuracy?: number;
 }
 
-export interface QuizStep {
+export interface QuizStep extends RichLessonStepFields {
   kind: 'quiz';
   title: string;
   body?: string;
@@ -88,7 +123,7 @@ export interface NotationReadingPrompt {
   clef: 'treble' | 'bass';
 }
 
-export interface NotationReadingStep {
+export interface NotationReadingStep extends RichLessonStepFields {
   kind: 'notation-reading';
   title: string;
   body?: string;
@@ -103,7 +138,7 @@ export interface EarTrainingPrompt {
   choices: string[];
 }
 
-export interface EarTrainingStep {
+export interface EarTrainingStep extends RichLessonStepFields {
   kind: 'ear-training';
   title: string;
   body?: string;
@@ -111,7 +146,7 @@ export interface EarTrainingStep {
   passAccuracy?: number;
 }
 
-export interface RhythmClappingStep {
+export interface RhythmClappingStep extends RichLessonStepFields {
   kind: 'rhythm-clapping';
   title: string;
   body?: string;

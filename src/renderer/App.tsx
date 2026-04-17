@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { AudioEngine } from '../lib/audio/audioEngine';
+import { ACHIEVEMENTS } from '../lib/achievements/achievementDefinitions';
 import {
   DEFAULT_INSTRUMENT_ID,
   DEFAULT_WEB_INSTRUMENT_ID,
@@ -10,6 +11,7 @@ import {
 } from '../lib/audio/instrumentCatalog';
 import { getUnlockedRewardIds } from '../lib/rewards/rewardCatalog';
 import { CURRICULUM, getLessonById, getTierByLessonId } from '../lib/learning/curriculum';
+import { buildDeveloperUnlockedProgress } from '../lib/learning/developerUnlocks';
 import { buildLessonDrill, buildRhythmClappingDrill } from '../lib/learning/drillGenerator';
 import {
   EMPTY_LEARNING_PROGRESS,
@@ -807,6 +809,35 @@ export function App() {
     setCurrentScreen({ screen: 'main-menu' });
   };
 
+  const handleDeveloperUnlockAll = async () => {
+    if (!window.appBridge) {
+      return;
+    }
+
+    const achievements = await window.appBridge.getAllAchievements();
+    const lockedAchievementIds = achievements
+      .filter((achievement) => achievement.unlockedAt === null)
+      .map((achievement) => achievement.id);
+    const knownAchievementIds = new Set(achievements.map((achievement) => achievement.id));
+
+    for (const achievement of ACHIEVEMENTS) {
+      if (!knownAchievementIds.has(achievement.id)) {
+        lockedAchievementIds.push(achievement.id);
+      }
+    }
+
+    await Promise.all(
+      lockedAchievementIds.map((achievementId) => window.appBridge!.unlockAchievement(achievementId)),
+    );
+
+    const refreshedAchievements = await window.appBridge.getAllAchievements();
+    setUnlockedRewardIds(getUnlockedRewardIds(refreshedAchievements));
+
+    const nextLearningProgress = buildDeveloperUnlockedProgress(CURRICULUM);
+    setLearningProgress(nextLearningProgress);
+    await saveLearningProgress(window.appBridge, nextLearningProgress);
+  };
+
   const persistStagePalette = (value: StagePalette) => {
     setStagePalette(value);
     applyStagePalette(value);
@@ -1282,6 +1313,7 @@ export function App() {
           midiError={midiError}
           unlockedRewardIds={unlockedRewardIds}
           pitchBendEnabled={pitchBendEnabled}
+          onDeveloperUnlockAll={handleDeveloperUnlockAll}
           onSettingChange={applySettingChange}
           onLearningProgressReset={handleLearningProgressReset}
           onInputModeChange={persistInputMode}

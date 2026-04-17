@@ -23,6 +23,16 @@ describe('curriculum', () => {
     expect(ALL_LESSONS.every((lesson) => !lesson.isStub)).toBe(true);
   });
 
+  it('preserves runtime lesson steps while exposing richer optional curriculum metadata', () => {
+    const landmarks = getLessonById('novice-01-keyboard-map');
+    expect(landmarks?.steps[0]).toMatchObject({
+      kind: 'tip',
+      learningGoal: expect.any(String),
+      miniCheck: { kind: 'self-check' },
+    });
+    expect(landmarks?.miniTest?.kind).toBe('multiple-choice');
+  });
+
   it('chooses the next lesson in sequence now that lesson 5 and 6 are populated', () => {
     expect(getNextLesson(CURRICULUM, 'novice-04-first-c-pattern')?.id).toBe('novice-05-rhythm-values');
     expect(getNextLesson(CURRICULUM, 'novice-06-first-song')?.id).toBe('beginner-01-finger-independence');

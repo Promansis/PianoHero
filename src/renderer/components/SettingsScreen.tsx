@@ -50,6 +50,7 @@ interface SettingsScreenProps {
   midiError: boolean;
   unlockedRewardIds?: Set<string>;
   pitchBendEnabled: boolean;
+  onDeveloperUnlockAll: () => Promise<void>;
   onLearningProgressReset: () => void;
   onSettingChange: (category: string, key: string, value: string) => void;
   onInputModeChange: (nextMode: InputMode) => void;
@@ -162,6 +163,7 @@ export function SettingsScreen({
   midiError,
   unlockedRewardIds = new Set(),
   pitchBendEnabled,
+  onDeveloperUnlockAll,
   onLearningProgressReset,
   onSettingChange,
   onInputModeChange,
@@ -175,7 +177,8 @@ export function SettingsScreen({
   const [isSaving, setIsSaving] = useState(false);
   const [isResettingProgress, setIsResettingProgress] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
-  const [resetTarget, setResetTarget] = useState<'data' | 'progress' | null>(null);
+  const [isUnlockingDeveloperContent, setIsUnlockingDeveloperContent] = useState(false);
+  const [resetTarget, setResetTarget] = useState<'data' | 'progress' | 'developer-unlock' | null>(null);
   const [statusMessage, setStatusMessage] = useState('Loading saved settings.');
   const [samplePackPath, setSamplePackPath] = useState<string | null>(null);
   const [showLatencyWizard, setShowLatencyWizard] = useState(false);
@@ -347,6 +350,31 @@ export function SettingsScreen({
       });
     } finally {
       setIsResettingProgress(false);
+    }
+  };
+
+  const unlockDeveloperContent = async () => {
+    setIsUnlockingDeveloperContent(true);
+    setStatusMessage('Unlocking developer content...');
+
+    try {
+      await onDeveloperUnlockAll();
+      setResetTarget(null);
+      setStatusMessage('Developer content unlocked. Reset learning progress to return to a clean locked state.');
+      toastBus.push({
+        variant: 'success',
+        title: 'Developer content unlocked',
+        message: 'All achievements, rewards, lessons, and capstones are now open for testing.',
+      });
+    } catch {
+      setStatusMessage('Developer unlock failed. Locked content was not fully opened.');
+      toastBus.push({
+        variant: 'error',
+        title: 'Developer unlock failed',
+        message: 'Locked content was not fully opened. Please try again.',
+      });
+    } finally {
+      setIsUnlockingDeveloperContent(false);
     }
   };
 
@@ -838,6 +866,17 @@ export function SettingsScreen({
                   Reset User Data
                 </button>
               </article>
+              <article className="settings-note-card settings-danger-card">
+                <span>Developer Tools</span>
+                <strong>Unlock all achievements, rewards, lessons, and capstones for testing. Reset learning progress to restore the normal locked state.</strong>
+                <button
+                  className="secondary-button"
+                  disabled={isUnlockingDeveloperContent}
+                  onClick={() => setResetTarget('developer-unlock')}
+                >
+                  Unlock All Developer Content
+                </button>
+              </article>
             </div>
           )}
         </section>
@@ -863,6 +902,18 @@ export function SettingsScreen({
           onCancel={() => setResetTarget(null)}
           onConfirm={() => {
             void resetUserData();
+          }}
+        />
+      )}
+      {resetTarget === 'developer-unlock' && (
+        <ConfirmActionModal
+          busy={isUnlockingDeveloperContent}
+          confirmLabel="Yes, Unlock Everything"
+          description="This unlocks every achievement reward and marks all lessons, steps, and capstones complete for developer testing. Use Reset Learning Progress to restore the normal locked state."
+          title="Unlock all developer content?"
+          onCancel={() => setResetTarget(null)}
+          onConfirm={() => {
+            void unlockDeveloperContent();
           }}
         />
       )}

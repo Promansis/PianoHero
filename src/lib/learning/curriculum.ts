@@ -1,36 +1,66 @@
-import type { DiagramSpec, DrillSpec, Lesson, LessonStep, LearningTier } from './types';
+import type {
+  DiagramSpec,
+  DrillSpec,
+  Lesson,
+  LessonCheckSpec,
+  LessonStep,
+  LearningTier,
+  MiniCheckSpec,
+} from './types';
 
-function tip(title: string, body: string, diagram?: DiagramSpec): LessonStep {
-  return { kind: 'tip', title, body, diagram };
+type RichLessonStepOptions = {
+  learningGoal?: string;
+  coachTip?: string;
+  miniCheck?: MiniCheckSpec;
+  completionCheck?: LessonCheckSpec;
+};
+
+type RichLessonOptions = {
+  learningGoals?: string[];
+  coachNotes?: string[];
+  miniTest?: MiniCheckSpec;
+  completionChecks?: LessonCheckSpec[];
+};
+
+function tip(title: string, body: string, diagram?: DiagramSpec, options: RichLessonStepOptions = {}): LessonStep {
+  return { kind: 'tip', title, body, diagram, ...options };
 }
 
-function keyboardTip(title: string, body: string, midiNotes: number[], labels?: Record<number, string>): LessonStep {
-  return tip(title, body, { kind: 'keyboard-highlight', midiNotes, labels });
+function keyboardTip(
+  title: string,
+  body: string,
+  midiNotes: number[],
+  labels?: Record<number, string>,
+  options: RichLessonStepOptions = {},
+): LessonStep {
+  return tip(title, body, { kind: 'keyboard-highlight', midiNotes, labels }, options);
 }
 
-function fingerTip(title: string, body: string, hand: 'left' | 'right'): LessonStep {
-  return tip(title, body, { kind: 'finger-numbers', hand });
+function fingerTip(title: string, body: string, hand: 'left' | 'right', options: RichLessonStepOptions = {}): LessonStep {
+  return tip(title, body, { kind: 'finger-numbers', hand }, options);
 }
 
 function setupTip(
   title: string,
   body: string,
   variant: 'seat-height' | 'distance' | 'posture' | 'hand-shape',
+  options: RichLessonStepOptions = {},
 ): LessonStep {
-  return tip(title, body, { kind: 'setup-diagram', variant });
+  return tip(title, body, { kind: 'setup-diagram', variant }, options);
 }
 
-function drill(title: string, body: string, drillSpec: DrillSpec): LessonStep {
+function drill(title: string, body: string, drillSpec: DrillSpec, options: RichLessonStepOptions = {}): LessonStep {
   return {
     kind: 'drill',
     title,
     body,
     drill: drillSpec,
     passAccuracy: 70,
+    ...options,
   };
 }
 
-function scale(title: string, body: string, root: number, scaleName: string): LessonStep {
+function scale(title: string, body: string, root: number, scaleName: string, options: RichLessonStepOptions = {}): LessonStep {
   return {
     kind: 'scale',
     title,
@@ -38,26 +68,39 @@ function scale(title: string, body: string, root: number, scaleName: string): Le
     root,
     scaleName,
     passAccuracy: 70,
+    ...options,
   };
 }
 
-function interval(title: string, body: string, difficulty: 'easy' | 'medium' | 'hard'): LessonStep {
+function interval(
+  title: string,
+  body: string,
+  difficulty: 'easy' | 'medium' | 'hard',
+  options: RichLessonStepOptions = {},
+): LessonStep {
   return {
     kind: 'interval',
     title,
     body,
     difficulty,
     passAccuracy: 70,
+    ...options,
   };
 }
 
-function quiz(title: string, body: string, quizType: 'chord' | 'scale' | 'interval' | 'mixed'): LessonStep {
+function quiz(
+  title: string,
+  body: string,
+  quizType: 'chord' | 'scale' | 'interval' | 'mixed',
+  options: RichLessonStepOptions = {},
+): LessonStep {
   return {
     kind: 'quiz',
     title,
     body,
     quizType,
     passAccuracy: 70,
+    ...options,
   };
 }
 
@@ -69,6 +112,7 @@ function lesson(
   summary: string,
   estMinutes: number,
   steps: LessonStep[],
+  options: RichLessonOptions = {},
 ): Lesson {
   return {
     id: `${tier}-${String(order).padStart(2, '0')}-${slug}`,
@@ -78,6 +122,7 @@ function lesson(
     summary,
     estMinutes,
     steps,
+    ...options,
   };
 }
 
@@ -108,12 +153,24 @@ export const CURRICULUM: LearningTier[] = [
             'Two black keys, then three',
             'The keyboard repeats in a visible pattern. Find a group of two black keys, then a group of three. That pattern tells you where every white key lives.',
             [1, 3, 6, 8, 10],
+            undefined,
+            {
+              learningGoal: 'Recognize the repeating black-key layout before naming individual notes.',
+              miniCheck: {
+                kind: 'self-check',
+                prompt: 'Can you point to three different groups of two black keys without counting from the edge?',
+                successLabel: 'Two-black-key groups located',
+              },
+            },
           ),
           keyboardTip(
             'Middle C is your home base',
             'Find the white key just to the left of a two-black-key group. That is C. The C closest to the center of the keyboard is middle C.',
             [60],
             { 60: 'Middle C' },
+            {
+              coachTip: 'Always locate the nearest pair of black keys first, then move left by one white key.',
+            },
           ),
           drill(
             'Tap middle C in steady quarter notes',
@@ -126,8 +183,32 @@ export const CURRICULUM: LearningTier[] = [
               patternBeats: [1, 1, 1, 1],
               repetitions: 2,
             },
+            {
+              learningGoal: 'Match a simple pulse without losing track of the beat.',
+              completionCheck: {
+                kind: 'accuracy',
+                label: 'Keep the first steady-note drill at 70% accuracy or better.',
+                minimumAccuracy: 70,
+              },
+            },
           ),
         ],
+        {
+          learningGoals: [
+            'Spot two-black and three-black patterns quickly.',
+            'Use middle C as a visual landmark before starting a drill.',
+          ],
+          miniTest: {
+            kind: 'multiple-choice',
+            prompt: 'Which white key sits immediately to the left of a two-black-key group?',
+            choices: [
+              { label: 'C', explanation: 'That left-adjacent white key is always C.' },
+              { label: 'D' },
+              { label: 'F' },
+            ],
+            expectedAnswer: 'C',
+          },
+        },
       ),
       lesson(
         'novice',
@@ -141,11 +222,17 @@ export const CURRICULUM: LearningTier[] = [
             'Right hand numbers',
             'Thumb is 1, index is 2, middle is 3, ring is 4, and pinky is 5. Say the numbers out loud once while you look at your hand.',
             'right',
+            {
+              learningGoal: 'Link each right-hand finger to a number without hesitation.',
+            },
           ),
           fingerTip(
             'Left hand numbers',
             'The numbers stay the same on the left hand: thumb is still 1 and pinky is still 5.',
             'left',
+            {
+              coachTip: 'Use the same numbering language on both hands so fingering instructions stay consistent.',
+            },
           ),
           keyboardTip(
             'C position uses five neighboring white keys',
@@ -164,8 +251,21 @@ export const CURRICULUM: LearningTier[] = [
               direction: 'up-down',
               repetitions: 1,
             },
+            {
+              miniCheck: {
+                kind: 'self-check',
+                prompt: 'Did each finger stay over its own key instead of sliding the whole hand?',
+                successLabel: 'Hand stayed in position',
+              },
+            },
           ),
         ],
+        {
+          learningGoals: [
+            'Memorize finger numbers for both hands.',
+            'Keep one finger assigned to each key in C position.',
+          ],
+        },
       ),
       lesson(
         'novice',

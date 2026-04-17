@@ -1,11 +1,15 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ACHIEVEMENTS } from '../lib/achievements/achievementDefinitions';
 import { App } from './App';
+import type { AchievementRow } from '../shared/dbTypes';
 
 const preloadSpy = vi.fn(() => Promise.resolve());
 const unlockSpy = vi.fn(() => Promise.resolve());
 const prepareForPlaybackSpy = vi.fn(() => Promise.resolve());
 const setInstrumentReverbPresetSpy = vi.fn();
+const unlockAchievementSpy = vi.fn((_achievementId: string) => Promise.resolve());
+const setSettingSpy = vi.fn().mockResolvedValue(undefined);
 
 vi.mock('./components/AchievementToast', () => ({
   AchievementToast: () => null,
@@ -87,12 +91,15 @@ vi.mock('./components/ProgressDashboardScreen', () => ({
 vi.mock('./components/SettingsScreen', () => ({
   SettingsScreen: ({
     onSettingChange,
+    onDeveloperUnlockAll,
   }: {
     onSettingChange: (category: string, key: string, value: string) => void;
+    onDeveloperUnlockAll: () => Promise<void>;
   }) => (
     <>
       <div>Settings</div>
       <button onClick={() => onSettingChange('visual', 'theme', 'neon')}>Select Neon</button>
+      <button onClick={() => void onDeveloperUnlockAll()}>Unlock All Developer Content</button>
     </>
   ),
 }));
@@ -161,11 +168,21 @@ vi.mock('../lib/input/computerKeyboardInputService', () => ({
 }));
 
 describe('App', () => {
+  afterEach(() => {
+    cleanup();
+  });
+
   beforeEach(() => {
     preloadSpy.mockClear();
     unlockSpy.mockClear();
     prepareForPlaybackSpy.mockClear();
     setInstrumentReverbPresetSpy.mockClear();
+    unlockAchievementSpy.mockClear();
+    setSettingSpy.mockClear();
+    const achievements: AchievementRow[] = ACHIEVEMENTS.map((achievement) => ({
+      id: achievement.id,
+      unlockedAt: null,
+    }));
     window.appBridge = {
       getSetting: vi.fn(async (category: string, key: string) => {
         if (category === 'onboarding' && key === 'setupComplete') {
@@ -179,9 +196,20 @@ describe('App', () => {
         }
         return null;
       }),
-      setSetting: vi.fn().mockResolvedValue(undefined),
+      setSetting: setSettingSpy,
       listAudioFiles: vi.fn().mockResolvedValue([]),
-      getAllAchievements: vi.fn().mockResolvedValue([]),
+      getAllAchievements: vi.fn(async () =>
+        achievements.map((achievement) => ({
+          ...achievement,
+        })),
+      ),
+      unlockAchievement: vi.fn(async (achievementId: string) => {
+        unlockAchievementSpy(achievementId);
+        const achievement = achievements.find((entry) => entry.id === achievementId);
+        if (achievement) {
+          achievement.unlockedAt = '2026-01-01T00:00:00.000Z';
+        }
+      }),
     } as unknown as typeof window.appBridge;
   });
 
@@ -250,5 +278,21 @@ describe('App', () => {
     await screen.findByText('Open Free Play');
 
     expect(setInstrumentReverbPresetSpy).toHaveBeenCalledWith('hall');
+  });
+
+  it('unlocks all developer content through the settings action', async () => {
+    render(<App />);
+
+    const settingsButtons = await screen.findAllByText('Open Settings');
+    fireEvent.click(settingsButtons[settingsButtons.length - 1]);
+    fireEvent.click(screen.getByText('Unlock All Developer Content'));
+
+    await waitFor(() => {
+      expect(unlockAchievementSpy).toHaveBeenCalledTimes(ACHIEVEMENTS.length);
+      expect(setSettingSpy).toHaveBeenCalledWith('learning', 'completedLessons', expect.any(String));
+      expect(setSettingSpy).toHaveBeenCalledWith('learning', 'completedSteps', expect.any(String));
+      expect(setSettingSpy).toHaveBeenCalledWith('learning', 'gatingEnabled', 'false');
+      expect(setSettingSpy).toHaveBeenCalledWith('learning', 'capstoneResults', expect.any(String));
+    });
   });
 });

@@ -198,6 +198,7 @@ interface GalaxyParticle {
   arm: number;
   angle: number;
   baseRadiusRatio: number;
+  laneRatio: number;
   radiusRatio: number;
   targetRadiusRatio: number;
   spin: number;
@@ -213,10 +214,12 @@ interface AuroraRibbon {
   register: NoteRegister;
   hue: number;
   baseY: number;
+  pitchCenterRatio: number;
   amplitude: number;
   targetAmplitude: number;
   thickness: number;
   speed: number;
+  phaseDirection: -1 | 1;
   phase: number;
   alpha: number;
   shimmer: number;
@@ -233,6 +236,7 @@ interface FireworkTrailPoint {
 interface FireworkShell {
   id: string;
   midi: number;
+  velocity: number;
   x: number;
   y: number;
   targetY: number;
@@ -290,6 +294,7 @@ interface Bubble {
   vy: number;
   baseVy: number; // full-speed vy; vy is adjusted dynamically when key is held
   wobblePhase: number;
+  swayAmplitude: number;
   createdAt: number;
   lifetime: number;
   popThreshold: number; // y position (0-1) where bubble will pop
@@ -446,6 +451,45 @@ function hashString(value: string): number {
 
 function seededUnit(value: string, offset = 0): number {
   return ((hashString(`${value}:${offset}`) % 1000) + 1) / 1001;
+}
+
+export function geometrySidesForMidi(midi: number): number {
+  const pitchClass = ((midi % 12) + 12) % 12;
+  return pitchClass === 0 ? 12 : 12 - pitchClass;
+}
+
+export function fireworkParticleLifetimeMs(velocity: number): number {
+  return 1600 + clamp(velocity, 0, 1) * 800;
+}
+
+export function bubbleRadiusForNote(midi: number, velocity: number): number {
+  const lane = midiToLaneRatio(midi);
+  return 14 + clamp(velocity, 0, 1) * 18 + (1 - lane) * 9;
+}
+
+export function bubbleRiseVelocityForNote(midi: number, velocity: number): number {
+  const lane = midiToLaneRatio(midi);
+  return -(0.00018 + clamp(velocity, 0, 1) * 0.00018 + (1 - lane) * 0.00011);
+}
+
+export function bubbleSwayAmplitudeForNote(midi: number, velocity: number): number {
+  const lane = midiToLaneRatio(midi);
+  return 0.00012 + clamp(velocity, 0, 1) * 0.00007 + lane * 0.00003;
+}
+
+export function auroraPhaseDirection(currentMidi: number, previousMidi?: number): -1 | 1 {
+  if (typeof previousMidi !== 'number') {
+    return 1;
+  }
+  return currentMidi >= previousMidi ? 1 : -1;
+}
+
+export function nextGalaxySupernova(supernova: number, deltaMs: number, sustainChordActive: boolean): number {
+  const normalizedFrame = Math.max(deltaMs, 1) / 16.6667;
+  if (sustainChordActive) {
+    return Math.max(supernova * Math.pow(0.94, normalizedFrame), 0.28);
+  }
+  return supernova * Math.pow(0.86, normalizedFrame);
 }
 
 function fillRoundedRect(
@@ -845,6 +889,7 @@ function addGalaxyBurst(state: SceneState, note: FreePlayVisualNote, props: Free
       arm,
       angle: seed * Math.PI * 2 + arm * ((Math.PI * 2) / armCount),
       baseRadiusRatio,
+      laneRatio: baseRadiusRatio,
       radiusRatio: Math.max(0.04, baseRadiusRatio * (0.45 + seed * 0.75)),
       targetRadiusRatio: baseRadiusRatio * (0.90 + seed * 0.22),
       spin: 0.0005 + note.velocity * 0.0013 + seed * 0.0006,
@@ -872,6 +917,7 @@ function addAuroraRibbon(state: SceneState, note: FreePlayVisualNote): void {
   const register = classifyNoteRegister(note.midi);
   const seed = seededUnit(note.id, 10);
   const lane = adaptiveLaneRatio(note.midi, state.adaptiveMin, state.adaptiveMax);
+  const previousMidi = state.noteHistory[state.noteHistory.length - 2]?.midi;
   const baseY =
     register === 'low'
       ? lerp(0.7, 0.86, 1 - lane * 0.6)
@@ -884,10 +930,12 @@ function addAuroraRibbon(state: SceneState, note: FreePlayVisualNote): void {
     register,
     hue: auroraHueForNote(note.midi, register, note.id),
     baseY,
+    pitchCenterRatio: lane,
     amplitude: 18 + note.velocity * 16,
     targetAmplitude: 26 + note.velocity * 44,
     thickness: register === 'low' ? 30 + note.velocity * 30 : register === 'mid' ? 24 + note.velocity * 26 : 18 + note.velocity * 22,
     speed: register === 'low' ? 0.0008 + seed * 0.0006 : register === 'mid' ? 0.0011 + seed * 0.0008 : 0.0018 + seed * 0.0011,
+    phaseDirection: auroraPhaseDirection(note.midi, previousMidi),
     phase: seed * Math.PI * 2,
     alpha: 0.22 + note.velocity * 0.34,
     shimmer: seededUnit(note.id, 11) * Math.PI * 2,
@@ -907,6 +955,7 @@ function launchFireworkShells(state: SceneState, note: FreePlayVisualNote, props
     state.fireworkShells.push({
       id: `${note.id}-mega`,
       midi: note.midi,
+      velocity: note.velocity,
       x: clamp(0.08 + lane * 0.84, 0.08, 0.92),
       y: 1.02,
       targetY: clamp(lerp(0.72, 0.15, lane), 0.1, 0.72),
@@ -925,6 +974,7 @@ function launchFireworkShells(state: SceneState, note: FreePlayVisualNote, props
     state.fireworkShells.push({
       id: `${note.id}-shell-${index}`,
       midi: note.midi,
+      velocity: note.velocity,
       x: clamp(0.08 + lane * 0.84 + (index - (shellCount - 1) / 2) * 0.05, 0.08, 0.92),
       y: 1.02,
       targetY: clamp(
@@ -1065,19 +1115,20 @@ function syncSceneState(state: SceneState, props: FreePlayCanvasSceneProps, now:
       const spawnCount = props.sustainOn ? 2 : 1;
       for (let bi = 0; bi < spawnCount; bi++) {
         const xOffset = bi === 0 ? 0 : (Math.random() - 0.5) * 0.06;
-        const baseVy = -(0.00028 + note.velocity * 0.00022 + Math.random() * 0.00012);
+        const baseVy = bubbleRiseVelocityForNote(note.midi, note.velocity) * (1 + Math.random() * 0.18);
         const id = bi === 0 ? note.id : `${note.id}-s${bi}`;
         state.bubbles.push({
           id,
           midi: note.midi,
-          x: clamp((note.midi - 21) / 87 + xOffset, 0.02, 0.98),
+          x: clamp(adaptiveLaneRatio(note.midi, state.adaptiveMin, state.adaptiveMax) + xOffset, 0.02, 0.98),
           y: 0.96,
-          radius: (12 + note.velocity * 30) * (bi === 0 ? 1 : 0.7),
+          radius: bubbleRadiusForNote(note.midi, note.velocity) * (bi === 0 ? 1 : 0.72),
           hue: (hue + bi * 15) % 360,
           vx: (Math.random() - 0.5) * 0.00004,
           vy: baseVy,
           baseVy,
           wobblePhase: Math.random() * Math.PI * 2,
+          swayAmplitude: bubbleSwayAmplitudeForNote(note.midi, note.velocity) * (bi === 0 ? 1 : 0.82),
           createdAt: note.createdAt,
           lifetime: 2800 + Math.random() * 600,
           popThreshold: Math.random() * 0.67,
@@ -1103,7 +1154,7 @@ function syncSceneState(state: SceneState, props: FreePlayCanvasSceneProps, now:
         0.06,
         0.92,
       ),
-      sides: 12 - (note.midi % 12),
+      sides: geometrySidesForMidi(note.midi),
       radius: 0,
       targetRadius: 30 + note.velocity * 90,
       rotation: seededUnit(note.id, 9) * Math.PI * 2,
@@ -1143,11 +1194,15 @@ function updateGenerativeModes(
 
   state.treeGlow = lerp(state.treeGlow, intensity * 0.4 + harmony * 0.28, 0.035);
 
-  const sustainAndHarmony = props.sustainOn && harmony > 0.65;
-  state.galaxySupernova = lerp(state.galaxySupernova, sustainAndHarmony ? 1.0 : props.sustainOn ? 0.6 : 0, props.sustainOn ? 0.04 : 0.018);
+  const sustainAndHarmony = props.sustainOn && props.activeNotes.length >= 3 && harmony > 0.65;
+  if (sustainAndHarmony && state.galaxySupernova < 0.25) {
+    state.galaxySupernova = 1;
+  } else {
+    state.galaxySupernova = nextGalaxySupernova(state.galaxySupernova, deltaMs, sustainAndHarmony);
+  }
   state.galaxySpinBoost = lerp(state.galaxySpinBoost, 0, 0.022);
   for (const particle of state.galaxyParticles) {
-    particle.targetRadiusRatio = particle.baseRadiusRatio * (1 + state.galaxySupernova * 0.9);
+    particle.targetRadiusRatio = particle.laneRatio * (1 + state.galaxySupernova * 0.9);
     particle.radiusRatio = lerp(particle.radiusRatio, particle.targetRadiusRatio, 0.045);
     particle.angle += (particle.spin + state.galaxySpinBoost) * deltaMs * (1 + state.galaxySupernova * 0.3);
     particle.alpha *= 0.9994;
@@ -1161,8 +1216,12 @@ function updateGenerativeModes(
       band.targetAmplitude * (props.activeNotes.length > 0 ? 0.9988 : 0.9965 - silence * 0.0008),
     );
     band.amplitude = lerp(band.amplitude, band.targetAmplitude * (1 + state.auroraEnergy * 0.4 * lift), 0.04);
-    band.phase += band.speed * deltaMs * (1 + state.auroraEnergy * 0.25);
-    band.alpha = lerp(band.alpha, Math.max(0.05, band.alpha * (1 - silence * 0.02)), 0.02);
+    band.phase += band.phaseDirection * band.speed * deltaMs * (1 + state.auroraEnergy * 0.25);
+    band.alpha = lerp(
+      band.alpha,
+      Math.max(0.05, band.alpha * (1 - silence * 0.02) + state.sustainEnvelope * 0.08),
+      0.02,
+    );
   }
 
   for (const ring of state.geometryRings) {
@@ -1171,7 +1230,15 @@ function updateGenerativeModes(
     ring.alpha *= 1 - deltaMs * 0.000045;
   }
 
-  state.skyWarmth = lerp(state.skyWarmth, clamp(intensity * 0.7 + harmony * 0.5, 0, 1), 0.03);
+  if (props.sustainOn) {
+    state.skyWarmth = clamp(
+      state.skyWarmth + (intensity * 0.008 + harmony * 0.012) * Math.max(deltaMs, 8) / 16.6667,
+      0,
+      1,
+    );
+  } else {
+    state.skyWarmth = lerp(state.skyWarmth, 0, 0.05);
+  }
   for (const shell of state.fireworkShells) {
     shell.y -= shell.vy * (deltaMs / 1000);
     shell.trail.push({ x: shell.x, y: shell.y, createdAt: now });
@@ -1198,7 +1265,7 @@ function updateGenerativeModes(
         drag: 0.986,
         gravity: 0.1 + seededUnit(`${shell.id}-${index}`, 16) * 0.06,
         createdAt: now,
-        lifeMs: 900 + ((shell.size - 2) / 3) * 1200 + seededUnit(`${shell.id}-${index}`, 17) * 600,
+        lifeMs: fireworkParticleLifetimeMs(shell.velocity) + seededUnit(`${shell.id}-${index}`, 17) * 120,
         sparkle: seededUnit(`${shell.id}-${index}`, 18) * Math.PI * 2,
       });
     }
@@ -1215,14 +1282,14 @@ function updateGenerativeModes(
   }
 
   const BUBBLE_HOLD_THRESHOLD_MS = 350;
-  const sustainSlow = props.sustainOn ? 0.55 : 1;
+  const sustainSlow = props.sustainOn ? 0.6 : 1;
   for (const bubble of state.bubbles) {
     // Slow this specific bubble if its key is still held down after the hold threshold
     const keyStillHeld = props.activeNotes.includes(bubble.midi) && (now - bubble.createdAt) >= BUBBLE_HOLD_THRESHOLD_MS;
     const holdSlow = keyStillHeld ? 0.7 : 1;
     bubble.vy = bubble.baseVy * holdSlow * sustainSlow;
     bubble.y += bubble.vy * deltaMs;
-    bubble.x += bubble.vx * deltaMs + Math.sin(bubble.wobblePhase + now * 0.002) * 0.00015;
+    bubble.x += bubble.vx * deltaMs + Math.sin(bubble.wobblePhase + now * 0.002) * bubble.swayAmplitude;
   }
 }
 
@@ -2181,6 +2248,7 @@ function drawAuroraBorealis(
   intensity: number,
   harmony: number,
   sustainOn: boolean,
+  pitchCenter: number,
 ): void {
   const sky = context.createLinearGradient(0, 0, 0, height);
   sky.addColorStop(0, '#020816');
@@ -2220,8 +2288,8 @@ function drawAuroraBorealis(
       context.stroke();
     }
 
-    const curtainStep = sustainOn ? 7 : 14;
-    const curtainAlphaBoost = sustainOn ? 0.3 : 0;
+    const curtainStep = Math.max(6, 14 - state.sustainEnvelope * 7);
+    const curtainAlphaBoost = state.sustainEnvelope * 0.3;
     const curtainCount = Math.floor(width / curtainStep);
     for (let c = 0; c < curtainCount; c += 1) {
       const cx = (c / curtainCount) * width;
@@ -2251,6 +2319,14 @@ function drawAuroraBorealis(
       context.fill();
     }
   }
+
+  const glowAnchorX = adaptiveLaneRatio(pitchCenter, state.adaptiveMin, state.adaptiveMax) * width;
+  const glowAnchorY = height * 0.38;
+  const harmonyGlow = context.createRadialGradient(glowAnchorX, glowAnchorY, 0, glowAnchorX, glowAnchorY, width * 0.28);
+  harmonyGlow.addColorStop(0, hsla(midiToHue(pitchCenter), 88, 70, clamp(harmony * 0.18 + state.sustainEnvelope * 0.08, 0, 0.28)));
+  harmonyGlow.addColorStop(1, hsla(midiToHue(pitchCenter), 88, 70, 0));
+  context.fillStyle = harmonyGlow;
+  context.fillRect(0, 0, width, height);
 
   // Horizon reflection — alpha responds to intensity and harmony instead of being fixed
   const reflectionAlpha = clamp(0.05 + intensity * 0.16 + harmony * 0.12, 0.04, 0.32);
@@ -2399,9 +2475,9 @@ function drawSacredGeometry(
         const ay = ringA.y * height;
         const bx = ringB.x * width;
         const by = ringB.y * height;
-        const lineAlpha = Math.min(ringA.alpha, ringB.alpha) * 0.22;
+        const lineAlpha = Math.min(ringA.alpha, ringB.alpha) * (0.22 + state.sustainEnvelope * 0.18);
         context.strokeStyle = hsla(ringA.hue, 80, 70, lineAlpha);
-        context.lineWidth = 0.8;
+        context.lineWidth = 0.8 + state.sustainEnvelope * 1.4;
         context.beginPath();
         context.moveTo(ax, ay);
         context.lineTo(bx, by);
@@ -2733,7 +2809,7 @@ export function FreePlayCanvasScene(props: FreePlayCanvasSceneProps) {
           drawParticleGalaxy(context, width, height, state, now, harmony);
           break;
         case 'aurora-borealis':
-          drawAuroraBorealis(context, width, height, state, now, silence, intensity, harmony, nextProps.sustainOn);
+          drawAuroraBorealis(context, width, height, state, now, silence, intensity, harmony, nextProps.sustainOn, pitchCenter);
           break;
         case 'fireworks':
           drawFireworks(context, width, height, state, nextProps, now);

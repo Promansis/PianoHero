@@ -5,6 +5,7 @@ import { SettingsScreen } from './SettingsScreen';
 describe('SettingsScreen', () => {
   const resetUserData = vi.fn().mockResolvedValue(undefined);
   const resetLearningProgress = vi.fn().mockResolvedValue(undefined);
+  const developerUnlockAll = vi.fn().mockResolvedValue(undefined);
   const onLearningProgressReset = vi.fn();
   const onUserDataReset = vi.fn();
 
@@ -24,6 +25,7 @@ describe('SettingsScreen', () => {
     vi.restoreAllMocks();
     resetLearningProgress.mockClear();
     resetUserData.mockClear();
+    developerUnlockAll.mockClear();
     onLearningProgressReset.mockClear();
     onUserDataReset.mockClear();
   });
@@ -38,6 +40,7 @@ describe('SettingsScreen', () => {
         midiDevices={[]}
         midiError={false}
         pitchBendEnabled
+        onDeveloperUnlockAll={developerUnlockAll}
         onLearningProgressReset={onLearningProgressReset}
         onSettingChange={vi.fn()}
         onInputModeChange={vi.fn()}
@@ -70,6 +73,7 @@ describe('SettingsScreen', () => {
         midiDevices={[]}
         midiError={false}
         pitchBendEnabled
+        onDeveloperUnlockAll={developerUnlockAll}
         onLearningProgressReset={onLearningProgressReset}
         onSettingChange={vi.fn()}
         onInputModeChange={vi.fn()}
@@ -107,6 +111,7 @@ describe('SettingsScreen', () => {
         midiError={false}
         pitchBendEnabled
         unlockedRewardIds={new Set(['audio:reverb-customization'])}
+        onDeveloperUnlockAll={developerUnlockAll}
         onLearningProgressReset={onLearningProgressReset}
         onSettingChange={onSettingChange}
         onInputModeChange={vi.fn()}
@@ -124,6 +129,37 @@ describe('SettingsScreen', () => {
         'instrumentReverbPresets',
         JSON.stringify({ 'acoustic-piano': 'hall' }),
       );
+    });
+  });
+
+  it('unlocks developer content only after confirmation', async () => {
+    render(
+      <SettingsScreen
+        audioEngine={{ playMetronomeClick: vi.fn().mockResolvedValue(undefined), prepareForPlayback: vi.fn().mockResolvedValue(undefined) } as unknown as import('../../lib/audio/audioEngine').AudioEngine}
+        inputMode="both"
+        midiDevices={[]}
+        midiError={false}
+        pitchBendEnabled
+        onDeveloperUnlockAll={developerUnlockAll}
+        onLearningProgressReset={onLearningProgressReset}
+        onSettingChange={vi.fn()}
+        onInputModeChange={vi.fn()}
+        onRetryMidi={vi.fn()}
+        onUserDataReset={onUserDataReset}
+        onOpenKeyboardSetup={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(await screen.findByText('Practice'));
+    fireEvent.click(screen.getByRole('button', { name: 'Unlock All Developer Content' }));
+
+    expect(screen.getByRole('button', { name: 'Yes, Unlock Everything' })).toBeInTheDocument();
+    expect(developerUnlockAll).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, Unlock Everything' }));
+
+    await waitFor(() => {
+      expect(developerUnlockAll).toHaveBeenCalledOnce();
     });
   });
 });
