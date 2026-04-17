@@ -99,6 +99,13 @@ const NBROSOWSKY_XYLOPHONE_SAMPLE_MAP = {
   C5: 'C5.mp3', C6: 'C6.mp3', C7: 'C7.mp3', C8: 'C8.mp3',
 } as const;
 
+const NBROSOWSKY_VIBRAPHONE_SAMPLE_MAP = {
+  A3: 'A3.mp3', A4: 'A4.mp3', A5: 'A5.mp3',
+  C3: 'C3.mp3', C4: 'C4.mp3', C5: 'C5.mp3', C6: 'C6.mp3',
+  'D#4': 'Ds4.mp3', 'D#5': 'Ds5.mp3',
+  'F#4': 'Fs4.mp3', 'F#5': 'Fs5.mp3',
+} as const;
+
 const NBROSOWSKY_BASS_ELECTRIC_SAMPLE_MAP = {
   'A#1': 'As1.mp3', 'A#2': 'As2.mp3', 'A#3': 'As3.mp3', 'A#4': 'As4.mp3',
   'C#1': 'Cs1.mp3', 'C#2': 'Cs2.mp3', 'C#3': 'Cs3.mp3', 'C#4': 'Cs4.mp3', 'C#5': 'Cs5.mp3',
@@ -258,6 +265,17 @@ export const INSTRUMENTS: InstrumentDefinition[] = [
     sampleUrls: NBROSOWSKY_XYLOPHONE_SAMPLE_MAP,
   },
   {
+    id: 'vibraphone',
+    label: 'Vibraphone',
+    description: 'Sampled vibraphone with a warm metallic resonance and natural decay.',
+    voice: 'sampler',
+    options: {
+      release: 1.8,
+    },
+    sampleBaseUrl: '/samples/nbrosowsky/vibraphone/',
+    sampleUrls: NBROSOWSKY_VIBRAPHONE_SAMPLE_MAP,
+  },
+  {
     id: 'bass',
     label: 'Bass',
     description: 'Sampled electric bass for a punchy, low-end voice on left-hand lines.',
@@ -303,6 +321,77 @@ export const INSTRUMENTS: InstrumentDefinition[] = [
         decay: 0.08,
         sustain: 0.1,
         release: 0.1,
+      },
+    },
+  },
+  {
+    id: 'synth-lead',
+    label: 'Synth Lead',
+    description: 'A bright sawtooth lead with a punchy attack, great for melodic lines.',
+    voice: 'fm',
+    options: {
+      harmonicity: 1,
+      modulationIndex: 2.5,
+      oscillator: { type: 'sawtooth' },
+      envelope: {
+        attack: 0.005,
+        decay: 0.1,
+        sustain: 0.8,
+        release: 0.4,
+      },
+      modulation: { type: 'sine' },
+      modulationEnvelope: {
+        attack: 0.001,
+        decay: 0.05,
+        sustain: 0.5,
+        release: 0.2,
+      },
+    },
+  },
+  {
+    id: 'rhodes',
+    label: 'Rhodes EP',
+    description: 'A warm electric piano with a richer bell-like character than the standard EP.',
+    voice: 'fm',
+    options: {
+      harmonicity: 3.5,
+      modulationIndex: 6,
+      oscillator: { type: 'sine' },
+      envelope: {
+        attack: 0.002,
+        decay: 0.8,
+        sustain: 0.1,
+        release: 2.0,
+      },
+      modulation: { type: 'sine' },
+      modulationEnvelope: {
+        attack: 0.001,
+        decay: 0.3,
+        sustain: 0.0,
+        release: 0.8,
+      },
+    },
+  },
+  {
+    id: 'honky-tonk',
+    label: 'Honky-Tonk',
+    description: 'Detuned twin-oscillator piano sound with an old saloon character.',
+    voice: 'am',
+    options: {
+      harmonicity: 1.008,
+      oscillator: { type: 'triangle' },
+      envelope: {
+        attack: 0.002,
+        decay: 0.4,
+        sustain: 0.15,
+        release: 0.9,
+      },
+      modulation: { type: 'triangle' },
+      modulationEnvelope: {
+        attack: 0.001,
+        decay: 0.2,
+        sustain: 0.05,
+        release: 0.4,
       },
     },
   },

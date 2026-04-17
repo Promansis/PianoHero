@@ -337,6 +337,8 @@ interface SceneState {
   treeNoteCount: number;
   treeNextBranchSide: number;
   galaxySupernova: number;
+  galaxySpinBoost: number;
+  lastHarmony: number;
   auroraEnergy: number;
   skyWarmth: number;
   lastFrameAt: number | null;
@@ -388,6 +390,8 @@ function createSceneState(): SceneState {
     treeNoteCount: 0,
     treeNextBranchSide: 0,
     galaxySupernova: 0,
+    galaxySpinBoost: 0,
+    lastHarmony: 0,
     auroraEnergy: 0,
     skyWarmth: 0,
     lastFrameAt: null,
@@ -814,6 +818,7 @@ function addTreeGrowth(state: SceneState, note: FreePlayVisualNote): void {
 }
 
 function addGalaxyBurst(state: SceneState, note: FreePlayVisualNote, props: FreePlayCanvasSceneProps): void {
+  state.galaxySpinBoost = clamp(state.galaxySpinBoost + note.velocity * 0.012, 0, 0.06);
   const baseSeed = seededUnit(note.id, 20);
   const pitchRatio = clamp((note.midi - state.adaptiveMin) / Math.max(1, state.adaptiveMax - state.adaptiveMin), 0, 1);
   const baseRadiusRatio = clamp(0.10 + pitchRatio * 0.55 + (baseSeed - 0.5) * 0.08, 0.08, 0.72);
@@ -882,7 +887,28 @@ function addAuroraRibbon(state: SceneState, note: FreePlayVisualNote): void {
 
 function launchFireworkShells(state: SceneState, note: FreePlayVisualNote, props: FreePlayCanvasSceneProps): void {
   const lane = adaptiveLaneRatio(note.midi, state.adaptiveMin, state.adaptiveMax);
-  const shellCount = clamp(props.activeNotes.length >= 3 ? 3 : props.activeNotes.length >= 2 ? 2 : 1, 1, 3);
+  const polyphony = props.activeNotes.length;
+  const harmony = state.lastHarmony;
+
+  // 3+ simultaneous notes with strong harmony → single mega-shell
+  if (polyphony >= 3 && harmony > 0.6) {
+    state.fireworkShells.push({
+      id: `${note.id}-mega`,
+      midi: note.midi,
+      x: clamp(0.08 + lane * 0.84, 0.08, 0.92),
+      y: 1.02,
+      targetY: clamp(lerp(0.72, 0.15, lane), 0.1, 0.72),
+      vy: 0.48 + note.velocity * 0.22,
+      hue: (midiToHue(note.midi) + 15) % 360,
+      size: 3.5 + note.velocity * 2.5,
+      burstCount: Math.round(30 + polyphony * 12 + note.velocity * 20),
+      createdAt: note.createdAt,
+      trail: [],
+    });
+    return;
+  }
+
+  const shellCount = clamp(polyphony >= 3 ? 3 : polyphony >= 2 ? 2 : 1, 1, 3);
   for (let index = 0; index < shellCount; index += 1) {
     state.fireworkShells.push({
       id: `${note.id}-shell-${index}`,
@@ -1048,6 +1074,12 @@ function syncSceneState(state: SceneState, props: FreePlayCanvasSceneProps, now:
       if (state.bubbles.length > 80) state.bubbles.splice(0, state.bubbles.length - 80);
     }
 
+    const pitchClass = note.midi % 12;
+    for (const ring of state.geometryRings) {
+      if (ring.midi % 12 === pitchClass) {
+        ring.targetRadius = Math.min(ring.targetRadius + 4, 180);
+      }
+    }
     state.geometryRings.push({
       id: note.id,
       midi: note.midi,
@@ -1099,11 +1131,13 @@ function updateGenerativeModes(
 
   state.treeGlow = lerp(state.treeGlow, intensity * 0.4 + harmony * 0.28, 0.035);
 
-  state.galaxySupernova = lerp(state.galaxySupernova, props.sustainOn ? 0.8 : 0, props.sustainOn ? 0.05 : 0.018);
+  const sustainAndHarmony = props.sustainOn && harmony > 0.65;
+  state.galaxySupernova = lerp(state.galaxySupernova, sustainAndHarmony ? 1.0 : props.sustainOn ? 0.6 : 0, props.sustainOn ? 0.04 : 0.018);
+  state.galaxySpinBoost = lerp(state.galaxySpinBoost, 0, 0.022);
   for (const particle of state.galaxyParticles) {
     particle.targetRadiusRatio = particle.baseRadiusRatio * (1 + state.galaxySupernova * 0.9);
     particle.radiusRatio = lerp(particle.radiusRatio, particle.targetRadiusRatio, 0.045);
-    particle.angle += particle.spin * deltaMs * (1 + state.galaxySupernova * 0.3);
+    particle.angle += (particle.spin + state.galaxySpinBoost) * deltaMs * (1 + state.galaxySupernova * 0.3);
     particle.alpha *= 0.9994;
   }
 
@@ -2628,6 +2662,7 @@ export function FreePlayCanvasScene(props: FreePlayCanvasSceneProps) {
 
       const intensity = calculateVisualIntensity(state.noteHistory, nextProps.activeNotes, now);
       const harmony = calculateHarmonyEnergy(nextProps.activeNotes, state.noteHistory, now);
+      state.lastHarmony = harmony;
       const silence = calculateSilenceProgress(nextProps.activeNotes, state.noteHistory, now);
       const pitchCenter = calculatePitchCenter(nextProps.activeNotes, state.noteHistory, now);
       const keyCenter = detectKeyCenter(state.noteHistory, now);

@@ -52,6 +52,16 @@ const DOWNLOADS = [
       'G1.mp3', 'G2.mp3', 'G3.mp3', 'G4.mp3',
     ],
   },
+  {
+    instrument: 'vibraphone',
+    destDir: join(PUBLIC_DIR, 'samples', 'nbrosowsky', 'vibraphone'),
+    files: [
+      'A3.mp3', 'A4.mp3', 'A5.mp3',
+      'C3.mp3', 'C4.mp3', 'C5.mp3', 'C6.mp3',
+      'Ds4.mp3', 'Ds5.mp3',
+      'Fs4.mp3', 'Fs5.mp3',
+    ],
+  },
 ];
 
 async function fileExists(path) {
