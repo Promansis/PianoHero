@@ -147,4 +147,129 @@ describe('ResultsScreen', () => {
 
     expect(onNextSong).toHaveBeenCalled();
   });
+
+  it('shows maestro confetti only when the dedicated reward is unlocked', () => {
+    const { rerender } = render(
+      <ResultsScreen
+        result={{
+          songId: 'song-1',
+          score: 1000,
+          accuracy: 95,
+          maxCombo: 10,
+          perfectHits: 10,
+          goodHits: 0,
+          okHits: 0,
+          misses: 0,
+          tempo: 1,
+          mode: 'piano-hero',
+          durationSec: 10,
+          measureAccuracy: [],
+        }}
+        song={{
+          id: 'song-1',
+          title: 'Prelude',
+          artist: '',
+          genre: '',
+          filePath: '',
+          difficulty: 3,
+          durationSec: 10,
+          bpm: 120,
+          noteCount: 20,
+          dateAdded: new Date().toISOString(),
+          timesPlayed: 0,
+          tags: [],
+          isFavorite: false,
+          folderId: null,
+          trackAssignments: {},
+        }}
+        sessionConfig={{
+          mode: 'piano-hero',
+          tempoMultiplier: 1,
+          handFilter: 'both',
+          loopRange: null,
+          waitForInput: false,
+          metronomeEnabled: false,
+          handSize: 'medium',
+          fingeringDisplayMode: 'always',
+          pitchBendEnabled: true,
+          latencyCompMs: 0,
+          hitWindowMs: 100,
+          beatsVisible: 8,
+          leadInBeats: 2,
+        }}
+        baselineStats={null}
+        unlockedRewardIds={new Set(['title:maestro'])}
+        onRetry={vi.fn()}
+        onPracticeSections={vi.fn()}
+        onStartTheoryPractice={vi.fn()}
+        onMainMenu={vi.fn()}
+        hasNextSong={false}
+        onNextSong={vi.fn()}
+      />,
+    );
+
+    expect(document.querySelector('.confetti-canvas')).toBeNull();
+    expect(screen.getByLabelText('Maestro title active')).toBeInTheDocument();
+
+    rerender(
+      <ResultsScreen
+        result={{
+          songId: 'song-1',
+          score: 1000,
+          accuracy: 95,
+          maxCombo: 10,
+          perfectHits: 10,
+          goodHits: 0,
+          okHits: 0,
+          misses: 0,
+          tempo: 1,
+          mode: 'piano-hero',
+          durationSec: 10,
+          measureAccuracy: [],
+        }}
+        song={{
+          id: 'song-1',
+          title: 'Prelude',
+          artist: '',
+          genre: '',
+          filePath: '',
+          difficulty: 3,
+          durationSec: 10,
+          bpm: 120,
+          noteCount: 20,
+          dateAdded: new Date().toISOString(),
+          timesPlayed: 0,
+          tags: [],
+          isFavorite: false,
+          folderId: null,
+          trackAssignments: {},
+        }}
+        sessionConfig={{
+          mode: 'piano-hero',
+          tempoMultiplier: 1,
+          handFilter: 'both',
+          loopRange: null,
+          waitForInput: false,
+          metronomeEnabled: false,
+          handSize: 'medium',
+          fingeringDisplayMode: 'always',
+          pitchBendEnabled: true,
+          latencyCompMs: 0,
+          hitWindowMs: 100,
+          beatsVisible: 8,
+          leadInBeats: 2,
+        }}
+        baselineStats={null}
+        unlockedRewardIds={new Set(['title:maestro', 'effect:maestro-confetti'])}
+        onRetry={vi.fn()}
+        onPracticeSections={vi.fn()}
+        onStartTheoryPractice={vi.fn()}
+        onMainMenu={vi.fn()}
+        hasNextSong={false}
+        onNextSong={vi.fn()}
+      />,
+    );
+
+    expect(document.querySelector('.confetti-canvas')).toBeInTheDocument();
+  });
 });

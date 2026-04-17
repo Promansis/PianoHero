@@ -98,6 +98,7 @@ export function ResultsScreen({
   const grade = getGrade(result.accuracy);
   const stars = getStarCount(result.accuracy);
   const isMaestro = unlockedRewardIds?.has('title:maestro') ?? false;
+  const hasMaestroConfetti = unlockedRewardIds?.has('effect:maestro-confetti') ?? false;
   const troubleSpots = result.measureAccuracy.filter((entry) => entry.accuracy < 70);
   const feedback = buildFeedback(result);
 
@@ -165,7 +166,7 @@ export function ResultsScreen({
   }, [song.id, song.title]);
 
   useEffect(() => {
-    if (grade !== 'S' && grade !== 'A') return;
+    if ((grade !== 'S' && grade !== 'A') || !hasMaestroConfetti) return;
     const canvas = confettiCanvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -218,7 +219,7 @@ export function ResultsScreen({
     };
     rafId = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(rafId);
-  }, [grade, isMaestro]);
+  }, [grade, hasMaestroConfetti, isMaestro]);
 
   const comparison = useMemo(() => {
     if (!baselineStats) {
@@ -272,7 +273,7 @@ export function ResultsScreen({
 
   return (
     <main className="app-shell results-screen">
-      {(grade === 'S' || grade === 'A') && (
+      {hasMaestroConfetti && (grade === 'S' || grade === 'A') && (
         <canvas ref={confettiCanvasRef} className="confetti-canvas" aria-hidden="true" />
       )}
       {isMaestro && (grade === 'S' || grade === 'A') && (

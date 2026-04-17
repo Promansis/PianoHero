@@ -852,32 +852,15 @@ export class AppDatabase {
       .prepare('SELECT date FROM practice_days WHERE total_practice_time_sec > 0 OR songs_played > 0 OR theory_sessions > 0 ORDER BY date DESC')
       .all() as Array<{ date: string }>).map((r) => r.date);
 
-    if (practiceDates.length === 0) return;
-
-    const today = formatLocalDate(new Date());
-    const dateSet = new Set(practiceDates);
-    if (!dateSet.has(today)) return; // no practice today yet
-
-    // Find the most recent practice day before today
-    const yesterday = formatLocalDate(new Date(new Date().getTime() - 86_400_000));
     const usedDates = this.getStreakFreezeUsedDates();
-    const usedSet = new Set(usedDates);
-    if (dateSet.has(yesterday) || usedSet.has(yesterday)) return; // no gap
+    const freezeCount = this.getStreakFreezeCount();
+    const consumption = resolveStreakFreezeConsumption(practiceDates, new Date(), freezeCount, usedDates);
+    if (!consumption.consumedDate) {
+      return;
+    }
 
-    // There is a gap of at least 1 day — check if gap is exactly 1 day
-    const prevPractice = practiceDates.find((d) => d < today && !usedSet.has(d));
-    if (!prevPractice) return;
-    const prevDate = new Date(`${prevPractice}T00:00:00`);
-    const todayDate = new Date(`${today}T00:00:00`);
-    const gapDays = Math.round((todayDate.getTime() - prevDate.getTime()) / 86_400_000);
-    if (gapDays !== 2) return; // only bridge exactly 1 skipped day
-
-    const freezes = this.getStreakFreezeCount();
-    if (freezes <= 0) return;
-
-    usedDates.push(yesterday);
-    this.setSetting('progress', 'streakFreezeUsedDates', JSON.stringify(usedDates));
-    this.setSetting('progress', 'streakFreezes', String(freezes - 1));
+    this.setSetting('progress', 'streakFreezeUsedDates', JSON.stringify(consumption.usedDates));
+    this.setSetting('progress', 'streakFreezes', String(consumption.freezeCount));
   }
 
   private awardStreakFreezeForMilestone(): void {
@@ -888,13 +871,16 @@ export class AppDatabase {
     const usedDates = this.getStreakFreezeUsedDates();
     const streak = calculatePracticeStreak(rows, new Date(), usedDates);
     const current = streak.currentStreak;
-    if (current > 0 && current % 14 === 0) {
-      const already = this.getSetting('progress', `streakFreezeMilestone${current}`);
-      if (!already) {
-        this.setSetting('progress', `streakFreezeMilestone${current}`, '1');
-        const cur = this.getStreakFreezeCount();
-        this.setSetting('progress', 'streakFreezes', String(cur + 1));
-      }
+    const shouldAward = shouldAwardStreakFreezeForMilestone(current);
+    if (!shouldAward) {
+      return;
+    }
+
+    const already = this.getSetting('progress', `streakFreezeMilestone${current}`);
+    if (!already) {
+      this.setSetting('progress', `streakFreezeMilestone${current}`, '1');
+      const cur = this.getStreakFreezeCount();
+      this.setSetting('progress', 'streakFreezes', String(cur + 1));
     }
   }
 
@@ -1802,7 +1788,11 @@ function formatLocalDate(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-function calculatePracticeStreak(dates: string[], currentDate: Date, freezeDates: string[] = []): Omit<PracticeStreak, 'streakFreezes'> {
+export function calculatePracticeStreak(
+  dates: string[],
+  currentDate: Date,
+  freezeDates: string[] = [],
+): Omit<PracticeStreak, 'streakFreezes'> {
   if (dates.length === 0) {
     return {
       currentStreak: 0,
@@ -1838,6 +1828,75 @@ function calculatePracticeStreak(dates: string[], currentDate: Date, freezeDates
   return {
     currentStreak,
     longestStreak,
+  };
+}
+
+export function shouldAwardStreakFreezeForMilestone(currentStreak: number): boolean {
+  return currentStreak > 0 && currentStreak % 14 === 0;
+}
+
+export function resolveStreakFreezeConsumption(
+  practiceDates: string[],
+  currentDate: Date,
+  freezeCount: number,
+  usedDates: string[],
+): {
+  consumedDate: string | null;
+  freezeCount: number;
+  usedDates: string[];
+} {
+  if (practiceDates.length === 0 || freezeCount <= 0) {
+    return {
+      consumedDate: null,
+      freezeCount,
+      usedDates,
+    };
+  }
+
+  const today = formatLocalDate(currentDate);
+  const dateSet = new Set(practiceDates);
+  if (!dateSet.has(today)) {
+    return {
+      consumedDate: null,
+      freezeCount,
+      usedDates,
+    };
+  }
+
+  const yesterday = formatLocalDate(new Date(currentDate.getTime() - 86_400_000));
+  const usedSet = new Set(usedDates);
+  if (dateSet.has(yesterday) || usedSet.has(yesterday)) {
+    return {
+      consumedDate: null,
+      freezeCount,
+      usedDates,
+    };
+  }
+
+  const prevPractice = practiceDates.find((date) => date < today && !usedSet.has(date));
+  if (!prevPractice) {
+    return {
+      consumedDate: null,
+      freezeCount,
+      usedDates,
+    };
+  }
+
+  const prevDate = new Date(`${prevPractice}T00:00:00`);
+  const todayDate = new Date(`${today}T00:00:00`);
+  const gapDays = Math.round((todayDate.getTime() - prevDate.getTime()) / 86_400_000);
+  if (gapDays !== 2) {
+    return {
+      consumedDate: null,
+      freezeCount,
+      usedDates,
+    };
+  }
+
+  return {
+    consumedDate: yesterday,
+    freezeCount: freezeCount - 1,
+    usedDates: [...usedDates, yesterday],
   };
 }
 

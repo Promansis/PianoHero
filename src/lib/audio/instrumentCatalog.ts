@@ -374,7 +374,6 @@ export const INSTRUMENTS: InstrumentDefinition[] = [
     label: 'Rhodes EP',
     description: 'A warm electric piano with a richer bell-like character than the standard EP.',
     voice: 'fm',
-    requiredRewardId: 'instrument:rhodes',
     options: {
       harmonicity: 3.5,
       modulationIndex: 6,

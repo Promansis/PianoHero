@@ -139,7 +139,9 @@ describe('FreePlayScreen', () => {
         postureReminderMinutes={null}
         breakReminderMinutes={null}
         pitchBendEnabled
+        stagePalette="default"
         onBackToMainMenu={vi.fn()}
+        onStagePaletteChange={vi.fn()}
         onOpenKeyboardSetup={vi.fn()}
       />,
     );
@@ -160,7 +162,9 @@ describe('FreePlayScreen', () => {
         postureReminderMinutes={null}
         breakReminderMinutes={null}
         pitchBendEnabled
+        stagePalette="default"
         onBackToMainMenu={vi.fn()}
+        onStagePaletteChange={vi.fn()}
         onOpenKeyboardSetup={vi.fn()}
       />,
     );
@@ -195,7 +199,9 @@ describe('FreePlayScreen', () => {
         postureReminderMinutes={null}
         breakReminderMinutes={null}
         pitchBendEnabled
+        stagePalette="default"
         onBackToMainMenu={vi.fn()}
+        onStagePaletteChange={vi.fn()}
         onOpenKeyboardSetup={vi.fn()}
       />,
     );
@@ -254,7 +260,9 @@ describe('FreePlayScreen', () => {
         postureReminderMinutes={null}
         breakReminderMinutes={null}
         pitchBendEnabled
+        stagePalette="default"
         onBackToMainMenu={vi.fn()}
+        onStagePaletteChange={vi.fn()}
         onOpenKeyboardSetup={vi.fn()}
       />,
     );
@@ -298,7 +306,9 @@ describe('FreePlayScreen', () => {
         postureReminderMinutes={null}
         breakReminderMinutes={null}
         pitchBendEnabled={false}
+        stagePalette="default"
         onBackToMainMenu={vi.fn()}
+        onStagePaletteChange={vi.fn()}
         onOpenKeyboardSetup={vi.fn()}
       />,
     );
@@ -314,5 +324,33 @@ describe('FreePlayScreen', () => {
     });
 
     expect(audioEngine.setPitchBend).not.toHaveBeenCalled();
+  });
+
+  it('shows locked palette rewards with a clear unlock explanation', () => {
+    render(
+      <FreePlayScreen
+        audioEngine={buildAudioEngineStub()}
+        midiInputService={new MockMidiInputService() as unknown as MidiInputService}
+        keyboardInputService={new MockKeyboardInputService() as unknown as ComputerKeyboardInputService}
+        inputMode="both"
+        keyboardOverlaySize="medium"
+        postureReminderMinutes={null}
+        breakReminderMinutes={null}
+        pitchBendEnabled
+        stagePalette="default"
+        onBackToMainMenu={vi.fn()}
+        onStagePaletteChange={vi.fn()}
+        onOpenKeyboardSetup={vi.fn()}
+        unlockedRewardIds={new Set()}
+      />,
+    );
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+
+    expect(screen.getByRole('button', { name: /Aurora Emerald/ })).toBeDisabled();
+    expect(screen.getByText(/Unlock: Unlocked by reaching 100% accuracy\./)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Constellation Galactic/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Particle Galaxy/ })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /Sacred Geometry/ })).toBeEnabled();
   });
 });

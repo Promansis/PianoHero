@@ -129,6 +129,30 @@ function parseStoredAudioNumber(value: string | null, fallback: number): number 
 const DEFAULT_THEME = 'dark';
 const DEFAULT_LEFT_HAND_COLOR = '';
 const DEFAULT_RIGHT_HAND_COLOR = '';
+type StagePalette = 'default' | 'aurora-emerald' | 'constellation-galactic';
+const DEFAULT_STAGE_PALETTE: StagePalette = 'default';
+const STAGE_PALETTES: Record<Exclude<StagePalette, 'default'>, Record<string, string>> = {
+  'aurora-emerald': {
+    '--color-stage-bg-top': '#041b22',
+    '--color-stage-bg-bottom': '#01070d',
+    '--color-stage-text': 'rgba(230, 255, 247, 0.95)',
+    '--color-stage-text-muted': 'rgba(183, 238, 221, 0.74)',
+    '--color-stage-accent': '#68f6c4',
+    '--color-stage-accent-secondary': '#2ec98d',
+    '--color-stage-grid': 'rgba(96, 235, 193, 0.16)',
+    '--color-stage-surface': 'rgba(6, 33, 37, 0.72)',
+  },
+  'constellation-galactic': {
+    '--color-stage-bg-top': '#110b29',
+    '--color-stage-bg-bottom': '#03050f',
+    '--color-stage-text': 'rgba(244, 240, 255, 0.96)',
+    '--color-stage-text-muted': 'rgba(210, 202, 248, 0.76)',
+    '--color-stage-accent': '#8ea2ff',
+    '--color-stage-accent-secondary': '#ff9ed8',
+    '--color-stage-grid': 'rgba(152, 172, 255, 0.18)',
+    '--color-stage-surface': 'rgba(18, 16, 42, 0.72)',
+  },
+};
 
 function applyTheme(theme: string): void {
   document.documentElement.dataset.theme =
@@ -141,6 +165,32 @@ function applyHandColor(key: 'left' | 'right', value: string): void {
     document.documentElement.style.setProperty(prop, value);
   } else {
     document.documentElement.style.removeProperty(prop);
+  }
+}
+
+function applyStagePalette(palette: string): void {
+  const nextPalette =
+    palette === 'aurora-emerald' || palette === 'constellation-galactic'
+      ? palette
+      : DEFAULT_STAGE_PALETTE;
+  const rootStyle = document.documentElement.style;
+  for (const prop of [
+    '--color-stage-bg-top',
+    '--color-stage-bg-bottom',
+    '--color-stage-text',
+    '--color-stage-text-muted',
+    '--color-stage-accent',
+    '--color-stage-accent-secondary',
+    '--color-stage-grid',
+    '--color-stage-surface',
+  ]) {
+    rootStyle.removeProperty(prop);
+  }
+  if (nextPalette === 'default') {
+    return;
+  }
+  for (const [prop, value] of Object.entries(STAGE_PALETTES[nextPalette])) {
+    rootStyle.setProperty(prop, value);
   }
 }
 
@@ -222,6 +272,7 @@ export function App() {
   const [noteLabels, setNoteLabels] = useState<'alphabetic' | 'symbols' | 'both' | 'none'>('alphabetic');
   const [noteLabelSize, setNoteLabelSize] = useState<'small' | 'medium' | 'large'>('medium');
   const [keyboardOverlaySize, setKeyboardOverlaySize] = useState<'small' | 'medium' | 'large'>('medium');
+  const [stagePalette, setStagePalette] = useState<StagePalette>(DEFAULT_STAGE_PALETTE);
   const [latencyCompMs, setLatencyCompMs] = useState(0);
   const [waitModeDefault, setWaitModeDefault] = useState(false);
   const [metronomeDefault, setMetronomeDefault] = useState(false);
@@ -325,6 +376,7 @@ export function App() {
         rawColorBlind,
         rawNoteLabels,
         rawKeyboardSize,
+        rawStagePalette,
         rawLatencyComp,
         rawWaitMode,
         rawMetronomeDefault,
@@ -353,6 +405,7 @@ export function App() {
         window.appBridge.getSetting('visual', 'colorBlindMode'),
         window.appBridge.getSetting('visual', 'noteLabels'),
         window.appBridge.getSetting('visual', 'keyboardOverlaySize'),
+        window.appBridge.getSetting('visual', 'stagePalette'),
         window.appBridge.getSetting('audio', 'latencyCompMs'),
         window.appBridge.getSetting('gameplay', 'waitModeDefault'),
         window.appBridge.getSetting('gameplay', 'metronomeDefault'),
@@ -397,6 +450,13 @@ export function App() {
       if (rawKeyboardSize === 'small' || rawKeyboardSize === 'large') {
         setKeyboardOverlaySize(rawKeyboardSize);
       }
+
+      const nextStagePalette =
+        rawStagePalette === 'aurora-emerald' || rawStagePalette === 'constellation-galactic'
+          ? rawStagePalette
+          : DEFAULT_STAGE_PALETTE;
+      setStagePalette(nextStagePalette);
+      applyStagePalette(nextStagePalette);
 
       const parsedLatency = Number(rawLatencyComp);
       if (Number.isFinite(parsedLatency)) {
@@ -585,6 +645,13 @@ export function App() {
     if (category === 'visual') {
       if (key === 'theme') {
         applyTheme(value);
+      } else if (key === 'stagePalette') {
+        const nextStagePalette =
+          value === 'aurora-emerald' || value === 'constellation-galactic'
+            ? value
+            : DEFAULT_STAGE_PALETTE;
+        setStagePalette(nextStagePalette);
+        applyStagePalette(nextStagePalette);
       } else if (key === 'colorBlindMode') {
         setColorBlindMode(value === 'true');
       } else if (key === 'beatsVisible') {
@@ -647,6 +714,7 @@ export function App() {
     setNoteLabels('alphabetic');
     setNoteLabelSize('medium');
     setKeyboardOverlaySize('medium');
+    setStagePalette(DEFAULT_STAGE_PALETTE);
     setLatencyCompMs(0);
     setWaitModeDefault(false);
     setMetronomeDefault(false);
@@ -661,6 +729,7 @@ export function App() {
     applyTheme(DEFAULT_THEME);
     applyHandColor('left', DEFAULT_LEFT_HAND_COLOR);
     applyHandColor('right', DEFAULT_RIGHT_HAND_COLOR);
+    applyStagePalette(DEFAULT_STAGE_PALETTE);
     audioEngineRef.current.setMasterVolume(80);
     audioEngineRef.current.setMetronomeVolume(65);
     audioEngineRef.current.setReverbLevel(20);
@@ -680,6 +749,12 @@ export function App() {
     resetUiStateToDefaults();
     setLearningProgress(EMPTY_LEARNING_PROGRESS);
     setCurrentScreen({ screen: 'main-menu' });
+  };
+
+  const persistStagePalette = (value: StagePalette) => {
+    setStagePalette(value);
+    applyStagePalette(value);
+    void window.appBridge?.setSetting('visual', 'stagePalette', value);
   };
 
   const persistSetupState = async (setupComplete: boolean) => {
@@ -1105,7 +1180,9 @@ export function App() {
           postureReminderMinutes={postureReminderMinutes}
           breakReminderMinutes={breakReminderMinutes}
           pitchBendEnabled={pitchBendEnabled}
+          stagePalette={stagePalette}
           unlockedRewardIds={unlockedRewardIds}
+          onStagePaletteChange={persistStagePalette}
           onBackToMainMenu={() => setCurrentScreen({ screen: 'main-menu' })}
           onOpenKeyboardSetup={() => setCurrentScreen({ screen: 'keyboard-setup', returnTo: 'free-play' })}
         />
@@ -1403,4 +1480,3 @@ export function App() {
     </>
   );
 }
-

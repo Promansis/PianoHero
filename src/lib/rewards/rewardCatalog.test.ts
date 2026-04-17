@@ -19,14 +19,14 @@ describe('rewardCatalog', () => {
     const unlocked = getUnlockedRewardIds(achievements);
     expect(unlocked.has('instrument:warm-pad')).toBe(true);
     expect(unlocked.has('instrument:honky-tonk')).toBe(true);
-    expect(unlocked.has('visual:aurora-borealis')).toBe(false);
+    expect(unlocked.has('palette:aurora-emerald')).toBe(false);
   });
 
   it('unlocks both rewards tied to a single achievement', () => {
     const achievements: AchievementRow[] = [makeAchievement('master-10', true)];
     const unlocked = getUnlockedRewardIds(achievements);
-    expect(unlocked.has('instrument:rhodes')).toBe(true);
     expect(unlocked.has('title:maestro')).toBe(true);
+    expect(unlocked.has('effect:maestro-confetti')).toBe(true);
   });
 
   it('returns empty set when no achievements unlocked', () => {
@@ -47,8 +47,18 @@ describe('rewardCatalog', () => {
   it('grants pitch-bend customization from the theorist achievement', () => {
     const achievements: AchievementRow[] = [makeAchievement('theorist', true)];
     const unlocked = getUnlockedRewardIds(achievements);
-    expect(unlocked.has('visual:sacred-geometry')).toBe(true);
     expect(unlocked.has('audio:pitch-bend')).toBe(true);
+    expect(unlocked.has('audio:reverb-customization')).toBe(true);
+  });
+
+  it('grants palette rewards from the intended achievements', () => {
+    const achievements: AchievementRow[] = [
+      makeAchievement('perfect-score', true),
+      makeAchievement('century-club', true),
+    ];
+    const unlocked = getUnlockedRewardIds(achievements);
+    expect(unlocked.has('palette:aurora-emerald')).toBe(true);
+    expect(unlocked.has('palette:constellation-galactic')).toBe(true);
   });
 
   it('each reward references an achievement id (catalog integrity)', () => {

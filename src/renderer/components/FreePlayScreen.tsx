@@ -5,7 +5,7 @@ import { ComputerKeyboardInputService } from '../../lib/input/computerKeyboardIn
 import type { InputEvent, InputMode } from '../../lib/input/types';
 import { MidiInputService } from '../../lib/midi/midiInputService';
 import type { MidiInputDevice } from '../../lib/midi/types';
-import { isRewardUnlocked, REWARD_CATALOG } from '../../lib/rewards/rewardCatalog';
+import { getRewardDefinition, isRewardUnlocked, REWARD_CATALOG } from '../../lib/rewards/rewardCatalog';
 import { detectChord } from '../../lib/theory/chords';
 import { PianoKeyboard } from './PianoKeyboard';
 import {
@@ -37,12 +37,40 @@ interface FreePlayScreenProps {
   postureReminderMinutes: number | null;
   breakReminderMinutes: number | null;
   pitchBendEnabled: boolean;
+  stagePalette: 'default' | 'aurora-emerald' | 'constellation-galactic';
   onBackToMainMenu: () => void;
+  onStagePaletteChange: (value: 'default' | 'aurora-emerald' | 'constellation-galactic') => void;
   onOpenKeyboardSetup: () => void;
   unlockedRewardIds?: Set<string>;
 }
 
 const VISUAL_NOTE_LIFETIME_MS = 4200;
+type StagePaletteOption = {
+  value: FreePlayScreenProps['stagePalette'];
+  label: string;
+  description: string;
+  requiredRewardId?: string;
+};
+
+const STAGE_PALETTE_OPTIONS: readonly StagePaletteOption[] = [
+  {
+    value: 'default',
+    label: 'Studio Default',
+    description: 'Use the active theme palette with no extra unlock required.',
+  },
+  {
+    value: 'aurora-emerald',
+    label: 'Aurora Emerald',
+    description: 'A cool emerald glow for cinematic aurora and fluid-light scenes.',
+    requiredRewardId: 'palette:aurora-emerald',
+  },
+  {
+    value: 'constellation-galactic',
+    label: 'Constellation Galactic',
+    description: 'A deeper indigo and starlight palette tuned for orbital and constellation scenes.',
+    requiredRewardId: 'palette:constellation-galactic',
+  },
+] as const;
 
 function formatDuration(seconds: number): string {
   const total = Math.max(0, Math.floor(seconds));
@@ -68,7 +96,9 @@ export function FreePlayScreen({
   postureReminderMinutes,
   breakReminderMinutes,
   pitchBendEnabled,
+  stagePalette,
   onBackToMainMenu,
+  onStagePaletteChange,
   onOpenKeyboardSetup,
   unlockedRewardIds,
 }: FreePlayScreenProps) {
@@ -664,6 +694,36 @@ export function FreePlayScreen({
               <div className="status-card wide">
                 <span>Status</span>
                 <strong>{statusMessage}</strong>
+              </div>
+            </section>
+
+            <section className="panel free-play-overlay-section">
+              <div className="panel-heading">
+                <div>
+                  <p className="eyebrow">Visual Palette</p>
+                  <h2>Set the color language</h2>
+                </div>
+                <p className="panel-copy">Reward palettes stay visible here even before they are unlocked.</p>
+              </div>
+              <div className="free-play-mode-grid">
+                {STAGE_PALETTE_OPTIONS.map((option) => {
+                  const locked = option.requiredRewardId
+                    ? !isRewardUnlocked(option.requiredRewardId, unlockedRewardIds ?? new Set())
+                    : false;
+                  const reward = option.requiredRewardId ? getRewardDefinition(option.requiredRewardId) : undefined;
+                  return (
+                    <button
+                      key={option.value}
+                      className={`free-play-mode-card ${stagePalette === option.value ? 'active' : ''} ${locked ? 'locked' : ''}`}
+                      onClick={() => !locked && onStagePaletteChange(option.value)}
+                      disabled={locked}
+                      title={locked && reward ? `Locked — ${reward.description}` : undefined}
+                    >
+                      <strong>{locked ? `🔒 ${option.label}` : option.label}</strong>
+                      <span>{locked && reward ? `Unlock: ${reward.description}` : option.description}</span>
+                    </button>
+                  );
+                })}
               </div>
             </section>
 

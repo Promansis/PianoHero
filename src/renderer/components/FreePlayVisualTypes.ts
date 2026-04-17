@@ -73,13 +73,11 @@ export const FREE_PLAY_VISUAL_MODE_OPTIONS: Array<{
     value: 'particle-galaxy',
     label: 'Particle Galaxy',
     description: 'Notes seed spiral arms around a gravity well, with sustain triggering supernovas.',
-    requiredRewardId: 'visual:particle-galaxy',
   },
   {
     value: 'aurora-borealis',
     label: 'Aurora Borealis',
     description: 'Pitch paints shimmering northern-light ribbons that intensify with harmony.',
-    requiredRewardId: 'visual:aurora-borealis',
   },
   {
     value: 'fireworks',
@@ -90,7 +88,6 @@ export const FREE_PLAY_VISUAL_MODE_OPTIONS: Array<{
     value: 'sacred-geometry',
     label: 'Sacred Geometry',
     description: 'Notes bloom into rotating geometric rings that overlap into mandalas.',
-    requiredRewardId: 'visual:sacred-geometry',
   },
   {
     value: 'bubble-pop',

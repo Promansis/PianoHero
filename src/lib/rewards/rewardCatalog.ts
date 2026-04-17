@@ -1,6 +1,6 @@
 import type { AchievementRow } from '../../shared/dbTypes';
 
-export type RewardType = 'instrument' | 'visual-mode' | 'theme' | 'title' | 'audio-control';
+export type RewardType = 'instrument' | 'palette' | 'theme' | 'title' | 'audio-control' | 'results-effect';
 
 export interface RewardDefinition {
   id: string;
@@ -19,9 +19,9 @@ export const REWARD_CATALOG: RewardDefinition[] = [
     grantedByAchievementId: 'first-song',
   },
   {
-    id: 'visual:aurora-borealis',
-    type: 'visual-mode',
-    displayName: 'Aurora Borealis',
+    id: 'palette:aurora-emerald',
+    type: 'palette',
+    displayName: 'Aurora Emerald',
     description: 'Unlocked by reaching 100% accuracy.',
     grantedByAchievementId: 'perfect-score',
   },
@@ -40,18 +40,11 @@ export const REWARD_CATALOG: RewardDefinition[] = [
     grantedByAchievementId: 'streak-30',
   },
   {
-    id: 'visual:particle-galaxy',
-    type: 'visual-mode',
-    displayName: 'Particle Galaxy',
+    id: 'palette:constellation-galactic',
+    type: 'palette',
+    displayName: 'Constellation Galactic',
     description: 'Unlocked by completing 100 song sessions.',
     grantedByAchievementId: 'century-club',
-  },
-  {
-    id: 'visual:sacred-geometry',
-    type: 'visual-mode',
-    displayName: 'Sacred Geometry',
-    description: 'Unlocked by completing 10 theory sessions.',
-    grantedByAchievementId: 'theorist',
   },
   {
     id: 'audio:pitch-bend',
@@ -61,9 +54,16 @@ export const REWARD_CATALOG: RewardDefinition[] = [
     grantedByAchievementId: 'theorist',
   },
   {
-    id: 'instrument:rhodes',
-    type: 'instrument',
-    displayName: 'Rhodes EP',
+    id: 'audio:reverb-customization',
+    type: 'audio-control',
+    displayName: 'Reverb Customization',
+    description: 'Unlocked by completing 10 theory sessions.',
+    grantedByAchievementId: 'theorist',
+  },
+  {
+    id: 'effect:maestro-confetti',
+    type: 'results-effect',
+    displayName: 'Maestro Confetti',
     description: 'Unlocked by reaching 90%+ on 10 songs.',
     grantedByAchievementId: 'master-10',
   },
@@ -93,4 +93,8 @@ export function isRewardUnlocked(rewardId: string, unlockedRewardIds: Set<string
   const requiresReward = REWARD_CATALOG.some((r) => r.id === rewardId);
   if (!requiresReward) return true;
   return unlockedRewardIds.has(rewardId);
+}
+
+export function getRewardDefinition(rewardId: string): RewardDefinition | undefined {
+  return REWARD_CATALOG.find((reward) => reward.id === rewardId);
 }

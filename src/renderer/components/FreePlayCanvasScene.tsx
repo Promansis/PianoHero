@@ -410,12 +410,24 @@ function readPalette(): ScenePalette {
   return {
     bgTop: styles.getPropertyValue('--color-stage-bg-top').trim() || '#0e1730',
     bgBottom: styles.getPropertyValue('--color-stage-bg-bottom').trim() || '#040811',
-    text: styles.getPropertyValue('--color-note-text').trim() || 'rgba(245, 248, 255, 0.94)',
-    textMuted: styles.getPropertyValue('--color-text-muted').trim() || 'rgba(220, 230, 255, 0.72)',
-    accent: styles.getPropertyValue('--color-accent').trim() || '#6f97ff',
-    accentSecondary: styles.getPropertyValue('--color-accent-secondary').trim() || '#ff9666',
-    grid: styles.getPropertyValue('--color-chart-grid').trim() || 'rgba(150, 175, 235, 0.14)',
-    surface: styles.getPropertyValue('--panel-bg').trim() || 'rgba(10, 18, 32, 0.72)',
+    text: styles.getPropertyValue('--color-stage-text').trim()
+      || styles.getPropertyValue('--color-note-text').trim()
+      || 'rgba(245, 248, 255, 0.94)',
+    textMuted: styles.getPropertyValue('--color-stage-text-muted').trim()
+      || styles.getPropertyValue('--color-text-muted').trim()
+      || 'rgba(220, 230, 255, 0.72)',
+    accent: styles.getPropertyValue('--color-stage-accent').trim()
+      || styles.getPropertyValue('--color-accent').trim()
+      || '#6f97ff',
+    accentSecondary: styles.getPropertyValue('--color-stage-accent-secondary').trim()
+      || styles.getPropertyValue('--color-accent-secondary').trim()
+      || '#ff9666',
+    grid: styles.getPropertyValue('--color-stage-grid').trim()
+      || styles.getPropertyValue('--color-chart-grid').trim()
+      || 'rgba(150, 175, 235, 0.14)',
+    surface: styles.getPropertyValue('--color-stage-surface').trim()
+      || styles.getPropertyValue('--panel-bg').trim()
+      || 'rgba(10, 18, 32, 0.72)',
   };
 }
 
