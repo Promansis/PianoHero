@@ -16,6 +16,7 @@ export interface InstrumentDefinition {
   sampleBaseUrl?: string;
   sampleUrls?: Record<string, string>;
   reverbPreset?: InstrumentReverbPreset;
+  requiredRewardId?: string;
 }
 
 const SALAMANDER_SAMPLE_MAP = {
@@ -192,6 +193,7 @@ export const INSTRUMENTS: InstrumentDefinition[] = [
     description: 'A wide, slow synth pad for ambient practice.',
     voice: 'am',
     reverbPreset: 'hall',
+    requiredRewardId: 'instrument:warm-pad',
     options: {
       harmonicity: 1.5,
       oscillator: { type: 'sine' },
@@ -372,6 +374,7 @@ export const INSTRUMENTS: InstrumentDefinition[] = [
     label: 'Rhodes EP',
     description: 'A warm electric piano with a richer bell-like character than the standard EP.',
     voice: 'fm',
+    requiredRewardId: 'instrument:rhodes',
     options: {
       harmonicity: 3.5,
       modulationIndex: 6,
@@ -397,6 +400,7 @@ export const INSTRUMENTS: InstrumentDefinition[] = [
     label: 'Honky-Tonk',
     description: 'Detuned twin-oscillator piano sound with an old saloon character.',
     voice: 'am',
+    requiredRewardId: 'instrument:honky-tonk',
     options: {
       harmonicity: 1.008,
       oscillator: { type: 'triangle' },

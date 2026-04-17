@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AudioEngine } from '../lib/audio/audioEngine';
 import { DEFAULT_INSTRUMENT_ID, DEFAULT_WEB_INSTRUMENT_ID, isInstrumentId } from '../lib/audio/instrumentCatalog';
+import { getUnlockedRewardIds } from '../lib/rewards/rewardCatalog';
 import { CURRICULUM, getLessonById, getTierByLessonId } from '../lib/learning/curriculum';
 import { buildLessonDrill } from '../lib/learning/drillGenerator';
 import {
@@ -194,6 +195,7 @@ export function App() {
   const [midiDevices, setMidiDevices] = useState<MidiInputDevice[]>([]);
   const [achievementToastQueue, setAchievementToastQueue] = useState<string[]>([]);
   const [showDailyGoalToast, setShowDailyGoalToast] = useState(false);
+  const [unlockedRewardIds, setUnlockedRewardIds] = useState<Set<string>>(new Set());
   const [currentScreen, setCurrentScreen] = useState<AppScreen>({ screen: 'main-menu' });
   const [colorBlindMode, setColorBlindMode] = useState(false);
   const [noteLabels, setNoteLabels] = useState<'alphabetic' | 'symbols' | 'both' | 'none'>('alphabetic');
@@ -462,6 +464,9 @@ export function App() {
 
       setCurrentScreen({ screen: setupComplete === 'true' ? 'main-menu' : 'setup' });
       setSettingsReady(true);
+
+      const achievements = await window.appBridge.getAllAchievements();
+      setUnlockedRewardIds(getUnlockedRewardIds(achievements));
     };
 
     void loadAppSettings();
@@ -636,6 +641,9 @@ export function App() {
     if (achievementIds.length === 0) {
       return;
     }
+    void window.appBridge?.getAllAchievements().then((rows) => {
+      setUnlockedRewardIds(getUnlockedRewardIds(rows));
+    });
 
     setAchievementToastQueue((current) => [...current, ...achievementIds]);
   };
@@ -1035,6 +1043,7 @@ export function App() {
           keyboardOverlaySize={keyboardOverlaySize}
           postureReminderMinutes={postureReminderMinutes}
           breakReminderMinutes={breakReminderMinutes}
+          unlockedRewardIds={unlockedRewardIds}
           onBackToMainMenu={() => setCurrentScreen({ screen: 'main-menu' })}
           onOpenKeyboardSetup={() => setCurrentScreen({ screen: 'keyboard-setup', returnTo: 'free-play' })}
         />
@@ -1066,15 +1075,17 @@ export function App() {
       break;
 
     case 'progress-dashboard':
-      screenContent = <ProgressDashboardScreen />;
+      screenContent = <ProgressDashboardScreen unlockedRewardIds={unlockedRewardIds} />;
       break;
 
     case 'settings':
       screenContent = (
         <SettingsScreen
+          audioEngine={audioEngineRef.current}
           inputMode={inputMode}
           midiDevices={midiDevices}
           midiError={midiError}
+          unlockedRewardIds={unlockedRewardIds}
           onSettingChange={applySettingChange}
           onInputModeChange={persistInputMode}
           onRetryMidi={retryMidiInit}
@@ -1096,6 +1107,7 @@ export function App() {
               handleLearningSessionResult(currentScreen.returnTo.lessonId, currentScreen.returnTo.stepIndex, payload.accuracy);
             }
           }}
+          onBack={handleBackNavigation}
           preset={currentScreen.preset}
         />
       );
@@ -1111,6 +1123,7 @@ export function App() {
               handleLearningSessionResult(currentScreen.returnTo.lessonId, currentScreen.returnTo.stepIndex, payload.accuracy);
             }
           }}
+          onBack={handleBackNavigation}
           preset={currentScreen.preset}
         />
       );
@@ -1126,6 +1139,7 @@ export function App() {
               handleLearningSessionResult(currentScreen.returnTo.lessonId, currentScreen.returnTo.stepIndex, payload.accuracy);
             }
           }}
+          onBack={handleBackNavigation}
           preset={currentScreen.preset}
         />
       );

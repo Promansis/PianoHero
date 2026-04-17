@@ -28,7 +28,8 @@ export function createMidiRouter({ db, midiFilesDir }: ServerDependencies) {
     try {
       const formData = await c.req.formData();
       const files = formData.getAll('files');
-      const imported = [];
+      const songs = [];
+      const errors = [];
 
       for (const entry of files) {
         if (!(entry instanceof File)) {
@@ -36,15 +37,19 @@ export function createMidiRouter({ db, midiFilesDir }: ServerDependencies) {
         }
 
         const title = entry.name.replace(/\.(mid|midi)$/i, '') || 'Untitled';
-        imported.push(
-          await importSongFromBuffer(new Uint8Array(await entry.arrayBuffer()), title, {
-            db,
-            midiFilesDir,
-          }),
-        );
+        try {
+          songs.push(
+            await importSongFromBuffer(new Uint8Array(await entry.arrayBuffer()), title, {
+              db,
+              midiFilesDir,
+            }),
+          );
+        } catch (err) {
+          errors.push({ filename: title, message: (err as Error).message });
+        }
       }
 
-      return c.json(imported);
+      return c.json(songs);
     } catch (error) {
       return c.json({ error: (error as Error).message }, 500);
     }

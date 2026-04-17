@@ -40,6 +40,22 @@ export interface ImportedSong {
   difficulty: number;
 }
 
+export interface ImportError {
+  filename: string;
+  message: string;
+}
+
+export interface ImportResult {
+  songs: ImportedSong[];
+  errors: ImportError[];
+}
+
+export interface ImportProgressEvent {
+  current: number;
+  total: number;
+  filename: string;
+}
+
 export interface AppBridge {
   pickMidiFile: () => Promise<PickedMidiFile | null>;
 
@@ -49,8 +65,9 @@ export interface AppBridge {
   updateSong: (songId: string, updates: Partial<Omit<SongRow, 'id' | 'dateAdded'>>) => Promise<void>;
   deleteSong: (songId: string) => Promise<void>;
   toggleFavorite: (songId: string) => Promise<void>;
-  importMidiFiles: () => Promise<ImportedSong[]>;
-  importMidiFolder: () => Promise<{ imported: ImportedSong[]; skipped: number } | null>;
+  importMidiFiles: () => Promise<ImportResult>;
+  importMidiFolder: () => Promise<{ imported: ImportedSong[]; skipped: number; errors: ImportError[] } | null>;
+  onImportProgress: (cb: (ev: ImportProgressEvent) => void) => () => void;
 
   saveGameResult: (payload: SaveGameResultPayload) => Promise<SaveResultOutcome>;
   getGameResults: (songId: string) => Promise<GameResultRow[]>;

@@ -163,6 +163,7 @@ describe('App', () => {
       }),
       setSetting: vi.fn().mockResolvedValue(undefined),
       listAudioFiles: vi.fn().mockResolvedValue([]),
+      getAllAchievements: vi.fn().mockResolvedValue([]),
     } as unknown as typeof window.appBridge;
   });
 

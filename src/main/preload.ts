@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type { AppBridge, PickedMidiFile } from '../shared/ipc';
+import type { AppBridge, ImportProgressEvent, PickedMidiFile } from '../shared/ipc';
 
 const appBridge: AppBridge = {
   pickMidiFile: () => ipcRenderer.invoke('dialog:pick-midi-file') as Promise<PickedMidiFile | null>,
@@ -12,6 +12,11 @@ const appBridge: AppBridge = {
   toggleFavorite: (songId) => ipcRenderer.invoke('songs:toggle-favorite', songId),
   importMidiFiles: () => ipcRenderer.invoke('songs:import-midi-files'),
   importMidiFolder: () => ipcRenderer.invoke('songs:import-folder'),
+  onImportProgress: (cb: (ev: ImportProgressEvent) => void) => {
+    const handler = (_: Electron.IpcRendererEvent, ev: ImportProgressEvent) => cb(ev);
+    ipcRenderer.on('import:progress', handler);
+    return () => ipcRenderer.off('import:progress', handler);
+  },
 
   saveGameResult: (payload) => ipcRenderer.invoke('results:save', payload),
   getGameResults: (songId) => ipcRenderer.invoke('results:for-song', songId),

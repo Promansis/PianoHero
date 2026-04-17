@@ -158,6 +158,7 @@ export function LibraryScreen({
   const [isLoading, setIsLoading] = useState(true);
   const [isRecommendationsLoading, setIsRecommendationsLoading] = useState(true);
   const [isImporting, setIsImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState<{ current: number; total: number; filename: string } | null>(null);
   const [editingSongId, setEditingSongId] = useState<string | null>(null);
   const [draft, setDraft] = useState<SongDraft | null>(null);
   const [recommendations, setRecommendations] = useState<RecommendationResult | null>(null);
@@ -260,19 +261,29 @@ export function LibraryScreen({
     }
 
     setIsImporting(true);
+    setImportProgress(null);
+    const unsubscribe = window.appBridge.onImportProgress((ev) => setImportProgress(ev));
     try {
-      const imported = await window.appBridge.importMidiFiles();
-      if (imported.length === 0) {
+      const result = await window.appBridge.importMidiFiles();
+      const { songs, errors } = result;
+      if (songs.length === 0 && errors.length === 0) {
         setStatusMessage('Import canceled.');
       } else {
-        setStatusMessage(`Imported ${imported.length} song${imported.length === 1 ? '' : 's'}. Review the metadata before playing.`);
-        await refreshLibrary();
-        setEditingSongId(imported[0].songId);
+        const parts: string[] = [];
+        if (songs.length > 0) parts.push(`Imported ${songs.length} song${songs.length === 1 ? '' : 's'}`);
+        if (errors.length > 0) parts.push(`${errors.length} failed (${errors.map((e) => e.filename).join(', ')})`);
+        setStatusMessage(parts.join('. ') + '. Review the metadata before playing.');
+        if (songs.length > 0) {
+          await refreshLibrary();
+          setEditingSongId(songs[0].songId);
+        }
       }
     } catch (error) {
       setStatusMessage(`Import failed: ${(error as Error).message}`);
     } finally {
+      unsubscribe();
       setIsImporting(false);
+      setImportProgress(null);
     }
   };
 
@@ -285,33 +296,51 @@ export function LibraryScreen({
     }
 
     setIsImporting(true);
+    setImportProgress(null);
+    const fileArray = Array.from(files);
+    const total = fileArray.length;
+    const songs: Array<{ songId: string }> = [];
+    const errors: Array<{ filename: string; message: string }> = [];
+
     try {
-      const formData = new FormData();
-      for (const file of files) {
+      for (let i = 0; i < fileArray.length; i++) {
+        const file = fileArray[i];
+        const filename = file.name.replace(/\.(mid|midi)$/i, '') || 'Untitled';
+        setImportProgress({ current: i + 1, total, filename });
+
+        const formData = new FormData();
         formData.append('files', file);
+
+        try {
+          const response = await fetch('/api/midi/upload', { method: 'POST', body: formData });
+          if (!response.ok) {
+            const payload = await response.json().catch(() => ({ error: `Status ${response.status}` }));
+            throw new Error(typeof payload.error === 'string' ? payload.error : 'Upload failed.');
+          }
+          const batch = await response.json() as Array<{ songId: string }>;
+          songs.push(...batch);
+        } catch (err) {
+          errors.push({ filename, message: (err as Error).message });
+        }
       }
 
-      const response = await fetch('/api/midi/upload', {
-        method: 'POST',
-        body: formData,
-      });
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({ error: `Upload failed with status ${response.status}` }));
-        throw new Error(typeof payload.error === 'string' ? payload.error : 'Upload failed.');
-      }
-
-      const imported = await response.json() as Array<{ songId: string }>;
-      if (imported.length === 0) {
-        setStatusMessage('Import canceled.');
+      if (songs.length === 0 && errors.length === 0) {
+        setStatusMessage('No files imported.');
       } else {
-        setStatusMessage(`Imported ${imported.length} song${imported.length === 1 ? '' : 's'}. Review the metadata before playing.`);
-        await refreshLibrary();
-        setEditingSongId(imported[0].songId);
+        const parts: string[] = [];
+        if (songs.length > 0) parts.push(`Imported ${songs.length} song${songs.length === 1 ? '' : 's'}`);
+        if (errors.length > 0) parts.push(`${errors.length} failed (${errors.map((e) => e.filename).join(', ')})`);
+        setStatusMessage(parts.join('. ') + '. Review the metadata before playing.');
+        if (songs.length > 0) {
+          await refreshLibrary();
+          setEditingSongId(songs[0].songId);
+        }
       }
     } catch (error) {
       setStatusMessage(`Import failed: ${(error as Error).message}`);
     } finally {
       setIsImporting(false);
+      setImportProgress(null);
     }
   };
 
@@ -321,16 +350,19 @@ export function LibraryScreen({
     }
 
     setIsImporting(true);
+    setImportProgress(null);
+    const unsubscribe = window.appBridge.onImportProgress((ev) => setImportProgress(ev));
     try {
       const result = await window.appBridge.importMidiFolder();
       if (!result) {
         setStatusMessage('Import canceled.');
-      } else if (result.imported.length === 0 && result.skipped === 0) {
+      } else if (result.imported.length === 0 && result.skipped === 0 && result.errors.length === 0) {
         setStatusMessage('No MIDI files found in that folder.');
       } else {
         const parts: string[] = [];
         if (result.imported.length > 0) parts.push(`${result.imported.length} song${result.imported.length === 1 ? '' : 's'} imported`);
         if (result.skipped > 0) parts.push(`${result.skipped} already in library`);
+        if (result.errors.length > 0) parts.push(`${result.errors.length} failed (${result.errors.map((e) => e.filename).join(', ')})`);
         setStatusMessage(parts.join(', ') + '.');
         if (result.imported.length > 0) {
           await refreshLibrary();
@@ -339,7 +371,9 @@ export function LibraryScreen({
     } catch (error) {
       setStatusMessage(`Import failed: ${(error as Error).message}`);
     } finally {
+      unsubscribe();
       setIsImporting(false);
+      setImportProgress(null);
     }
   };
 
@@ -758,6 +792,19 @@ export function LibraryScreen({
           <p className="eyebrow">Piano Hero</p>
           <h1>Your Library</h1>
           <p className="song-title">{statusMessage}</p>
+          {importProgress && (
+            <div className="import-progress">
+              <div className="import-progress-bar">
+                <div
+                  className="import-progress-fill"
+                  style={{ width: `${Math.round((importProgress.current / importProgress.total) * 100)}%` }}
+                />
+              </div>
+              <p className="import-progress-label">
+                Processing &ldquo;{importProgress.filename}&rdquo; ({importProgress.current}/{importProgress.total})
+              </p>
+            </div>
+          )}
         </div>
         {IS_WEB ? (
           <input

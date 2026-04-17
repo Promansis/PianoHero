@@ -1,5 +1,5 @@
 import { RPC_BRIDGE_METHOD_SET } from '../shared/bridgeMethods';
-import type { AppBridge, ImportedSong } from '../shared/ipc';
+import type { AppBridge, ImportResult } from '../shared/ipc';
 
 async function parseRpcResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
@@ -68,7 +68,11 @@ export const webBridge = new Proxy({} as AppBridge, {
     }
 
     if (property === 'importMidiFiles') {
-      return async (): Promise<ImportedSong[]> => [];
+      return async (): Promise<ImportResult> => ({ songs: [], errors: [] });
+    }
+
+    if (property === 'onImportProgress') {
+      return () => () => undefined;
     }
 
     if (property === 'listAudioFiles') {

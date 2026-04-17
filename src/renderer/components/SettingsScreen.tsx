@@ -1,12 +1,47 @@
 import { useEffect, useMemo, useState } from 'react';
 import { DEFAULT_INSTRUMENT_ID, INSTRUMENTS } from '../../lib/audio/instrumentCatalog';
+import type { AudioEngine } from '../../lib/audio/audioEngine';
+import { isRewardUnlocked, REWARD_CATALOG } from '../../lib/rewards/rewardCatalog';
+import { LatencyWizard } from './LatencyWizard';
+import { LoadingPanel } from './LoadingPanel';
 import type { InputMode } from '../../lib/input/types';
 import type { MidiInputDevice } from '../../lib/midi/types';
 
+const KEY_HEIGHT: Record<'small' | 'medium' | 'large', number> = { small: 28, medium: 45, large: 62 };
+// 7 white keys, black keys at positions after C,D,F,G,A (indices 0,1,3,4,5)
+const WHITE_KEYS = 7;
+const BLACK_KEY_POSITIONS = [0, 1, 3, 4, 5];
+
+function KeyboardSizeThumbnail({ size }: { size: 'small' | 'medium' | 'large' }) {
+  const h = KEY_HEIGHT[size];
+  const kw = 8; // white key width px
+  const bw = 5; // black key width px
+  const bh = Math.round(h * 0.6);
+  const totalW = WHITE_KEYS * kw + 2; // +2 for stroke
+  return (
+    <svg
+      className="keyboard-size-thumbnail"
+      viewBox={`0 0 ${totalW} ${h + 2}`}
+      width={totalW}
+      height={h + 2}
+      aria-hidden="true"
+    >
+      {Array.from({ length: WHITE_KEYS }, (_, i) => (
+        <rect key={i} x={i * kw + 0.5} y={0.5} width={kw - 1} height={h} rx="1" fill="var(--color-text)" opacity="0.12" stroke="var(--color-border)" strokeWidth="0.8" />
+      ))}
+      {BLACK_KEY_POSITIONS.map((pos) => (
+        <rect key={pos} x={pos * kw + kw - bw / 2} y={0.5} width={bw} height={bh} rx="1" fill="var(--color-text)" opacity="0.7" />
+      ))}
+    </svg>
+  );
+}
+
 interface SettingsScreenProps {
+  audioEngine: AudioEngine;
   inputMode: InputMode;
   midiDevices: MidiInputDevice[];
   midiError: boolean;
+  unlockedRewardIds?: Set<string>;
   onSettingChange: (category: string, key: string, value: string) => void;
   onInputModeChange: (nextMode: InputMode) => void;
   onRetryMidi: () => void;
@@ -56,9 +91,11 @@ function getSettingKey(category: string, key: string): string {
 }
 
 export function SettingsScreen({
+  audioEngine,
   inputMode,
   midiDevices,
   midiError,
+  unlockedRewardIds = new Set(),
   onSettingChange,
   onInputModeChange,
   onRetryMidi,
@@ -73,6 +110,7 @@ export function SettingsScreen({
   const [confirmReset, setConfirmReset] = useState<'data' | 'progress' | null>(null);
   const [statusMessage, setStatusMessage] = useState('Loading saved settings.');
   const [samplePackPath, setSamplePackPath] = useState<string | null>(null);
+  const [showLatencyWizard, setShowLatencyWizard] = useState(false);
   const [samplePackFileCount, setSamplePackFileCount] = useState(0);
 
   useEffect(() => {
@@ -194,18 +232,12 @@ export function SettingsScreen({
 
   if (isLoading) {
     return (
-      <main className="app-shell settings-screen">
-        <section className="panel library-header">
-          <div>
-            <p className="eyebrow">Settings</p>
-            <h1>Loading preferences</h1>
-            <p className="song-title">Reading saved audio, gameplay, and practice defaults.</p>
-          </div>
-        </section>
-        <section className="panel empty-state-panel">
-          <div className="loading-spinner" />
-        </section>
-      </main>
+      <LoadingPanel
+        eyebrow="Settings"
+        title="Loading preferences"
+        message="Reading saved audio, gameplay, and practice defaults."
+        className="settings-screen"
+      />
     );
   }
 
@@ -241,11 +273,16 @@ export function SettingsScreen({
                   value={values['audio.instrumentId']}
                   onChange={(event) => void persistSetting('audio', 'instrumentId', event.target.value)}
                 >
-                  {INSTRUMENTS.map((instrument) => (
-                    <option key={instrument.id} value={instrument.id}>
-                      {instrument.label}
-                    </option>
-                  ))}
+                  {INSTRUMENTS.map((instrument) => {
+                    const locked = instrument.requiredRewardId
+                      ? !isRewardUnlocked(instrument.requiredRewardId, unlockedRewardIds)
+                      : false;
+                    return (
+                      <option key={instrument.id} value={instrument.id} disabled={locked}>
+                        {locked ? `\uD83D\uDD12 ${instrument.label}` : instrument.label}
+                      </option>
+                    );
+                  })}
                 </select>
               </label>
               <label>
@@ -290,19 +327,36 @@ export function SettingsScreen({
                   onChange={(event) => void persistSetting('audio', 'reverbLevel', event.target.value)}
                 />
               </label>
-              <label>
-                <span>Latency Compensation (ms)</span>
-                <input
-                  type="number"
-                  value={values['audio.latencyCompMs']}
-                  onChange={(event) => void persistSetting('audio', 'latencyCompMs', event.target.value)}
-                />
-              </label>
+              <div className="latency-comp-row">
+                <label>
+                  <span>Latency Compensation (ms)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={300}
+                    value={values['audio.latencyCompMs']}
+                    onChange={(event) => void persistSetting('audio', 'latencyCompMs', event.target.value)}
+                  />
+                </label>
+                <button
+                  className="secondary-button latency-calibrate-btn"
+                  onClick={() => setShowLatencyWizard(true)}
+                >
+                  Calibrate…
+                </button>
+              </div>
               <article className="settings-note-card">
                 <span>Instrument Notes</span>
                 <strong>
-                  {INSTRUMENTS.find((instrument) => instrument.id === values['audio.instrumentId'])?.description ??
-                    'Choose a built-in voice for practice and playback.'}
+                  {(() => {
+                    const instr = INSTRUMENTS.find((i) => i.id === values['audio.instrumentId']);
+                    if (!instr) return 'Choose a built-in voice for practice and playback.';
+                    if (instr.requiredRewardId && !isRewardUnlocked(instr.requiredRewardId, unlockedRewardIds)) {
+                      const reward = REWARD_CATALOG.find((r) => r.id === instr.requiredRewardId);
+                      return reward ? `Locked — ${reward.description}` : 'Locked — earn an achievement to unlock.';
+                    }
+                    return instr.description;
+                  })()}
                 </strong>
               </article>
               {!IS_WEB ? (
@@ -340,6 +394,9 @@ export function SettingsScreen({
                   <option value="dark">Dark</option>
                   <option value="light">Light</option>
                   <option value="warm">Warm</option>
+                  {isRewardUnlocked('theme:neon', unlockedRewardIds ?? new Set()) && (
+                    <option value="neon">Neon</option>
+                  )}
                 </select>
               </label>
               <label>
@@ -377,14 +434,17 @@ export function SettingsScreen({
               </label>
               <label>
                 <span>Keyboard Overlay Size</span>
-                <select
-                  value={values['visual.keyboardOverlaySize']}
-                  onChange={(event) => void persistSetting('visual', 'keyboardOverlaySize', event.target.value)}
-                >
-                  <option value="small">Small</option>
-                  <option value="medium">Medium</option>
-                  <option value="large">Large</option>
-                </select>
+                <div className="keyboard-size-preview-row">
+                  <select
+                    value={values['visual.keyboardOverlaySize']}
+                    onChange={(event) => void persistSetting('visual', 'keyboardOverlaySize', event.target.value)}
+                  >
+                    <option value="small">Small</option>
+                    <option value="medium">Medium</option>
+                    <option value="large">Large</option>
+                  </select>
+                  <KeyboardSizeThumbnail size={(values['visual.keyboardOverlaySize'] as 'small' | 'medium' | 'large') ?? 'medium'} />
+                </div>
               </label>
               <label>
                 <span>Note Preview (beats ahead)</span>
@@ -624,6 +684,14 @@ export function SettingsScreen({
           )}
         </section>
       </section>
+      {showLatencyWizard && (
+        <LatencyWizard
+          audioEngine={audioEngine}
+          currentMs={Number(values['audio.latencyCompMs']) || 0}
+          onApply={(ms) => void persistSetting('audio', 'latencyCompMs', String(ms))}
+          onClose={() => setShowLatencyWizard(false)}
+        />
+      )}
     </main>
   );
 }

@@ -6,6 +6,7 @@ interface IntervalTrainerScreenProps {
   audioEngine: AudioEngine;
   onAchievementsUnlocked?: (achievementIds: string[]) => void;
   onSessionComplete?: (payload: { accuracy: number; score: number; totalQuestions: number }) => void;
+  onBack?: () => void;
   preset?: { difficulty: string };
 }
 
@@ -44,6 +45,7 @@ export function IntervalTrainerScreen({
   audioEngine,
   onAchievementsUnlocked,
   onSessionComplete,
+  onBack,
   preset,
 }: IntervalTrainerScreenProps) {
   const [difficulty, setDifficulty] = useState<IntervalDifficulty>((preset?.difficulty as IntervalDifficulty) || 'easy');
@@ -150,6 +152,11 @@ export function IntervalTrainerScreen({
           <p className="song-title">{feedback}</p>
         </div>
         <div className="transport-buttons">
+          {onBack && (
+            <button className="secondary-button" onClick={onBack}>
+              ← Back
+            </button>
+          )}
           <button
             className="primary-button"
             onClick={() => {

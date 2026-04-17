@@ -8,6 +8,7 @@ interface TheoryQuizScreenProps {
   audioEngine: AudioEngine;
   onAchievementsUnlocked?: (achievementIds: string[]) => void;
   onSessionComplete?: (payload: { accuracy: number; score: number; totalQuestions: number }) => void;
+  onBack?: () => void;
   preset?: { quizType: string };
 }
 
@@ -80,7 +81,7 @@ function shuffle<T>(items: T[]): T[] {
   return [...items].sort(() => Math.random() - 0.5);
 }
 
-export function TheoryQuizScreen({ audioEngine, onAchievementsUnlocked, onSessionComplete, preset }: TheoryQuizScreenProps) {
+export function TheoryQuizScreen({ audioEngine, onAchievementsUnlocked, onSessionComplete, onBack, preset }: TheoryQuizScreenProps) {
   const [quizType, setQuizType] = useState<QuizType>((preset?.quizType as QuizType) || 'chord');
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -251,6 +252,11 @@ export function TheoryQuizScreen({ audioEngine, onAchievementsUnlocked, onSessio
           <p className="song-title">Chord, scale, interval, and note-reading identification in a short scored session.</p>
         </div>
         <div className="transport-buttons">
+          {onBack && (
+            <button className="secondary-button" onClick={onBack}>
+              ← Back
+            </button>
+          )}
           {currentQuestion && !isComplete ? (
             <button className="secondary-button" onClick={() => currentQuestion.play()}>
               Replay Audio

@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ACHIEVEMENTS } from '../../lib/achievements/achievementDefinitions';
+import { isRewardUnlocked } from '../../lib/rewards/rewardCatalog';
 import type { AchievementRow, GlobalTroubleSpot, PracticeStreak, ProgressStatsResult, TopSongStat } from '../../shared/dbTypes';
 import { BarChart } from './charts/BarChart';
 import { LineChart } from './charts/LineChart';
+import { LoadingPanel } from './LoadingPanel';
 
 function formatDuration(totalSeconds: number): string {
   const totalMinutes = Math.round(totalSeconds / 60);
@@ -33,7 +35,11 @@ function weekComparisonDelta(current: number, previous: number): string {
   return diff > 0 ? `+${diff}` : `${diff}`;
 }
 
-export function ProgressDashboardScreen() {
+interface ProgressDashboardScreenProps {
+  unlockedRewardIds?: Set<string>;
+}
+
+export function ProgressDashboardScreen({ unlockedRewardIds = new Set() }: ProgressDashboardScreenProps) {
   const [stats, setStats] = useState<ProgressStatsResult | null>(null);
   const [streak, setStreak] = useState<PracticeStreak | null>(null);
   const [achievements, setAchievements] = useState<AchievementRow[]>([]);
@@ -127,18 +133,12 @@ export function ProgressDashboardScreen() {
 
   if (isLoading) {
     return (
-      <main className="app-shell progress-dashboard-screen">
-        <section className="panel library-header">
-          <div>
-            <p className="eyebrow">Progress Dashboard</p>
-            <h1>Loading progress</h1>
-            <p className="song-title">Gathering practice history, streaks, and chart data.</p>
-          </div>
-        </section>
-        <section className="panel empty-state-panel">
-          <div className="loading-spinner" />
-        </section>
-      </main>
+      <LoadingPanel
+        eyebrow="Progress Dashboard"
+        title="Loading progress"
+        message="Gathering practice history, streaks, and chart data."
+        className="progress-dashboard-screen"
+      />
     );
   }
 
@@ -161,7 +161,12 @@ export function ProgressDashboardScreen() {
       <section className="panel library-header">
         <div>
           <p className="eyebrow">Progress Dashboard</p>
-          <h1>Long-term practice view</h1>
+          <h1>
+            Long-term practice view
+            {isRewardUnlocked('title:maestro', unlockedRewardIds) && (
+              <span className="maestro-title-badge"> · Maestro</span>
+            )}
+          </h1>
           <p className="song-title">Track consistency, workload, and how cleanly your scores are trending.</p>
         </div>
       </section>

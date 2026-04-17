@@ -28,6 +28,7 @@ describe('SettingsScreen', () => {
 
     render(
       <SettingsScreen
+        audioEngine={{ playMetronomeClick: vi.fn().mockResolvedValue(undefined), prepareForPlayback: vi.fn().mockResolvedValue(undefined) } as unknown as import('../../lib/audio/audioEngine').AudioEngine}
         inputMode="both"
         midiDevices={[]}
         midiError={false}
@@ -57,6 +58,7 @@ describe('SettingsScreen', () => {
   it('resets learning progress when inline confirmation is confirmed', async () => {
     render(
       <SettingsScreen
+        audioEngine={{ playMetronomeClick: vi.fn().mockResolvedValue(undefined), prepareForPlayback: vi.fn().mockResolvedValue(undefined) } as unknown as import('../../lib/audio/audioEngine').AudioEngine}
         inputMode="both"
         midiDevices={[]}
         midiError={false}

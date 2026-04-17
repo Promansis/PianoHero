@@ -5,6 +5,7 @@ import { ComputerKeyboardInputService } from '../../lib/input/computerKeyboardIn
 import type { InputEvent, InputMode } from '../../lib/input/types';
 import { MidiInputService } from '../../lib/midi/midiInputService';
 import type { MidiInputDevice } from '../../lib/midi/types';
+import { isRewardUnlocked, REWARD_CATALOG } from '../../lib/rewards/rewardCatalog';
 import { detectChord } from '../../lib/theory/chords';
 import { PianoKeyboard } from './PianoKeyboard';
 import {
@@ -37,6 +38,7 @@ interface FreePlayScreenProps {
   breakReminderMinutes: number | null;
   onBackToMainMenu: () => void;
   onOpenKeyboardSetup: () => void;
+  unlockedRewardIds?: Set<string>;
 }
 
 const VISUAL_NOTE_LIFETIME_MS = 4200;
@@ -66,6 +68,7 @@ export function FreePlayScreen({
   breakReminderMinutes,
   onBackToMainMenu,
   onOpenKeyboardSetup,
+  unlockedRewardIds,
 }: FreePlayScreenProps) {
   const [devices, setDevices] = useState<MidiInputDevice[]>([]);
   const [showPostureReminder, setShowPostureReminder] = useState(false);
@@ -681,16 +684,26 @@ export function FreePlayScreen({
                 ))}
               </div>
               <div className="free-play-mode-grid">
-                {FREE_PLAY_VISUAL_MODE_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    className={`free-play-mode-card ${visualMode === option.value ? 'active' : ''}`}
-                    onClick={() => setVisualMode(option.value)}
-                  >
-                    <strong>{option.label}</strong>
-                    <span>{option.description}</span>
-                  </button>
-                ))}
+                {FREE_PLAY_VISUAL_MODE_OPTIONS.map((option) => {
+                  const locked = option.requiredRewardId
+                    ? !isRewardUnlocked(option.requiredRewardId, unlockedRewardIds ?? new Set())
+                    : false;
+                  const reward = option.requiredRewardId
+                    ? REWARD_CATALOG.find((r) => r.id === option.requiredRewardId)
+                    : undefined;
+                  return (
+                    <button
+                      key={option.value}
+                      className={`free-play-mode-card ${visualMode === option.value ? 'active' : ''} ${locked ? 'locked' : ''}`}
+                      onClick={() => !locked && setVisualMode(option.value)}
+                      disabled={locked}
+                      title={locked && reward ? `Locked — ${reward.description}` : undefined}
+                    >
+                      <strong>{locked ? `🔒 ${option.label}` : option.label}</strong>
+                      <span>{locked && reward ? `Unlock: ${reward.description}` : option.description}</span>
+                    </button>
+                  );
+                })}
               </div>
             </section>
 

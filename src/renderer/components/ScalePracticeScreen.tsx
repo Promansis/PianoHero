@@ -14,6 +14,7 @@ interface ScalePracticeScreenProps {
   inputMode: InputMode;
   onAchievementsUnlocked?: (achievementIds: string[]) => void;
   onSessionComplete?: (payload: { accuracy: number; score: number; totalQuestions: number }) => void;
+  onBack?: () => void;
   preset?: { root: number; scaleName: string };
 }
 
@@ -24,6 +25,7 @@ export function ScalePracticeScreen({
   inputMode,
   onAchievementsUnlocked,
   onSessionComplete,
+  onBack,
   preset,
 }: ScalePracticeScreenProps) {
   const defaultScale = preset?.scaleName
@@ -269,6 +271,11 @@ export function ScalePracticeScreen({
           <p className="song-title">{statusMessage}</p>
         </div>
         <div className="transport-buttons">
+          {onBack && (
+            <button className="secondary-button" onClick={onBack}>
+              ← Back
+            </button>
+          )}
           <button
             className="primary-button"
             onClick={() => {

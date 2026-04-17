@@ -119,7 +119,7 @@ app.whenReady().then(async () => {
   ipcMain.handle('songs:delete', (_event, songId: string) => db.deleteSong(songId));
   ipcMain.handle('songs:toggle-favorite', (_event, songId: string) => db.toggleFavorite(songId));
 
-  ipcMain.handle('songs:import-midi-files', async () => {
+  ipcMain.handle('songs:import-midi-files', async (event) => {
     const options: OpenDialogOptions = {
       properties: ['openFile', 'multiSelections'],
       filters: [{ name: 'MIDI Files', extensions: ['mid', 'midi'] }],
@@ -129,25 +129,29 @@ app.whenReady().then(async () => {
       : await dialog.showOpenDialog(options);
 
     if (result.canceled || result.filePaths.length === 0) {
-      return [];
+      return { songs: [], errors: [] };
     }
 
-    const importedSongs = [];
-    for (const selectedPath of result.filePaths) {
+    const songs = [];
+    const errors = [];
+    const total = result.filePaths.length;
+
+    for (let i = 0; i < total; i++) {
+      const selectedPath = result.filePaths[i];
       const title = selectedPath.split(/[\\/]/).pop()?.replace(/\.(mid|midi)$/i, '') ?? 'Untitled';
-      const buffer = await readFile(selectedPath);
-      importedSongs.push(
-        await importSongFromBuffer(buffer, title, {
-          db,
-          midiFilesDir,
-        }),
-      );
+      event.sender.send('import:progress', { current: i + 1, total, filename: title });
+      try {
+        const buffer = await readFile(selectedPath);
+        songs.push(await importSongFromBuffer(buffer, title, { db, midiFilesDir }));
+      } catch (err) {
+        errors.push({ filename: title, message: (err as Error).message });
+      }
     }
 
-    return importedSongs;
+    return { songs, errors };
   });
 
-  ipcMain.handle('songs:import-folder', async () => {
+  ipcMain.handle('songs:import-folder', async (event) => {
     const options: OpenDialogOptions = {
       properties: ['openDirectory'],
     };
@@ -161,26 +165,28 @@ app.whenReady().then(async () => {
 
     const filePaths = collectMidiFiles(result.filePaths[0]);
     const importedSongs = [];
+    const errors = [];
     let skipped = 0;
+    const total = filePaths.length;
 
-    for (const selectedPath of filePaths) {
-      const buffer = await readFile(selectedPath);
-      const songId = await createSongId(buffer);
-
-      if (db.getSong(songId)) {
-        skipped++;
-        continue;
-      }
+    for (let i = 0; i < total; i++) {
+      const selectedPath = filePaths[i];
       const title = selectedPath.split(/[\\/]/).pop()?.replace(/\.(mid|midi)$/i, '') ?? 'Untitled';
-      importedSongs.push(
-        await importSongFromBuffer(buffer, title, {
-          db,
-          midiFilesDir,
-        }),
-      );
+      event.sender.send('import:progress', { current: i + 1, total, filename: title });
+      try {
+        const buffer = await readFile(selectedPath);
+        const songId = await createSongId(buffer);
+        if (db.getSong(songId)) {
+          skipped++;
+          continue;
+        }
+        importedSongs.push(await importSongFromBuffer(buffer, title, { db, midiFilesDir }));
+      } catch (err) {
+        errors.push({ filename: title, message: (err as Error).message });
+      }
     }
 
-    return { imported: importedSongs, skipped };
+    return { imported: importedSongs, skipped, errors };
   });
 
   ipcMain.handle('results:save', (_event, payload: SaveGameResultPayload) => db.saveGameResult(payload));
