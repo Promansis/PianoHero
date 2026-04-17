@@ -1,19 +1,20 @@
 import { useMemo, useState } from 'react';
 import type { LearningProgress, LearningTier, Lesson } from '../../lib/learning/types';
-import { isLessonCompleted, isLessonUnlocked } from '../../lib/learning/learningProgress';
+import { isLessonCompleted, isLessonUnlocked, isTierCapstoneCleared } from '../../lib/learning/learningProgress';
 
 interface LearnHubScreenProps {
   tiers: LearningTier[];
   progress: LearningProgress;
   onOpenLesson: (lessonId: string) => void;
   onToggleGating: (enabled: boolean) => void;
+  onStartCapstone: (tierId: string) => void;
 }
 
 function countCompletedLessons(lessons: Lesson[], progress: LearningProgress): number {
   return lessons.filter((lesson) => !lesson.isStub && isLessonCompleted(progress, lesson.id)).length;
 }
 
-export function LearnHubScreen({ tiers, progress, onOpenLesson, onToggleGating }: LearnHubScreenProps) {
+export function LearnHubScreen({ tiers, progress, onOpenLesson, onToggleGating, onStartCapstone }: LearnHubScreenProps) {
   const [openTierIds, setOpenTierIds] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(tiers.map((tier, index) => [tier.id, index === 0])),
   );
@@ -64,6 +65,10 @@ export function LearnHubScreen({ tiers, progress, onOpenLesson, onToggleGating }
           const completedCount = countCompletedLessons(tier.lessons, progress);
           const activeLessonCount = tier.lessons.filter((lesson) => !lesson.isStub).length;
           const isOpen = openTierIds[tier.id] ?? false;
+          const allLessonsComplete = completedCount === activeLessonCount && activeLessonCount > 0;
+          const capstone = tier.capstone;
+          const capstoneCleared = capstone ? isTierCapstoneCleared(progress, tier.id, capstone.accuracyThreshold) : false;
+          const capstoneBestAccuracy = progress.capstoneResults[tier.id] ?? 0;
 
           return (
             <article className="panel learn-tier" key={tier.id}>
@@ -120,6 +125,30 @@ export function LearnHubScreen({ tiers, progress, onOpenLesson, onToggleGating }
                         </button>
                       );
                     })}
+
+                  {capstone ? (
+                    <div className={`learn-capstone-card ${capstoneCleared ? 'cleared' : ''} ${!allLessonsComplete ? 'locked' : ''}`}>
+                      <div className="learn-capstone-badge">{capstoneCleared ? '\u2605' : allLessonsComplete ? '\u266a' : '\u{1f512}'}</div>
+                      <div className="learn-capstone-info">
+                        <p className="eyebrow">Tier Capstone</p>
+                        <h3>{capstone.displayTitle}</h3>
+                        <p className="panel-copy">{capstone.description}</p>
+                        {capstoneBestAccuracy > 0 && (
+                          <p className="panel-copy">
+                            Best: <strong>{capstoneBestAccuracy.toFixed(1)}%</strong>
+                            {capstoneCleared ? ' — cleared!' : ` / ${capstone.accuracyThreshold}% required`}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        className="primary-button"
+                        disabled={!allLessonsComplete}
+                        onClick={() => onStartCapstone(tier.id)}
+                      >
+                        {capstoneCleared ? 'Replay' : 'Attempt'}
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
             </article>

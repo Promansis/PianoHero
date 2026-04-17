@@ -3,7 +3,7 @@ import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { ParsedSong } from '../lib/game/types';
 import { getTrackAssignments } from '../lib/game/songUtils';
-import { parseMidiFile } from '../lib/midi/midiFileParser';
+import { extractMidiMeta, parseMidiFile } from '../lib/midi/midiFileParser';
 import type { AppDatabase } from '../main/database';
 import type { ImportedSong } from './ipc';
 
@@ -63,15 +63,17 @@ export async function importSongFromBuffer(
   const fileData = Uint8Array.from(buffer);
   const songId = await createSongId(fileData);
   const destPath = join(midiFilesDir, `${songId}.mid`);
-  const parsedSong = parseMidiFile(toArrayBuffer(fileData), { songId, title });
+  const midiMeta = extractMidiMeta(toArrayBuffer(fileData));
+  const effectiveTitle = midiMeta.suggestedTitle || title;
+  const parsedSong = parseMidiFile(toArrayBuffer(fileData), { songId, title: effectiveTitle });
   const difficulty = calculateDifficulty(parsedSong);
 
   await writeFile(destPath, fileData);
 
   const row = db.addSong({
     id: songId,
-    title,
-    artist: '',
+    title: effectiveTitle,
+    artist: midiMeta.suggestedArtist ?? '',
     genre: '',
     filePath: destPath,
     difficulty,

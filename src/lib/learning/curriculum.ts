@@ -87,6 +87,14 @@ export const CURRICULUM: LearningTier[] = [
     order: 1,
     title: 'Novice',
     summary: 'No experience required. Learn the keyboard map, hand shape, and first steady notes.',
+    capstone: {
+      songFileName: 'ode-to-joy.mid',
+      displayTitle: 'Ode to Joy (Beethoven)',
+      accuracyThreshold: 85,
+      tempoPercent: 90,
+      handFilter: 'right',
+      description: 'Play the melody of Ode to Joy with your right hand at 90% tempo. Reach 85% accuracy to unlock the Beginner tier.',
+    },
     lessons: [
       lesson(
         'novice',
@@ -340,6 +348,14 @@ export const CURRICULUM: LearningTier[] = [
     order: 2,
     title: 'Beginner',
     summary: 'Build finger independence, start scales, and play your first melodic phrases.',
+    capstone: {
+      songFileName: 'mary-had-a-little-lamb.mid',
+      displayTitle: 'Mary Had a Little Lamb',
+      accuracyThreshold: 85,
+      tempoPercent: 100,
+      handFilter: 'both',
+      description: 'Play Mary Had a Little Lamb with both hands. Reach 85% accuracy to unlock the Intermediate tier.',
+    },
     lessons: [
       lesson(
         'beginner',
@@ -557,6 +573,14 @@ export const CURRICULUM: LearningTier[] = [
     order: 3,
     title: 'Intermediate',
     summary: 'Add thumb crossing, more key signatures, harmony basics, and two-hand control.',
+    capstone: {
+      songFileName: 'minuet-in-g.mid',
+      displayTitle: 'Minuet in G (Bach)',
+      accuracyThreshold: 80,
+      tempoPercent: 90,
+      handFilter: 'both',
+      description: 'Play the Minuet in G excerpt with both hands. Reach 80% accuracy to unlock the Advanced tier.',
+    },
     lessons: [
       lesson(
         'intermediate',
@@ -760,6 +784,14 @@ export const CURRICULUM: LearningTier[] = [
     order: 4,
     title: 'Advanced',
     summary: 'Work through minor systems, arpeggios, seventh chords, and quicker coordination.',
+    capstone: {
+      songFileName: 'prelude-in-c.mid',
+      displayTitle: 'Prelude in C (Bach, WTC)',
+      accuracyThreshold: 80,
+      tempoPercent: 100,
+      handFilter: 'both',
+      description: 'Play the Prelude in C Major with both hands. Reach 80% accuracy to unlock the Expert tier.',
+    },
     lessons: [
       lesson(
         'advanced',

@@ -1,15 +1,17 @@
 import type { AppBridge } from '../../shared/ipc';
-import type { Lesson, LearningProgress, LearningTier } from './types';
+import type { Lesson, LearningProgress, LearningTier, LearningTierId } from './types';
 
 export const LEARNING_SETTINGS_CATEGORY = 'learning';
 export const COMPLETED_LESSONS_KEY = 'completedLessons';
 export const COMPLETED_STEPS_KEY = 'completedSteps';
 export const GATING_ENABLED_KEY = 'gatingEnabled';
+export const CAPSTONE_RESULTS_KEY = 'capstoneResults';
 
 export const EMPTY_LEARNING_PROGRESS: LearningProgress = {
   completedLessons: [],
   completedSteps: {},
   gatingEnabled: false,
+  capstoneResults: {},
 };
 
 export type LearningSettingsBridge = Pick<AppBridge, 'getSetting' | 'setSetting'>;
@@ -31,10 +33,11 @@ export async function loadLearningProgress(bridge?: LearningSettingsBridge | nul
     return EMPTY_LEARNING_PROGRESS;
   }
 
-  const [completedLessonsRaw, completedStepsRaw, gatingEnabledRaw] = await Promise.all([
+  const [completedLessonsRaw, completedStepsRaw, gatingEnabledRaw, capstoneResultsRaw] = await Promise.all([
     bridge.getSetting(LEARNING_SETTINGS_CATEGORY, COMPLETED_LESSONS_KEY),
     bridge.getSetting(LEARNING_SETTINGS_CATEGORY, COMPLETED_STEPS_KEY),
     bridge.getSetting(LEARNING_SETTINGS_CATEGORY, GATING_ENABLED_KEY),
+    bridge.getSetting(LEARNING_SETTINGS_CATEGORY, CAPSTONE_RESULTS_KEY),
   ]);
 
   const completedLessons = parseJson<string[]>(completedLessonsRaw, []).filter((value) => typeof value === 'string');
@@ -45,11 +48,13 @@ export async function loadLearningProgress(bridge?: LearningSettingsBridge | nul
       stepIndexes.filter((index) => Number.isInteger(index)).sort((left, right) => left - right),
     ]),
   );
+  const capstoneResults = parseJson<Record<string, number>>(capstoneResultsRaw, {});
 
   return {
     completedLessons,
     completedSteps,
     gatingEnabled: gatingEnabledRaw === 'true',
+    capstoneResults,
   };
 }
 
@@ -65,6 +70,7 @@ export async function saveLearningProgress(
     bridge.setSetting(LEARNING_SETTINGS_CATEGORY, COMPLETED_LESSONS_KEY, JSON.stringify(progress.completedLessons)),
     bridge.setSetting(LEARNING_SETTINGS_CATEGORY, COMPLETED_STEPS_KEY, JSON.stringify(progress.completedSteps)),
     bridge.setSetting(LEARNING_SETTINGS_CATEGORY, GATING_ENABLED_KEY, progress.gatingEnabled ? 'true' : 'false'),
+    bridge.setSetting(LEARNING_SETTINGS_CATEGORY, CAPSTONE_RESULTS_KEY, JSON.stringify(progress.capstoneResults)),
   ]);
 }
 
@@ -113,6 +119,23 @@ export function getFirstIncompleteStepIndex(lesson: Lesson, progress: LearningPr
   return nextIndex >= 0 ? nextIndex : Math.max(0, lesson.steps.length - 1);
 }
 
+export function isTierCapstoneCleared(progress: LearningProgress, tierId: LearningTierId, threshold: number): boolean {
+  return (progress.capstoneResults[tierId] ?? 0) >= threshold;
+}
+
+export function recordCapstoneResult(
+  progress: LearningProgress,
+  tierId: LearningTierId,
+  accuracy: number,
+): LearningProgress {
+  const prev = progress.capstoneResults[tierId] ?? 0;
+  if (accuracy <= prev) return progress;
+  return {
+    ...progress,
+    capstoneResults: { ...progress.capstoneResults, [tierId]: accuracy },
+  };
+}
+
 export function isLessonUnlocked(curriculum: LearningTier[], progress: LearningProgress, lesson: Lesson): boolean {
   if (lesson.isStub || !progress.gatingEnabled) {
     return !lesson.isStub;
@@ -127,6 +150,9 @@ export function isLessonUnlocked(curriculum: LearningTier[], progress: LearningP
     if (tier.order < lessonTier.order) {
       const tierComplete = tier.lessons.filter((entry) => !entry.isStub).every((entry) => isLessonCompleted(progress, entry.id));
       if (!tierComplete) {
+        return false;
+      }
+      if (tier.capstone && !isTierCapstoneCleared(progress, tier.id, tier.capstone.accuracyThreshold)) {
         return false;
       }
     }

@@ -8,10 +8,11 @@ import {
   loadLearningProgress,
   markLessonCompleted,
   markLessonStepCompleted,
+  recordCapstoneResult,
   saveLearningProgress,
   setLearningGating,
 } from '../lib/learning/learningProgress';
-import type { LearningProgress } from '../lib/learning/types';
+import type { LearningProgress, LearningTierId } from '../lib/learning/types';
 import type { GameResult, LoopRange, ParsedSong, SessionConfig, SessionMode } from '../lib/game/types';
 import { ComputerKeyboardInputService } from '../lib/input/computerKeyboardInputService';
 import {
@@ -23,6 +24,7 @@ import {
   stringifyKeyboardMapping,
 } from '../lib/input/settings';
 import type { InputMode } from '../lib/input/types';
+import { parseMidiFile } from '../lib/midi/midiFileParser';
 import { MidiInputService } from '../lib/midi/midiInputService';
 import type { MidiInputDevice } from '../lib/midi/types';
 import type { TheorySuggestion } from '../lib/theory/songAnalysis';
@@ -65,6 +67,7 @@ type AppScreen =
   | { screen: 'keyboard-setup'; returnTo: KeyboardSetupReturnTarget }
   | { screen: 'game'; song: SongRow; sessionConfig: SessionConfig; playlistQueue: PlaylistQueue | null }
   | { screen: 'lesson-drill'; lessonId: string; stepIndex: number; parsedSong: ParsedSong; sessionConfig: SessionConfig }
+  | { screen: 'capstone'; tierId: string; parsedSong: ParsedSong; sessionConfig: SessionConfig }
   | {
       screen: 'results';
       song: SongRow;
@@ -166,6 +169,8 @@ function getScreenTitle(currentScreen: AppScreen): string {
       return 'In Game';
     case 'lesson-drill':
       return 'Lesson Drill';
+    case 'capstone':
+      return 'Tier Capstone';
     case 'results':
       return 'Results';
   }
@@ -186,6 +191,7 @@ export function App() {
   const [inputMode, setInputMode] = useState<InputMode>('both');
   const [midiDevices, setMidiDevices] = useState<MidiInputDevice[]>([]);
   const [achievementToastQueue, setAchievementToastQueue] = useState<string[]>([]);
+  const [showDailyGoalToast, setShowDailyGoalToast] = useState(false);
   const [currentScreen, setCurrentScreen] = useState<AppScreen>({ screen: 'main-menu' });
   const [colorBlindMode, setColorBlindMode] = useState(false);
   const [noteLabels, setNoteLabels] = useState<'alphabetic' | 'symbols' | 'both' | 'none'>('alphabetic');
@@ -610,6 +616,11 @@ export function App() {
     setAchievementToastQueue((current) => [...current, ...achievementIds]);
   };
 
+  const handleDailyGoalReached = () => {
+    setShowDailyGoalToast(true);
+    window.setTimeout(() => setShowDailyGoalToast(false), 5000);
+  };
+
   const updateLearningProgressState = (updater: (current: LearningProgress) => LearningProgress) => {
     setLearningProgress((current) => {
       const next = updater(current);
@@ -668,6 +679,29 @@ export function App() {
         handFilter: step.handFilter ?? 'both',
       }),
     });
+  };
+
+  const startCapstone = async (tierId: string) => {
+    const tier = CURRICULUM.find((t) => t.id === tierId);
+    if (!tier?.capstone || !window.appBridge) return;
+    const { capstone } = tier;
+    try {
+      const bytes = await window.appBridge.loadCurriculumMidi(capstone.songFileName);
+      const ab = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+      const parsedSong = parseMidiFile(ab, { songId: `capstone-${tierId}`, title: capstone.displayTitle });
+      setCurrentScreen({
+        screen: 'capstone',
+        tierId,
+        parsedSong,
+        sessionConfig: buildSessionConfig('learning', false, metronomeDefault, latencyCompMs, hitWindowMs, beatsVisible, {
+          handSize,
+          tempoMultiplier: capstone.tempoPercent / 100,
+          handFilter: capstone.handFilter,
+        }),
+      });
+    } catch (err) {
+      console.error('Failed to load capstone MIDI:', err);
+    }
   };
 
   const startSongSession = (
@@ -827,7 +861,7 @@ export function App() {
         return;
       }
 
-      if (event.key === 'Escape' && currentScreen.screen !== 'game' && currentScreen.screen !== 'free-play' && currentScreen.screen !== 'lesson-drill') {
+      if (event.key === 'Escape' && currentScreen.screen !== 'game' && currentScreen.screen !== 'free-play' && currentScreen.screen !== 'lesson-drill' && currentScreen.screen !== 'capstone') {
         event.preventDefault();
         handleBackNavigation();
         return;
@@ -917,6 +951,7 @@ export function App() {
           progress={learningProgress}
           onOpenLesson={(lessonId) => navigateToLesson(lessonId)}
           onToggleGating={(enabled) => updateLearningProgressState((current) => setLearningGating(current, enabled))}
+          onStartCapstone={(tierId) => void startCapstone(tierId)}
         />
       );
       break;
@@ -1128,6 +1163,40 @@ export function App() {
       );
       break;
 
+    case 'capstone': {
+      const capstoneTierId = currentScreen.tierId;
+      screenContent = (
+        <GameScreen
+          audioEngine={audioEngineRef.current}
+          inputMode={inputMode}
+          keyboardInputService={keyboardServiceRef.current}
+          midiInputService={midiServiceRef.current}
+          source={{
+            kind: 'lesson-drill',
+            lessonId: `capstone-${capstoneTierId}`,
+            stepIndex: 0,
+            parsedSong: currentScreen.parsedSong,
+          }}
+          initialSessionConfig={currentScreen.sessionConfig}
+          colorBlindMode={colorBlindMode}
+          noteLabels={noteLabels}
+          keyboardOverlaySize={keyboardOverlaySize}
+          breakReminderMinutes={breakReminderMinutes}
+          onExit={() => setCurrentScreen({ screen: 'learn-hub' })}
+          exitLabel="Back to Learn Hub"
+          onGameFinished={handleGameFinished}
+          onLessonDrillFinished={(payload) => {
+            updateLearningProgressState((current) =>
+              recordCapstoneResult(current, capstoneTierId as LearningTierId, payload.result.accuracy),
+            );
+            setCurrentScreen({ screen: 'learn-hub' });
+          }}
+          onOpenKeyboardSetup={() => setCurrentScreen({ screen: 'keyboard-setup', returnTo: 'library' })}
+        />
+      );
+      break;
+    }
+
     case 'results':
       screenContent = (
         <ResultsScreen
@@ -1136,6 +1205,7 @@ export function App() {
           sessionConfig={currentScreen.sessionConfig}
           song={currentScreen.song}
           onAchievementsUnlocked={enqueueAchievementToasts}
+          onDailyGoalReached={handleDailyGoalReached}
           onMainMenu={() => setCurrentScreen({ screen: 'main-menu' })}
           onPracticeSections={(loopRange) => startSongSession(currentScreen.song, 'learning', loopRange)}
           onStartTheoryPractice={handleStartTheoryPractice}
@@ -1157,7 +1227,8 @@ export function App() {
   const showAppChrome =
     currentScreen.screen !== 'game' &&
     currentScreen.screen !== 'free-play' &&
-    currentScreen.screen !== 'lesson-drill';
+    currentScreen.screen !== 'lesson-drill' &&
+    currentScreen.screen !== 'capstone';
   const canNavigateBack = currentScreen.screen !== 'setup' && currentScreen.screen !== 'main-menu';
 
   return (
@@ -1181,6 +1252,19 @@ export function App() {
         </div>
       ) : (
         screenContent
+      )}
+      {showDailyGoalToast && (
+        <aside className="achievement-toast achievement-toast--goal" role="status" aria-live="polite">
+          <div className="achievement-toast-icon">🎯</div>
+          <div>
+            <p className="eyebrow">Daily Goal Reached</p>
+            <strong>Practice complete for today!</strong>
+            <p className="panel-copy">Keep it up — consistency is the key to progress.</p>
+          </div>
+          <button className="secondary-button" onClick={() => setShowDailyGoalToast(false)}>
+            Dismiss
+          </button>
+        </aside>
       )}
       <AchievementToast
         achievementId={achievementToastQueue[0] ?? null}

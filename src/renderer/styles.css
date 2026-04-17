@@ -3142,6 +3142,11 @@ select:focus {
   box-shadow: var(--color-hero-shadow);
 }
 
+.achievement-toast--goal {
+  bottom: 120px;
+  border-color: color-mix(in srgb, var(--color-hero) 30%, transparent);
+}
+
 .achievement-toast-icon {
   display: inline-flex;
   width: 44px;
@@ -3553,6 +3558,41 @@ select:focus {
 .learn-lesson-card.disabled {
   cursor: not-allowed;
   opacity: 0.6;
+}
+
+.learn-capstone-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 18px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--color-hero) 30%, transparent);
+  background: color-mix(in srgb, var(--panel-bg-solid) 85%, var(--color-hero) 15%);
+  grid-column: 1 / -1;
+}
+
+.learn-capstone-card.cleared {
+  border-color: color-mix(in srgb, var(--color-good) 40%, transparent);
+  background: color-mix(in srgb, var(--panel-bg-solid) 85%, var(--color-good) 15%);
+}
+
+.learn-capstone-card.locked {
+  opacity: 0.6;
+}
+
+.learn-capstone-badge {
+  font-size: 2rem;
+  flex-shrink: 0;
+  width: 48px;
+  text-align: center;
+}
+
+.learn-capstone-info {
+  flex: 1;
+}
+
+.learn-capstone-info h3 {
+  margin: 4px 0 6px;
 }
 
 .learn-lesson-status {

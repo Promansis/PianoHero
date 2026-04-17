@@ -2,12 +2,22 @@ import type { Hand, HandFilter } from '../game/types';
 
 export type LearningTierId = 'novice' | 'beginner' | 'intermediate' | 'advanced' | 'expert';
 
+export interface TierCapstone {
+  songFileName: string;
+  displayTitle: string;
+  accuracyThreshold: number;
+  tempoPercent: number;
+  handFilter: 'right' | 'left' | 'both';
+  description: string;
+}
+
 export interface LearningTier {
   id: LearningTierId;
   order: number;
   title: string;
   summary: string;
   lessons: Lesson[];
+  capstone?: TierCapstone;
 }
 
 export interface Lesson {
@@ -126,4 +136,5 @@ export interface LearningProgress {
   completedLessons: string[];
   completedSteps: Record<string, number[]>;
   gatingEnabled: boolean;
+  capstoneResults: Record<string, number>;
 }

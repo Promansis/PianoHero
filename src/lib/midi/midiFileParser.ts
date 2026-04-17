@@ -15,10 +15,18 @@ interface MidiTrack {
   notes: MidiTrackNote[];
 }
 
+interface MetaEvent {
+  text: string;
+  type: string;
+  ticks: number;
+}
+
 interface MidiInstance {
   header: {
     ppq: number;
     tempos: Array<{ bpm: number }>;
+    name?: string;
+    meta?: MetaEvent[];
   };
   tracks: MidiTrack[];
   duration: number;
@@ -45,6 +53,31 @@ const MidiCtor = resolveMidiConstructor();
 export interface MidiSourceMeta {
   songId: string;
   title: string;
+}
+
+export interface MidiFileMeta {
+  suggestedTitle?: string;
+  suggestedArtist?: string;
+}
+
+export function extractMidiMeta(arrayBuffer: ArrayBuffer): MidiFileMeta {
+  const midi = new MidiCtor(arrayBuffer);
+  const result: MidiFileMeta = {};
+
+  const rawName = midi.header.name?.trim();
+  if (rawName) result.suggestedTitle = rawName;
+
+  for (const event of midi.header.meta ?? []) {
+    const text = event.text?.trim();
+    if (!text) continue;
+    if (event.type === 'copyright' && !result.suggestedArtist) {
+      result.suggestedArtist = text;
+    } else if ((event.type === 'trackName' || event.type === 'text') && !result.suggestedTitle) {
+      result.suggestedTitle = text;
+    }
+  }
+
+  return result;
 }
 
 export function parseMidiFile(arrayBuffer: ArrayBuffer, meta: MidiSourceMeta): ParsedSong {

@@ -13,6 +13,7 @@ interface ResultsScreenProps {
   sessionConfig: SessionConfig;
   baselineStats: UserStatsRow | null;
   onAchievementsUnlocked?: (achievementIds: string[]) => void;
+  onDailyGoalReached?: () => void;
   onRetry: () => void;
   onPracticeSections: (loopRange: LoopRange) => void;
   onStartTheoryPractice: (suggestion: TheorySuggestion) => void;
@@ -75,6 +76,7 @@ export function ResultsScreen({
   sessionConfig,
   baselineStats,
   onAchievementsUnlocked,
+  onDailyGoalReached,
   onRetry,
   onPracticeSections,
   onStartTheoryPractice,
@@ -121,6 +123,7 @@ export function ResultsScreen({
           measureAccuracy: result.measureAccuracy,
         });
         onAchievementsUnlocked?.(outcome.unlockedAchievementIds);
+        if (outcome.dailyGoalReached) onDailyGoalReached?.();
         const nextTroubleSpots = await bridge.getTroubleSpots(song.id);
         setHistoricalTroubleSpots(nextTroubleSpots);
         setSaveError(null);
@@ -130,7 +133,7 @@ export function ResultsScreen({
         setTroubleSpotsLoading(false);
       }
     })();
-  }, [onAchievementsUnlocked, result, song.id]);
+  }, [onAchievementsUnlocked, onDailyGoalReached, result, song.id]);
 
   useEffect(() => {
     const loadAnalysis = async () => {

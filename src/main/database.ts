@@ -697,11 +697,24 @@ export class AppDatabase {
       }
 
       this.db.prepare('UPDATE songs SET times_played = times_played + 1 WHERE id = ?').run(payload.songId);
+
+      const practiceDate = formatLocalDate(new Date());
+      const priorRow = this.db
+        .prepare('SELECT total_practice_time_sec FROM practice_days WHERE date = ?')
+        .get(practiceDate) as { total_practice_time_sec: number } | undefined;
+      const priorSec = priorRow?.total_practice_time_sec ?? 0;
+
       this.recordPracticeDayEntry(payload.durationSec, 1, 0);
       this.updateTroubleSpotsForSong(payload.songId, payload.measureAccuracy, now);
 
+      const goalSetting = this.getSetting('practice', 'dailyGoalMinutes');
+      const goalSec = goalSetting ? Number(goalSetting) * 60 : 0;
+      const dailyGoalReached =
+        goalSec > 0 && priorSec < goalSec && priorSec + payload.durationSec >= goalSec;
+
       return {
         unlockedAchievementIds: this.checkAndUnlockAchievements(),
+        dailyGoalReached,
       };
     });
 
@@ -746,6 +759,7 @@ export class AppDatabase {
 
       return {
         unlockedAchievementIds: this.checkAndUnlockAchievements(),
+        dailyGoalReached: false,
       };
     });
 

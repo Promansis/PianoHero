@@ -57,6 +57,16 @@ export const webBridge = new Proxy({} as AppBridge, {
       };
     }
 
+    if (property === 'loadCurriculumMidi') {
+      return async (filename: string): Promise<Uint8Array> => {
+        const response = await fetch(`/curriculum-midis/${encodeURIComponent(filename)}`);
+        if (!response.ok) {
+          throw new Error(`Unable to load curriculum MIDI: ${response.status}`);
+        }
+        return new Uint8Array(await response.arrayBuffer());
+      };
+    }
+
     if (property === 'importMidiFiles') {
       return async (): Promise<ImportedSong[]> => [];
     }

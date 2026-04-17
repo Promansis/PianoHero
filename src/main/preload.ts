@@ -74,6 +74,7 @@ const appBridge: AppBridge = {
   importLibrary: () => ipcRenderer.invoke('library:import'),
 
   loadMidiFileData: (songId) => ipcRenderer.invoke('file:load-midi', songId),
+  loadCurriculumMidi: (filename) => ipcRenderer.invoke('file:load-curriculum-midi', filename),
   saveMidiFile: (suggestedName, data) => ipcRenderer.invoke('file:save-midi', suggestedName, data),
   saveWavFile: (suggestedName, data) => ipcRenderer.invoke('file:save-wav', suggestedName, data),
   pickAudioFile: () => ipcRenderer.invoke('file:pick-audio'),

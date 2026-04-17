@@ -326,6 +326,13 @@ app.whenReady().then(async () => {
     return new Uint8Array(data);
   });
 
+  ipcMain.handle('file:load-curriculum-midi', async (_event, filename: string) => {
+    const safe = filename.replace(/[^a-zA-Z0-9._-]/g, '');
+    const midiPath = join(__dirname, '../renderer/curriculum-midis', safe);
+    const data = await readFile(midiPath);
+    return new Uint8Array(data);
+  });
+
   ipcMain.handle('file:save-midi', async (_event, suggestedName: string, data: Uint8Array) => {
     const options: SaveDialogOptions = {
       defaultPath: suggestedName,

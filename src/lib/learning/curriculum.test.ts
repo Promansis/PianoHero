@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ALL_LESSONS, CURRICULUM, getLessonById, getTierByLessonId } from './curriculum';
-import { EMPTY_LEARNING_PROGRESS, getNextLesson, isLessonUnlocked, markLessonCompleted } from './learningProgress';
+import { EMPTY_LEARNING_PROGRESS, getNextLesson, isLessonUnlocked, markLessonCompleted, recordCapstoneResult } from './learningProgress';
 
 describe('curriculum', () => {
   it('uses unique lesson ids with matching tier membership', () => {
@@ -38,11 +38,15 @@ describe('curriculum', () => {
     };
     expect(isLessonUnlocked(CURRICULUM, lockedProgress, beginnerLesson!)).toBe(false);
 
-    const unlockedProgress = CURRICULUM
-      .find((tier) => tier.id === 'novice')!
-      .lessons
+    const noviceTier = CURRICULUM.find((tier) => tier.id === 'novice')!;
+    const allNoviceDone = noviceTier.lessons
       .filter((lesson) => !lesson.isStub)
       .reduce((progress, lesson) => markLessonCompleted(progress, lesson.id), lockedProgress);
+    // Completing all lessons is not enough — novice capstone must also be cleared
+    expect(isLessonUnlocked(CURRICULUM, allNoviceDone, beginnerLesson!)).toBe(false);
+
+    const threshold = noviceTier.capstone?.accuracyThreshold ?? 85;
+    const unlockedProgress = recordCapstoneResult(allNoviceDone, 'novice', threshold);
     expect(isLessonUnlocked(CURRICULUM, unlockedProgress, beginnerLesson!)).toBe(true);
   });
 });
