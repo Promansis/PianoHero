@@ -90,6 +90,7 @@ interface FinishedGamePayload {
 function buildSessionConfig(
   mode: SessionMode,
   waitModeDefault: boolean,
+  metronomeDefault: boolean,
   latencyCompMs: number,
   hitWindowMs: number,
   beatsVisible: number,
@@ -101,7 +102,7 @@ function buildSessionConfig(
     handFilter: 'both',
     loopRange: null,
     waitForInput: waitModeDefault || mode === 'learning',
-    metronomeEnabled: false,
+    metronomeEnabled: metronomeDefault,
     handSize: 'medium',
     fingeringDisplayMode: 'learning-only',
     latencyCompMs,
@@ -191,6 +192,7 @@ export function App() {
   const [keyboardOverlaySize, setKeyboardOverlaySize] = useState<'small' | 'medium' | 'large'>('medium');
   const [latencyCompMs, setLatencyCompMs] = useState(0);
   const [waitModeDefault, setWaitModeDefault] = useState(false);
+  const [metronomeDefault, setMetronomeDefault] = useState(false);
   const [hitWindowMs, setHitWindowMs] = useState(100);
   const [beatsVisible, setBeatsVisible] = useState(8);
   const [postureReminderMinutes, setPostureReminderMinutes] = useState<number | null>(null);
@@ -291,6 +293,7 @@ export function App() {
         rawKeyboardSize,
         rawLatencyComp,
         rawWaitMode,
+        rawMetronomeDefault,
         rawBreakReminder,
         rawMidiDeviceId,
         rawCustomSamplePath,
@@ -315,6 +318,7 @@ export function App() {
         window.appBridge.getSetting('visual', 'keyboardOverlaySize'),
         window.appBridge.getSetting('audio', 'latencyCompMs'),
         window.appBridge.getSetting('gameplay', 'waitModeDefault'),
+        window.appBridge.getSetting('gameplay', 'metronomeDefault'),
         window.appBridge.getSetting('practice', 'breakReminderMinutes'),
         window.appBridge.getSetting('input', 'midiDeviceId'),
         window.appBridge.getSetting('audio', 'customSamplePackPath'),
@@ -357,6 +361,7 @@ export function App() {
       }
 
       setWaitModeDefault(rawWaitMode === 'true');
+      setMetronomeDefault(rawMetronomeDefault === 'true');
 
       const parsedBreak = Number(rawBreakReminder);
       if (Number.isFinite(parsedBreak) && parsedBreak > 0) {
@@ -535,6 +540,8 @@ export function App() {
     if (category === 'gameplay') {
       if (key === 'waitModeDefault') {
         setWaitModeDefault(value === 'true');
+      } else if (key === 'metronomeDefault') {
+        setMetronomeDefault(value === 'true');
       } else if (key === 'hitWindowMs') {
         const parsed = Number(value);
         if (Number.isFinite(parsed) && parsed > 0) {
@@ -655,7 +662,7 @@ export function App() {
       lessonId,
       stepIndex,
       parsedSong: buildLessonDrill(step.title, step.drill),
-      sessionConfig: buildSessionConfig('learning', true, latencyCompMs, hitWindowMs, beatsVisible, {
+      sessionConfig: buildSessionConfig('learning', true, false, latencyCompMs, hitWindowMs, beatsVisible, {
         handSize,
         tempoMultiplier: step.tempoMultiplier ?? 1,
         handFilter: step.handFilter ?? 'both',
@@ -672,7 +679,7 @@ export function App() {
     setCurrentScreen({
       screen: 'game',
       song,
-      sessionConfig: buildSessionConfig(mode, waitModeDefault, latencyCompMs, hitWindowMs, beatsVisible, {
+      sessionConfig: buildSessionConfig(mode, waitModeDefault, metronomeDefault, latencyCompMs, hitWindowMs, beatsVisible, {
         loopRange,
         handSize,
       }),

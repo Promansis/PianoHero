@@ -41,6 +41,7 @@ const DEFAULT_SETTINGS: SettingsValues = {
   'visual.rightHandColor': '',
   'fingering.displayMode': 'learning-only',
   'gameplay.waitModeDefault': 'false',
+  'gameplay.metronomeDefault': 'false',
   'gameplay.hitWindowMs': '100',
   'practice.postureReminderMinutes': '20',
   'input.midiDeviceId': '',
@@ -67,6 +68,7 @@ export function SettingsScreen({
   const [isSaving, setIsSaving] = useState(false);
   const [isResettingProgress, setIsResettingProgress] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const [confirmReset, setConfirmReset] = useState<'data' | 'progress' | null>(null);
   const [statusMessage, setStatusMessage] = useState('Loading saved settings.');
   const [samplePackPath, setSamplePackPath] = useState<string | null>(null);
   const [samplePackFileCount, setSamplePackFileCount] = useState(0);
@@ -156,13 +158,6 @@ export function SettingsScreen({
       return;
     }
 
-    const confirmed = window.confirm(
-      'Reset all user data? This clears songs, results, playlists, folders, settings, achievements, and imported MIDI copies.',
-    );
-    if (!confirmed) {
-      return;
-    }
-
     setIsResetting(true);
     setStatusMessage('Resetting user data...');
 
@@ -178,13 +173,6 @@ export function SettingsScreen({
 
   const resetLearningProgress = async () => {
     if (!window.appBridge) {
-      return;
-    }
-
-    const confirmed = window.confirm(
-      'Reset learning progress? This keeps your songs, folders, playlists, and settings, but clears play history, achievements, trouble spots, theory sessions, and practice time.',
-    );
-    if (!confirmed) {
       return;
     }
 
@@ -457,6 +445,18 @@ export function SettingsScreen({
                   <option value="false">Off</option>
                   <option value="true">On</option>
                 </select>
+                <em>When on, notes won't scroll until you play them</em>
+              </label>
+              <label>
+                <span>Metronome Default</span>
+                <select
+                  value={values['gameplay.metronomeDefault']}
+                  onChange={(event) => void persistSetting('gameplay', 'metronomeDefault', event.target.value)}
+                >
+                  <option value="false">Off</option>
+                  <option value="true">On</option>
+                </select>
+                <em>Start each song session with the metronome enabled</em>
               </label>
               <label>
                 <span>Timing Window</span>
@@ -564,16 +564,36 @@ export function SettingsScreen({
               <article className="settings-note-card settings-danger-card">
                 <span>Reset Learning Progress</span>
                 <strong>Keeps your library, playlists, folders, and settings, but clears achievements and practice history.</strong>
-                <button className="danger-button" disabled={isResettingProgress} onClick={() => void resetLearningProgress()}>
-                  {isResettingProgress ? 'Resetting...' : 'Reset Learning Progress'}
-                </button>
+                {confirmReset === 'progress' ? (
+                  <div className="settings-confirm-row">
+                    <span>Are you sure? This cannot be undone.</span>
+                    <button className="danger-button" disabled={isResettingProgress} onClick={() => { setConfirmReset(null); void resetLearningProgress(); }}>
+                      {isResettingProgress ? 'Resetting...' : 'Yes, Reset Progress'}
+                    </button>
+                    <button className="secondary-button" onClick={() => setConfirmReset(null)}>Cancel</button>
+                  </div>
+                ) : (
+                  <button className="danger-button" disabled={isResettingProgress} onClick={() => setConfirmReset('progress')}>
+                    Reset Learning Progress
+                  </button>
+                )}
               </article>
               <article className="settings-note-card settings-danger-card">
                 <span>Reset User Data</span>
                 <strong>Clears songs, playlists, folders, results, achievements, and saved settings.</strong>
-                <button className="danger-button" disabled={isResetting} onClick={() => void resetUserData()}>
-                  {isResetting ? 'Resetting...' : 'Reset User Data'}
-                </button>
+                {confirmReset === 'data' ? (
+                  <div className="settings-confirm-row">
+                    <span>Are you sure? All your songs and history will be permanently deleted.</span>
+                    <button className="danger-button" disabled={isResetting} onClick={() => { setConfirmReset(null); void resetUserData(); }}>
+                      {isResetting ? 'Resetting...' : 'Yes, Delete Everything'}
+                    </button>
+                    <button className="secondary-button" onClick={() => setConfirmReset(null)}>Cancel</button>
+                  </div>
+                ) : (
+                  <button className="danger-button" disabled={isResetting} onClick={() => setConfirmReset('data')}>
+                    Reset User Data
+                  </button>
+                )}
               </article>
             </div>
           )}
