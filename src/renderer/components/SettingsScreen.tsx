@@ -43,6 +43,7 @@ const DEFAULT_SETTINGS: SettingsValues = {
   'gameplay.waitModeDefault': 'false',
   'gameplay.metronomeDefault': 'false',
   'gameplay.hitWindowMs': '100',
+  'gameplay.leadInBeats': '2',
   'practice.postureReminderMinutes': '20',
   'input.midiDeviceId': '',
   'practice.dailyGoalMinutes': '20',
@@ -468,6 +469,18 @@ export function SettingsScreen({
                   <option value="100">Standard (100 ms)</option>
                   <option value="150">Relaxed (150 ms)</option>
                   <option value="200">Forgiving (200 ms)</option>
+                </select>
+              </label>
+              <label>
+                <span>Lead-in Beats</span>
+                <select
+                  value={values['gameplay.leadInBeats'] ?? '2'}
+                  onChange={(event) => void persistSetting('gameplay', 'leadInBeats', event.target.value)}
+                >
+                  <option value="0">None</option>
+                  <option value="1">1 beat</option>
+                  <option value="2">2 beats</option>
+                  <option value="4">4 beats</option>
                 </select>
               </label>
             </div>

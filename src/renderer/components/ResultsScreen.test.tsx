@@ -66,6 +66,7 @@ describe('ResultsScreen', () => {
           latencyCompMs: 0,
           hitWindowMs: 100,
           beatsVisible: 8,
+          leadInBeats: 2,
         }}
         baselineStats={null}
         onRetry={vi.fn()}
@@ -128,6 +129,7 @@ describe('ResultsScreen', () => {
           latencyCompMs: 0,
           hitWindowMs: 100,
           beatsVisible: 8,
+          leadInBeats: 2,
         }}
         baselineStats={null}
         onRetry={vi.fn()}

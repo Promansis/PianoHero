@@ -781,6 +781,13 @@ export function GameScreen({
       await new Promise<void>((resolve) => setTimeout(resolve, 1000));
     }
 
+    const leadInBeats = sessionConfig.leadInBeats ?? 0;
+    for (let beat = 0; beat < leadInBeats; beat += 1) {
+      if (countdownCancelRef.current) { setCountdownValue(null); return; }
+      void audioEngine.playMetronomeClick(false);
+      await new Promise<void>((resolve) => setTimeout(resolve, 1000));
+    }
+
     if (countdownCancelRef.current) { setCountdownValue(null); return; }
     setCountdownValue(null);
 

@@ -23,6 +23,7 @@ export interface SessionConfig {
   latencyCompMs: number;
   hitWindowMs: number;
   beatsVisible: number;
+  leadInBeats: number;
 }
 
 export interface ParsedTrack {

@@ -53,6 +53,7 @@ const DEFAULT_SESSION: SessionConfig = {
   latencyCompMs: 0,
   hitWindowMs: 100,
   beatsVisible: 8,
+  leadInBeats: 2,
 };
 
 describe('GameSession', () => {

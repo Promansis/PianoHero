@@ -97,6 +97,7 @@ function buildSessionConfig(
   latencyCompMs: number,
   hitWindowMs: number,
   beatsVisible: number,
+  leadInBeats: number,
   overrides: Partial<SessionConfig> = {},
 ): SessionConfig {
   return {
@@ -111,6 +112,7 @@ function buildSessionConfig(
     latencyCompMs,
     hitWindowMs,
     beatsVisible,
+    leadInBeats,
     ...overrides,
   };
 }
@@ -201,6 +203,7 @@ export function App() {
   const [metronomeDefault, setMetronomeDefault] = useState(false);
   const [hitWindowMs, setHitWindowMs] = useState(100);
   const [beatsVisible, setBeatsVisible] = useState(8);
+  const [leadInBeats, setLeadInBeats] = useState(2);
   const [postureReminderMinutes, setPostureReminderMinutes] = useState<number | null>(null);
   const [breakReminderMinutes, setBreakReminderMinutes] = useState<number | null>(null);
   const [learningProgress, setLearningProgress] = useState<LearningProgress>(EMPTY_LEARNING_PROGRESS);
@@ -308,6 +311,7 @@ export function App() {
         rawLeftHandColor,
         rawRightHandColor,
         rawMetronomeSound,
+        rawLeadInBeats,
       ] = await Promise.all([
         window.appBridge.getSetting('onboarding', 'setupComplete'),
         window.appBridge.getSetting('practice', 'postureReminderMinutes'),
@@ -333,6 +337,7 @@ export function App() {
         window.appBridge.getSetting('visual', 'leftHandColor'),
         window.appBridge.getSetting('visual', 'rightHandColor'),
         window.appBridge.getSetting('audio', 'metronomeSound'),
+        window.appBridge.getSetting('gameplay', 'leadInBeats'),
       ]);
 
       if (reminder) {
@@ -430,6 +435,11 @@ export function App() {
       const parsedBeatsVisible = Number(rawBeatsVisible);
       if (Number.isFinite(parsedBeatsVisible) && parsedBeatsVisible > 0) {
         setBeatsVisible(parsedBeatsVisible);
+      }
+
+      const parsedLeadIn = Number(rawLeadInBeats);
+      if (Number.isFinite(parsedLeadIn) && parsedLeadIn >= 0) {
+        setLeadInBeats(Math.round(parsedLeadIn));
       }
 
       if (rawLeftHandColor) {
@@ -553,6 +563,11 @@ export function App() {
         if (Number.isFinite(parsed) && parsed > 0) {
           setHitWindowMs(parsed);
         }
+      } else if (key === 'leadInBeats') {
+        const parsed = Number(value);
+        if (Number.isFinite(parsed) && parsed >= 0) {
+          setLeadInBeats(Math.round(parsed));
+        }
       }
       return;
     }
@@ -673,7 +688,7 @@ export function App() {
       lessonId,
       stepIndex,
       parsedSong: buildLessonDrill(step.title, step.drill),
-      sessionConfig: buildSessionConfig('learning', true, false, latencyCompMs, hitWindowMs, beatsVisible, {
+      sessionConfig: buildSessionConfig('learning', true, false, latencyCompMs, hitWindowMs, beatsVisible, leadInBeats, {
         handSize,
         tempoMultiplier: step.tempoMultiplier ?? 1,
         handFilter: step.handFilter ?? 'both',
@@ -693,7 +708,7 @@ export function App() {
         screen: 'capstone',
         tierId,
         parsedSong,
-        sessionConfig: buildSessionConfig('learning', false, metronomeDefault, latencyCompMs, hitWindowMs, beatsVisible, {
+        sessionConfig: buildSessionConfig('learning', false, metronomeDefault, latencyCompMs, hitWindowMs, beatsVisible, leadInBeats, {
           handSize,
           tempoMultiplier: capstone.tempoPercent / 100,
           handFilter: capstone.handFilter,
@@ -713,7 +728,7 @@ export function App() {
     setCurrentScreen({
       screen: 'game',
       song,
-      sessionConfig: buildSessionConfig(mode, waitModeDefault, metronomeDefault, latencyCompMs, hitWindowMs, beatsVisible, {
+      sessionConfig: buildSessionConfig(mode, waitModeDefault, metronomeDefault, latencyCompMs, hitWindowMs, beatsVisible, leadInBeats, {
         loopRange,
         handSize,
       }),
