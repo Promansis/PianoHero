@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SettingsScreen } from './SettingsScreen';
 
@@ -19,6 +19,7 @@ describe('SettingsScreen', () => {
   });
 
   afterEach(() => {
+    cleanup();
     localStorage.clear();
     vi.restoreAllMocks();
     resetLearningProgress.mockClear();
@@ -85,6 +86,44 @@ describe('SettingsScreen', () => {
     await waitFor(() => {
       expect(resetLearningProgress).toHaveBeenCalledOnce();
       expect(onLearningProgressReset).toHaveBeenCalledOnce();
+    });
+  });
+
+  it('persists per-instrument reverb overrides when the Music Theorist reward is unlocked', async () => {
+    const onSettingChange = vi.fn();
+    const appBridge = window.appBridge!;
+    appBridge.getSetting = vi.fn(async (category: string, key: string) => {
+      if (category === 'audio' && key === 'instrumentId') {
+        return 'acoustic-piano';
+      }
+      return null;
+    }) as typeof appBridge.getSetting;
+
+    render(
+      <SettingsScreen
+        audioEngine={{ playMetronomeClick: vi.fn().mockResolvedValue(undefined), prepareForPlayback: vi.fn().mockResolvedValue(undefined) } as unknown as import('../../lib/audio/audioEngine').AudioEngine}
+        inputMode="both"
+        midiDevices={[]}
+        midiError={false}
+        pitchBendEnabled
+        unlockedRewardIds={new Set(['audio:reverb-customization'])}
+        onLearningProgressReset={onLearningProgressReset}
+        onSettingChange={onSettingChange}
+        onInputModeChange={vi.fn()}
+        onRetryMidi={vi.fn()}
+        onUserDataReset={onUserDataReset}
+        onOpenKeyboardSetup={vi.fn()}
+      />,
+    );
+
+    fireEvent.change(await screen.findByLabelText('Acoustic Piano Reverb'), { target: { value: 'hall' } });
+
+    await waitFor(() => {
+      expect(onSettingChange).toHaveBeenCalledWith(
+        'audio',
+        'instrumentReverbPresets',
+        JSON.stringify({ 'acoustic-piano': 'hall' }),
+      );
     });
   });
 });

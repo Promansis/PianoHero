@@ -17,6 +17,8 @@ export interface InstrumentDefinition {
   sampleUrls?: Record<string, string>;
   reverbPreset?: InstrumentReverbPreset;
   requiredRewardId?: string;
+  selectable?: boolean;
+  availabilityNote?: string;
 }
 
 const SALAMANDER_SAMPLE_MAP = {
@@ -83,6 +85,20 @@ const PHILHARMONIA_FRENCH_HORN_SAMPLE_MAP = {
   C4: 'french-horn_C4_15_piano_normal.mp3',
   A4: 'french-horn_A4_15_piano_normal.mp3',
   C5: 'french-horn_C5_15_piano_normal.mp3',
+} as const;
+
+const PHILHARMONIA_CELLO_SAMPLE_MAP = {
+  C2: 'cello_C2_1_forte_arco-normal.mp3',
+  G2: 'cello_G2_1_piano_arco-normal.mp3',
+  C3: 'cello_C3_1_piano_arco-normal.mp3',
+  G3: 'cello_G3_1_piano_arco-normal.mp3',
+} as const;
+
+const PHILHARMONIA_STRING_ENSEMBLE_SAMPLE_MAP = {
+  C3: 'string-ensemble_C3_1_piano_arco-normal.mp3',
+  G3: 'string-ensemble_G3_1_piano_arco-normal.mp3',
+  C4: 'string-ensemble_C4_1_piano_arco-normal.mp3',
+  G4: 'string-ensemble_G4_1_piano_arco-normal.mp3',
 } as const;
 
 // nbrosowsky/tonejs-instruments (MIT) — downloaded by scripts/download-samples.mjs
@@ -261,6 +277,34 @@ export const INSTRUMENTS: InstrumentDefinition[] = [
     reverbPreset: 'hall',
   },
   {
+    id: 'cello',
+    label: 'Cello',
+    description: 'Reserved for Philharmonia cello samples once the private-use assets are added locally.',
+    voice: 'sampler',
+    options: {
+      release: 1.6,
+    },
+    sampleBaseUrl: '/samples/philharmonia/cello/',
+    sampleUrls: PHILHARMONIA_CELLO_SAMPLE_MAP,
+    reverbPreset: 'hall',
+    selectable: false,
+    availabilityNote: 'Sample assets are not installed yet. Add the Philharmonia cello pack to enable this instrument.',
+  },
+  {
+    id: 'string-ensemble',
+    label: 'String Ensemble',
+    description: 'Reserved for Philharmonia string ensemble samples once the private-use assets are added locally.',
+    voice: 'sampler',
+    options: {
+      release: 1.9,
+    },
+    sampleBaseUrl: '/samples/philharmonia/string-ensemble/',
+    sampleUrls: PHILHARMONIA_STRING_ENSEMBLE_SAMPLE_MAP,
+    reverbPreset: 'hall',
+    selectable: false,
+    availabilityNote: 'Sample assets are not installed yet. Add the Philharmonia string ensemble pack to enable this instrument.',
+  },
+  {
     id: 'marimba',
     label: 'Marimba',
     description: 'Sampled harp, giving a resonant plucked character with natural decay.',
@@ -397,26 +441,14 @@ export const INSTRUMENTS: InstrumentDefinition[] = [
   {
     id: 'honky-tonk',
     label: 'Honky-Tonk',
-    description: 'Detuned twin-oscillator piano sound with an old saloon character.',
-    voice: 'am',
+    description: 'Salamander piano samples voiced for a brighter saloon character, with a synth fallback if samples fail.',
+    voice: 'sampler',
     requiredRewardId: 'instrument:honky-tonk',
     options: {
-      harmonicity: 1.008,
-      oscillator: { type: 'triangle' },
-      envelope: {
-        attack: 0.002,
-        decay: 0.4,
-        sustain: 0.15,
-        release: 0.9,
-      },
-      modulation: { type: 'triangle' },
-      modulationEnvelope: {
-        attack: 0.001,
-        decay: 0.2,
-        sustain: 0.05,
-        release: 0.4,
-      },
+      release: 0.95,
     },
+    sampleBaseUrl: '/samples/salamander/',
+    sampleUrls: SALAMANDER_SAMPLE_MAP,
     reverbPreset: 'short',
   },
   {
@@ -454,4 +486,33 @@ export function getInstrumentDefinition(instrumentId: string): InstrumentDefinit
 
 export function isInstrumentId(value: string | null | undefined): value is string {
   return typeof value === 'string' && INSTRUMENTS.some((instrument) => instrument.id === value);
+}
+
+export function isInstrumentSelectable(instrumentId: string): boolean {
+  return getInstrumentDefinition(instrumentId).selectable !== false;
+}
+
+export function getInstrumentEffectiveReverbPreset(
+  instrumentId: string,
+  customPresets: Record<string, InstrumentReverbPreset> = {},
+): InstrumentReverbPreset {
+  const instrument = getInstrumentDefinition(instrumentId);
+  return customPresets[instrument.id] ?? instrument.reverbPreset ?? 'medium';
+}
+
+export function getInstrumentSustainReleaseTailSec(instrumentId: string): number {
+  const instrument = getInstrumentDefinition(instrumentId);
+  const instrumentOptions = instrument.options as {
+    envelope?: { release?: number };
+    release?: number;
+  };
+  const envelopeRelease = instrumentOptions.envelope?.release;
+  const samplerRelease = instrumentOptions.release;
+  const releaseSec =
+    typeof envelopeRelease === 'number'
+      ? envelopeRelease
+      : typeof samplerRelease === 'number'
+        ? samplerRelease
+        : 0.14;
+  return Math.max(0.05, releaseSec);
 }

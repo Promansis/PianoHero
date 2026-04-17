@@ -3,9 +3,13 @@ import { buildScheduledNotes } from '../game/songUtils';
 import type { ParsedSong } from '../game/types';
 import {
   DEFAULT_INSTRUMENT_ID,
+  getInstrumentEffectiveReverbPreset,
   getInstrumentDefinition,
+  getInstrumentSustainReleaseTailSec,
+  isInstrumentSelectable,
   REVERB_PRESETS,
   type InstrumentDefinition,
+  type InstrumentReverbPreset,
   type InstrumentVoice,
 } from './instrumentCatalog';
 import { audioBufferToWav } from './wavEncoder';
@@ -13,7 +17,6 @@ import { audioBufferToWav } from './wavEncoder';
 type ToneModule = typeof import('tone');
 
 let toneModulePromise: Promise<ToneModule> | null = null;
-const SUSTAIN_RELEASE_TAIL_SEC = 0.14;
 
 async function loadTone(): Promise<ToneModule> {
   toneModulePromise ??= import('tone');
@@ -101,6 +104,7 @@ export class AudioEngine {
   private instrumentId = DEFAULT_INSTRUMENT_ID;
   private customSamplerUrls: Record<string, string> | null = null;
   private customSamplerBaseUrl: string | null = null;
+  private instrumentReverbPresetOverride: InstrumentReverbPreset | null = null;
   private masterVolumePercent = 80;
   private metronomeVolumePercent = 65;
   private reverbPercent = 20;
@@ -187,9 +191,10 @@ export class AudioEngine {
   setSustain(isDown: boolean): void {
     this.sustainDown = isDown;
     if (!isDown) {
+      const releaseTailSec = getInstrumentSustainReleaseTailSec(this.instrumentId);
       for (const noteName of [...this.sustainedNotes]) {
         if (!this.heldNotes.has(noteName)) {
-          this.releaseNote(noteName, SUSTAIN_RELEASE_TAIL_SEC);
+          this.releaseNote(noteName, releaseTailSec);
         }
       }
       this.sustainedNotes.clear();
@@ -306,13 +311,19 @@ export class AudioEngine {
   }
 
   async setInstrument(instrumentId: string): Promise<void> {
-    const definition = getInstrumentDefinition(instrumentId);
+    const safeInstrumentId = isInstrumentSelectable(instrumentId) ? instrumentId : DEFAULT_INSTRUMENT_ID;
+    const definition = getInstrumentDefinition(safeInstrumentId);
     this.instrumentId = definition.id;
     if (!this.initialized) {
       return;
     }
 
     await this.rebuildInstrument(definition);
+  }
+
+  setInstrumentReverbPreset(preset: InstrumentReverbPreset): void {
+    this.instrumentReverbPresetOverride = preset;
+    this.applyInstrumentReverbPreset();
   }
 
   setMasterVolume(value: number): void {
@@ -520,11 +531,7 @@ export class AudioEngine {
     this.synth?.dispose();
     this.synth = null;
     await this.loadInstrument(definition);
-    if (this.instrumentReverbNode && definition.reverbPreset) {
-      const preset = REVERB_PRESETS[definition.reverbPreset];
-      this.instrumentReverbNode.roomSize.value = preset.roomSize;
-      this.instrumentReverbNode.dampening = preset.dampening;
-    }
+    this.applyInstrumentReverbPreset();
   }
 
   private async prepareAudioGraph(): Promise<void> {
@@ -544,11 +551,7 @@ export class AudioEngine {
     console.log('[AudioEngine] Loading instrument...');
     const initialDef = getInstrumentDefinition(this.instrumentId);
     await this.loadInstrument(initialDef);
-    if (this.instrumentReverbNode && initialDef.reverbPreset) {
-      const preset = REVERB_PRESETS[initialDef.reverbPreset];
-      this.instrumentReverbNode.roomSize.value = preset.roomSize;
-      this.instrumentReverbNode.dampening = preset.dampening;
-    }
+    this.applyInstrumentReverbPreset();
     this.metronomeSynth = new tone.Synth({
       oscillator: { type: 'square' },
       envelope: {
@@ -608,6 +611,20 @@ export class AudioEngine {
     return new tone.PolySynth(resolveVoiceConstructor(tone, definition.voice), definition.options as never).connect(
       this.instrumentOutputNode,
     );
+  }
+
+  private applyInstrumentReverbPreset(): void {
+    if (!this.instrumentReverbNode) {
+      return;
+    }
+
+    const presetId = getInstrumentEffectiveReverbPreset(
+      this.instrumentId,
+      this.instrumentReverbPresetOverride ? { [this.instrumentId]: this.instrumentReverbPresetOverride } : {},
+    );
+    const preset = REVERB_PRESETS[presetId];
+    this.instrumentReverbNode.roomSize.value = preset.roomSize;
+    this.instrumentReverbNode.dampening = preset.dampening;
   }
 
   private async getOrCreateOneShotPlayer(src: string): Promise<Tone.Player> {

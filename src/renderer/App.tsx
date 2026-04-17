@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { AudioEngine } from '../lib/audio/audioEngine';
-import { DEFAULT_INSTRUMENT_ID, DEFAULT_WEB_INSTRUMENT_ID, isInstrumentId } from '../lib/audio/instrumentCatalog';
+import {
+  DEFAULT_INSTRUMENT_ID,
+  DEFAULT_WEB_INSTRUMENT_ID,
+  getInstrumentEffectiveReverbPreset,
+  isInstrumentId,
+  isInstrumentSelectable,
+  type InstrumentReverbPreset,
+} from '../lib/audio/instrumentCatalog';
 import { getUnlockedRewardIds } from '../lib/rewards/rewardCatalog';
 import { CURRICULUM, getLessonById, getTierByLessonId } from '../lib/learning/curriculum';
 import { buildLessonDrill, buildRhythmClappingDrill } from '../lib/learning/drillGenerator';
@@ -124,6 +131,25 @@ function buildSessionConfig(
 function parseStoredAudioNumber(value: string | null, fallback: number): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function parseInstrumentReverbPresetMap(
+  value: string | null,
+): Record<string, InstrumentReverbPreset> {
+  if (!value) {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(value) as Record<string, unknown>;
+    return Object.fromEntries(
+      Object.entries(parsed).filter((entry): entry is [string, InstrumentReverbPreset] =>
+        entry[1] === 'short' || entry[1] === 'medium' || entry[1] === 'hall',
+      ),
+    );
+  } catch {
+    return {};
+  }
 }
 
 const DEFAULT_THEME = 'dark';
@@ -280,6 +306,8 @@ export function App() {
   const [hitWindowMs, setHitWindowMs] = useState(100);
   const [beatsVisible, setBeatsVisible] = useState(8);
   const [leadInBeats, setLeadInBeats] = useState(2);
+  const [instrumentId, setInstrumentId] = useState(DEFAULT_INSTRUMENT_ID);
+  const [instrumentReverbPresets, setInstrumentReverbPresets] = useState<Record<string, InstrumentReverbPreset>>({});
   const [postureReminderMinutes, setPostureReminderMinutes] = useState<number | null>(null);
   const [breakReminderMinutes, setBreakReminderMinutes] = useState<number | null>(null);
   const [learningProgress, setLearningProgress] = useState<LearningProgress>(EMPTY_LEARNING_PROGRESS);
@@ -391,6 +419,7 @@ export function App() {
         rawLeadInBeats,
         rawNoteLabelSize,
         rawPitchBendEnabled,
+        rawInstrumentReverbPresets,
       ] = await Promise.all([
         window.appBridge.getSetting('onboarding', 'setupComplete'),
         window.appBridge.getSetting('practice', 'postureReminderMinutes'),
@@ -420,6 +449,7 @@ export function App() {
         window.appBridge.getSetting('gameplay', 'leadInBeats'),
         window.appBridge.getSetting('visual', 'noteLabelSize'),
         window.appBridge.getSetting('audio', 'pitchBendEnabled'),
+        window.appBridge.getSetting('audio', 'instrumentReverbPresets'),
       ]);
 
       if (reminder) {
@@ -493,11 +523,20 @@ export function App() {
       }
 
       const defaultInstrumentId = IS_WEB ? DEFAULT_WEB_INSTRUMENT_ID : DEFAULT_INSTRUMENT_ID;
-      const initialInstrumentId = isInstrumentId(rawInstrumentId) ? rawInstrumentId : defaultInstrumentId;
+      const initialInstrumentId =
+        isInstrumentId(rawInstrumentId) && isInstrumentSelectable(rawInstrumentId)
+          ? rawInstrumentId
+          : defaultInstrumentId;
+      const nextInstrumentReverbPresets = parseInstrumentReverbPresetMap(rawInstrumentReverbPresets);
+      setInstrumentId(initialInstrumentId);
+      setInstrumentReverbPresets(nextInstrumentReverbPresets);
       audioEngineRef.current.setMasterVolume(parseStoredAudioNumber(rawMasterVolume, 80));
       audioEngineRef.current.setMetronomeVolume(parseStoredAudioNumber(rawMetronomeVolume, 65));
       audioEngineRef.current.setReverbLevel(parseStoredAudioNumber(rawReverbLevel, 20));
       void audioEngineRef.current.setInstrument(initialInstrumentId);
+      audioEngineRef.current.setInstrumentReverbPreset(
+        getInstrumentEffectiveReverbPreset(initialInstrumentId, nextInstrumentReverbPresets),
+      );
 
       if (!IS_WEB && rawCustomSamplePath) {
         void (async () => {
@@ -598,7 +637,21 @@ export function App() {
         return;
       }
       if (key === 'instrumentId') {
-        void audioEngineRef.current.setInstrument(isInstrumentId(value) ? value : DEFAULT_INSTRUMENT_ID);
+        const nextInstrumentId =
+          isInstrumentId(value) && isInstrumentSelectable(value) ? value : DEFAULT_INSTRUMENT_ID;
+        setInstrumentId(nextInstrumentId);
+        void audioEngineRef.current.setInstrument(nextInstrumentId);
+        audioEngineRef.current.setInstrumentReverbPreset(
+          getInstrumentEffectiveReverbPreset(nextInstrumentId, instrumentReverbPresets),
+        );
+        return;
+      }
+      if (key === 'instrumentReverbPresets') {
+        const nextPresets = parseInstrumentReverbPresetMap(value);
+        setInstrumentReverbPresets(nextPresets);
+        audioEngineRef.current.setInstrumentReverbPreset(
+          getInstrumentEffectiveReverbPreset(instrumentId, nextPresets),
+        );
         return;
       }
       if (key === 'customSamplePackPath') {
@@ -722,6 +775,8 @@ export function App() {
     setHitWindowMs(100);
     setBeatsVisible(8);
     setLeadInBeats(2);
+    setInstrumentId(defaultInstrumentId);
+    setInstrumentReverbPresets({});
     setPostureReminderMinutes(null);
     setBreakReminderMinutes(null);
     setHandSize('medium');
@@ -735,6 +790,7 @@ export function App() {
     audioEngineRef.current.setReverbLevel(20);
     audioEngineRef.current.setMetronomeSound('classic');
     void audioEngineRef.current.setInstrument(defaultInstrumentId);
+    audioEngineRef.current.setInstrumentReverbPreset(getInstrumentEffectiveReverbPreset(defaultInstrumentId));
     midiServiceRef.current?.setDeviceFilter(null);
     setInputMode('both');
     keyboardServiceRef.current.setMapping(parseKeyboardMapping(null));

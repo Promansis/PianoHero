@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_INSTRUMENT_ID, getInstrumentDefinition, INSTRUMENTS, isInstrumentId } from './instrumentCatalog';
+import {
+  DEFAULT_INSTRUMENT_ID,
+  getInstrumentDefinition,
+  getInstrumentSustainReleaseTailSec,
+  INSTRUMENTS,
+  isInstrumentId,
+  isInstrumentSelectable,
+} from './instrumentCatalog';
 
 describe('instrumentCatalog', () => {
   it('returns the default instrument when the id is unknown', () => {
@@ -22,5 +29,17 @@ describe('instrumentCatalog', () => {
       'A#3': 'trumpet_As3_long_piano_normal.mp3',
       A4: 'trumpet_A4_long_piano_normal.mp3',
     });
+  });
+
+  it('exposes placeholder orchestral entries without enabling synth fallback selection', () => {
+    expect(isInstrumentSelectable('cello')).toBe(false);
+    expect(isInstrumentSelectable('string-ensemble')).toBe(false);
+    expect(getInstrumentDefinition('cello').availabilityNote).toMatch(/Sample assets are not installed yet/i);
+  });
+
+  it('uses sampled piano content for honky-tonk and derives sustain tails per instrument', () => {
+    expect(getInstrumentDefinition('honky-tonk').voice).toBe('sampler');
+    expect(getInstrumentDefinition('honky-tonk').sampleBaseUrl).toBe('/samples/salamander/');
+    expect(getInstrumentSustainReleaseTailSec('warm-pad')).toBeGreaterThan(getInstrumentSustainReleaseTailSec('acoustic-piano'));
   });
 });

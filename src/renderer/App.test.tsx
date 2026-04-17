@@ -5,6 +5,7 @@ import { App } from './App';
 const preloadSpy = vi.fn(() => Promise.resolve());
 const unlockSpy = vi.fn(() => Promise.resolve());
 const prepareForPlaybackSpy = vi.fn(() => Promise.resolve());
+const setInstrumentReverbPresetSpy = vi.fn();
 
 vi.mock('./components/AchievementToast', () => ({
   AchievementToast: () => null,
@@ -126,6 +127,7 @@ vi.mock('../lib/audio/audioEngine', () => ({
     setInstrument() {
       return Promise.resolve();
     }
+    setInstrumentReverbPreset = setInstrumentReverbPresetSpy;
     setCustomSampler() {
       return Promise.resolve();
     }
@@ -163,6 +165,7 @@ describe('App', () => {
     preloadSpy.mockClear();
     unlockSpy.mockClear();
     prepareForPlaybackSpy.mockClear();
+    setInstrumentReverbPresetSpy.mockClear();
     window.appBridge = {
       getSetting: vi.fn(async (category: string, key: string) => {
         if (category === 'onboarding' && key === 'setupComplete') {
@@ -170,6 +173,9 @@ describe('App', () => {
         }
         if (category === 'visual' && key === 'theme') {
           return 'light';
+        }
+        if (category === 'audio' && key === 'instrumentReverbPresets') {
+          return JSON.stringify({ 'acoustic-piano': 'hall' });
         }
         return null;
       }),
@@ -236,5 +242,13 @@ describe('App', () => {
     fireEvent.click(screen.getByText('Select Neon'));
 
     expect(document.documentElement.dataset.theme).toBe('neon');
+  });
+
+  it('loads and applies saved per-instrument reverb presets during startup', async () => {
+    render(<App />);
+
+    await screen.findByText('Open Free Play');
+
+    expect(setInstrumentReverbPresetSpy).toHaveBeenCalledWith('hall');
   });
 });

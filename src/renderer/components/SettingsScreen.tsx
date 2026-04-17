@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { DEFAULT_INSTRUMENT_ID, INSTRUMENTS } from '../../lib/audio/instrumentCatalog';
+import {
+  DEFAULT_INSTRUMENT_ID,
+  getInstrumentDefinition,
+  getInstrumentEffectiveReverbPreset,
+  INSTRUMENTS,
+  type InstrumentReverbPreset,
+} from '../../lib/audio/instrumentCatalog';
 import type { AudioEngine } from '../../lib/audio/audioEngine';
 import { isRewardUnlocked, REWARD_CATALOG } from '../../lib/rewards/rewardCatalog';
 import { LatencyWizard } from './LatencyWizard';
@@ -72,6 +78,7 @@ const DEFAULT_SETTINGS: SettingsValues = {
   'audio.latencyCompMs': '0',
   'audio.metronomeSound': 'classic',
   'audio.pitchBendEnabled': 'true',
+  'audio.instrumentReverbPresets': '{}',
   'visual.theme': 'dark',
   'visual.colorBlindMode': 'false',
   'visual.noteLabels': 'alphabetic',
@@ -93,6 +100,23 @@ const DEFAULT_SETTINGS: SettingsValues = {
 
 function getSettingKey(category: string, key: string): string {
   return `${category}.${key}`;
+}
+
+function parseInstrumentReverbPresets(rawValue: string | null | undefined): Record<string, InstrumentReverbPreset> {
+  if (!rawValue) {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(rawValue) as Record<string, unknown>;
+    return Object.fromEntries(
+      Object.entries(parsed).filter((entry): entry is [string, InstrumentReverbPreset] =>
+        entry[1] === 'short' || entry[1] === 'medium' || entry[1] === 'hall',
+      ),
+    );
+  } catch {
+    return {};
+  }
 }
 
 interface ConfirmActionModalProps {
@@ -210,6 +234,13 @@ export function SettingsScreen({
     () => midiDevices.find((device) => device.id === values['input.midiDeviceId'])?.name ?? 'Any connected device',
     [midiDevices, values],
   );
+  const selectedInstrument = getInstrumentDefinition(values['audio.instrumentId']);
+  const instrumentReverbPresets = parseInstrumentReverbPresets(values['audio.instrumentReverbPresets']);
+  const selectedInstrumentReverbPreset = getInstrumentEffectiveReverbPreset(
+    selectedInstrument.id,
+    instrumentReverbPresets,
+  );
+  const reverbCustomizationUnlocked = isRewardUnlocked('audio:reverb-customization', unlockedRewardIds);
 
   const persistSetting = async (category: string, key: string, value: string) => {
     setValues((current) => ({ ...current, [getSettingKey(category, key)]: value }));
@@ -366,9 +397,15 @@ export function SettingsScreen({
                     const locked = instrument.requiredRewardId
                       ? !isRewardUnlocked(instrument.requiredRewardId, unlockedRewardIds)
                       : false;
+                    const unavailable = instrument.selectable === false;
+                    const disabled = locked || unavailable;
                     return (
-                      <option key={instrument.id} value={instrument.id} disabled={locked}>
-                        {locked ? `\uD83D\uDD12 ${instrument.label}` : instrument.label}
+                      <option key={instrument.id} value={instrument.id} disabled={disabled}>
+                        {locked
+                          ? `\uD83D\uDD12 ${instrument.label}`
+                          : unavailable
+                            ? `${instrument.label} (Samples pending)`
+                            : instrument.label}
                       </option>
                     );
                   })}
@@ -423,6 +460,33 @@ export function SettingsScreen({
                 </em>
               </label>
               <label>
+                <span>{selectedInstrument.label} Reverb</span>
+                <select
+                  aria-label={`${selectedInstrument.label} Reverb`}
+                  value={selectedInstrumentReverbPreset}
+                  onChange={(event) => {
+                    const nextPreset = event.target.value as InstrumentReverbPreset;
+                    const nextMap = { ...instrumentReverbPresets };
+                    if (nextPreset === (selectedInstrument.reverbPreset ?? 'medium')) {
+                      delete nextMap[selectedInstrument.id];
+                    } else {
+                      nextMap[selectedInstrument.id] = nextPreset;
+                    }
+                    void persistSetting('audio', 'instrumentReverbPresets', JSON.stringify(nextMap));
+                  }}
+                  disabled={!reverbCustomizationUnlocked}
+                >
+                  <option value="short">Short</option>
+                  <option value="medium">Medium</option>
+                  <option value="hall">Hall</option>
+                </select>
+                <em>
+                  {!reverbCustomizationUnlocked
+                    ? 'Unlock Music Theorist rewards to customize each instrument reverb preset.'
+                    : `Defaults to ${selectedInstrument.reverbPreset ?? 'medium'} unless you override it here.`}
+                </em>
+              </label>
+              <label>
                 <span>Reverb Level</span>
                 <input
                   type="range"
@@ -456,6 +520,9 @@ export function SettingsScreen({
                   {(() => {
                     const instr = INSTRUMENTS.find((i) => i.id === values['audio.instrumentId']);
                     if (!instr) return 'Choose a built-in voice for practice and playback.';
+                    if (instr.selectable === false) {
+                      return instr.availabilityNote ?? instr.description;
+                    }
                     if (instr.requiredRewardId && !isRewardUnlocked(instr.requiredRewardId, unlockedRewardIds)) {
                       const reward = REWARD_CATALOG.find((r) => r.id === instr.requiredRewardId);
                       return reward ? `Locked — ${reward.description}` : 'Locked — earn an achievement to unlock.';
