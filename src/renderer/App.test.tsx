@@ -15,15 +15,18 @@ vi.mock('./components/MainMenuScreen', () => ({
     onOpenFreePlay,
     onOpenLearn,
     onOpenSoundboard,
+    onOpenSettings,
   }: {
     onOpenFreePlay: () => void;
     onOpenLearn: () => void;
     onOpenSoundboard: () => void;
+    onOpenSettings: () => void;
   }) => (
     <>
       <button onClick={onOpenFreePlay}>Open Free Play</button>
       <button onClick={onOpenLearn}>Open Learn</button>
       <button onClick={onOpenSoundboard}>Open Soundboard</button>
+      <button onClick={onOpenSettings}>Open Settings</button>
     </>
   ),
 }));
@@ -81,7 +84,16 @@ vi.mock('./components/ProgressDashboardScreen', () => ({
 }));
 
 vi.mock('./components/SettingsScreen', () => ({
-  SettingsScreen: () => <div>Settings</div>,
+  SettingsScreen: ({
+    onSettingChange,
+  }: {
+    onSettingChange: (category: string, key: string, value: string) => void;
+  }) => (
+    <>
+      <div>Settings</div>
+      <button onClick={() => onSettingChange('visual', 'theme', 'neon')}>Select Neon</button>
+    </>
+  ),
 }));
 
 vi.mock('./components/ScalePracticeScreen', () => ({
@@ -215,5 +227,14 @@ describe('App', () => {
     fireEvent.click(await screen.findByText('Open Soundboard'));
 
     expect(screen.getByText('Mock Soundboard')).toBeInTheDocument();
+  });
+
+  it('applies the neon dataset theme when the settings screen selects it', async () => {
+    render(<App />);
+
+    fireEvent.click(await screen.findByText('Open Settings'));
+    fireEvent.click(screen.getByText('Select Neon'));
+
+    expect(document.documentElement.dataset.theme).toBe('neon');
   });
 });

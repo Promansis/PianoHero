@@ -126,6 +126,24 @@ function parseStoredAudioNumber(value: string | null, fallback: number): number 
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+const DEFAULT_THEME = 'dark';
+const DEFAULT_LEFT_HAND_COLOR = '';
+const DEFAULT_RIGHT_HAND_COLOR = '';
+
+function applyTheme(theme: string): void {
+  document.documentElement.dataset.theme =
+    theme === 'warm' || theme === 'light' || theme === 'dark' || theme === 'neon' ? theme : DEFAULT_THEME;
+}
+
+function applyHandColor(key: 'left' | 'right', value: string): void {
+  const prop = key === 'left' ? '--hand-left-color' : '--hand-right-color';
+  if (value) {
+    document.documentElement.style.setProperty(prop, value);
+  } else {
+    document.documentElement.style.removeProperty(prop);
+  }
+}
+
 // Parses sample filenames into Tone.js note names.
 // Supports Salamander style (Ds1.mp3 -> D#1) and standard style (C#4.mp3 -> C#4).
 function extractNoteName(filename: string): string | null {
@@ -364,8 +382,8 @@ export function App() {
       const theme =
         rawTheme === 'warm' || rawTheme === 'light' || rawTheme === 'dark' || rawTheme === 'neon'
           ? rawTheme
-          : 'dark';
-      document.documentElement.dataset['theme'] = theme;
+          : DEFAULT_THEME;
+      applyTheme(theme);
       if (!rawTheme) {
         void window.appBridge.setSetting('visual', 'theme', theme);
       }
@@ -461,12 +479,8 @@ export function App() {
         setNoteLabelSize(rawNoteLabelSize);
       }
 
-      if (rawLeftHandColor) {
-        document.documentElement.style.setProperty('--hand-left-color', rawLeftHandColor);
-      }
-      if (rawRightHandColor) {
-        document.documentElement.style.setProperty('--hand-right-color', rawRightHandColor);
-      }
+      applyHandColor('left', rawLeftHandColor ?? DEFAULT_LEFT_HAND_COLOR);
+      applyHandColor('right', rawRightHandColor ?? DEFAULT_RIGHT_HAND_COLOR);
 
       if (rawMetronomeSound) {
         audioEngineRef.current.setMetronomeSound(rawMetronomeSound);
@@ -519,6 +533,10 @@ export function App() {
 
   const applySettingChange = (category: string, key: string, value: string) => {
     if (category === 'audio') {
+      if (key === 'metronomeSound') {
+        audioEngineRef.current.setMetronomeSound(value);
+        return;
+      }
       if (key === 'instrumentId') {
         void audioEngineRef.current.setInstrument(isInstrumentId(value) ? value : DEFAULT_INSTRUMENT_ID);
         return;
@@ -566,10 +584,18 @@ export function App() {
 
     if (category === 'visual') {
       if (key === 'theme') {
-        document.documentElement.dataset['theme'] =
-          value === 'warm' || value === 'dark' || value === 'light' || value === 'neon' ? value : 'light';
+        applyTheme(value);
       } else if (key === 'colorBlindMode') {
         setColorBlindMode(value === 'true');
+      } else if (key === 'beatsVisible') {
+        const parsed = Number(value);
+        if (Number.isFinite(parsed) && parsed > 0) {
+          setBeatsVisible(parsed);
+        }
+      } else if (key === 'leftHandColor') {
+        applyHandColor('left', value);
+      } else if (key === 'rightHandColor') {
+        applyHandColor('right', value);
       } else if (key === 'noteLabels' && (value === 'alphabetic' || value === 'symbols' || value === 'both' || value === 'none')) {
         setNoteLabels(value);
       } else if (key === 'keyboardOverlaySize' && (value === 'small' || value === 'medium' || value === 'large')) {
@@ -610,32 +636,50 @@ export function App() {
       return;
     }
 
-    if (category === 'visual' && key === 'beatsVisible') {
-      const parsed = Number(value);
-      if (Number.isFinite(parsed) && parsed > 0) {
-        setBeatsVisible(parsed);
-      }
-      return;
-    }
-
-    if (category === 'visual' && (key === 'leftHandColor' || key === 'rightHandColor')) {
-      const prop = key === 'leftHandColor' ? '--hand-left-color' : '--hand-right-color';
-      if (value) {
-        document.documentElement.style.setProperty(prop, value);
-      } else {
-        document.documentElement.style.removeProperty(prop);
-      }
-      return;
-    }
-
-    if (category === 'audio' && key === 'metronomeSound') {
-      audioEngineRef.current.setMetronomeSound(value);
-      return;
-    }
-
     if (category === 'input' && key === 'midiDeviceId') {
       midiServiceRef.current?.setDeviceFilter(value || null);
     }
+  };
+
+  const resetUiStateToDefaults = () => {
+    const defaultInstrumentId = IS_WEB ? DEFAULT_WEB_INSTRUMENT_ID : DEFAULT_INSTRUMENT_ID;
+    setColorBlindMode(false);
+    setNoteLabels('alphabetic');
+    setNoteLabelSize('medium');
+    setKeyboardOverlaySize('medium');
+    setLatencyCompMs(0);
+    setWaitModeDefault(false);
+    setMetronomeDefault(false);
+    setPitchBendEnabled(true);
+    setHitWindowMs(100);
+    setBeatsVisible(8);
+    setLeadInBeats(2);
+    setPostureReminderMinutes(null);
+    setBreakReminderMinutes(null);
+    setHandSize('medium');
+    setUnlockedRewardIds(new Set());
+    applyTheme(DEFAULT_THEME);
+    applyHandColor('left', DEFAULT_LEFT_HAND_COLOR);
+    applyHandColor('right', DEFAULT_RIGHT_HAND_COLOR);
+    audioEngineRef.current.setMasterVolume(80);
+    audioEngineRef.current.setMetronomeVolume(65);
+    audioEngineRef.current.setReverbLevel(20);
+    audioEngineRef.current.setMetronomeSound('classic');
+    void audioEngineRef.current.setInstrument(defaultInstrumentId);
+    midiServiceRef.current?.setDeviceFilter(null);
+    setInputMode('both');
+    keyboardServiceRef.current.setMapping(parseKeyboardMapping(null));
+  };
+
+  const handleLearningProgressReset = () => {
+    setLearningProgress(EMPTY_LEARNING_PROGRESS);
+    setUnlockedRewardIds(new Set());
+  };
+
+  const handleUserDataReset = () => {
+    resetUiStateToDefaults();
+    setLearningProgress(EMPTY_LEARNING_PROGRESS);
+    setCurrentScreen({ screen: 'main-menu' });
   };
 
   const persistSetupState = async (setupComplete: boolean) => {
@@ -1106,8 +1150,10 @@ export function App() {
           unlockedRewardIds={unlockedRewardIds}
           pitchBendEnabled={pitchBendEnabled}
           onSettingChange={applySettingChange}
+          onLearningProgressReset={handleLearningProgressReset}
           onInputModeChange={persistInputMode}
           onRetryMidi={retryMidiInit}
+          onUserDataReset={handleUserDataReset}
           onOpenKeyboardSetup={() => setCurrentScreen({ screen: 'keyboard-setup', returnTo: 'settings' })}
         />
       );

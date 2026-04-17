@@ -283,4 +283,36 @@ describe('FreePlayScreen', () => {
 
     vi.restoreAllMocks();
   });
+
+  it('ignores pitch-bend events when pitch bend is disabled', async () => {
+    const midiService = new MockMidiInputService();
+    const audioEngine = buildAudioEngineStub();
+
+    render(
+      <FreePlayScreen
+        audioEngine={audioEngine}
+        midiInputService={midiService as unknown as MidiInputService}
+        keyboardInputService={new MockKeyboardInputService() as unknown as ComputerKeyboardInputService}
+        inputMode="both"
+        keyboardOverlaySize="medium"
+        postureReminderMinutes={null}
+        breakReminderMinutes={null}
+        pitchBendEnabled={false}
+        onBackToMainMenu={vi.fn()}
+        onOpenKeyboardSetup={vi.fn()}
+      />,
+    );
+
+    await act(async () => {
+      midiService.emit({
+        type: 'pitchbend',
+        source: 'midi',
+        sourceId: 'controller-1',
+        timestamp: 1100,
+        pitchBendValue: 0.5,
+      });
+    });
+
+    expect(audioEngine.setPitchBend).not.toHaveBeenCalled();
+  });
 });

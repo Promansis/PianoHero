@@ -44,9 +44,11 @@ interface SettingsScreenProps {
   midiError: boolean;
   unlockedRewardIds?: Set<string>;
   pitchBendEnabled: boolean;
+  onLearningProgressReset: () => void;
   onSettingChange: (category: string, key: string, value: string) => void;
   onInputModeChange: (nextMode: InputMode) => void;
   onRetryMidi: () => void;
+  onUserDataReset: () => void;
   onOpenKeyboardSetup: () => void;
 }
 
@@ -93,6 +95,42 @@ function getSettingKey(category: string, key: string): string {
   return `${category}.${key}`;
 }
 
+interface ConfirmActionModalProps {
+  busy: boolean;
+  confirmLabel: string;
+  description: string;
+  title: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+}
+
+function ConfirmActionModal({
+  busy,
+  confirmLabel,
+  description,
+  title,
+  onCancel,
+  onConfirm,
+}: ConfirmActionModalProps) {
+  return (
+    <div className="settings-modal-backdrop" role="presentation">
+      <section className="panel settings-modal" role="dialog" aria-modal="true" aria-label="Confirm reset">
+        <p className="eyebrow">Confirm Reset</p>
+        <h2>{title}</h2>
+        <p className="panel-copy">{description}</p>
+        <div className="settings-modal-actions">
+          <button className="danger-button" disabled={busy} onClick={onConfirm}>
+            {busy ? 'Resetting...' : confirmLabel}
+          </button>
+          <button className="secondary-button" onClick={onCancel}>
+            Cancel
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 export function SettingsScreen({
   audioEngine,
   inputMode,
@@ -100,9 +138,11 @@ export function SettingsScreen({
   midiError,
   unlockedRewardIds = new Set(),
   pitchBendEnabled,
+  onLearningProgressReset,
   onSettingChange,
   onInputModeChange,
   onRetryMidi,
+  onUserDataReset,
   onOpenKeyboardSetup,
 }: SettingsScreenProps) {
   const [activeTab, setActiveTab] = useState<SettingsTab>('audio');
@@ -159,6 +199,13 @@ export function SettingsScreen({
     void load();
   }, [inputMode]);
 
+  useEffect(() => {
+    setValues((current) => ({
+      ...current,
+      [getSettingKey('audio', 'pitchBendEnabled')]: pitchBendEnabled ? 'true' : 'false',
+    }));
+  }, [pitchBendEnabled]);
+
   const selectedMidiDeviceName = useMemo(
     () => midiDevices.find((device) => device.id === values['input.midiDeviceId'])?.name ?? 'Any connected device',
     [midiDevices, values],
@@ -188,6 +235,11 @@ export function SettingsScreen({
     await window.appBridge.setSetting('audio', 'customSamplePackPath', dir);
     onSettingChange('audio', 'customSamplePackPath', dir);
     setStatusMessage(`Sample pack set: ${files.length} audio file(s) found.`);
+    toastBus.push({
+      variant: 'success',
+      title: 'Sample pack updated',
+      message: `Loaded ${files.length} audio file${files.length === 1 ? '' : 's'} from the selected folder.`,
+    });
   };
 
   const clearSamplePack = async () => {
@@ -196,6 +248,11 @@ export function SettingsScreen({
     await window.appBridge?.setSetting('audio', 'customSamplePackPath', '');
     onSettingChange('audio', 'customSamplePackPath', '');
     setStatusMessage('Custom sample pack cleared. Using built-in instruments.');
+    toastBus.push({
+      variant: 'info',
+      title: 'Sample pack cleared',
+      message: 'Built-in instrument sounds are active again.',
+    });
   };
 
   const resetUserData = async () => {
@@ -214,19 +271,21 @@ export function SettingsScreen({
       setSamplePackFileCount(0);
       setResetTarget(null);
       setStatusMessage('User data reset. The app is back to defaults.');
+      onUserDataReset();
       toastBus.push({
         variant: 'success',
         title: 'User data reset',
         message: 'Songs, history, and saved settings were cleared.',
       });
     } catch {
-      setIsResetting(false);
       setStatusMessage('Reset failed. Your data was not fully cleared.');
       toastBus.push({
         variant: 'error',
         title: 'Reset failed',
         message: 'Your data was not fully cleared. Please try again.',
       });
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -242,6 +301,7 @@ export function SettingsScreen({
       await window.appBridge.resetLearningProgress();
       setStatusMessage('Learning progress reset. Your library and settings were kept.');
       setResetTarget(null);
+      onLearningProgressReset();
       toastBus.push({
         variant: 'success',
         title: 'Learning progress reset',
@@ -439,10 +499,15 @@ export function SettingsScreen({
                   <option value="dark">Dark</option>
                   <option value="light">Light</option>
                   <option value="warm">Warm</option>
-                  {isRewardUnlocked('theme:neon', unlockedRewardIds ?? new Set()) && (
-                    <option value="neon">Neon</option>
-                  )}
+                  <option value="neon" disabled={!isRewardUnlocked('theme:neon', unlockedRewardIds)}>
+                    {isRewardUnlocked('theme:neon', unlockedRewardIds) ? 'Neon' : 'Neon (Locked)'}
+                  </option>
                 </select>
+                <em>
+                  {isRewardUnlocked('theme:neon', unlockedRewardIds)
+                    ? 'Switch between the core themes and your unlocked neon reward theme.'
+                    : 'Unlock the Neon theme reward to enable the arcade palette.'}
+                </em>
               </label>
               <label>
                 <span>Color Blind Mode</span>
@@ -665,6 +730,7 @@ export function SettingsScreen({
                   value={values['practice.dailyGoalMinutes']}
                   onChange={(event) => void persistSetting('practice', 'dailyGoalMinutes', event.target.value)}
                 />
+                <em>Set this to 0 to disable the daily-goal tracker.</em>
               </label>
               <label>
                 <span>Posture Reminder (minutes)</span>
@@ -709,38 +775,29 @@ export function SettingsScreen({
           )}
         </section>
       </section>
-      {resetTarget && (
-        <div className="settings-modal-backdrop" role="presentation">
-          <section className="panel settings-modal" role="dialog" aria-modal="true" aria-label="Confirm reset">
-            <p className="eyebrow">Confirm Reset</p>
-            <h2>{resetTarget === 'progress' ? 'Reset learning progress?' : 'Delete all user data?'}</h2>
-            <p className="panel-copy">
-              {resetTarget === 'progress'
-                ? 'This clears lesson progress, achievements, and practice history. Your library and saved settings stay in place.'
-                : 'This removes songs, playlists, folders, results, achievements, and saved settings.'}
-            </p>
-            <div className="settings-modal-actions">
-              <button
-                className="danger-button"
-                disabled={resetTarget === 'progress' ? isResettingProgress : isResetting}
-                onClick={() => {
-                  if (resetTarget === 'progress') {
-                    void resetLearningProgress();
-                  } else {
-                    void resetUserData();
-                  }
-                }}
-              >
-                {resetTarget === 'progress'
-                  ? (isResettingProgress ? 'Resetting...' : 'Yes, Reset Progress')
-                  : (isResetting ? 'Resetting...' : 'Yes, Delete Everything')}
-              </button>
-              <button className="secondary-button" onClick={() => setResetTarget(null)}>
-                Cancel
-              </button>
-            </div>
-          </section>
-        </div>
+      {resetTarget === 'progress' && (
+        <ConfirmActionModal
+          busy={isResettingProgress}
+          confirmLabel="Yes, Reset Progress"
+          description="This clears lesson progress, achievements, and practice history. Your library and saved settings stay in place."
+          title="Reset learning progress?"
+          onCancel={() => setResetTarget(null)}
+          onConfirm={() => {
+            void resetLearningProgress();
+          }}
+        />
+      )}
+      {resetTarget === 'data' && (
+        <ConfirmActionModal
+          busy={isResetting}
+          confirmLabel="Yes, Delete Everything"
+          description="This removes songs, playlists, folders, results, achievements, and saved settings."
+          title="Delete all user data?"
+          onCancel={() => setResetTarget(null)}
+          onConfirm={() => {
+            void resetUserData();
+          }}
+        />
       )}
       {showLatencyWizard && (
         <LatencyWizard

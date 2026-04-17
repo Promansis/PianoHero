@@ -5,6 +5,8 @@ import { SettingsScreen } from './SettingsScreen';
 describe('SettingsScreen', () => {
   const resetUserData = vi.fn().mockResolvedValue(undefined);
   const resetLearningProgress = vi.fn().mockResolvedValue(undefined);
+  const onLearningProgressReset = vi.fn();
+  const onUserDataReset = vi.fn();
 
   beforeEach(() => {
     window.appBridge = {
@@ -21,6 +23,8 @@ describe('SettingsScreen', () => {
     vi.restoreAllMocks();
     resetLearningProgress.mockClear();
     resetUserData.mockClear();
+    onLearningProgressReset.mockClear();
+    onUserDataReset.mockClear();
   });
 
   it('does not reset learning progress when modal confirmation is cancelled', async () => {
@@ -33,9 +37,11 @@ describe('SettingsScreen', () => {
         midiDevices={[]}
         midiError={false}
         pitchBendEnabled
+        onLearningProgressReset={onLearningProgressReset}
         onSettingChange={vi.fn()}
         onInputModeChange={vi.fn()}
         onRetryMidi={vi.fn()}
+        onUserDataReset={onUserDataReset}
         onOpenKeyboardSetup={vi.fn()}
       />,
     );
@@ -63,9 +69,11 @@ describe('SettingsScreen', () => {
         midiDevices={[]}
         midiError={false}
         pitchBendEnabled
+        onLearningProgressReset={onLearningProgressReset}
         onSettingChange={vi.fn()}
         onInputModeChange={vi.fn()}
         onRetryMidi={vi.fn()}
+        onUserDataReset={onUserDataReset}
         onOpenKeyboardSetup={vi.fn()}
       />,
     );
@@ -76,6 +84,7 @@ describe('SettingsScreen', () => {
 
     await waitFor(() => {
       expect(resetLearningProgress).toHaveBeenCalledOnce();
+      expect(onLearningProgressReset).toHaveBeenCalledOnce();
     });
   });
 });

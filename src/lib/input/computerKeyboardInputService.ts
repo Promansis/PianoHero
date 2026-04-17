@@ -39,6 +39,10 @@ export class ComputerKeyboardInputService {
 
   private heldNotesByCode = new Map<string, number>();
 
+  private noteOnTimestampsByCode = new Map<string, number>();
+
+  private recentReleaseByNote = new Map<number, { releasedAt: number; holdDurationMs: number }>();
+
   private octaveShift = 0;
 
   private suspended = false;
@@ -189,10 +193,15 @@ export class ComputerKeyboardInputService {
       return;
     }
 
-    // Shift = accent (forte), default = mezzo-forte with slight random human variation
     const baseVelocity = event.shiftKey ? 0.92 : 0.65;
-    const velocity = Math.min(1, baseVelocity + (Math.random() - 0.5) * 0.10);
+    const recentRelease = this.recentReleaseByNote.get(note);
+    const holdBoost =
+      recentRelease && recentRelease.releasedAt < event.timeStamp
+        ? Math.min(0.08, Math.max(0, recentRelease.holdDurationMs) / 1000 * 0.08)
+        : 0;
+    const velocity = Math.min(1, baseVelocity + holdBoost);
     this.heldNotesByCode.set(event.code, note);
+    this.noteOnTimestampsByCode.set(event.code, event.timeStamp);
     this.emitInput({
       type: 'noteon',
       note,
@@ -228,10 +237,20 @@ export class ComputerKeyboardInputService {
     }
 
     const note = this.heldNotesByCode.get(event.code);
+    const noteOnTimestamp = this.noteOnTimestampsByCode.get(event.code);
     this.heldNotesByCode.delete(event.code);
+    this.noteOnTimestampsByCode.delete(event.code);
     if (note === undefined) {
       return;
     }
+
+    this.recentReleaseByNote.set(note, {
+      releasedAt: event.timeStamp,
+      holdDurationMs:
+        typeof noteOnTimestamp === 'number'
+          ? Math.max(0, event.timeStamp - noteOnTimestamp)
+          : 0,
+    });
 
     this.emitInput({
       type: 'noteoff',
@@ -277,6 +296,7 @@ export class ComputerKeyboardInputService {
     this.heldCodes.clear();
     this.heldActionsByCode.clear();
     this.heldNotesByCode.clear();
+    this.noteOnTimestampsByCode.clear();
 
     for (const note of notesToRelease) {
       this.emitInput({

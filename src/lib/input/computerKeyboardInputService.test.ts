@@ -2,8 +2,24 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { ComputerKeyboardInputService } from './computerKeyboardInputService';
 import { MAX_OCTAVE_SHIFT } from './settings';
 
-function dispatch(type: 'keydown' | 'keyup', code: string, repeat = false): void {
-  window.dispatchEvent(new KeyboardEvent(type, { code, repeat, bubbles: true }));
+function dispatch(
+  type: 'keydown' | 'keyup',
+  code: string,
+  options: { repeat?: boolean; shiftKey?: boolean; timeStamp?: number } = {},
+): void {
+  const event = new KeyboardEvent(type, {
+    code,
+    repeat: options.repeat,
+    shiftKey: options.shiftKey,
+    bubbles: true,
+  });
+  if (typeof options.timeStamp === 'number') {
+    Object.defineProperty(event, 'timeStamp', {
+      configurable: true,
+      value: options.timeStamp,
+    });
+  }
+  window.dispatchEvent(event);
 }
 
 describe('ComputerKeyboardInputService', () => {
@@ -48,7 +64,7 @@ describe('ComputerKeyboardInputService', () => {
     });
 
     dispatch('keydown', 'KeyZ');
-    dispatch('keydown', 'KeyZ', true);
+    dispatch('keydown', 'KeyZ', { repeat: true });
     dispatch('keyup', 'KeyZ');
 
     expect(events).toEqual(['noteon:48']);
@@ -100,5 +116,47 @@ describe('ComputerKeyboardInputService', () => {
 
     expect(events).toContain('noteoff:48');
     expect(events).toContain('sustain:0');
+  });
+
+  it('uses deterministic keyboard velocities for normal and accented notes', () => {
+    const service = new ComputerKeyboardInputService();
+    services.push(service);
+    service.init();
+
+    const velocities: number[] = [];
+    service.subscribe((event) => {
+      if (event.type === 'noteon' && typeof event.velocity === 'number') {
+        velocities.push(event.velocity);
+      }
+    });
+
+    dispatch('keydown', 'KeyZ', { timeStamp: 100 });
+    dispatch('keyup', 'KeyZ', { timeStamp: 180 });
+    dispatch('keydown', 'KeyX', { shiftKey: true, timeStamp: 250 });
+    dispatch('keyup', 'KeyX', { timeStamp: 330 });
+
+    expect(velocities).toEqual([0.65, 0.92]);
+  });
+
+  it('adds a deterministic retrigger boost after a note is released', () => {
+    const service = new ComputerKeyboardInputService();
+    services.push(service);
+    service.init();
+
+    const velocities: number[] = [];
+    service.subscribe((event) => {
+      if (event.type === 'noteon' && typeof event.velocity === 'number') {
+        velocities.push(event.velocity);
+      }
+    });
+
+    dispatch('keydown', 'KeyZ', { timeStamp: 100 });
+    dispatch('keyup', 'KeyZ', { timeStamp: 600 });
+    dispatch('keydown', 'KeyZ', { timeStamp: 700 });
+
+    expect(velocities).toHaveLength(2);
+    expect(velocities[0]).toBe(0.65);
+    expect(velocities[1]).toBeGreaterThan(0.65);
+    expect(velocities[1]).toBeLessThanOrEqual(0.73);
   });
 });

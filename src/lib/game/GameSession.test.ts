@@ -179,4 +179,44 @@ describe('GameSession', () => {
     expect(session.getSnapshot(1010).activeInputNotes).toEqual([]);
   });
 
+  it('shows fingering numbers when display mode is always', () => {
+    const session = new GameSession(SONG, {
+      ...DEFAULT_SESSION,
+      fingeringDisplayMode: 'always',
+      mode: 'piano-hero',
+    });
+
+    const snapshot = session.getSnapshot(0);
+    expect(snapshot.visibleNotes.some((note) => note.finger !== undefined)).toBe(true);
+    expect(snapshot.upcomingNotes.some((note) => note.finger !== undefined)).toBe(true);
+  });
+
+  it('shows fingering numbers only in learning mode when configured that way', () => {
+    const hiddenInHero = new GameSession(SONG, {
+      ...DEFAULT_SESSION,
+      fingeringDisplayMode: 'learning-only',
+      mode: 'piano-hero',
+    });
+    const visibleInLearning = new GameSession(SONG, {
+      ...DEFAULT_SESSION,
+      fingeringDisplayMode: 'learning-only',
+      mode: 'learning',
+      waitForInput: true,
+    });
+
+    expect(hiddenInHero.getSnapshot(0).visibleNotes.some((note) => note.finger !== undefined)).toBe(false);
+    expect(visibleInLearning.getSnapshot(0).visibleNotes.some((note) => note.finger !== undefined)).toBe(true);
+  });
+
+  it('hides fingering numbers when display mode is never', () => {
+    const session = new GameSession(SONG, {
+      ...DEFAULT_SESSION,
+      fingeringDisplayMode: 'never',
+    });
+
+    const snapshot = session.getSnapshot(0);
+    expect(snapshot.visibleNotes.some((note) => note.finger !== undefined)).toBe(false);
+    expect(snapshot.upcomingNotes.some((note) => note.finger !== undefined)).toBe(false);
+  });
+
 });
