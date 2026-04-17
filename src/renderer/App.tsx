@@ -636,6 +636,12 @@ export function App() {
     window.setTimeout(() => setShowDailyGoalToast(false), 5000);
   };
 
+  const [showSongGoalToast, setShowSongGoalToast] = useState(false);
+  const handleSongGoalReached = () => {
+    setShowSongGoalToast(true);
+    window.setTimeout(() => setShowSongGoalToast(false), 5000);
+  };
+
   const updateLearningProgressState = (updater: (current: LearningProgress) => LearningProgress) => {
     setLearningProgress((current) => {
       const next = updater(current);
@@ -1221,6 +1227,7 @@ export function App() {
           song={currentScreen.song}
           onAchievementsUnlocked={enqueueAchievementToasts}
           onDailyGoalReached={handleDailyGoalReached}
+          onSongGoalReached={handleSongGoalReached}
           onMainMenu={() => setCurrentScreen({ screen: 'main-menu' })}
           onPracticeSections={(loopRange) => startSongSession(currentScreen.song, 'learning', loopRange)}
           onStartTheoryPractice={handleStartTheoryPractice}
@@ -1277,6 +1284,18 @@ export function App() {
             <p className="panel-copy">Keep it up — consistency is the key to progress.</p>
           </div>
           <button className="secondary-button" onClick={() => setShowDailyGoalToast(false)}>
+            Dismiss
+          </button>
+        </aside>
+      )}
+      {showSongGoalToast && (
+        <aside className="achievement-toast achievement-toast--goal achievement-toast--song-goal" role="status" aria-live="polite">
+          <div className="achievement-toast-icon">🏆</div>
+          <div>
+            <p className="eyebrow">Song Goal Reached</p>
+            <strong>Personal best — accuracy target cleared!</strong>
+          </div>
+          <button className="secondary-button" onClick={() => setShowSongGoalToast(false)}>
             Dismiss
           </button>
         </aside>

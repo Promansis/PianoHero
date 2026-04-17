@@ -14,6 +14,7 @@ interface ResultsScreenProps {
   baselineStats: UserStatsRow | null;
   onAchievementsUnlocked?: (achievementIds: string[]) => void;
   onDailyGoalReached?: () => void;
+  onSongGoalReached?: () => void;
   onRetry: () => void;
   onPracticeSections: (loopRange: LoopRange) => void;
   onStartTheoryPractice: (suggestion: TheorySuggestion) => void;
@@ -77,6 +78,7 @@ export function ResultsScreen({
   baselineStats,
   onAchievementsUnlocked,
   onDailyGoalReached,
+  onSongGoalReached,
   onRetry,
   onPracticeSections,
   onStartTheoryPractice,
@@ -125,6 +127,7 @@ export function ResultsScreen({
         });
         onAchievementsUnlocked?.(outcome.unlockedAchievementIds);
         if (outcome.dailyGoalReached) onDailyGoalReached?.();
+        if (outcome.songGoalReached) onSongGoalReached?.();
         const nextTroubleSpots = await bridge.getTroubleSpots(song.id);
         setHistoricalTroubleSpots(nextTroubleSpots);
         setSaveError(null);
@@ -134,7 +137,7 @@ export function ResultsScreen({
         setTroubleSpotsLoading(false);
       }
     })();
-  }, [onAchievementsUnlocked, onDailyGoalReached, result, song.id]);
+  }, [onAchievementsUnlocked, onDailyGoalReached, onSongGoalReached, result, song.id]);
 
   useEffect(() => {
     const loadAnalysis = async () => {

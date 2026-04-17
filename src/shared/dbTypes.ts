@@ -155,6 +155,7 @@ export interface SaveTheoryResultPayload {
 export interface SaveResultOutcome {
   unlockedAchievementIds: string[];
   dailyGoalReached: boolean;
+  songGoalReached: boolean;
 }
 
 export interface PracticeDayRow {

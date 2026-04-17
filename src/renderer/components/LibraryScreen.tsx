@@ -140,6 +140,7 @@ export function LibraryScreen({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [songs, setSongs] = useState<SongRow[]>([]);
   const [statsBySongId, setStatsBySongId] = useState<Record<string, UserStatsRow | null>>({});
+  const [songGoals, setSongGoals] = useState<Record<string, number>>({});
   const [folders, setFolders] = useState<FolderRow[]>([]);
   const [playlists, setPlaylists] = useState<PlaylistRow[]>([]);
   const [playlistSongs, setPlaylistSongs] = useState<SongRow[]>([]);
@@ -190,11 +191,18 @@ export function LibraryScreen({
     const statsEntries = await Promise.all(
       nextSongs.map(async (song) => [song.id, await window.appBridge!.getUserStats(song.id)] as const),
     );
+    const goalEntries = await Promise.all(
+      nextSongs.map(async (song) => {
+        const val = await window.appBridge!.getSetting('song-goal', song.id);
+        return [song.id, val ? Number(val) : 0] as const;
+      }),
+    );
 
     setSongs(nextSongs);
     setFolders(nextFolders);
     setPlaylists(nextPlaylists);
     setStatsBySongId(Object.fromEntries(statsEntries));
+    setSongGoals(Object.fromEntries(goalEntries));
     setRecommendations(nextRecommendations);
     setIsLoading(false);
     setIsRecommendationsLoading(false);
@@ -681,6 +689,28 @@ export function LibraryScreen({
           <div>
             <span>Plays</span>
             <strong>{song.timesPlayed}</strong>
+          </div>
+          <div className="song-goal-row">
+            <label htmlFor={`goal-${song.id}`}>Accuracy Goal</label>
+            <select
+              id={`goal-${song.id}`}
+              value={songGoals[song.id] ?? 0}
+              onChange={async (event) => {
+                const val = Number(event.target.value);
+                setSongGoals((prev) => ({ ...prev, [song.id]: val }));
+                if (val > 0) {
+                  await window.appBridge?.setSetting('song-goal', song.id, String(val));
+                } else {
+                  await window.appBridge?.setSetting('song-goal', song.id, '0');
+                }
+              }}
+            >
+              <option value={0}>None</option>
+              <option value={80}>80%</option>
+              <option value={90}>90%</option>
+              <option value={95}>95%</option>
+              <option value={100}>100%</option>
+            </select>
           </div>
         </div>
 

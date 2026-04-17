@@ -712,9 +712,17 @@ export class AppDatabase {
       const dailyGoalReached =
         goalSec > 0 && priorSec < goalSec && priorSec + payload.durationSec >= goalSec;
 
+      const songGoalSetting = this.getSetting('song-goal', payload.songId);
+      const songGoalAccuracy = songGoalSetting ? Number(songGoalSetting) : 0;
+      const prevBest = (this.db
+        .prepare('SELECT MAX(accuracy) AS best FROM game_results WHERE song_id = ? AND id != ?')
+        .get(payload.songId, id) as { best: number | null })?.best ?? 0;
+      const songGoalReached = songGoalAccuracy > 0 && prevBest < songGoalAccuracy && payload.accuracy >= songGoalAccuracy;
+
       return {
         unlockedAchievementIds: this.checkAndUnlockAchievements(),
         dailyGoalReached,
+        songGoalReached,
       };
     });
 
@@ -760,6 +768,7 @@ export class AppDatabase {
       return {
         unlockedAchievementIds: this.checkAndUnlockAchievements(),
         dailyGoalReached: false,
+        songGoalReached: false,
       };
     });
 
