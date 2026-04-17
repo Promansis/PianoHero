@@ -87,6 +87,16 @@ const PHILHARMONIA_FRENCH_HORN_SAMPLE_MAP = {
   C5: 'french-horn_C5_15_piano_normal.mp3',
 } as const;
 
+const PHILHARMONIA_SAXOPHONE_SAMPLE_MAP = {
+  A3: 'saxophone_A3_1_piano_normal.mp3',
+  D4: 'saxophone_D4_1_piano_normal.mp3',
+  G4: 'saxophone_G4_1_piano_normal.mp3',
+  C5: 'saxophone_C5_1_piano_normal.mp3',
+  F5: 'saxophone_F5_1_piano_normal.mp3',
+  A5: 'saxophone_A5_1_piano_normal.mp3',
+  C6: 'saxophone_C6_1_piano_normal.mp3',
+} as const;
+
 const PHILHARMONIA_CELLO_SAMPLE_MAP = {
   C2: 'cello_C2_1_forte_arco-normal.mp3',
   G2: 'cello_G2_1_piano_arco-normal.mp3',
@@ -275,6 +285,18 @@ export const INSTRUMENTS: InstrumentDefinition[] = [
     sampleBaseUrl: '/samples/philharmonia/french-horn/',
     sampleUrls: PHILHARMONIA_FRENCH_HORN_SAMPLE_MAP,
     reverbPreset: 'hall',
+  },
+  {
+    id: 'saxophone',
+    label: 'Saxophone',
+    description: 'Private-use Philharmonia saxophone samples with a punchy reed tone.',
+    voice: 'sampler',
+    options: {
+      release: 1.1,
+    },
+    sampleBaseUrl: '/samples/philharmonia/saxophone/',
+    sampleUrls: PHILHARMONIA_SAXOPHONE_SAMPLE_MAP,
+    reverbPreset: 'medium',
   },
   {
     id: 'cello',

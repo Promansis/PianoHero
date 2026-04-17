@@ -132,6 +132,29 @@ describe('SettingsScreen', () => {
     });
   });
 
+  it('shows saxophone as an available instrument option', async () => {
+    render(
+      <SettingsScreen
+        audioEngine={{ playMetronomeClick: vi.fn().mockResolvedValue(undefined), prepareForPlayback: vi.fn().mockResolvedValue(undefined) } as unknown as import('../../lib/audio/audioEngine').AudioEngine}
+        inputMode="both"
+        midiDevices={[]}
+        midiError={false}
+        pitchBendEnabled
+        onDeveloperUnlockAll={developerUnlockAll}
+        onLearningProgressReset={onLearningProgressReset}
+        onSettingChange={vi.fn()}
+        onInputModeChange={vi.fn()}
+        onRetryMidi={vi.fn()}
+        onUserDataReset={onUserDataReset}
+        onOpenKeyboardSetup={vi.fn()}
+      />,
+    );
+
+    const instrumentSelect = await screen.findByRole('combobox', { name: 'Instrument' });
+    expect(screen.getByRole('option', { name: 'Saxophone' })).toBeEnabled();
+    expect(instrumentSelect).toContainElement(screen.getByRole('option', { name: 'Saxophone' }));
+  });
+
   it('unlocks developer content only after confirmation', async () => {
     render(
       <SettingsScreen
