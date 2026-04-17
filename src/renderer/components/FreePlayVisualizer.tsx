@@ -11,6 +11,7 @@ interface FreePlayVisualizerProps {
   mode: FreePlayVisualMode;
   activeNotes: number[];
   recentNotes: FreePlayVisualNote[];
+  resetToken: number;
   chordLabel: string | null;
   sustainOn: boolean;
   metronomeEnabled: boolean;
@@ -30,6 +31,7 @@ export function FreePlayVisualizer({
   mode,
   activeNotes,
   recentNotes,
+  resetToken,
   chordLabel,
   sustainOn,
   metronomeEnabled,
@@ -75,6 +77,7 @@ export function FreePlayVisualizer({
         mode={mode}
         activeNotes={activeNotes}
         recentNotes={recentNotes}
+        resetToken={resetToken}
         sustainOn={sustainOn}
         metronomeEnabled={metronomeEnabled}
         metronomeBeat={metronomeBeat}

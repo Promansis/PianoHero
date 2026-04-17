@@ -68,9 +68,20 @@ vi.mock('./components/LibraryScreen', () => ({
 }));
 
 vi.mock('./components/GameScreen', () => ({
-  GameScreen: ({ onOpenKeyboardSetup }: { onOpenKeyboardSetup: () => void }) => (
+  GameScreen: ({
+    onOpenKeyboardSetup,
+    initialSessionConfig,
+    source,
+  }: {
+    onOpenKeyboardSetup: () => void;
+    initialSessionConfig: { mode: string; waitForInput: boolean };
+    source: { kind: string };
+  }) => (
     <>
       <div>Game</div>
+      <div data-testid="game-session-mode">{initialSessionConfig.mode}</div>
+      <div data-testid="game-session-wait">{String(initialSessionConfig.waitForInput)}</div>
+      <div data-testid="game-source-kind">{source.kind}</div>
       <button onClick={onOpenKeyboardSetup}>Open Keyboard Setup</button>
     </>
   ),
@@ -237,6 +248,18 @@ describe('App', () => {
 
     expect(screen.getByText('Start Drill')).toBeInTheDocument();
     expect(screen.queryByText('Keyboard Setup')).not.toBeInTheDocument();
+  });
+
+  it('launches lesson drills in piano-hero mode instead of wait-for-input learning mode', async () => {
+    render(<App />);
+
+    fireEvent.click(await screen.findByText('Open Learn'));
+    fireEvent.click(await screen.findByText('Open Lesson'));
+    fireEvent.click(await screen.findByText('Start Drill'));
+
+    expect(screen.getByTestId('game-source-kind')).toHaveTextContent('lesson-drill');
+    expect(screen.getByTestId('game-session-mode')).toHaveTextContent('piano-hero');
+    expect(screen.getByTestId('game-session-wait')).toHaveTextContent('false');
   });
 
   it('keeps retrying audio unlock on later user gestures', async () => {

@@ -29,6 +29,7 @@ interface FreePlayCanvasSceneProps {
   mode: FreePlayVisualMode;
   activeNotes: number[];
   recentNotes: FreePlayVisualNote[];
+  resetToken: number;
   sustainOn: boolean;
   metronomeEnabled: boolean;
   metronomeBeat: number;
@@ -2730,6 +2731,15 @@ export function FreePlayCanvasScene(props: FreePlayCanvasSceneProps) {
   const sceneStateRef = useRef<SceneState>(createSceneState());
 
   latestPropsRef.current = props;
+
+  useEffect(() => {
+    sceneStateRef.current = createSceneState();
+    const canvas = canvasRef.current;
+    const context = canvas?.getContext('2d');
+    if (canvas && context) {
+      context.clearRect(0, 0, canvas.width || 0, canvas.height || 0);
+    }
+  }, [props.resetToken]);
 
   useEffect(() => {
     const canvas = canvasRef.current;

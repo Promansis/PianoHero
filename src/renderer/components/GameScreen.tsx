@@ -120,6 +120,10 @@ function shouldAutoplayMode(mode: SessionMode): boolean {
   return mode === 'piano-hero' || mode === 'performance';
 }
 
+function isWaitingMode(mode: SessionMode): boolean {
+  return mode === 'learning';
+}
+
 function loopStartForSong(song: ParsedSong | null, sessionConfig: SessionConfig): number {
   if (!song) {
     return 0;
@@ -717,6 +721,7 @@ export function GameScreen({
   const rebuildForSessionConfig = async (nextSessionConfig: SessionConfig) => {
     const currentSourceSong = sourceSong;
     const previousGame = gameSessionRef.current;
+    const previousSessionConfig = sessionConfig;
     setSessionConfig(nextSessionConfig);
     if (!currentSourceSong || !previousGame) {
       return;
@@ -729,6 +734,19 @@ export function GameScreen({
       keepTime: true,
       currentTimeSec: currentTime,
     });
+
+    const autoplayModeSelected =
+      previousSessionConfig.mode !== nextSessionConfig.mode &&
+      shouldAutoplayMode(nextSessionConfig.mode);
+    const shouldCountIn =
+      autoplayModeSelected &&
+      (!wasPlaying || isWaitingMode(previousSessionConfig.mode));
+
+    if (shouldCountIn) {
+      audioEngine.pauseSong();
+      void runCountdown(composeSessionSong(currentSourceSong, nextSessionConfig), currentTime, nextSessionConfig);
+      return;
+    }
 
     if (wasPlaying && shouldAutoplayMode(nextSessionConfig.mode)) {
       const nextGame = gameSessionRef.current;
@@ -776,7 +794,7 @@ export function GameScreen({
     await loadSongFromBytes(bytes, tempSong, sessionConfig, []);
   };
 
-  const runCountdown = async (song: ParsedSong) => {
+  const runCountdown = async (song: ParsedSong, startSec: number, countdownConfig: SessionConfig) => {
     countdownCancelRef.current = false;
     await ensureAudioReady();
 
@@ -787,8 +805,8 @@ export function GameScreen({
       await new Promise<void>((resolve) => setTimeout(resolve, 1000));
     }
 
-    const leadInBeats = sessionConfig.leadInBeats ?? 0;
-    const beatMs = (60 / Math.max(song.bpm * sessionConfig.tempoMultiplier, 1)) * 1000;
+    const leadInBeats = countdownConfig.leadInBeats ?? 0;
+    const beatMs = (60 / Math.max(song.bpm * countdownConfig.tempoMultiplier, 1)) * 1000;
     for (let beat = 0; beat < leadInBeats; beat += 1) {
       if (countdownCancelRef.current) { setCountdownValue(null); return; }
       void audioEngine.playMetronomeClick(false);
@@ -801,12 +819,12 @@ export function GameScreen({
     const game = gameSessionRef.current;
     if (!game) return;
     const now = performance.now();
-    if (shouldAutoplayMode(sessionConfig.mode)) {
-      await playSessionAudio(song, 0, sessionConfig);
+    if (shouldAutoplayMode(countdownConfig.mode)) {
+      await playSessionAudio(song, startSec, countdownConfig);
     }
     game.play(now);
     setStatusMessage(
-      sessionConfig.mode === 'learning'
+      countdownConfig.mode === 'learning'
         ? 'Learning mode active. Progress pauses until the correct note is played.'
         : 'Playback running. Play along at the hit line.',
     );
@@ -836,7 +854,7 @@ export function GameScreen({
     }
 
     if (game.getCurrentTimeSec(now) < 0.05) {
-      void runCountdown(currentSessionSong);
+      void runCountdown(currentSessionSong, 0, sessionConfig);
       return;
     }
 

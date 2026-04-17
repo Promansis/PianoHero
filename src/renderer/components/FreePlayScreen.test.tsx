@@ -7,6 +7,40 @@ import type { MidiInputService } from '../../lib/midi/midiInputService';
 import type { MidiInputDevice } from '../../lib/midi/types';
 import { FreePlayScreen } from './FreePlayScreen';
 
+vi.mock('./FreePlayVisualizer', async () => {
+  const actual = await vi.importActual<typeof import('./FreePlayVisualizer')>('./FreePlayVisualizer');
+
+  return {
+    ...actual,
+    FreePlayVisualizer: ({
+      mode,
+      activeNotes,
+      recentNotes,
+      resetToken,
+    }: {
+      mode: string;
+      activeNotes: number[];
+      recentNotes: Array<{ id: string }>;
+      resetToken: number;
+    }) => {
+      const label =
+        actual.FREE_PLAY_VISUAL_MODE_OPTIONS.find((option) => option.value === mode)?.label ?? mode;
+
+      return (
+        <div
+          role="region"
+          aria-label={`${label} visualizer`}
+          data-active-notes={activeNotes.join(',')}
+          data-recent-notes={String(recentNotes.length)}
+          data-reset-token={String(resetToken)}
+        >
+          {label}
+        </div>
+      );
+    },
+  };
+});
+
 const gradientStub = {
   addColorStop: vi.fn(),
 };
@@ -169,18 +203,45 @@ describe('FreePlayScreen', () => {
       />,
     );
 
-    expect(screen.queryByText('Visual Modes')).not.toBeInTheDocument();
+    expect(screen.getByTestId('free-play-visual-popout')).toHaveAttribute('aria-hidden', 'true');
 
     fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.getByText('Visual Palette')).toBeInTheDocument();
+    expect(screen.getByTestId('free-play-visual-popout')).toHaveAttribute('aria-hidden', 'true');
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByText('Visual Palette')).not.toBeInTheDocument();
+  });
+
+  it('opens the visual mode popout from the top-right toggle', () => {
+    render(
+      <FreePlayScreen
+        audioEngine={buildAudioEngineStub()}
+        midiInputService={new MockMidiInputService() as unknown as MidiInputService}
+        keyboardInputService={new MockKeyboardInputService() as unknown as ComputerKeyboardInputService}
+        inputMode="both"
+        keyboardOverlaySize="medium"
+        postureReminderMinutes={null}
+        breakReminderMinutes={null}
+        pitchBendEnabled
+        stagePalette="default"
+        onBackToMainMenu={vi.fn()}
+        onStagePaletteChange={vi.fn()}
+        onOpenKeyboardSetup={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId('free-play-visual-popout')).toHaveAttribute('aria-hidden', 'true');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show visual mode controls' }));
+
+    expect(screen.getByTestId('free-play-visual-popout')).toHaveAttribute('aria-hidden', 'false');
     expect(screen.getByText('Visual Modes')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Ink in Water/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Tree of Light/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Particle Galaxy/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Aurora Borealis/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Fireworks/ })).toBeInTheDocument();
-
-    fireEvent.keyDown(window, { key: 'Escape' });
-    expect(screen.queryByText('Visual Modes')).not.toBeInTheDocument();
   });
 
   it('keeps recording and backing-track state when switching visual modes', async () => {
@@ -207,6 +268,7 @@ describe('FreePlayScreen', () => {
     );
 
     fireEvent.click(screen.getByText('Menu'));
+    const visualizer = screen.getByRole('region', { name: 'Classic Piano visualizer' });
     fireEvent.click(screen.getByText('Record'));
 
     await act(async () => {
@@ -234,18 +296,24 @@ describe('FreePlayScreen', () => {
 
     expect(await screen.findByText('jam.mp3')).toBeInTheDocument();
     expect(screen.getAllByText('1 note').length).toBeGreaterThan(0);
+    expect(visualizer).toHaveAttribute('data-reset-token', '0');
+    expect(visualizer).toHaveAttribute('data-recent-notes', '1');
 
+    fireEvent.click(screen.getByRole('button', { name: 'Show visual mode controls' }));
     fireEvent.click(screen.getByRole('button', { name: /Ink in Water/ }));
 
     expect(screen.getByRole('region', { name: 'Ink in Water visualizer' })).toBeInTheDocument();
     expect(screen.getByText('jam.mp3')).toBeInTheDocument();
     expect(screen.getAllByText('1 note').length).toBeGreaterThan(0);
     expect(screen.getByText('Play Recording')).toBeEnabled();
+    expect(screen.getByRole('region', { name: 'Ink in Water visualizer' })).toHaveAttribute('data-reset-token', '1');
+    expect(screen.getByRole('region', { name: 'Ink in Water visualizer' })).toHaveAttribute('data-recent-notes', '0');
+    expect(screen.getByRole('region', { name: 'Ink in Water visualizer' })).toHaveAttribute('data-active-notes', '');
 
     nowSpy.mockRestore();
   });
 
-  it('visual preset buttons appear in overlay and switching preset does not interrupt recording or backing track', async () => {
+  it('visual preset buttons appear in the popout and switching preset does not interrupt recording or backing track', async () => {
     const midiService = new MockMidiInputService();
     const audioEngine = buildAudioEngineStub();
     vi.spyOn(performance, 'now').mockReturnValue(1000);
@@ -267,8 +335,7 @@ describe('FreePlayScreen', () => {
       />,
     );
 
-    // Open overlay
-    fireEvent.keyDown(window, { key: 'Escape' });
+    fireEvent.click(screen.getByRole('button', { name: 'Show visual mode controls' }));
 
     // Preset buttons are present
     expect(screen.getByRole('button', { name: 'Subtle' })).toBeInTheDocument();
@@ -276,18 +343,27 @@ describe('FreePlayScreen', () => {
     expect(screen.getByRole('button', { name: 'Vivid' })).toBeInTheDocument();
 
     // Start recording and load a backing track
-    fireEvent.click(screen.getByText('Record'));
-    fireEvent.click(screen.getByText('Load Track'));
+    fireEvent.click(screen.getByText('Menu'));
+    fireEvent.click(screen.getByRole('button', { name: 'Record' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Load Track' }));
     expect(await screen.findByText('jam.mp3')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Resume' }));
+    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Show visual mode controls' }));
 
     // Switch preset — should not clear recording or backing track
     fireEvent.click(screen.getByRole('button', { name: 'Vivid' }));
-    expect(screen.getByText('jam.mp3')).toBeInTheDocument();
+    expect(screen.getByText('Loaded')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Menu'));
     expect(screen.getByRole('button', { name: 'Stop Recording' })).toBeInTheDocument();
+    expect(screen.getByText('jam.mp3')).toBeInTheDocument();
 
     // Switch back
+    fireEvent.click(screen.getByRole('button', { name: 'Resume' }));
+    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Show visual mode controls' }));
     fireEvent.click(screen.getByRole('button', { name: 'Subtle' }));
-    expect(screen.getByText('jam.mp3')).toBeInTheDocument();
+    expect(screen.getByText('Loaded')).toBeInTheDocument();
 
     vi.restoreAllMocks();
   });
@@ -350,6 +426,7 @@ describe('FreePlayScreen', () => {
     expect(screen.getByRole('button', { name: /Aurora Emerald/ })).toBeDisabled();
     expect(screen.getByText(/Unlock: Unlocked by reaching 100% accuracy\./)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Constellation Galactic/ })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Show visual mode controls' }));
     expect(screen.getByRole('button', { name: /Particle Galaxy/ })).toBeEnabled();
     expect(screen.getByRole('button', { name: /Sacred Geometry/ })).toBeEnabled();
   });

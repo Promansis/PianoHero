@@ -127,9 +127,15 @@ export function FreePlayScreen({
   const [visualPreset, setVisualPreset] = useState<VisualPreset>('balanced');
   const [sustainOn, setSustainOn] = useState(false);
   const [visualNotes, setVisualNotes] = useState<FreePlayVisualNote[]>([]);
+  const [visualizerActiveNotes, setVisualizerActiveNotes] = useState<number[]>([]);
+  const [visualSceneResetToken, setVisualSceneResetToken] = useState(0);
+  const [isVisualControlsPinned, setIsVisualControlsPinned] = useState(false);
+  const [isVisualControlsHovered, setIsVisualControlsHovered] = useState(false);
   const noteStartMapRef = useRef(new Map<string, { startTimeSec: number; velocity: number; midi: number }>());
   const playbackTimeoutsRef = useRef<number[]>([]);
   const visualNoteTimeoutsRef = useRef<number[]>([]);
+  const visualHeldByNoteRef = useRef(new Map<number, Set<string>>());
+  const freePlayStageRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const heldByNote = new Map<number, Set<string>>();
@@ -164,6 +170,10 @@ export function FreePlayScreen({
         heldSources.add(event.sourceId);
         heldByNote.set(midi, heldSources);
         setActiveNotes([...heldByNote.keys()].sort((left, right) => left - right));
+        const visualHeldSources = visualHeldByNoteRef.current.get(midi) ?? new Set<string>();
+        visualHeldSources.add(event.sourceId);
+        visualHeldByNoteRef.current.set(midi, visualHeldSources);
+        setVisualizerActiveNotes([...visualHeldByNoteRef.current.keys()].sort((left, right) => left - right));
         pushVisualNote(midi, event.velocity ?? 0.8, 'live');
 
         if (heldSources.size === 1) {
@@ -190,6 +200,14 @@ export function FreePlayScreen({
             audioEngine.noteOff(midi);
           }
           setActiveNotes([...heldByNote.keys()].sort((left, right) => left - right));
+        }
+        const visualHeldSources = visualHeldByNoteRef.current.get(midi);
+        if (visualHeldSources) {
+          visualHeldSources.delete(event.sourceId);
+          if (visualHeldSources.size === 0) {
+            visualHeldByNoteRef.current.delete(midi);
+          }
+          setVisualizerActiveNotes([...visualHeldByNoteRef.current.keys()].sort((left, right) => left - right));
         }
 
         if (isRecording && recordingStartedAt !== null) {
@@ -262,6 +280,7 @@ export function FreePlayScreen({
       visualNoteTimeoutsRef.current.forEach((timeout) => window.clearTimeout(timeout));
       playbackTimeoutsRef.current = [];
       visualNoteTimeoutsRef.current = [];
+      visualHeldByNoteRef.current.clear();
     };
   }, [audioEngine, inputMode, isRecording, keyboardInputService, midiInputService, recordingStartedAt]);
 
@@ -348,6 +367,26 @@ export function FreePlayScreen({
       window.removeEventListener('keydown', handleEscape, true);
     };
   }, []);
+
+  useEffect(() => {
+    if (!(isVisualControlsPinned && freePlayStageRef.current)) {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const stage = freePlayStageRef.current;
+      if (!stage || stage.contains(event.target as Node)) {
+        return;
+      }
+      setIsVisualControlsPinned(false);
+      setIsVisualControlsHovered(false);
+    };
+
+    window.addEventListener('pointerdown', handlePointerDown);
+    return () => {
+      window.removeEventListener('pointerdown', handlePointerDown);
+    };
+  }, [isVisualControlsPinned]);
 
   useEffect(() => {
     void (async () => {
@@ -439,6 +478,7 @@ export function FreePlayScreen({
       playbackTimeoutsRef.current.push(
         window.setTimeout(() => {
           setActiveNotes((previous) => [...new Set([...previous, note.midi])].sort((left, right) => left - right));
+          setVisualizerActiveNotes((previous) => [...new Set([...previous, note.midi])].sort((left, right) => left - right));
           queueVisualNote(note.midi, note.velocity);
           void audioEngine.noteOn(note.midi, note.velocity);
         }, note.startTimeSec * 1000),
@@ -446,6 +486,7 @@ export function FreePlayScreen({
       playbackTimeoutsRef.current.push(
         window.setTimeout(() => {
           setActiveNotes((previous) => previous.filter((value) => value !== note.midi));
+          setVisualizerActiveNotes((previous) => previous.filter((value) => value !== note.midi));
           audioEngine.noteOff(note.midi);
         }, (note.startTimeSec + note.durationSec) * 1000),
       );
@@ -468,6 +509,7 @@ export function FreePlayScreen({
     playbackTimeoutsRef.current.push(
       window.setTimeout(() => {
         setIsPlayingRecording(false);
+        setVisualizerActiveNotes([]);
         setSustainOn(false);
         audioEngine.setSustain(false);
         setStatusMessage('Playback finished.');
@@ -573,6 +615,24 @@ export function FreePlayScreen({
 
   const visualModeLabel =
     FREE_PLAY_VISUAL_MODE_OPTIONS.find((option) => option.value === visualMode)?.label ?? 'Concert Stage';
+  const isVisualControlsOpen = isVisualControlsPinned || isVisualControlsHovered;
+
+  const clearVisualCanvas = () => {
+    visualHeldByNoteRef.current.clear();
+    setVisualizerActiveNotes([]);
+    setVisualNotes([]);
+    visualNoteTimeoutsRef.current.forEach((timeout) => window.clearTimeout(timeout));
+    visualNoteTimeoutsRef.current = [];
+    setVisualSceneResetToken((current) => current + 1);
+  };
+
+  const handleVisualModeChange = (nextMode: FreePlayVisualMode) => {
+    if (nextMode === visualMode) {
+      return;
+    }
+    clearVisualCanvas();
+    setVisualMode(nextMode);
+  };
 
   return (
     <main className="app-shell app-shell-immersive free-play-immersive-shell" onPointerDownCapture={() => void ensureAudioReady()}>
@@ -595,16 +655,55 @@ export function FreePlayScreen({
             <strong>{isBackingTrackPlaying ? 'Playing' : backingTrackName ? 'Loaded' : 'Off'}</strong>
           </div>
         </div>
-        <button className="immersive-menu-btn" onClick={() => setOverlayVisible(true)}>
-          Menu
-        </button>
+        <div className="free-play-hud-actions">
+          <button
+            className="immersive-menu-btn free-play-visual-toggle"
+            aria-label="Show visual mode controls"
+            aria-expanded={isVisualControlsOpen}
+            onClick={() => {
+              if (isVisualControlsOpen) {
+                setIsVisualControlsPinned(false);
+                setIsVisualControlsHovered(false);
+                return;
+              }
+              setIsVisualControlsPinned(true);
+              setIsVisualControlsHovered(false);
+            }}
+            onMouseEnter={() => setIsVisualControlsHovered(true)}
+            onMouseLeave={() => {
+              if (!isVisualControlsPinned) {
+                setIsVisualControlsHovered(false);
+              }
+            }}
+            onFocus={() => setIsVisualControlsHovered(true)}
+            onBlur={() => {
+              if (!isVisualControlsPinned) {
+                setIsVisualControlsHovered(false);
+              }
+            }}
+          >
+            ✦
+          </button>
+          <button className="immersive-menu-btn" onClick={() => setOverlayVisible(true)}>
+            Menu
+          </button>
+        </div>
       </div>
 
-      <div className="immersive-canvas-area free-play-stage-area">
+      <div
+        className="immersive-canvas-area free-play-stage-area"
+        ref={freePlayStageRef}
+        onMouseLeave={() => {
+          if (!isVisualControlsPinned) {
+            setIsVisualControlsHovered(false);
+          }
+        }}
+      >
         <FreePlayVisualizer
           mode={visualMode}
-          activeNotes={activeNotes}
+          activeNotes={visualizerActiveNotes}
           recentNotes={visualNotes}
+          resetToken={visualSceneResetToken}
           chordLabel={chordLabel}
           sustainOn={sustainOn}
           metronomeEnabled={metronomeEnabled}
@@ -616,6 +715,61 @@ export function FreePlayScreen({
           isBackingTrackPlaying={isBackingTrackPlaying}
           visualPreset={visualPreset}
         />
+
+        <section
+          className={`panel free-play-visual-popout${isVisualControlsOpen ? ' open' : ''}`}
+          aria-label="Visual mode controls"
+          aria-hidden={!isVisualControlsOpen}
+          data-testid="free-play-visual-popout"
+          onMouseEnter={() => setIsVisualControlsHovered(true)}
+          onMouseLeave={() => {
+            if (!isVisualControlsPinned) {
+              setIsVisualControlsHovered(false);
+            }
+          }}
+        >
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Visual Modes</p>
+              <h2>Choose the atmosphere</h2>
+            </div>
+            <p className="panel-copy">Switch scenes instantly without interrupting recording or backing tracks.</p>
+          </div>
+          <div className="free-play-preset-row">
+            <span className="free-play-preset-label">Preset</span>
+            {(['subtle', 'balanced', 'vivid'] as VisualPreset[]).map((presetOption) => (
+              <button
+                key={presetOption}
+                className={`free-play-preset-btn ${visualPreset === presetOption ? 'active' : ''}`}
+                onClick={() => setVisualPreset(presetOption)}
+              >
+                {presetOption.charAt(0).toUpperCase() + presetOption.slice(1)}
+              </button>
+            ))}
+          </div>
+          <div className="free-play-mode-grid">
+            {FREE_PLAY_VISUAL_MODE_OPTIONS.map((option) => {
+              const locked = option.requiredRewardId
+                ? !isRewardUnlocked(option.requiredRewardId, unlockedRewardIds ?? new Set())
+                : false;
+              const reward = option.requiredRewardId
+                ? REWARD_CATALOG.find((r) => r.id === option.requiredRewardId)
+                : undefined;
+              return (
+                <button
+                  key={option.value}
+                  className={`free-play-mode-card ${visualMode === option.value ? 'active' : ''} ${locked ? 'locked' : ''}`}
+                  onClick={() => !locked && handleVisualModeChange(option.value)}
+                  disabled={locked}
+                  title={locked && reward ? `Locked — ${reward.description}` : undefined}
+                >
+                  <strong>{locked ? `🔒 ${option.label}` : option.label}</strong>
+                  <span>{locked && reward ? `Unlock: ${reward.description}` : option.description}</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
       </div>
 
       <div className="immersive-keyboard free-play-keyboard">
@@ -716,50 +870,6 @@ export function FreePlayScreen({
                       key={option.value}
                       className={`free-play-mode-card ${stagePalette === option.value ? 'active' : ''} ${locked ? 'locked' : ''}`}
                       onClick={() => !locked && onStagePaletteChange(option.value)}
-                      disabled={locked}
-                      title={locked && reward ? `Locked — ${reward.description}` : undefined}
-                    >
-                      <strong>{locked ? `🔒 ${option.label}` : option.label}</strong>
-                      <span>{locked && reward ? `Unlock: ${reward.description}` : option.description}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-
-            <section className="panel free-play-overlay-section">
-              <div className="panel-heading">
-                <div>
-                  <p className="eyebrow">Visual Modes</p>
-                  <h2>Choose the atmosphere</h2>
-                </div>
-                <p className="panel-copy">Switch instantly without interrupting live play, recording, or backing tracks.</p>
-              </div>
-              <div className="free-play-preset-row">
-                <span className="free-play-preset-label">Preset</span>
-                {(['subtle', 'balanced', 'vivid'] as VisualPreset[]).map((p) => (
-                  <button
-                    key={p}
-                    className={`free-play-preset-btn ${visualPreset === p ? 'active' : ''}`}
-                    onClick={() => setVisualPreset(p)}
-                  >
-                    {p.charAt(0).toUpperCase() + p.slice(1)}
-                  </button>
-                ))}
-              </div>
-              <div className="free-play-mode-grid">
-                {FREE_PLAY_VISUAL_MODE_OPTIONS.map((option) => {
-                  const locked = option.requiredRewardId
-                    ? !isRewardUnlocked(option.requiredRewardId, unlockedRewardIds ?? new Set())
-                    : false;
-                  const reward = option.requiredRewardId
-                    ? REWARD_CATALOG.find((r) => r.id === option.requiredRewardId)
-                    : undefined;
-                  return (
-                    <button
-                      key={option.value}
-                      className={`free-play-mode-card ${visualMode === option.value ? 'active' : ''} ${locked ? 'locked' : ''}`}
-                      onClick={() => !locked && setVisualMode(option.value)}
                       disabled={locked}
                       title={locked && reward ? `Locked — ${reward.description}` : undefined}
                     >

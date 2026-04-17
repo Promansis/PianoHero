@@ -934,7 +934,7 @@ export function App() {
       lessonId,
       stepIndex,
       parsedSong,
-      sessionConfig: buildSessionConfig('learning', true, false, pitchBendEnabled, latencyCompMs, hitWindowMs, beatsVisible, leadInBeats, {
+      sessionConfig: buildSessionConfig('piano-hero', false, false, pitchBendEnabled, latencyCompMs, hitWindowMs, beatsVisible, leadInBeats, {
         handSize,
         tempoMultiplier: step.kind === 'drill' ? step.tempoMultiplier ?? 1 : 1,
         handFilter: step.kind === 'drill' ? step.handFilter ?? 'both' : 'both',

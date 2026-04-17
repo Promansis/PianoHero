@@ -449,6 +449,20 @@ select:focus {
   border-color: rgba(162, 195, 255, 0.12);
 }
 
+.free-play-hud-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.free-play-visual-toggle {
+  min-width: 52px;
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
 .free-play-stage-area {
   position: relative;
   overflow: hidden;
@@ -723,6 +737,28 @@ select:focus {
 
 .free-play-overlay-panel {
   max-width: 980px;
+}
+
+.free-play-visual-popout {
+  position: absolute;
+  top: 112px;
+  right: 32px;
+  z-index: 3;
+  width: min(460px, calc(100% - 64px));
+  max-height: min(70vh, 760px);
+  overflow: auto;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-10px) scale(0.98);
+  transition:
+    opacity 150ms ease,
+    transform 150ms ease;
+}
+
+.free-play-visual-popout.open {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
 }
 
 .free-play-overlay-section {
@@ -2610,8 +2646,14 @@ select:focus {
     justify-content: flex-start;
   }
 
+  .free-play-hud-actions {
+    justify-content: flex-start;
+  }
+
   .animal-soundboard-copy {
     top: 148px;
+  }
+
   .animal-soundboard-map-popout {
     top: auto;
     right: 20px;
@@ -2619,6 +2661,15 @@ select:focus {
     bottom: 22px;
     width: auto;
     max-height: 48vh;
+  }
+
+  .free-play-visual-popout {
+    top: auto;
+    right: 20px;
+    left: 20px;
+    bottom: 22px;
+    width: auto;
+    max-height: min(56vh, 540px);
   }
 
   .animal-soundboard-emoji-burst {
