@@ -1658,6 +1658,7 @@ function drawConstellation(
   intensity: number,
   keyHue: number,
   sustainOn: boolean,
+  harmony: number,
 ): void {
   drawBackground(context, width, height, '#08101f', '#02050d');
 
@@ -1746,6 +1747,25 @@ function drawConstellation(
     context.moveTo(x, y);
     context.lineTo(tailX, tailY);
     context.stroke();
+  }
+
+  // Chord-flash: when harmony > 0.6, draw a radial burst from the constellation center
+  if (harmony > 0.6) {
+    const flashStrength = (harmony - 0.6) / 0.4;
+    const recentBursts = state.stageBursts.filter((b) => now - b.createdAt < 400);
+    if (recentBursts.length > 0) {
+      const cx = width * 0.5;
+      const cy = height * 0.4;
+      const maxR = Math.min(width, height) * 0.28 * flashStrength;
+      const flashGrad = context.createRadialGradient(cx, cy, 0, cx, cy, maxR);
+      const flashAge = Math.min(...recentBursts.map((b) => now - b.createdAt)) / 400;
+      const alpha = (1 - flashAge) * 0.22 * flashStrength;
+      flashGrad.addColorStop(0, hsla(keyHue, 96, 80, alpha));
+      flashGrad.addColorStop(0.6, hsla((keyHue + 40) % 360, 88, 70, alpha * 0.4));
+      flashGrad.addColorStop(1, hsla(keyHue, 96, 80, 0));
+      context.fillStyle = flashGrad;
+      context.fillRect(0, 0, width, height);
+    }
   }
 }
 
@@ -2686,7 +2706,7 @@ export function FreePlayCanvasScene(props: FreePlayCanvasSceneProps) {
           drawPulseOrbit(context, width, height, state, nextProps, now, deltaMs, keyCenter.hue);
           break;
         case 'constellation':
-          drawConstellation(context, width, height, state, now, intensity, keyCenter.hue, nextProps.sustainOn);
+          drawConstellation(context, width, height, state, now, intensity, keyCenter.hue, nextProps.sustainOn, harmony);
           break;
         case 'scale-heatmap':
           drawHeatmap(context, width, height, state, nextProps, keyCenter.hue, now);

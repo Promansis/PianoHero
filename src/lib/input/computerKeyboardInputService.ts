@@ -189,11 +189,14 @@ export class ComputerKeyboardInputService {
       return;
     }
 
+    // Shift = accent (forte), default = mezzo-forte with slight random human variation
+    const baseVelocity = event.shiftKey ? 0.92 : 0.65;
+    const velocity = Math.min(1, baseVelocity + (Math.random() - 0.5) * 0.10);
     this.heldNotesByCode.set(event.code, note);
     this.emitInput({
       type: 'noteon',
       note,
-      velocity: 0.8,
+      velocity,
       timestamp: event.timeStamp,
     });
   };
