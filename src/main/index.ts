@@ -13,7 +13,7 @@ import type {
   TroubleSpotRow,
   TheoryResultRow,
 } from '../shared/dbTypes';
-import { createSongId, importSongFromBuffer } from '../shared/importSong';
+import { createSongId, importSongFromBuffer, recomputeAllSongDifficulties } from '../shared/importSong';
 import { AppDatabase } from './database';
 
 let mainWindow: BrowserWindow | null = null;
@@ -188,6 +188,10 @@ app.whenReady().then(async () => {
 
     return { imported: importedSongs, skipped, errors };
   });
+
+  ipcMain.handle('songs:recompute-difficulties', () =>
+    recomputeAllSongDifficulties({ db, midiFilesDir }),
+  );
 
   ipcMain.handle('results:save', (_event, payload: SaveGameResultPayload) => db.saveGameResult(payload));
   ipcMain.handle('results:for-song', (_event, songId: string) => db.getGameResults(songId));

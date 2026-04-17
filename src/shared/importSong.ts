@@ -1,11 +1,13 @@
 import { createHash } from 'node:crypto';
-import { writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import type { TrackAssignment } from '../lib/game/types';
 import type { ParsedSong } from '../lib/game/types';
 import { getTrackAssignments } from '../lib/game/songUtils';
 import { extractMidiMeta, parseMidiFile } from '../lib/midi/midiFileParser';
 import type { AppDatabase } from '../main/database';
-import type { ImportedSong } from './ipc';
+import type { SongRow } from './dbTypes';
+import type { ImportError, ImportedSong, RecomputeDifficultiesResult } from './ipc';
 
 function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
   return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
@@ -81,6 +83,44 @@ interface ImportSongOptions {
   midiFilesDir: string;
 }
 
+interface ComputedSongMetadata {
+  artist: string;
+  bpm: number;
+  difficulty: number;
+  durationSec: number;
+  noteCount: number;
+  title: string;
+  trackAssignments: Record<string, TrackAssignment>;
+}
+
+function computeSongMetadata(
+  buffer: Uint8Array,
+  title: string,
+  existingTrackAssignments: Record<string, TrackAssignment> = {},
+): ComputedSongMetadata {
+  const midiMeta = extractMidiMeta(toArrayBuffer(buffer));
+  const effectiveTitle = midiMeta.suggestedTitle || title;
+  const parsedSong = parseMidiFile(toArrayBuffer(buffer), { songId: 'preview', title: effectiveTitle });
+  const defaultAssignments = getTrackAssignments(parsedSong);
+
+  return {
+    artist: midiMeta.suggestedArtist ?? '',
+    bpm: parsedSong.bpm,
+    difficulty: calculateDifficulty(parsedSong),
+    durationSec: parsedSong.durationSec,
+    noteCount: parsedSong.notes.length,
+    title: effectiveTitle,
+    trackAssignments: {
+      ...defaultAssignments,
+      ...existingTrackAssignments,
+    },
+  };
+}
+
+function resolveStoredMidiPath(song: SongRow, midiFilesDir: string): string {
+  return song.filePath?.trim() ? song.filePath : join(midiFilesDir, `${song.id}.mid`);
+}
+
 export async function importSongFromBuffer(
   buffer: Uint8Array,
   title: string,
@@ -89,26 +129,41 @@ export async function importSongFromBuffer(
   const fileData = Uint8Array.from(buffer);
   const songId = await createSongId(fileData);
   const destPath = join(midiFilesDir, `${songId}.mid`);
-  const midiMeta = extractMidiMeta(toArrayBuffer(fileData));
-  const effectiveTitle = midiMeta.suggestedTitle || title;
-  const parsedSong = parseMidiFile(toArrayBuffer(fileData), { songId, title: effectiveTitle });
-  const difficulty = calculateDifficulty(parsedSong);
+  const existingSong = db.getSong(songId);
+  const metadata = computeSongMetadata(fileData, title, existingSong?.trackAssignments);
 
   await writeFile(destPath, fileData);
 
-  const row = db.addSong({
-    id: songId,
-    title: effectiveTitle,
-    artist: midiMeta.suggestedArtist ?? '',
-    genre: '',
-    filePath: destPath,
-    difficulty,
-    durationSec: parsedSong.durationSec,
-    bpm: parsedSong.bpm,
-    noteCount: parsedSong.notes.length,
-    tags: [],
-    trackAssignments: getTrackAssignments(parsedSong),
-  });
+  if (existingSong) {
+    const shouldRefreshDescriptiveMetadata =
+      existingSong.filePath.trim() === '' && existingSong.noteCount === 0;
+    db.updateSong(songId, {
+      artist: shouldRefreshDescriptiveMetadata ? metadata.artist : existingSong.artist,
+      bpm: metadata.bpm,
+      difficulty: metadata.difficulty,
+      durationSec: metadata.durationSec,
+      filePath: destPath,
+      noteCount: metadata.noteCount,
+      title: shouldRefreshDescriptiveMetadata ? metadata.title : existingSong.title,
+      trackAssignments: metadata.trackAssignments,
+    });
+  } else {
+    db.addSong({
+      id: songId,
+      title: metadata.title,
+      artist: metadata.artist,
+      genre: '',
+      filePath: destPath,
+      difficulty: metadata.difficulty,
+      durationSec: metadata.durationSec,
+      bpm: metadata.bpm,
+      noteCount: metadata.noteCount,
+      tags: [],
+      trackAssignments: metadata.trackAssignments,
+    });
+  }
+
+  const row = db.getSong(songId)!;
 
   return {
     songId,
@@ -120,4 +175,34 @@ export async function importSongFromBuffer(
     noteCount: row.noteCount,
     difficulty: row.difficulty,
   };
+}
+
+export async function recomputeAllSongDifficulties(
+  { db, midiFilesDir }: ImportSongOptions,
+): Promise<RecomputeDifficultiesResult> {
+  const songs = db.getAllSongs();
+  const errors: ImportError[] = [];
+  let updated = 0;
+
+  for (const song of songs) {
+    try {
+      const buffer = await readFile(resolveStoredMidiPath(song, midiFilesDir));
+      const metadata = computeSongMetadata(buffer, song.title, song.trackAssignments);
+      db.updateSong(song.id, {
+        bpm: metadata.bpm,
+        difficulty: metadata.difficulty,
+        durationSec: metadata.durationSec,
+        noteCount: metadata.noteCount,
+        trackAssignments: metadata.trackAssignments,
+      });
+      updated += 1;
+    } catch (error) {
+      errors.push({
+        filename: song.title,
+        message: (error as Error).message,
+      });
+    }
+  }
+
+  return { updated, errors };
 }

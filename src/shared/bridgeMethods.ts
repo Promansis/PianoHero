@@ -7,6 +7,7 @@ export const RPC_BRIDGE_METHODS = [
   'updateSong',
   'deleteSong',
   'toggleFavorite',
+  'recomputeAllSongDifficulties',
   'saveGameResult',
   'getGameResults',
   'getUserStats',

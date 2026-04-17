@@ -49,7 +49,7 @@ export function createMidiRouter({ db, midiFilesDir }: ServerDependencies) {
         }
       }
 
-      return c.json(songs);
+      return c.json({ songs, errors });
     } catch (error) {
       return c.json({ error: (error as Error).message }, 500);
     }

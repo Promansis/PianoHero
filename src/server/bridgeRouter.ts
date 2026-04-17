@@ -1,5 +1,6 @@
 import { mkdirSync, rmSync } from 'node:fs';
 import { Hono } from 'hono';
+import { recomputeAllSongDifficulties } from '../shared/importSong';
 import { RPC_BRIDGE_METHOD_SET } from '../shared/bridgeMethods';
 import type { ServerDependencies } from './types';
 
@@ -25,6 +26,11 @@ export function createBridgeRouter({ db, midiFilesDir }: ServerDependencies) {
         rmSync(midiFilesDir, { recursive: true, force: true });
         mkdirSync(midiFilesDir, { recursive: true });
         return c.json({ result: null });
+      }
+
+      if (method === 'recomputeAllSongDifficulties') {
+        const result = await recomputeAllSongDifficulties({ db, midiFilesDir });
+        return c.json({ result });
       }
 
       const fn = (db as unknown as Record<string, (...nextArgs: unknown[]) => unknown>)[method];

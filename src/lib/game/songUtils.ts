@@ -37,23 +37,8 @@ export function defaultAssignmentForNotes(notes: Array<{ midi: number }>, trackN
   if (notes.length === 0) {
     return 'both';
   }
-
-  const allLeft = notes.every((note) => note.midi < 60);
-  if (allLeft) {
-    return 'left';
-  }
-
-  const allRight = notes.every((note) => note.midi >= 60);
-  if (allRight) {
-    return 'right';
-  }
-
-  // Use pitch centroid: if average pitch is significantly below/above C4, lean that way
   const avgMidi = notes.reduce((sum, note) => sum + note.midi, 0) / notes.length;
-  if (avgMidi < 52) return 'left';
-  if (avgMidi > 68) return 'right';
-
-  return 'both';
+  return avgMidi < 60 ? 'left' : 'right';
 }
 
 export function getEffectiveHand(note: ParsedNote, assignment: TrackAssignment): 'left' | 'right' | null {

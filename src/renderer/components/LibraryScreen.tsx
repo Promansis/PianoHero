@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AudioEngine } from '../../lib/audio/audioEngine';
 import type { SessionMode } from '../../lib/game/types';
 import { parseMidiFile } from '../../lib/midi/midiFileParser';
+import type { ImportResult } from '../../shared/ipc';
 import type { FolderRow, PlaylistRow, RecommendationResult, SongRow, UserStatsRow } from '../../shared/dbTypes';
 import { AdvancedFilters, type LibraryAdvancedFilters } from './AdvancedFilters';
 import { BulkActionBar } from './BulkActionBar';
@@ -29,11 +30,6 @@ interface SongDraft {
   genre: string;
   difficulty: number;
   tags: string[];
-}
-
-interface WebImportResult {
-  songs: Array<{ songId: string }>;
-  errors: Array<{ filename: string; message: string }>;
 }
 
 const EMPTY_ADVANCED_FILTERS: LibraryAdvancedFilters = {
@@ -164,6 +160,7 @@ export function LibraryScreen({
   const [isLoading, setIsLoading] = useState(true);
   const [isRecommendationsLoading, setIsRecommendationsLoading] = useState(true);
   const [isImporting, setIsImporting] = useState(false);
+  const [isRecomputingDifficulties, setIsRecomputingDifficulties] = useState(false);
   const [importProgress, setImportProgress] = useState<{ current: number; total: number; filename: string } | null>(null);
   const [editingSongId, setEditingSongId] = useState<string | null>(null);
   const [draft, setDraft] = useState<SongDraft | null>(null);
@@ -323,7 +320,7 @@ export function LibraryScreen({
             const payload = await response.json().catch(() => ({ error: `Status ${response.status}` }));
             throw new Error(typeof payload.error === 'string' ? payload.error : 'Upload failed.');
           }
-          const batch = await response.json() as WebImportResult;
+          const batch = await response.json() as ImportResult;
           songs.push(...batch.songs);
           errors.push(...batch.errors);
         } catch (err) {
@@ -418,6 +415,31 @@ export function LibraryScreen({
     setStatusMessage(
       `Imported ${result.songsImported} songs, ${result.foldersImported} folders, and ${result.playlistsImported} playlists.`,
     );
+  };
+
+  const handleRecomputeDifficulties = async () => {
+    if (!window.appBridge) {
+      return;
+    }
+
+    setIsRecomputingDifficulties(true);
+    try {
+      const result = await window.appBridge.recomputeAllSongDifficulties();
+      const parts = [`Recomputed difficulty for ${result.updated} song${result.updated === 1 ? '' : 's'}`];
+      if (result.errors.length > 0) {
+        parts.push(
+          `${result.errors.length} failed (${result.errors.map((error) => `${error.filename}: ${error.message}`).join('; ')})`,
+        );
+      }
+      setStatusMessage(parts.join('. ') + '.');
+      if (result.updated > 0) {
+        await refreshLibrary();
+      }
+    } catch (error) {
+      setStatusMessage(`Difficulty recompute failed: ${(error as Error).message}`);
+    } finally {
+      setIsRecomputingDifficulties(false);
+    }
   };
 
   const handleSaveMetadata = async () => {
@@ -1092,6 +1114,25 @@ export function LibraryScreen({
               setSelectedTagFilters([]);
             }}
           />
+
+          <section className="panel">
+            <div className="panel-heading">
+              <div>
+                <p className="eyebrow">Advanced Library Tools</p>
+                <h2>Maintenance</h2>
+              </div>
+            </div>
+            <p className="panel-copy">
+              Reload each stored MIDI file, recompute the difficulty model, and refresh computed song metadata.
+            </p>
+            <button
+              className="secondary-button"
+              disabled={isLoading || isRecomputingDifficulties || songs.length === 0}
+              onClick={() => void handleRecomputeDifficulties()}
+            >
+              {isRecomputingDifficulties ? 'Recomputing...' : 'Recompute All Difficulties'}
+            </button>
+          </section>
 
           {(selectedTagFilters.length > 0 || activeView.type !== 'all') && (
             <section className="tag-filter-summary">
