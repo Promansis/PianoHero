@@ -1091,7 +1091,7 @@ function syncSceneState(state: SceneState, props: FreePlayCanvasSceneProps, now:
         0.06,
         0.92,
       ),
-      sides: 3 + (note.midi % 12),
+      sides: 12 - (note.midi % 12),
       radius: 0,
       targetRadius: 30 + note.velocity * 90,
       rotation: seededUnit(note.id, 9) * Math.PI * 2,

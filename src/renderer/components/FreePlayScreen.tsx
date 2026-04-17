@@ -36,6 +36,7 @@ interface FreePlayScreenProps {
   keyboardOverlaySize: 'small' | 'medium' | 'large';
   postureReminderMinutes: number | null;
   breakReminderMinutes: number | null;
+  pitchBendEnabled: boolean;
   onBackToMainMenu: () => void;
   onOpenKeyboardSetup: () => void;
   unlockedRewardIds?: Set<string>;
@@ -66,6 +67,7 @@ export function FreePlayScreen({
   keyboardOverlaySize,
   postureReminderMinutes,
   breakReminderMinutes,
+  pitchBendEnabled,
   onBackToMainMenu,
   onOpenKeyboardSetup,
   unlockedRewardIds,
@@ -179,7 +181,9 @@ export function FreePlayScreen({
       }
 
       if (event.type === 'pitchbend') {
-        audioEngine.setPitchBend(event.pitchBendValue ?? 0);
+        if (pitchBendEnabled) {
+          audioEngine.setPitchBend(event.pitchBendValue ?? 0);
+        }
         return;
       }
 

@@ -13,6 +13,7 @@ import { audioBufferToWav } from './wavEncoder';
 type ToneModule = typeof import('tone');
 
 let toneModulePromise: Promise<ToneModule> | null = null;
+const SUSTAIN_RELEASE_TAIL_SEC = 0.14;
 
 async function loadTone(): Promise<ToneModule> {
   toneModulePromise ??= import('tone');
@@ -188,7 +189,7 @@ export class AudioEngine {
     if (!isDown) {
       for (const noteName of [...this.sustainedNotes]) {
         if (!this.heldNotes.has(noteName)) {
-          this.releaseNote(noteName);
+          this.releaseNote(noteName, SUSTAIN_RELEASE_TAIL_SEC);
         }
       }
       this.sustainedNotes.clear();
@@ -498,17 +499,18 @@ export class AudioEngine {
     return audioBufferToWav(audioBuffer);
   }
 
-  private releaseNote(noteName: string): void {
+  private releaseNote(noteName: string, releaseDelaySec = 0): void {
     if (!this.tone) {
       return;
     }
 
     this.sustainedNotes.delete(noteName);
+    const releaseTime = this.tone.now() + Math.max(0, releaseDelaySec);
     if (this.sampler) {
-      this.sampler.triggerRelease(noteName, this.tone.now());
+      this.sampler.triggerRelease(noteName, releaseTime);
       return;
     }
-    this.synth?.triggerRelease(noteName, this.tone.now());
+    this.synth?.triggerRelease(noteName, releaseTime);
   }
 
   private async rebuildInstrument(definition: InstrumentDefinition): Promise<void> {

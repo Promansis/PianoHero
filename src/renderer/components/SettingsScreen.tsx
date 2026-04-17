@@ -43,6 +43,7 @@ interface SettingsScreenProps {
   midiDevices: MidiInputDevice[];
   midiError: boolean;
   unlockedRewardIds?: Set<string>;
+  pitchBendEnabled: boolean;
   onSettingChange: (category: string, key: string, value: string) => void;
   onInputModeChange: (nextMode: InputMode) => void;
   onRetryMidi: () => void;
@@ -68,6 +69,7 @@ const DEFAULT_SETTINGS: SettingsValues = {
   'audio.reverbLevel': '20',
   'audio.latencyCompMs': '0',
   'audio.metronomeSound': 'classic',
+  'audio.pitchBendEnabled': 'true',
   'visual.theme': 'dark',
   'visual.colorBlindMode': 'false',
   'visual.noteLabels': 'alphabetic',
@@ -97,6 +99,7 @@ export function SettingsScreen({
   midiDevices,
   midiError,
   unlockedRewardIds = new Set(),
+  pitchBendEnabled,
   onSettingChange,
   onInputModeChange,
   onRetryMidi,
@@ -108,7 +111,7 @@ export function SettingsScreen({
   const [isSaving, setIsSaving] = useState(false);
   const [isResettingProgress, setIsResettingProgress] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
-  const [confirmReset, setConfirmReset] = useState<'data' | 'progress' | null>(null);
+  const [resetTarget, setResetTarget] = useState<'data' | 'progress' | null>(null);
   const [statusMessage, setStatusMessage] = useState('Loading saved settings.');
   const [samplePackPath, setSamplePackPath] = useState<string | null>(null);
   const [showLatencyWizard, setShowLatencyWizard] = useState(false);
@@ -139,6 +142,7 @@ export function SettingsScreen({
       });
 
       nextValues[getSettingKey('input', 'mode')] = inputMode;
+      nextValues[getSettingKey('audio', 'pitchBendEnabled')] = pitchBendEnabled ? 'true' : 'false';
       setValues(nextValues);
 
       const savedSamplePath = await window.appBridge.getSetting('audio', 'customSamplePackPath');
@@ -205,7 +209,16 @@ export function SettingsScreen({
     try {
       await window.appBridge.resetUserData();
       window.localStorage.clear();
-      window.location.reload();
+      setValues(DEFAULT_SETTINGS);
+      setSamplePackPath(null);
+      setSamplePackFileCount(0);
+      setResetTarget(null);
+      setStatusMessage('User data reset. The app is back to defaults.');
+      toastBus.push({
+        variant: 'success',
+        title: 'User data reset',
+        message: 'Songs, history, and saved settings were cleared.',
+      });
     } catch {
       setIsResetting(false);
       setStatusMessage('Reset failed. Your data was not fully cleared.');
@@ -228,7 +241,12 @@ export function SettingsScreen({
     try {
       await window.appBridge.resetLearningProgress();
       setStatusMessage('Learning progress reset. Your library and settings were kept.');
-      window.location.reload();
+      setResetTarget(null);
+      toastBus.push({
+        variant: 'success',
+        title: 'Learning progress reset',
+        message: 'Lessons, achievements, and practice history were cleared.',
+      });
     } catch {
       setStatusMessage('Progress reset failed. Your history was not fully cleared.');
       toastBus.push({
@@ -327,6 +345,22 @@ export function SettingsScreen({
                   <option value="soft">Soft (Sine)</option>
                   <option value="digital">Digital (Sawtooth)</option>
                 </select>
+              </label>
+              <label>
+                <span>Pitch Bend</span>
+                <select
+                  value={values['audio.pitchBendEnabled'] ?? 'true'}
+                  onChange={(event) => void persistSetting('audio', 'pitchBendEnabled', event.target.value)}
+                  disabled={!isRewardUnlocked('audio:pitch-bend', unlockedRewardIds)}
+                >
+                  <option value="true">Enabled</option>
+                  <option value="false">Disabled</option>
+                </select>
+                <em>
+                  {!isRewardUnlocked('audio:pitch-bend', unlockedRewardIds)
+                    ? 'Unlock Music Theorist rewards to customize pitch-bend behavior.'
+                    : 'Allow expressive wheel or joystick bends during play.'}
+                </em>
               </label>
               <label>
                 <span>Reverb Level</span>
@@ -626,7 +660,7 @@ export function SettingsScreen({
                 <span>Daily Goal (minutes)</span>
                 <input
                   type="number"
-                  min={1}
+                  min={0}
                   max={600}
                   value={values['practice.dailyGoalMinutes']}
                   onChange={(event) => void persistSetting('practice', 'dailyGoalMinutes', event.target.value)}
@@ -660,41 +694,54 @@ export function SettingsScreen({
               <article className="settings-note-card settings-danger-card">
                 <span>Reset Learning Progress</span>
                 <strong>Keeps your library, playlists, folders, and settings, but clears achievements and practice history.</strong>
-                {confirmReset === 'progress' ? (
-                  <div className="settings-confirm-row">
-                    <span>Are you sure? This cannot be undone.</span>
-                    <button className="danger-button" disabled={isResettingProgress} onClick={() => { setConfirmReset(null); void resetLearningProgress(); }}>
-                      {isResettingProgress ? 'Resetting...' : 'Yes, Reset Progress'}
-                    </button>
-                    <button className="secondary-button" onClick={() => setConfirmReset(null)}>Cancel</button>
-                  </div>
-                ) : (
-                  <button className="danger-button" disabled={isResettingProgress} onClick={() => setConfirmReset('progress')}>
-                    Reset Learning Progress
-                  </button>
-                )}
+                <button className="danger-button" disabled={isResettingProgress} onClick={() => setResetTarget('progress')}>
+                  Reset Learning Progress
+                </button>
               </article>
               <article className="settings-note-card settings-danger-card">
                 <span>Reset User Data</span>
                 <strong>Clears songs, playlists, folders, results, achievements, and saved settings.</strong>
-                {confirmReset === 'data' ? (
-                  <div className="settings-confirm-row">
-                    <span>Are you sure? All your songs and history will be permanently deleted.</span>
-                    <button className="danger-button" disabled={isResetting} onClick={() => { setConfirmReset(null); void resetUserData(); }}>
-                      {isResetting ? 'Resetting...' : 'Yes, Delete Everything'}
-                    </button>
-                    <button className="secondary-button" onClick={() => setConfirmReset(null)}>Cancel</button>
-                  </div>
-                ) : (
-                  <button className="danger-button" disabled={isResetting} onClick={() => setConfirmReset('data')}>
-                    Reset User Data
-                  </button>
-                )}
+                <button className="danger-button" disabled={isResetting} onClick={() => setResetTarget('data')}>
+                  Reset User Data
+                </button>
               </article>
             </div>
           )}
         </section>
       </section>
+      {resetTarget && (
+        <div className="settings-modal-backdrop" role="presentation">
+          <section className="panel settings-modal" role="dialog" aria-modal="true" aria-label="Confirm reset">
+            <p className="eyebrow">Confirm Reset</p>
+            <h2>{resetTarget === 'progress' ? 'Reset learning progress?' : 'Delete all user data?'}</h2>
+            <p className="panel-copy">
+              {resetTarget === 'progress'
+                ? 'This clears lesson progress, achievements, and practice history. Your library and saved settings stay in place.'
+                : 'This removes songs, playlists, folders, results, achievements, and saved settings.'}
+            </p>
+            <div className="settings-modal-actions">
+              <button
+                className="danger-button"
+                disabled={resetTarget === 'progress' ? isResettingProgress : isResetting}
+                onClick={() => {
+                  if (resetTarget === 'progress') {
+                    void resetLearningProgress();
+                  } else {
+                    void resetUserData();
+                  }
+                }}
+              >
+                {resetTarget === 'progress'
+                  ? (isResettingProgress ? 'Resetting...' : 'Yes, Reset Progress')
+                  : (isResetting ? 'Resetting...' : 'Yes, Delete Everything')}
+              </button>
+              <button className="secondary-button" onClick={() => setResetTarget(null)}>
+                Cancel
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
       {showLatencyWizard && (
         <LatencyWizard
           audioEngine={audioEngine}

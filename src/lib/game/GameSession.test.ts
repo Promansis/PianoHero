@@ -50,6 +50,7 @@ const DEFAULT_SESSION: SessionConfig = {
   metronomeEnabled: false,
   handSize: 'medium',
   fingeringDisplayMode: 'always',
+  pitchBendEnabled: true,
   latencyCompMs: 0,
   hitWindowMs: 100,
   beatsVisible: 8,

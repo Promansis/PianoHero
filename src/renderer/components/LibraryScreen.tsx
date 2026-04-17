@@ -31,6 +31,11 @@ interface SongDraft {
   tags: string[];
 }
 
+interface WebImportResult {
+  songs: Array<{ songId: string }>;
+  errors: Array<{ filename: string; message: string }>;
+}
+
 const EMPTY_ADVANCED_FILTERS: LibraryAdvancedFilters = {
   durationMin: '',
   durationMax: '',
@@ -272,7 +277,7 @@ export function LibraryScreen({
       } else {
         const parts: string[] = [];
         if (songs.length > 0) parts.push(`Imported ${songs.length} song${songs.length === 1 ? '' : 's'}`);
-        if (errors.length > 0) parts.push(`${errors.length} failed (${errors.map((e) => e.filename).join(', ')})`);
+        if (errors.length > 0) parts.push(`${errors.length} failed (${errors.map((e) => `${e.filename}: ${e.message}`).join('; ')})`);
         setStatusMessage(parts.join('. ') + '. Review the metadata before playing.');
         if (songs.length > 0) {
           await refreshLibrary();
@@ -318,8 +323,9 @@ export function LibraryScreen({
             const payload = await response.json().catch(() => ({ error: `Status ${response.status}` }));
             throw new Error(typeof payload.error === 'string' ? payload.error : 'Upload failed.');
           }
-          const batch = await response.json() as Array<{ songId: string }>;
-          songs.push(...batch);
+          const batch = await response.json() as WebImportResult;
+          songs.push(...batch.songs);
+          errors.push(...batch.errors);
         } catch (err) {
           errors.push({ filename, message: (err as Error).message });
         }
@@ -330,7 +336,7 @@ export function LibraryScreen({
       } else {
         const parts: string[] = [];
         if (songs.length > 0) parts.push(`Imported ${songs.length} song${songs.length === 1 ? '' : 's'}`);
-        if (errors.length > 0) parts.push(`${errors.length} failed (${errors.map((e) => e.filename).join(', ')})`);
+        if (errors.length > 0) parts.push(`${errors.length} failed (${errors.map((e) => `${e.filename}: ${e.message}`).join('; ')})`);
         setStatusMessage(parts.join('. ') + '. Review the metadata before playing.');
         if (songs.length > 0) {
           await refreshLibrary();
@@ -363,7 +369,7 @@ export function LibraryScreen({
         const parts: string[] = [];
         if (result.imported.length > 0) parts.push(`${result.imported.length} song${result.imported.length === 1 ? '' : 's'} imported`);
         if (result.skipped > 0) parts.push(`${result.skipped} already in library`);
-        if (result.errors.length > 0) parts.push(`${result.errors.length} failed (${result.errors.map((e) => e.filename).join(', ')})`);
+        if (result.errors.length > 0) parts.push(`${result.errors.length} failed (${result.errors.map((e) => `${e.filename}: ${e.message}`).join('; ')})`);
         setStatusMessage(parts.join(', ') + '.');
         if (result.imported.length > 0) {
           await refreshLibrary();

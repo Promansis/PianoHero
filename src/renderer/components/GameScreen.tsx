@@ -88,6 +88,7 @@ interface GameScreenProps {
   noteLabelSize?: 'small' | 'medium' | 'large';
   keyboardOverlaySize: 'small' | 'medium' | 'large';
   breakReminderMinutes: number | null;
+  pitchBendEnabled: boolean;
   onGameFinished: (payload: FinishedGamePayload) => void;
   onLessonDrillFinished?: (payload: LessonDrillFinishedPayload) => void;
   onExit: () => void;
@@ -335,6 +336,7 @@ export function GameScreen({
   noteLabelSize = 'medium',
   keyboardOverlaySize,
   breakReminderMinutes,
+  pitchBendEnabled,
   onGameFinished,
   onLessonDrillFinished,
   onExit,
@@ -418,7 +420,9 @@ export function GameScreen({
       }
 
       if (event.type === 'pitchbend') {
-        audioEngine.setPitchBend(event.pitchBendValue ?? 0);
+        if (pitchBendEnabled) {
+          audioEngine.setPitchBend(event.pitchBendValue ?? 0);
+        }
         return;
       }
       if (event.type === 'modulation') {
@@ -784,10 +788,11 @@ export function GameScreen({
     }
 
     const leadInBeats = sessionConfig.leadInBeats ?? 0;
+    const beatMs = (60 / Math.max(song.bpm * sessionConfig.tempoMultiplier, 1)) * 1000;
     for (let beat = 0; beat < leadInBeats; beat += 1) {
       if (countdownCancelRef.current) { setCountdownValue(null); return; }
       void audioEngine.playMetronomeClick(false);
-      await new Promise<void>((resolve) => setTimeout(resolve, 1000));
+      await new Promise<void>((resolve) => setTimeout(resolve, beatMs));
     }
 
     if (countdownCancelRef.current) { setCountdownValue(null); return; }

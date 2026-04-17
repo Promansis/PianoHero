@@ -20,17 +20,13 @@ export function calculateDifficulty(song: ParsedSong): number {
   if (notes.length === 0) return 1;
 
   const safeDuration = Math.max(durationSec, 1);
-
-  // Note density: notes per second (normalized to a reasonable scale)
   const density = notes.length / safeDuration;
-  const densityScore = Math.min(10, density * 1.4);
+  const densityScore = Math.min(10, density * 1.2);
 
-  // Pitch range: wider span = harder
   const midiValues = notes.map((n) => n.midi);
   const pitchRange = Math.max(...midiValues) - Math.min(...midiValues);
   const rangeScore = Math.min(10, pitchRange / 8);
 
-  // Chord density: max simultaneous notes within a 50ms window
   let maxSimultaneous = 1;
   for (let i = 0; i < notes.length; i++) {
     const start = notes[i].startSec;
@@ -42,11 +38,41 @@ export function calculateDifficulty(song: ParsedSong): number {
   }
   const chordScore = Math.min(10, (maxSimultaneous - 1) * 2.5);
 
-  // Tempo: faster tempos demand faster reactions
-  const tempoScore = Math.min(10, bpm / 30);
+  const tempoScore = Math.min(10, (Math.max(bpm, 40) / 120) * 10);
 
-  // Weighted combination
-  const raw = densityScore * 0.40 + rangeScore * 0.25 + chordScore * 0.20 + tempoScore * 0.15;
+  const beatWindowSec = 60 / Math.max(bpm, 40);
+  const independenceWindows = new Map<number, { left: number[]; right: number[] }>();
+  for (const note of notes) {
+    const beatIndex = Math.floor(note.startSec / beatWindowSec);
+    const bucket = independenceWindows.get(beatIndex) ?? { left: [], right: [] };
+    if (note.hand === 'left') {
+      bucket.left.push(note.midi);
+    } else if (note.hand === 'right') {
+      bucket.right.push(note.midi);
+    }
+    independenceWindows.set(beatIndex, bucket);
+  }
+
+  let divergenceTotal = 0;
+  let divergenceCount = 0;
+  for (const bucket of independenceWindows.values()) {
+    if (bucket.left.length === 0 || bucket.right.length === 0) {
+      continue;
+    }
+    const leftAvg = bucket.left.reduce((sum, midi) => sum + midi, 0) / bucket.left.length;
+    const rightAvg = bucket.right.reduce((sum, midi) => sum + midi, 0) / bucket.right.length;
+    divergenceTotal += Math.min(60, Math.abs(rightAvg - leftAvg));
+    divergenceCount += 1;
+  }
+  const independenceScore =
+    divergenceCount === 0 ? 0 : Math.min(10, (divergenceTotal / divergenceCount) / 6);
+
+  const raw =
+    densityScore * 0.4 +
+    rangeScore * 0.2 +
+    chordScore * 0.2 +
+    tempoScore * 0.1 +
+    independenceScore * 0.1;
   return Math.max(1, Math.min(10, Math.round(raw)));
 }
 

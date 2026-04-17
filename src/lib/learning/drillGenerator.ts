@@ -1,5 +1,5 @@
 import type { Hand, ParsedNote, ParsedSong, ParsedTrack } from '../game/types';
-import type { DrillSpec } from './types';
+import type { DrillSpec, RhythmClappingStep } from './types';
 
 const PPQ = 480;
 
@@ -260,4 +260,15 @@ export function buildLessonDrill(title: string, spec: DrillSpec): ParsedSong {
   }
 
   return normalizeNotes(title, spec.bpm, notes);
+}
+
+export function buildRhythmClappingDrill(step: RhythmClappingStep): ParsedSong {
+  return buildLessonDrill(step.title, {
+    kind: 'single-note-rhythm',
+    bpm: step.bpm,
+    midi: 60,
+    hand: 'right',
+    patternBeats: Array.from({ length: Math.max(1, step.measures ?? 1) }).flatMap(() => step.patternBeats),
+    repetitions: 1,
+  });
 }

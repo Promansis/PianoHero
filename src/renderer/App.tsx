@@ -3,7 +3,7 @@ import { AudioEngine } from '../lib/audio/audioEngine';
 import { DEFAULT_INSTRUMENT_ID, DEFAULT_WEB_INSTRUMENT_ID, isInstrumentId } from '../lib/audio/instrumentCatalog';
 import { getUnlockedRewardIds } from '../lib/rewards/rewardCatalog';
 import { CURRICULUM, getLessonById, getTierByLessonId } from '../lib/learning/curriculum';
-import { buildLessonDrill } from '../lib/learning/drillGenerator';
+import { buildLessonDrill, buildRhythmClappingDrill } from '../lib/learning/drillGenerator';
 import {
   EMPTY_LEARNING_PROGRESS,
   loadLearningProgress,
@@ -96,6 +96,7 @@ function buildSessionConfig(
   mode: SessionMode,
   waitModeDefault: boolean,
   metronomeDefault: boolean,
+  pitchBendEnabled: boolean,
   latencyCompMs: number,
   hitWindowMs: number,
   beatsVisible: number,
@@ -111,6 +112,7 @@ function buildSessionConfig(
     metronomeEnabled: metronomeDefault,
     handSize: 'medium',
     fingeringDisplayMode: 'learning-only',
+    pitchBendEnabled,
     latencyCompMs,
     hitWindowMs,
     beatsVisible,
@@ -205,6 +207,7 @@ export function App() {
   const [latencyCompMs, setLatencyCompMs] = useState(0);
   const [waitModeDefault, setWaitModeDefault] = useState(false);
   const [metronomeDefault, setMetronomeDefault] = useState(false);
+  const [pitchBendEnabled, setPitchBendEnabled] = useState(true);
   const [hitWindowMs, setHitWindowMs] = useState(100);
   const [beatsVisible, setBeatsVisible] = useState(8);
   const [leadInBeats, setLeadInBeats] = useState(2);
@@ -317,6 +320,7 @@ export function App() {
         rawMetronomeSound,
         rawLeadInBeats,
         rawNoteLabelSize,
+        rawPitchBendEnabled,
       ] = await Promise.all([
         window.appBridge.getSetting('onboarding', 'setupComplete'),
         window.appBridge.getSetting('practice', 'postureReminderMinutes'),
@@ -344,6 +348,7 @@ export function App() {
         window.appBridge.getSetting('audio', 'metronomeSound'),
         window.appBridge.getSetting('gameplay', 'leadInBeats'),
         window.appBridge.getSetting('visual', 'noteLabelSize'),
+        window.appBridge.getSetting('audio', 'pitchBendEnabled'),
       ]);
 
       if (reminder) {
@@ -356,7 +361,10 @@ export function App() {
         setHandSize(savedHandSize);
       }
 
-      const theme = rawTheme === 'warm' ? 'warm' : rawTheme === 'light' ? 'light' : 'dark';
+      const theme =
+        rawTheme === 'warm' || rawTheme === 'light' || rawTheme === 'dark' || rawTheme === 'neon'
+          ? rawTheme
+          : 'dark';
       document.documentElement.dataset['theme'] = theme;
       if (!rawTheme) {
         void window.appBridge.setSetting('visual', 'theme', theme);
@@ -379,6 +387,7 @@ export function App() {
 
       setWaitModeDefault(rawWaitMode === 'true');
       setMetronomeDefault(rawMetronomeDefault === 'true');
+      setPitchBendEnabled(rawPitchBendEnabled !== 'false');
 
       const parsedBreak = Number(rawBreakReminder);
       if (Number.isFinite(parsedBreak) && parsedBreak > 0) {
@@ -549,13 +558,16 @@ export function App() {
         audioEngineRef.current.setReverbLevel(parsedValue);
       } else if (key === 'latencyCompMs') {
         setLatencyCompMs(parsedValue);
+      } else if (key === 'pitchBendEnabled') {
+        setPitchBendEnabled(value !== 'false');
       }
       return;
     }
 
     if (category === 'visual') {
       if (key === 'theme') {
-        document.documentElement.dataset['theme'] = value === 'warm' ? 'warm' : value === 'dark' ? 'dark' : 'light';
+        document.documentElement.dataset['theme'] =
+          value === 'warm' || value === 'dark' || value === 'light' || value === 'neon' ? value : 'light';
       } else if (key === 'colorBlindMode') {
         setColorBlindMode(value === 'true');
       } else if (key === 'noteLabels' && (value === 'alphabetic' || value === 'symbols' || value === 'both' || value === 'none')) {
@@ -703,19 +715,23 @@ export function App() {
   const startLessonDrill = (lessonId: string, stepIndex: number) => {
     const lesson = getLessonById(lessonId);
     const step = lesson?.steps[stepIndex];
-    if (!lesson || !step || step.kind !== 'drill') {
+    if (!lesson || !step || (step.kind !== 'drill' && step.kind !== 'rhythm-clapping')) {
       return;
     }
+
+    const parsedSong = step.kind === 'drill'
+      ? buildLessonDrill(step.title, step.drill)
+      : buildRhythmClappingDrill(step);
 
     setCurrentScreen({
       screen: 'lesson-drill',
       lessonId,
       stepIndex,
-      parsedSong: buildLessonDrill(step.title, step.drill),
-      sessionConfig: buildSessionConfig('learning', true, false, latencyCompMs, hitWindowMs, beatsVisible, leadInBeats, {
+      parsedSong,
+      sessionConfig: buildSessionConfig('learning', true, false, pitchBendEnabled, latencyCompMs, hitWindowMs, beatsVisible, leadInBeats, {
         handSize,
-        tempoMultiplier: step.tempoMultiplier ?? 1,
-        handFilter: step.handFilter ?? 'both',
+        tempoMultiplier: step.kind === 'drill' ? step.tempoMultiplier ?? 1 : 1,
+        handFilter: step.kind === 'drill' ? step.handFilter ?? 'both' : 'both',
       }),
     });
   };
@@ -732,7 +748,7 @@ export function App() {
         screen: 'capstone',
         tierId,
         parsedSong,
-        sessionConfig: buildSessionConfig('learning', false, metronomeDefault, latencyCompMs, hitWindowMs, beatsVisible, leadInBeats, {
+        sessionConfig: buildSessionConfig('learning', false, metronomeDefault, pitchBendEnabled, latencyCompMs, hitWindowMs, beatsVisible, leadInBeats, {
           handSize,
           tempoMultiplier: capstone.tempoPercent / 100,
           handFilter: capstone.handFilter,
@@ -752,7 +768,7 @@ export function App() {
     setCurrentScreen({
       screen: 'game',
       song,
-      sessionConfig: buildSessionConfig(mode, waitModeDefault, metronomeDefault, latencyCompMs, hitWindowMs, beatsVisible, leadInBeats, {
+      sessionConfig: buildSessionConfig(mode, waitModeDefault, metronomeDefault, pitchBendEnabled, latencyCompMs, hitWindowMs, beatsVisible, leadInBeats, {
         loopRange,
         handSize,
       }),
@@ -1044,6 +1060,7 @@ export function App() {
           keyboardOverlaySize={keyboardOverlaySize}
           postureReminderMinutes={postureReminderMinutes}
           breakReminderMinutes={breakReminderMinutes}
+          pitchBendEnabled={pitchBendEnabled}
           unlockedRewardIds={unlockedRewardIds}
           onBackToMainMenu={() => setCurrentScreen({ screen: 'main-menu' })}
           onOpenKeyboardSetup={() => setCurrentScreen({ screen: 'keyboard-setup', returnTo: 'free-play' })}
@@ -1087,6 +1104,7 @@ export function App() {
           midiDevices={midiDevices}
           midiError={midiError}
           unlockedRewardIds={unlockedRewardIds}
+          pitchBendEnabled={pitchBendEnabled}
           onSettingChange={applySettingChange}
           onInputModeChange={persistInputMode}
           onRetryMidi={retryMidiInit}
@@ -1170,6 +1188,7 @@ export function App() {
           noteLabelSize={noteLabelSize}
           keyboardOverlaySize={keyboardOverlaySize}
           breakReminderMinutes={breakReminderMinutes}
+          pitchBendEnabled={pitchBendEnabled}
           onExit={() => setCurrentScreen({ screen: 'main-menu' })}
           onGameFinished={handleGameFinished}
           onOpenKeyboardSetup={() => setCurrentScreen({ screen: 'keyboard-setup', returnTo: 'library' })}
@@ -1196,6 +1215,7 @@ export function App() {
           noteLabelSize={noteLabelSize}
           keyboardOverlaySize={keyboardOverlaySize}
           breakReminderMinutes={breakReminderMinutes}
+          pitchBendEnabled={pitchBendEnabled}
           onExit={() => navigateToLesson(currentScreen.lessonId, currentScreen.stepIndex)}
           exitLabel="Back to Lesson"
           onGameFinished={handleGameFinished}
@@ -1230,6 +1250,7 @@ export function App() {
           noteLabelSize={noteLabelSize}
           keyboardOverlaySize={keyboardOverlaySize}
           breakReminderMinutes={breakReminderMinutes}
+          pitchBendEnabled={pitchBendEnabled}
           onExit={() => setCurrentScreen({ screen: 'learn-hub' })}
           exitLabel="Back to Learn Hub"
           onGameFinished={handleGameFinished}

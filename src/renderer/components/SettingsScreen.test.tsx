@@ -23,7 +23,7 @@ describe('SettingsScreen', () => {
     resetUserData.mockClear();
   });
 
-  it('does not reset learning progress when inline confirmation is cancelled', async () => {
+  it('does not reset learning progress when modal confirmation is cancelled', async () => {
     localStorage.setItem('pianohero-filter-presets', '{"demo":true}');
 
     render(
@@ -32,6 +32,7 @@ describe('SettingsScreen', () => {
         inputMode="both"
         midiDevices={[]}
         midiError={false}
+        pitchBendEnabled
         onSettingChange={vi.fn()}
         onInputModeChange={vi.fn()}
         onRetryMidi={vi.fn()}
@@ -42,7 +43,6 @@ describe('SettingsScreen', () => {
     fireEvent.click(await screen.findByText('Practice'));
     fireEvent.click(screen.getByRole('button', { name: 'Reset Learning Progress' }));
 
-    // Inline confirm row should now be visible
     expect(screen.getByRole('button', { name: 'Yes, Reset Progress' })).toBeInTheDocument();
 
     // Click cancel — reset should NOT fire
@@ -55,13 +55,14 @@ describe('SettingsScreen', () => {
     });
   });
 
-  it('resets learning progress when inline confirmation is confirmed', async () => {
+  it('resets learning progress when modal confirmation is confirmed', async () => {
     render(
       <SettingsScreen
         audioEngine={{ playMetronomeClick: vi.fn().mockResolvedValue(undefined), prepareForPlayback: vi.fn().mockResolvedValue(undefined) } as unknown as import('../../lib/audio/audioEngine').AudioEngine}
         inputMode="both"
         midiDevices={[]}
         midiError={false}
+        pitchBendEnabled
         onSettingChange={vi.fn()}
         onInputModeChange={vi.fn()}
         onRetryMidi={vi.fn()}

@@ -1,6 +1,6 @@
 import type { AchievementRow } from '../../shared/dbTypes';
 
-export type RewardType = 'instrument' | 'visual-mode' | 'theme' | 'title';
+export type RewardType = 'instrument' | 'visual-mode' | 'theme' | 'title' | 'audio-control';
 
 export interface RewardDefinition {
   id: string;
@@ -50,6 +50,13 @@ export const REWARD_CATALOG: RewardDefinition[] = [
     id: 'visual:sacred-geometry',
     type: 'visual-mode',
     displayName: 'Sacred Geometry',
+    description: 'Unlocked by completing 10 theory sessions.',
+    grantedByAchievementId: 'theorist',
+  },
+  {
+    id: 'audio:pitch-bend',
+    type: 'audio-control',
+    displayName: 'Pitch Bend',
     description: 'Unlocked by completing 10 theory sessions.',
     grantedByAchievementId: 'theorist',
   },

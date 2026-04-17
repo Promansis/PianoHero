@@ -138,6 +138,7 @@ describe('FreePlayScreen', () => {
         keyboardOverlaySize="medium"
         postureReminderMinutes={null}
         breakReminderMinutes={null}
+        pitchBendEnabled
         onBackToMainMenu={vi.fn()}
         onOpenKeyboardSetup={vi.fn()}
       />,
@@ -158,6 +159,7 @@ describe('FreePlayScreen', () => {
         keyboardOverlaySize="medium"
         postureReminderMinutes={null}
         breakReminderMinutes={null}
+        pitchBendEnabled
         onBackToMainMenu={vi.fn()}
         onOpenKeyboardSetup={vi.fn()}
       />,
@@ -192,6 +194,7 @@ describe('FreePlayScreen', () => {
         keyboardOverlaySize="medium"
         postureReminderMinutes={null}
         breakReminderMinutes={null}
+        pitchBendEnabled
         onBackToMainMenu={vi.fn()}
         onOpenKeyboardSetup={vi.fn()}
       />,
@@ -250,6 +253,7 @@ describe('FreePlayScreen', () => {
         keyboardOverlaySize="medium"
         postureReminderMinutes={null}
         breakReminderMinutes={null}
+        pitchBendEnabled
         onBackToMainMenu={vi.fn()}
         onOpenKeyboardSetup={vi.fn()}
       />,

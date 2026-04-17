@@ -20,6 +20,7 @@ export interface SessionConfig {
   metronomeEnabled: boolean;
   handSize: HandSize;
   fingeringDisplayMode: FingeringDisplayMode;
+  pitchBendEnabled: boolean;
   latencyCompMs: number;
   hitWindowMs: number;
   beatsVisible: number;

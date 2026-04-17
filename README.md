@@ -175,6 +175,7 @@ That folder contains:
 - Browser upload of MIDI files works.
 - Some desktop-only actions are not available in web mode, such as native file picker features and some export/save helpers.
 - Cloudflare Tunnel gives you HTTPS, which is useful for browser device APIs.
+- Current web deployment is single-user only. The SQLite database and uploaded MIDI files are shared by anyone who can reach the site, so add auth before exposing it to multiple users.
 
 ## If You Want to Use a Different Domain
 

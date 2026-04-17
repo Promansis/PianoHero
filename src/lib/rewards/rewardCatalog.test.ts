@@ -44,6 +44,13 @@ describe('rewardCatalog', () => {
     expect(isRewardUnlocked('instrument:honky-tonk', set)).toBe(false);
   });
 
+  it('grants pitch-bend customization from the theorist achievement', () => {
+    const achievements: AchievementRow[] = [makeAchievement('theorist', true)];
+    const unlocked = getUnlockedRewardIds(achievements);
+    expect(unlocked.has('visual:sacred-geometry')).toBe(true);
+    expect(unlocked.has('audio:pitch-bend')).toBe(true);
+  });
+
   it('each reward references an achievement id (catalog integrity)', () => {
     for (const reward of REWARD_CATALOG) {
       expect(reward.grantedByAchievementId.length).toBeGreaterThan(0);
