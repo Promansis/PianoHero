@@ -85,6 +85,7 @@ export function ResultsScreen({
   onNextSong,
 }: ResultsScreenProps) {
   const didPersistRef = useRef(false);
+  const confettiCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<SongTheoryAnalysis | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
@@ -157,6 +158,59 @@ export function ResultsScreen({
     void loadAnalysis();
   }, [song.id, song.title]);
 
+  useEffect(() => {
+    if (grade !== 'S' && grade !== 'A') return;
+    const canvas = confettiCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const resize = () => {
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+    };
+    resize();
+
+    const COLORS = ['#f9a825', '#e53935', '#43a047', '#1e88e5', '#8e24aa', '#fb8c00', '#00acc1'];
+    const COUNT = grade === 'S' ? 120 : 60;
+    type Piece = { x: number; y: number; vx: number; vy: number; rot: number; rotV: number; w: number; h: number; color: string; opacity: number };
+    const pieces: Piece[] = Array.from({ length: COUNT }, () => ({
+      x: Math.random() * canvas.width,
+      y: -10 - Math.random() * 100,
+      vx: (Math.random() - 0.5) * 1.5,
+      vy: 2 + Math.random() * 3,
+      rot: Math.random() * Math.PI * 2,
+      rotV: (Math.random() - 0.5) * 0.15,
+      w: 8 + Math.random() * 6,
+      h: 4 + Math.random() * 4,
+      color: COLORS[Math.floor(Math.random() * COLORS.length)],
+      opacity: 0.85 + Math.random() * 0.15,
+    }));
+
+    let rafId: number;
+    const draw = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      let alive = false;
+      for (const p of pieces) {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.04;
+        p.rot += p.rotV;
+        if (p.y < canvas.height + 20) alive = true;
+        ctx.save();
+        ctx.globalAlpha = p.opacity;
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+        ctx.restore();
+      }
+      if (alive) rafId = requestAnimationFrame(draw);
+    };
+    rafId = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(rafId);
+  }, [grade]);
+
   const comparison = useMemo(() => {
     if (!baselineStats) {
       return {
@@ -209,6 +263,9 @@ export function ResultsScreen({
 
   return (
     <main className="app-shell results-screen">
+      {(grade === 'S' || grade === 'A') && (
+        <canvas ref={confettiCanvasRef} className="confetti-canvas" aria-hidden="true" />
+      )}
       <section className="panel results-hero">
         <div>
           <p className="eyebrow">Results</p>

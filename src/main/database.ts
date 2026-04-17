@@ -822,7 +822,71 @@ export class AppDatabase {
       .prepare('SELECT date FROM practice_days WHERE total_practice_time_sec > 0 OR songs_played > 0 OR theory_sessions > 0 ORDER BY date ASC')
       .all() as Array<{ date: string }>;
 
-    return calculatePracticeStreak(rows.map((row) => row.date), new Date());
+    const freezeDates = this.getStreakFreezeUsedDates();
+    const streakFreezes = this.getStreakFreezeCount();
+    return { ...calculatePracticeStreak(rows.map((row) => row.date), new Date(), freezeDates), streakFreezes };
+  }
+
+  private getStreakFreezeCount(): number {
+    const val = this.getSetting('progress', 'streakFreezes');
+    return val ? Math.max(0, parseInt(val, 10)) : 0;
+  }
+
+  private getStreakFreezeUsedDates(): string[] {
+    const val = this.getSetting('progress', 'streakFreezeUsedDates');
+    if (!val) return [];
+    try { return JSON.parse(val) as string[]; } catch { return []; }
+  }
+
+  private applyStreakFreezeIfNeeded(): void {
+    const practiceDates = (this.db
+      .prepare('SELECT date FROM practice_days WHERE total_practice_time_sec > 0 OR songs_played > 0 OR theory_sessions > 0 ORDER BY date DESC')
+      .all() as Array<{ date: string }>).map((r) => r.date);
+
+    if (practiceDates.length === 0) return;
+
+    const today = formatLocalDate(new Date());
+    const dateSet = new Set(practiceDates);
+    if (!dateSet.has(today)) return; // no practice today yet
+
+    // Find the most recent practice day before today
+    const yesterday = formatLocalDate(new Date(new Date().getTime() - 86_400_000));
+    const usedDates = this.getStreakFreezeUsedDates();
+    const usedSet = new Set(usedDates);
+    if (dateSet.has(yesterday) || usedSet.has(yesterday)) return; // no gap
+
+    // There is a gap of at least 1 day — check if gap is exactly 1 day
+    const prevPractice = practiceDates.find((d) => d < today && !usedSet.has(d));
+    if (!prevPractice) return;
+    const prevDate = new Date(`${prevPractice}T00:00:00`);
+    const todayDate = new Date(`${today}T00:00:00`);
+    const gapDays = Math.round((todayDate.getTime() - prevDate.getTime()) / 86_400_000);
+    if (gapDays !== 2) return; // only bridge exactly 1 skipped day
+
+    const freezes = this.getStreakFreezeCount();
+    if (freezes <= 0) return;
+
+    usedDates.push(yesterday);
+    this.setSetting('progress', 'streakFreezeUsedDates', JSON.stringify(usedDates));
+    this.setSetting('progress', 'streakFreezes', String(freezes - 1));
+  }
+
+  private awardStreakFreezeForMilestone(): void {
+    const rows = (this.db
+      .prepare('SELECT date FROM practice_days WHERE total_practice_time_sec > 0 OR songs_played > 0 OR theory_sessions > 0 ORDER BY date ASC')
+      .all() as Array<{ date: string }>).map((r) => r.date);
+
+    const usedDates = this.getStreakFreezeUsedDates();
+    const streak = calculatePracticeStreak(rows, new Date(), usedDates);
+    const current = streak.currentStreak;
+    if (current > 0 && current % 14 === 0) {
+      const already = this.getSetting('progress', `streakFreezeMilestone${current}`);
+      if (!already) {
+        this.setSetting('progress', `streakFreezeMilestone${current}`, '1');
+        const cur = this.getStreakFreezeCount();
+        this.setSetting('progress', 'streakFreezes', String(cur + 1));
+      }
+    }
   }
 
   getAllAchievements(): AchievementRow[] {
@@ -1133,6 +1197,9 @@ export class AppDatabase {
         songsPlayed,
         theorySessions,
       });
+
+    this.applyStreakFreezeIfNeeded();
+    this.awardStreakFreezeForMilestone();
   }
 
   private updateTroubleSpotsForSong(
@@ -1726,7 +1793,7 @@ function formatLocalDate(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-function calculatePracticeStreak(dates: string[], currentDate: Date): PracticeStreak {
+function calculatePracticeStreak(dates: string[], currentDate: Date, freezeDates: string[] = []): Omit<PracticeStreak, 'streakFreezes'> {
   if (dates.length === 0) {
     return {
       currentStreak: 0,
@@ -1734,7 +1801,7 @@ function calculatePracticeStreak(dates: string[], currentDate: Date): PracticeSt
     };
   }
 
-  const uniqueDates = [...new Set(dates)].sort((left, right) => left.localeCompare(right));
+  const uniqueDates = [...new Set([...dates, ...freezeDates])].sort((left, right) => left.localeCompare(right));
   let longestStreak = 1;
   let runningStreak = 1;
 

@@ -1,4 +1,11 @@
 export type InstrumentVoice = 'synth' | 'am' | 'fm' | 'mono' | 'sampler';
+export type InstrumentReverbPreset = 'short' | 'medium' | 'hall';
+
+export const REVERB_PRESETS: Record<InstrumentReverbPreset, { delayTime: number; feedback: number }> = {
+  short:  { delayTime: 0.08, feedback: 0.12 },
+  medium: { delayTime: 0.18, feedback: 0.22 },
+  hall:   { delayTime: 0.35, feedback: 0.45 },
+};
 
 export interface InstrumentDefinition {
   id: string;
@@ -8,6 +15,7 @@ export interface InstrumentDefinition {
   options: Record<string, unknown>;
   sampleBaseUrl?: string;
   sampleUrls?: Record<string, string>;
+  reverbPreset?: InstrumentReverbPreset;
 }
 
 const SALAMANDER_SAMPLE_MAP = {
@@ -124,6 +132,7 @@ export const INSTRUMENTS: InstrumentDefinition[] = [
     },
     sampleBaseUrl: '/samples/salamander/',
     sampleUrls: SALAMANDER_SAMPLE_MAP,
+    reverbPreset: 'medium',
   },
   {
     id: 'electric-piano',
@@ -159,6 +168,7 @@ export const INSTRUMENTS: InstrumentDefinition[] = [
     },
     sampleBaseUrl: '/samples/nbrosowsky/organ/',
     sampleUrls: NBROSOWSKY_ORGAN_SAMPLE_MAP,
+    reverbPreset: 'hall',
   },
   {
     id: 'harpsichord',
@@ -174,12 +184,14 @@ export const INSTRUMENTS: InstrumentDefinition[] = [
         release: 0.12,
       },
     },
+    reverbPreset: 'short',
   },
   {
     id: 'warm-pad',
     label: 'Warm Pad',
     description: 'A wide, slow synth pad for ambient practice.',
     voice: 'am',
+    reverbPreset: 'hall',
     options: {
       harmonicity: 1.5,
       oscillator: { type: 'sine' },
@@ -208,6 +220,7 @@ export const INSTRUMENTS: InstrumentDefinition[] = [
     },
     sampleBaseUrl: '/samples/philharmonia/flute/',
     sampleUrls: PHILHARMONIA_FLUTE_SAMPLE_MAP,
+    reverbPreset: 'short',
   },
   {
     id: 'clarinet',
@@ -219,6 +232,7 @@ export const INSTRUMENTS: InstrumentDefinition[] = [
     },
     sampleBaseUrl: '/samples/philharmonia/clarinet/',
     sampleUrls: PHILHARMONIA_CLARINET_SAMPLE_MAP,
+    reverbPreset: 'short',
   },
   {
     id: 'trumpet',
@@ -230,6 +244,7 @@ export const INSTRUMENTS: InstrumentDefinition[] = [
     },
     sampleBaseUrl: '/samples/philharmonia/trumpet/',
     sampleUrls: PHILHARMONIA_TRUMPET_SAMPLE_MAP,
+    reverbPreset: 'medium',
   },
   {
     id: 'french-horn',
@@ -241,6 +256,7 @@ export const INSTRUMENTS: InstrumentDefinition[] = [
     },
     sampleBaseUrl: '/samples/philharmonia/french-horn/',
     sampleUrls: PHILHARMONIA_FRENCH_HORN_SAMPLE_MAP,
+    reverbPreset: 'hall',
   },
   {
     id: 'marimba',
@@ -252,6 +268,7 @@ export const INSTRUMENTS: InstrumentDefinition[] = [
     },
     sampleBaseUrl: '/samples/nbrosowsky/harp/',
     sampleUrls: NBROSOWSKY_HARP_SAMPLE_MAP,
+    reverbPreset: 'medium',
   },
   {
     id: 'bell',
@@ -263,6 +280,7 @@ export const INSTRUMENTS: InstrumentDefinition[] = [
     },
     sampleBaseUrl: '/samples/nbrosowsky/xylophone/',
     sampleUrls: NBROSOWSKY_XYLOPHONE_SAMPLE_MAP,
+    reverbPreset: 'medium',
   },
   {
     id: 'vibraphone',
@@ -274,6 +292,7 @@ export const INSTRUMENTS: InstrumentDefinition[] = [
     },
     sampleBaseUrl: '/samples/nbrosowsky/vibraphone/',
     sampleUrls: NBROSOWSKY_VIBRAPHONE_SAMPLE_MAP,
+    reverbPreset: 'medium',
   },
   {
     id: 'bass',
@@ -371,6 +390,7 @@ export const INSTRUMENTS: InstrumentDefinition[] = [
         release: 0.8,
       },
     },
+    reverbPreset: 'medium',
   },
   {
     id: 'honky-tonk',
@@ -394,6 +414,7 @@ export const INSTRUMENTS: InstrumentDefinition[] = [
         release: 0.4,
       },
     },
+    reverbPreset: 'short',
   },
   {
     id: 'bubbles',

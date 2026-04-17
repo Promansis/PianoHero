@@ -4,6 +4,7 @@ import type { ParsedSong } from '../game/types';
 import {
   DEFAULT_INSTRUMENT_ID,
   getInstrumentDefinition,
+  REVERB_PRESETS,
   type InstrumentDefinition,
   type InstrumentVoice,
 } from './instrumentCatalog';
@@ -520,6 +521,11 @@ export class AudioEngine {
     this.synth?.dispose();
     this.synth = null;
     await this.loadInstrument(definition);
+    if (this.instrumentReverbNode && definition.reverbPreset) {
+      const preset = REVERB_PRESETS[definition.reverbPreset];
+      this.instrumentReverbNode.delayTime.value = preset.delayTime;
+      this.instrumentReverbNode.feedback.value = preset.feedback;
+    }
   }
 
   private async prepareAudioGraph(): Promise<void> {
@@ -537,7 +543,13 @@ export class AudioEngine {
     this.metronomeVolumeNode = new tone.Volume(percentToDb(tone, this.metronomeVolumePercent)).connect(this.masterVolumeNode);
     this.oneShotVolumeNode = new tone.Volume(0).connect(this.masterVolumeNode);
     console.log('[AudioEngine] Loading instrument...');
-    await this.loadInstrument(getInstrumentDefinition(this.instrumentId));
+    const initialDef = getInstrumentDefinition(this.instrumentId);
+    await this.loadInstrument(initialDef);
+    if (this.instrumentReverbNode && initialDef.reverbPreset) {
+      const preset = REVERB_PRESETS[initialDef.reverbPreset];
+      this.instrumentReverbNode.delayTime.value = preset.delayTime;
+      this.instrumentReverbNode.feedback.value = preset.feedback;
+    }
     this.metronomeSynth = new tone.Synth({
       oscillator: { type: 'square' },
       envelope: {

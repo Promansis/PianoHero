@@ -451,6 +451,11 @@ export function ProgressDashboardScreen() {
             <span className={streak.currentStreak >= 7 ? 'milestone-badge unlocked' : 'milestone-badge'}>7-day streak</span>
             <span className={streak.currentStreak >= 30 ? 'milestone-badge unlocked' : 'milestone-badge'}>30-day streak</span>
           </div>
+          {streak.streakFreezes > 0 && (
+            <p className="streak-freeze-info">
+              {streak.streakFreezes} streak freeze{streak.streakFreezes !== 1 ? 's' : ''} available — used automatically if you miss a day
+            </p>
+          )}
         </article>
 
         <article className="panel achievements-panel">

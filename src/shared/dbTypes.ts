@@ -167,6 +167,7 @@ export interface PracticeDayRow {
 export interface PracticeStreak {
   currentStreak: number;
   longestStreak: number;
+  streakFreezes: number;
 }
 
 export interface AchievementRow {
