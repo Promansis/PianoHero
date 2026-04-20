@@ -438,6 +438,12 @@ export class AudioEngine {
     player.start();
   }
 
+  async getOneShotDurationSec(src: string): Promise<number> {
+    await this.prepareForPlayback();
+    const player = await this.getOrCreateOneShotPlayer(src);
+    return player.buffer.duration;
+  }
+
   async setCustomSampler(urls: Record<string, string>, baseUrl: string): Promise<void> {
     this.customSamplerUrls = urls;
     this.customSamplerBaseUrl = baseUrl;

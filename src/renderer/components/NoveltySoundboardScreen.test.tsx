@@ -52,6 +52,7 @@ function buildAudioEngineStub(): AudioEngine {
   return {
     prepareForPlayback: vi.fn().mockResolvedValue(undefined),
     init: vi.fn().mockResolvedValue(undefined),
+    getOneShotDurationSec: vi.fn().mockResolvedValue(2),
     playOneShot: vi.fn().mockResolvedValue(undefined),
   } as unknown as AudioEngine;
 }
@@ -172,5 +173,72 @@ describe('NoveltySoundboardScreen', () => {
     expect(screen.queryByRole('button', { name: /Show animal key map/i })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Menu/i })).toBeInTheDocument();
     expect(screen.queryByText('Bass Boom')).not.toBeInTheDocument();
+  });
+
+  it('keeps visual effects live while suppressing overlapping animal audio', async () => {
+    vi.useFakeTimers();
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(buildCanvasContextStub());
+    const midiService = new MockMidiInputService();
+    const audioEngine = buildAudioEngineStub();
+
+    render(
+      <NoveltySoundboardScreen
+        audioEngine={audioEngine}
+        midiInputService={midiService as unknown as MidiInputService}
+        keyboardInputService={new MockKeyboardInputService() as unknown as ComputerKeyboardInputService}
+        inputMode="both"
+        keyboardOverlaySize="medium"
+        onBackToMainMenu={vi.fn()}
+        onOpenKeyboardSetup={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Menu/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Animals Real animal calls/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Resume/i }));
+
+    await act(async () => {
+      midiService.emit({
+        type: 'noteon',
+        source: 'midi',
+        sourceId: 'controller-1',
+        timestamp: 1000,
+        note: 36,
+        velocity: 0.9,
+      });
+    });
+
+    await act(async () => {
+      midiService.emit({
+        type: 'noteon',
+        source: 'midi',
+        sourceId: 'controller-2',
+        timestamp: 1100,
+        note: 37,
+        velocity: 0.9,
+      });
+    });
+
+    expect(audioEngine.playOneShot).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Cat', { selector: '.immersive-hud-item strong' })).toBeInTheDocument();
+    expect(screen.getByText('🐱 Cat', { selector: '.soundboard-clip-card.active strong' })).toBeInTheDocument();
+
+    await act(async () => {
+      vi.advanceTimersByTime(2000);
+    });
+
+    await act(async () => {
+      midiService.emit({
+        type: 'noteon',
+        source: 'midi',
+        sourceId: 'controller-3',
+        timestamp: 3200,
+        note: 38,
+        velocity: 0.9,
+      });
+    });
+
+    expect(audioEngine.playOneShot).toHaveBeenCalledTimes(2);
+    vi.useRealTimers();
   });
 });

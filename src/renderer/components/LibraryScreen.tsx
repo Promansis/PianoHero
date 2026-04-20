@@ -291,16 +291,15 @@ export function LibraryScreen({
   };
 
   const handleFileInputChange = async (event: ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
+    const fileArray = Array.from(event.target.files ?? []);
     event.target.value = '';
 
-    if (!files || files.length === 0) {
+    if (fileArray.length === 0) {
       return;
     }
 
     setIsImporting(true);
     setImportProgress(null);
-    const fileArray = Array.from(files);
     const total = fileArray.length;
     const songs: Array<{ songId: string }> = [];
     const errors: Array<{ filename: string; message: string }> = [];
@@ -464,8 +463,18 @@ export function LibraryScreen({
     }
 
     await window.appBridge.bulkDeleteSongs(songIds);
-    setSelectedSongIds(new Set());
+    setSelectedSongIds((current) => {
+      const next = new Set(current);
+      for (const songId of songIds) {
+        next.delete(songId);
+      }
+      return next;
+    });
+    if (editingSongId && songIds.includes(editingSongId)) {
+      setEditingSongId(null);
+    }
     await refreshLibrary();
+    setStatusMessage(`Deleted ${songIds.length} song${songIds.length === 1 ? '' : 's'} from the library.`);
   };
 
   const handleAddTagFilter = (tag: string) => {
@@ -1208,6 +1217,9 @@ export function LibraryScreen({
                   <h2>{selectedSong.title}</h2>
                 </div>
                 <div className="transport-buttons">
+                  <button className="secondary-button" onClick={() => void handleDeleteSongs([selectedSong.id])}>
+                    Delete Song
+                  </button>
                   <button className="secondary-button" onClick={() => setEditingSongId(null)}>
                     Close
                   </button>

@@ -61,6 +61,8 @@ export function NoveltySoundboardScreen({
   const [keyboardOctaveShift, setKeyboardOctaveShift] = useState(keyboardInputService.getState().octaveShift);
   const effectCounterRef = useRef(0);
   const animalStageRef = useRef<HTMLDivElement | null>(null);
+  const oneShotPlaybackLockedRef = useRef(false);
+  const oneShotUnlockTimeoutRef = useRef<number | null>(null);
 
   const mode = useMemo(() => getSoundboardMode(modeId), [modeId]);
   const highlightedNotes = useMemo(() => mode.clips.map((clip) => clip.midi), [mode]);
@@ -80,6 +82,14 @@ export function NoveltySoundboardScreen({
     setIsAnimalMapHovered(false);
     setIsAnimalMapPinned(false);
   }, [mode]);
+
+  useEffect(() => {
+    return () => {
+      if (oneShotUnlockTimeoutRef.current !== null) {
+        window.clearTimeout(oneShotUnlockTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
@@ -173,11 +183,33 @@ export function NoveltySoundboardScreen({
   };
 
   const triggerClip = async (clip: SoundboardClip) => {
-    await audioEngine.playOneShot(clip.src, clip.gainDb);
     setLastPlayedId(clip.id);
     setStatusMessage(`${mode.statusTemplate(clip)} Key ${midiToLabel(clip.midi)}.`);
     spawnFloatingEffect(clip);
     spawnAnimalBurst(clip);
+
+    if (oneShotPlaybackLockedRef.current) {
+      return;
+    }
+
+    oneShotPlaybackLockedRef.current = true;
+    try {
+      const durationMs = Math.max(100, (await audioEngine.getOneShotDurationSec(clip.src)) * 1000);
+      if (oneShotUnlockTimeoutRef.current !== null) {
+        window.clearTimeout(oneShotUnlockTimeoutRef.current);
+      }
+      oneShotUnlockTimeoutRef.current = window.setTimeout(() => {
+        oneShotPlaybackLockedRef.current = false;
+        oneShotUnlockTimeoutRef.current = null;
+      }, durationMs);
+      await audioEngine.playOneShot(clip.src, clip.gainDb);
+    } catch {
+      oneShotPlaybackLockedRef.current = false;
+      if (oneShotUnlockTimeoutRef.current !== null) {
+        window.clearTimeout(oneShotUnlockTimeoutRef.current);
+        oneShotUnlockTimeoutRef.current = null;
+      }
+    }
   };
 
   const isAnimalMode = mode.id === 'animals';

@@ -60,4 +60,106 @@ describe('LibraryScreen', () => {
       expect(screen.getByText(/Broken: Bad header/)).toBeInTheDocument();
     });
   });
+
+  it('uploads selected files even after the input value is cleared', async () => {
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        songs: [{ songId: 'song-1' }],
+        errors: [],
+      }),
+    } as Response);
+
+    const { container } = render(
+      <LibraryScreen
+        audioEngine={createAudioEngineStub() as unknown as import('../../lib/audio/audioEngine').AudioEngine}
+        onStartSession={vi.fn()}
+        onStartPlaylistQueue={vi.fn()}
+        onStartTheoryPractice={vi.fn()}
+      />,
+    );
+
+    await screen.findByText('Build your library by importing MIDI files.');
+
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    const selectedFiles = [new File(['midi-data'], 'Etude.mid', { type: 'audio/midi' })];
+    let currentFiles = selectedFiles;
+
+    Object.defineProperty(input, 'files', {
+      configurable: true,
+      get: () => currentFiles,
+    });
+
+    Object.defineProperty(input, 'value', {
+      configurable: true,
+      get: () => '',
+      set: () => {
+        currentFiles = [];
+      },
+    });
+
+    fireEvent.change(input);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/midi/upload',
+        expect.objectContaining({ method: 'POST', body: expect.any(FormData) }),
+      );
+    });
+  });
+
+  it('deletes a song from the metadata editor', async () => {
+    const bulkDeleteSongs = vi.fn().mockResolvedValue(undefined);
+    const song = {
+      id: 'song-1',
+      title: 'Etude',
+      artist: 'Composer',
+      genre: 'Classical',
+      difficulty: 4,
+      durationSec: 120,
+      bpm: 120,
+      noteCount: 240,
+      filePath: '/tmp/etude.mid',
+      dateAdded: '2026-04-18T00:00:00.000Z',
+      lastPlayed: null,
+      timesPlayed: 0,
+      isFavorite: false,
+      folderId: null,
+      tags: [],
+    };
+
+    window.appBridge = {
+      getAllSongs: vi.fn().mockResolvedValueOnce([song]).mockResolvedValue([]),
+      getAllFolders: vi.fn().mockResolvedValue([]),
+      getAllPlaylists: vi.fn().mockResolvedValue([]),
+      getRecommendations: vi.fn().mockResolvedValue(null),
+      getUserStats: vi.fn().mockResolvedValue(null),
+      getSetting: vi.fn().mockResolvedValue(null),
+      bulkDeleteSongs,
+    } as unknown as typeof window.appBridge;
+
+    render(
+      <LibraryScreen
+        audioEngine={createAudioEngineStub() as unknown as import('../../lib/audio/audioEngine').AudioEngine}
+        onStartSession={vi.fn()}
+        onStartPlaylistQueue={vi.fn()}
+        onStartTheoryPractice={vi.fn()}
+      />,
+    );
+
+    await screen.findByText('Etude');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Metadata' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Song' }));
+
+    await waitFor(() => {
+      expect(bulkDeleteSongs).toHaveBeenCalledWith(['song-1']);
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText('Metadata Review')).not.toBeInTheDocument();
+      expect(screen.getByText('Deleted 1 song from the library.')).toBeInTheDocument();
+    });
+  });
 });
