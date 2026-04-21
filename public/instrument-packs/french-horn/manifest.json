@@ -1,0 +1,13 @@
+{
+  "instrumentId": "french-horn",
+  "packLabel": "French Horn Enhanced Pack",
+  "version": "1",
+  "assets": [
+    { "note": "A2", "fileName": "french-horn_A2_15_piano_normal.mp3", "url": "/samples/philharmonia/french-horn/french-horn_A2_15_piano_normal.mp3" },
+    { "note": "C3", "fileName": "french-horn_C3_15_piano_normal.mp3", "url": "/samples/philharmonia/french-horn/french-horn_C3_15_piano_normal.mp3" },
+    { "note": "A3", "fileName": "french-horn_A3_15_piano_normal.mp3", "url": "/samples/philharmonia/french-horn/french-horn_A3_15_piano_normal.mp3" },
+    { "note": "C4", "fileName": "french-horn_C4_15_piano_normal.mp3", "url": "/samples/philharmonia/french-horn/french-horn_C4_15_piano_normal.mp3" },
+    { "note": "A4", "fileName": "french-horn_A4_15_piano_normal.mp3", "url": "/samples/philharmonia/french-horn/french-horn_A4_15_piano_normal.mp3" },
+    { "note": "C5", "fileName": "french-horn_C5_15_piano_normal.mp3", "url": "/samples/philharmonia/french-horn/french-horn_C5_15_piano_normal.mp3" }
+  ]
+}

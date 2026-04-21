@@ -7,6 +7,7 @@ import type { AchievementRow } from '../shared/dbTypes';
 const preloadSpy = vi.fn(() => Promise.resolve());
 const unlockSpy = vi.fn(() => Promise.resolve());
 const prepareForPlaybackSpy = vi.fn(() => Promise.resolve());
+const setInstrumentSpy = vi.fn(() => Promise.resolve());
 const setInstrumentReverbPresetSpy = vi.fn();
 const unlockAchievementSpy = vi.fn((_achievementId: string) => Promise.resolve());
 const setSettingSpy = vi.fn().mockResolvedValue(undefined);
@@ -52,7 +53,19 @@ vi.mock('./components/LessonScreen', () => ({
 }));
 
 vi.mock('./components/FreePlayScreen', () => ({
-  FreePlayScreen: () => <div>Mock Free Play</div>,
+  FreePlayScreen: ({
+    instrumentId,
+    onInstrumentChange,
+  }: {
+    instrumentId: string;
+    onInstrumentChange: (instrumentId: string) => void;
+  }) => (
+    <>
+      <div>Mock Free Play</div>
+      <div data-testid="free-play-instrument">{instrumentId}</div>
+      <button onClick={() => onInstrumentChange('organ')}>Switch Free Play Instrument</button>
+    </>
+  ),
 }));
 
 vi.mock('./components/NoveltySoundboardScreen', () => ({
@@ -142,11 +155,12 @@ vi.mock('../lib/audio/audioEngine', () => ({
     setMasterVolume() {}
     setMetronomeVolume() {}
     setReverbLevel() {}
-    setInstrument() {
-      return Promise.resolve();
-    }
+    setInstrument = setInstrumentSpy;
     setInstrumentReverbPreset = setInstrumentReverbPresetSpy;
     setCustomSampler() {
+      return Promise.resolve();
+    }
+    clearCustomSampler() {
       return Promise.resolve();
     }
     playOneShot() {
@@ -187,6 +201,7 @@ describe('App', () => {
     preloadSpy.mockClear();
     unlockSpy.mockClear();
     prepareForPlaybackSpy.mockClear();
+    setInstrumentSpy.mockClear();
     setInstrumentReverbPresetSpy.mockClear();
     unlockAchievementSpy.mockClear();
     setSettingSpy.mockClear();
@@ -301,6 +316,19 @@ describe('App', () => {
     await screen.findByText('Open Free Play');
 
     expect(setInstrumentReverbPresetSpy).toHaveBeenCalledWith('hall');
+  });
+
+  it('persists instrument changes triggered from immersive free play controls', async () => {
+    render(<App />);
+
+    fireEvent.click(await screen.findByText('Open Free Play'));
+    fireEvent.click(screen.getByText('Switch Free Play Instrument'));
+
+    await waitFor(() => {
+      expect(setInstrumentSpy).toHaveBeenCalledWith('organ');
+      expect(setSettingSpy).toHaveBeenCalledWith('audio', 'instrumentId', 'organ');
+      expect(screen.getByTestId('free-play-instrument')).toHaveTextContent('organ');
+    });
   });
 
   it('unlocks all developer content through the settings action', async () => {

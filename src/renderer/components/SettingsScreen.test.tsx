@@ -39,7 +39,10 @@ describe('SettingsScreen', () => {
         inputMode="both"
         midiDevices={[]}
         midiError={false}
+        instrumentSamplePackStatuses={{}}
         pitchBendEnabled
+        onInstallInstrumentSamplePack={vi.fn().mockResolvedValue(undefined)}
+        onRemoveInstrumentSamplePack={vi.fn().mockResolvedValue(undefined)}
         onDeveloperUnlockAll={developerUnlockAll}
         onLearningProgressReset={onLearningProgressReset}
         onSettingChange={vi.fn()}
@@ -72,7 +75,10 @@ describe('SettingsScreen', () => {
         inputMode="both"
         midiDevices={[]}
         midiError={false}
+        instrumentSamplePackStatuses={{}}
         pitchBendEnabled
+        onInstallInstrumentSamplePack={vi.fn().mockResolvedValue(undefined)}
+        onRemoveInstrumentSamplePack={vi.fn().mockResolvedValue(undefined)}
         onDeveloperUnlockAll={developerUnlockAll}
         onLearningProgressReset={onLearningProgressReset}
         onSettingChange={vi.fn()}
@@ -109,8 +115,11 @@ describe('SettingsScreen', () => {
         inputMode="both"
         midiDevices={[]}
         midiError={false}
+        instrumentSamplePackStatuses={{}}
         pitchBendEnabled
         unlockedRewardIds={new Set(['audio:reverb-customization'])}
+        onInstallInstrumentSamplePack={vi.fn().mockResolvedValue(undefined)}
+        onRemoveInstrumentSamplePack={vi.fn().mockResolvedValue(undefined)}
         onDeveloperUnlockAll={developerUnlockAll}
         onLearningProgressReset={onLearningProgressReset}
         onSettingChange={onSettingChange}
@@ -139,7 +148,10 @@ describe('SettingsScreen', () => {
         inputMode="both"
         midiDevices={[]}
         midiError={false}
+        instrumentSamplePackStatuses={{}}
         pitchBendEnabled
+        onInstallInstrumentSamplePack={vi.fn().mockResolvedValue(undefined)}
+        onRemoveInstrumentSamplePack={vi.fn().mockResolvedValue(undefined)}
         onDeveloperUnlockAll={developerUnlockAll}
         onLearningProgressReset={onLearningProgressReset}
         onSettingChange={vi.fn()}
@@ -162,7 +174,10 @@ describe('SettingsScreen', () => {
         inputMode="both"
         midiDevices={[]}
         midiError={false}
+        instrumentSamplePackStatuses={{}}
         pitchBendEnabled
+        onInstallInstrumentSamplePack={vi.fn().mockResolvedValue(undefined)}
+        onRemoveInstrumentSamplePack={vi.fn().mockResolvedValue(undefined)}
         onDeveloperUnlockAll={developerUnlockAll}
         onLearningProgressReset={onLearningProgressReset}
         onSettingChange={vi.fn()}

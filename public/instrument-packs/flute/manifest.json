@@ -1,0 +1,12 @@
+{
+  "instrumentId": "flute",
+  "packLabel": "Flute Enhanced Pack",
+  "version": "1",
+  "assets": [
+    { "note": "A4", "fileName": "flute_A4_15_piano_normal.mp3", "url": "/samples/philharmonia/flute/flute_A4_15_piano_normal.mp3" },
+    { "note": "C5", "fileName": "flute_C5_15_piano_normal.mp3", "url": "/samples/philharmonia/flute/flute_C5_15_piano_normal.mp3" },
+    { "note": "A5", "fileName": "flute_A5_15_piano_normal.mp3", "url": "/samples/philharmonia/flute/flute_A5_15_piano_normal.mp3" },
+    { "note": "C6", "fileName": "flute_C6_15_mezzo-piano_normal.mp3", "url": "/samples/philharmonia/flute/flute_C6_15_mezzo-piano_normal.mp3" },
+    { "note": "A6", "fileName": "flute_A6_15_piano_normal.mp3", "url": "/samples/philharmonia/flute/flute_A6_15_piano_normal.mp3" }
+  ]
+}

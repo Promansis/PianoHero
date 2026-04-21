@@ -7,6 +7,8 @@ import { MidiInputService } from '../../lib/midi/midiInputService';
 import type { MidiInputDevice } from '../../lib/midi/types';
 import { getRewardDefinition, isRewardUnlocked, REWARD_CATALOG } from '../../lib/rewards/rewardCatalog';
 import { detectChord } from '../../lib/theory/chords';
+import { ImmersiveInstrumentControl } from './ImmersiveInstrumentControl';
+import type { InstrumentSamplePackStatus } from '../../shared/ipc';
 import { PianoKeyboard } from './PianoKeyboard';
 import {
   FREE_PLAY_VISUAL_MODE_OPTIONS,
@@ -38,8 +40,11 @@ interface FreePlayScreenProps {
   breakReminderMinutes: number | null;
   pitchBendEnabled: boolean;
   stagePalette: 'default' | 'aurora-emerald' | 'constellation-galactic';
+  instrumentId: string;
+  instrumentSamplePackStatuses?: Record<string, InstrumentSamplePackStatus>;
   onBackToMainMenu: () => void;
   onStagePaletteChange: (value: 'default' | 'aurora-emerald' | 'constellation-galactic') => void;
+  onInstrumentChange: (instrumentId: string) => void;
   onOpenKeyboardSetup: () => void;
   unlockedRewardIds?: Set<string>;
 }
@@ -97,8 +102,11 @@ export function FreePlayScreen({
   breakReminderMinutes,
   pitchBendEnabled,
   stagePalette,
+  instrumentId,
+  instrumentSamplePackStatuses,
   onBackToMainMenu,
   onStagePaletteChange,
+  onInstrumentChange,
   onOpenKeyboardSetup,
   unlockedRewardIds,
 }: FreePlayScreenProps) {
@@ -656,12 +664,18 @@ export function FreePlayScreen({
           </div>
         </div>
         <div className="free-play-hud-actions">
+          <ImmersiveInstrumentControl
+            instrumentId={instrumentId}
+            instrumentSamplePackStatuses={instrumentSamplePackStatuses}
+            unlockedRewardIds={unlockedRewardIds}
+            onInstrumentChange={onInstrumentChange}
+          />
           <button
             className="immersive-menu-btn free-play-visual-toggle"
             aria-label="Show visual mode controls"
             aria-expanded={isVisualControlsOpen}
             onClick={() => {
-              if (isVisualControlsOpen) {
+              if (isVisualControlsPinned) {
                 setIsVisualControlsPinned(false);
                 setIsVisualControlsHovered(false);
                 return;

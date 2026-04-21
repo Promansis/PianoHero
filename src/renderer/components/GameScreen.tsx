@@ -26,9 +26,11 @@ import { detectKey } from '../../lib/theory/keyDetection';
 import { detectChord } from '../../lib/theory/chords';
 import { KeySignatureBadge } from './KeySignatureBadge';
 import type { FingeringRow, SongRow, UserStatsRow } from '../../shared/dbTypes';
+import type { InstrumentSamplePackStatus } from '../../shared/ipc';
 import { ControlBar } from './ControlBar';
 import { FingeringEditor } from './FingeringEditor';
 import { FallingNotesCanvas } from './FallingNotesCanvas';
+import { ImmersiveInstrumentControl } from './ImmersiveInstrumentControl';
 import { PianoKeyboard } from './PianoKeyboard';
 import { TrackAssignmentPanel } from './TrackAssignmentPanel';
 
@@ -89,8 +91,12 @@ interface GameScreenProps {
   keyboardOverlaySize: 'small' | 'medium' | 'large';
   breakReminderMinutes: number | null;
   pitchBendEnabled: boolean;
+  instrumentId: string;
+  instrumentSamplePackStatuses?: Record<string, InstrumentSamplePackStatus>;
+  unlockedRewardIds?: Set<string>;
   onGameFinished: (payload: FinishedGamePayload) => void;
   onLessonDrillFinished?: (payload: LessonDrillFinishedPayload) => void;
+  onInstrumentChange: (instrumentId: string) => void;
   onExit: () => void;
   exitLabel?: string;
   onOpenKeyboardSetup: () => void;
@@ -341,8 +347,12 @@ export function GameScreen({
   keyboardOverlaySize,
   breakReminderMinutes,
   pitchBendEnabled,
+  instrumentId,
+  instrumentSamplePackStatuses,
+  unlockedRewardIds,
   onGameFinished,
   onLessonDrillFinished,
+  onInstrumentChange,
   onExit,
   exitLabel,
   onOpenKeyboardSetup,
@@ -1175,9 +1185,17 @@ export function GameScreen({
             </strong>
           </div>
         </div>
-        <button className="immersive-menu-btn" onClick={() => setOverlayVisible(true)}>
-          Menu
-        </button>
+        <div className="immersive-hud-actions">
+          <ImmersiveInstrumentControl
+            instrumentId={instrumentId}
+            instrumentSamplePackStatuses={instrumentSamplePackStatuses}
+            unlockedRewardIds={unlockedRewardIds}
+            onInstrumentChange={onInstrumentChange}
+          />
+          <button className="immersive-menu-btn" onClick={() => setOverlayVisible(true)}>
+            Menu
+          </button>
+        </div>
       </div>
 
       {/* Fingering hint bar */}

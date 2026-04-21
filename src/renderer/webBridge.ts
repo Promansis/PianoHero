@@ -1,5 +1,19 @@
 import { RPC_BRIDGE_METHOD_SET } from '../shared/bridgeMethods';
-import type { AppBridge, ImportResult } from '../shared/ipc';
+import {
+  buildInstrumentSamplePackStatuses,
+  getInstrumentSamplePackDefinition,
+  isValidPackManifest,
+  parseInstalledInstrumentSamplePacks,
+  resolveInstalledInstrumentSampleSource,
+} from '../lib/audio/instrumentSamplePacks';
+import type {
+  AppBridge,
+  ImportResult,
+  InstalledInstrumentSamplePackRecord,
+  InstrumentSamplePackManifest,
+} from '../shared/ipc';
+
+const WEB_INSTALLED_PACKS_STORAGE_KEY = 'pianohero:installedInstrumentSamplePacks';
 
 async function parseRpcResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
@@ -28,6 +42,33 @@ async function callRpc(method: string, args: unknown[]): Promise<unknown> {
     body: JSON.stringify({ args }),
   });
   return parseRpcResponse(response);
+}
+
+function getStoredInstrumentSamplePacks(): Record<string, InstalledInstrumentSamplePackRecord> {
+  return parseInstalledInstrumentSamplePacks(window.localStorage.getItem(WEB_INSTALLED_PACKS_STORAGE_KEY));
+}
+
+function setStoredInstrumentSamplePacks(installedPacks: Record<string, InstalledInstrumentSamplePackRecord>): void {
+  window.localStorage.setItem(WEB_INSTALLED_PACKS_STORAGE_KEY, JSON.stringify(installedPacks));
+}
+
+async function fetchPackManifest(instrumentId: string): Promise<InstrumentSamplePackManifest> {
+  const definition = getInstrumentSamplePackDefinition(instrumentId);
+  if (!definition?.manifestPath) {
+    throw new Error('This pack can only be installed from the desktop app.');
+  }
+
+  const response = await fetch(definition.manifestPath);
+  if (!response.ok) {
+    throw new Error(`Unable to load the ${definition.packLabel} manifest.`);
+  }
+
+  const manifest = await response.json() as unknown;
+  if (!isValidPackManifest(manifest)) {
+    throw new Error(`Invalid sample pack manifest for ${instrumentId}.`);
+  }
+
+  return manifest;
 }
 
 const desktopStubNames = new Set<keyof AppBridge>([
@@ -77,6 +118,42 @@ export const webBridge = new Proxy({} as AppBridge, {
 
     if (property === 'listAudioFiles') {
       return async (): Promise<string[]> => [];
+    }
+
+    if (property === 'getInstrumentSamplePackStatuses') {
+      return async () => buildInstrumentSamplePackStatuses('web', getStoredInstrumentSamplePacks());
+    }
+
+    if (property === 'installInstrumentSamplePack') {
+      return async (instrumentId: string) => {
+        const manifest = await fetchPackManifest(instrumentId);
+        const installedPacks = getStoredInstrumentSamplePacks();
+        installedPacks[instrumentId] = {
+          instrumentId,
+          packLabel: manifest.packLabel,
+          version: manifest.version,
+          installedAt: new Date().toISOString(),
+          baseUrl: null,
+          urls: Object.fromEntries(
+            manifest.assets.map((asset) => [asset.note, new URL(asset.url, window.location.origin).href]),
+          ),
+        };
+        setStoredInstrumentSamplePacks(installedPacks);
+        return buildInstrumentSamplePackStatuses('web', installedPacks);
+      };
+    }
+
+    if (property === 'removeInstrumentSamplePack') {
+      return async (instrumentId: string) => {
+        const installedPacks = getStoredInstrumentSamplePacks();
+        delete installedPacks[instrumentId];
+        setStoredInstrumentSamplePacks(installedPacks);
+        return buildInstrumentSamplePackStatuses('web', installedPacks);
+      };
+    }
+
+    if (property === 'resolveInstrumentSampleSource') {
+      return async (instrumentId: string) => resolveInstalledInstrumentSampleSource(getStoredInstrumentSamplePacks(), instrumentId);
     }
 
     if (desktopStubNames.has(property as keyof AppBridge)) {

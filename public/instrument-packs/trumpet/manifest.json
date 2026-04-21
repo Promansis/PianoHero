@@ -1,0 +1,11 @@
+{
+  "instrumentId": "trumpet",
+  "packLabel": "Trumpet Enhanced Pack",
+  "version": "1",
+  "assets": [
+    { "note": "A#3", "fileName": "trumpet_As3_long_piano_normal.mp3", "url": "/samples/philharmonia/trumpet/trumpet_As3_long_piano_normal.mp3" },
+    { "note": "A4", "fileName": "trumpet_A4_long_piano_normal.mp3", "url": "/samples/philharmonia/trumpet/trumpet_A4_long_piano_normal.mp3" },
+    { "note": "C5", "fileName": "trumpet_C5_long_piano_normal.mp3", "url": "/samples/philharmonia/trumpet/trumpet_C5_long_piano_normal.mp3" },
+    { "note": "A5", "fileName": "trumpet_A5_15_mezzo-forte_normal.mp3", "url": "/samples/philharmonia/trumpet/trumpet_A5_15_mezzo-forte_normal.mp3" }
+  ]
+}

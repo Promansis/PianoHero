@@ -61,6 +61,48 @@ export interface ImportProgressEvent {
   filename: string;
 }
 
+export interface InstrumentSamplePackAsset {
+  note: string;
+  fileName: string;
+  url: string;
+}
+
+export interface InstrumentSamplePackManifest {
+  instrumentId: string;
+  packLabel: string;
+  version: string;
+  assets: InstrumentSamplePackAsset[];
+}
+
+export interface InstalledInstrumentSamplePackRecord {
+  instrumentId: string;
+  packLabel: string;
+  version: string;
+  installedAt: string;
+  urls: Record<string, string>;
+  baseUrl?: string | null;
+}
+
+export interface InstrumentSamplePackStatus {
+  instrumentId: string;
+  packLabel: string;
+  isInstalled: boolean;
+  canInstallInApp: boolean;
+  requiresPackForSelection: boolean;
+  installMode: 'manual' | 'managed';
+  installedAt: string | null;
+  installedVersion: string | null;
+  statusMessage: string;
+}
+
+export interface ResolvedInstrumentSampleSource {
+  instrumentId: string;
+  source: 'enhanced';
+  urls: Record<string, string>;
+  baseUrl: string | null;
+  packLabel: string;
+}
+
 export interface AppBridge {
   pickMidiFile: () => Promise<PickedMidiFile | null>;
 
@@ -148,4 +190,8 @@ export interface AppBridge {
   pickAudioFile: () => Promise<{ path: string; name: string } | null>;
   pickSampleDirectory: () => Promise<string | null>;
   listAudioFiles: (dir: string) => Promise<string[]>;
+  getInstrumentSamplePackStatuses: () => Promise<InstrumentSamplePackStatus[]>;
+  installInstrumentSamplePack: (instrumentId: string) => Promise<InstrumentSamplePackStatus[]>;
+  removeInstrumentSamplePack: (instrumentId: string) => Promise<InstrumentSamplePackStatus[]>;
+  resolveInstrumentSampleSource: (instrumentId: string) => Promise<ResolvedInstrumentSampleSource | null>;
 }

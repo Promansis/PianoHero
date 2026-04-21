@@ -308,6 +308,104 @@ select:focus {
   color: #fff;
 }
 
+.immersive-hud-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.immersive-control-wrap {
+  position: relative;
+}
+
+.immersive-instrument-toggle {
+  min-width: 120px;
+  max-width: min(220px, 34vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.immersive-instrument-popout {
+  position: absolute;
+  top: calc(100% + 14px);
+  right: 0;
+  width: min(460px, calc(100vw - 32px));
+  max-height: min(70vh, calc(100vh - 140px));
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  transform: translateY(-6px);
+  overflow: hidden;
+  pointer-events: none;
+  transition: opacity 160ms ease, transform 160ms ease;
+  z-index: 40;
+}
+
+.immersive-instrument-popout.open {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.immersive-instrument-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+  margin-top: 18px;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 6px;
+}
+
+.immersive-instrument-option {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+  min-height: 102px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(162, 195, 255, 0.16);
+  background: rgba(10, 17, 32, 0.72);
+  color: rgba(255, 255, 255, 0.92);
+  text-align: left;
+  cursor: pointer;
+  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+
+.immersive-instrument-option:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(162, 195, 255, 0.42);
+  background: rgba(16, 28, 49, 0.9);
+}
+
+.immersive-instrument-option.active {
+  border-color: rgba(112, 194, 255, 0.72);
+  box-shadow: 0 0 0 1px rgba(112, 194, 255, 0.26);
+}
+
+.immersive-instrument-option:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+}
+
+.immersive-instrument-option-label {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.immersive-instrument-option-copy {
+  font-size: 12px;
+  line-height: 1.45;
+  color: rgba(232, 238, 250, 0.72);
+}
+
 .immersive-canvas-area {
   flex: 1;
   min-height: 0;
@@ -447,14 +545,6 @@ select:focus {
 .free-play-hud .immersive-menu-btn {
   background: rgba(7, 12, 24, 0.58);
   border-color: rgba(162, 195, 255, 0.12);
-}
-
-.free-play-hud-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
 }
 
 .free-play-visual-toggle {

@@ -4,10 +4,12 @@ import {
   getInstrumentDefinition,
   getInstrumentEffectiveReverbPreset,
   INSTRUMENTS,
+  isInstrumentSelectable,
   type InstrumentReverbPreset,
 } from '../../lib/audio/instrumentCatalog';
 import type { AudioEngine } from '../../lib/audio/audioEngine';
 import { isRewardUnlocked, REWARD_CATALOG } from '../../lib/rewards/rewardCatalog';
+import type { InstrumentSamplePackStatus } from '../../shared/ipc';
 import { LatencyWizard } from './LatencyWizard';
 import { LoadingPanel } from './LoadingPanel';
 import { toastBus } from './Toast';
@@ -48,8 +50,11 @@ interface SettingsScreenProps {
   inputMode: InputMode;
   midiDevices: MidiInputDevice[];
   midiError: boolean;
+  instrumentSamplePackStatuses?: Record<string, InstrumentSamplePackStatus>;
   unlockedRewardIds?: Set<string>;
   pitchBendEnabled: boolean;
+  onInstallInstrumentSamplePack: (instrumentId: string) => Promise<void>;
+  onRemoveInstrumentSamplePack: (instrumentId: string) => Promise<void>;
   onDeveloperUnlockAll: () => Promise<void>;
   onLearningProgressReset: () => void;
   onSettingChange: (category: string, key: string, value: string) => void;
@@ -161,8 +166,11 @@ export function SettingsScreen({
   inputMode,
   midiDevices,
   midiError,
+  instrumentSamplePackStatuses = {},
   unlockedRewardIds = new Set(),
   pitchBendEnabled,
+  onInstallInstrumentSamplePack,
+  onRemoveInstrumentSamplePack,
   onDeveloperUnlockAll,
   onLearningProgressReset,
   onSettingChange,
@@ -237,7 +245,15 @@ export function SettingsScreen({
     () => midiDevices.find((device) => device.id === values['input.midiDeviceId'])?.name ?? 'Any connected device',
     [midiDevices, values],
   );
+  const installedPackInstrumentIds = useMemo(
+    () =>
+      Object.values(instrumentSamplePackStatuses)
+        .filter((status) => status.isInstalled)
+        .map((status) => status.instrumentId),
+    [instrumentSamplePackStatuses],
+  );
   const selectedInstrument = getInstrumentDefinition(values['audio.instrumentId']);
+  const selectedInstrumentPackStatus = instrumentSamplePackStatuses[selectedInstrument.id];
   const instrumentReverbPresets = parseInstrumentReverbPresets(values['audio.instrumentReverbPresets']);
   const selectedInstrumentReverbPreset = getInstrumentEffectiveReverbPreset(
     selectedInstrument.id,
@@ -425,14 +441,15 @@ export function SettingsScreen({
                     const locked = instrument.requiredRewardId
                       ? !isRewardUnlocked(instrument.requiredRewardId, unlockedRewardIds)
                       : false;
-                    const unavailable = instrument.selectable === false;
+                    const unavailable = !isInstrumentSelectable(instrument.id, installedPackInstrumentIds);
+                    const packStatus = instrumentSamplePackStatuses[instrument.id];
                     const disabled = locked || unavailable;
                     return (
                       <option key={instrument.id} value={instrument.id} disabled={disabled}>
                         {locked
                           ? `\uD83D\uDD12 ${instrument.label}`
                           : unavailable
-                            ? `${instrument.label} (Samples pending)`
+                            ? `${instrument.label} (${packStatus?.requiresPackForSelection ? 'Install pack required' : 'Unavailable'})`
                             : instrument.label}
                       </option>
                     );
@@ -548,8 +565,8 @@ export function SettingsScreen({
                   {(() => {
                     const instr = INSTRUMENTS.find((i) => i.id === values['audio.instrumentId']);
                     if (!instr) return 'Choose a built-in voice for practice and playback.';
-                    if (instr.selectable === false) {
-                      return instr.availabilityNote ?? instr.description;
+                    if (!isInstrumentSelectable(instr.id, installedPackInstrumentIds)) {
+                      return instrumentSamplePackStatuses[instr.id]?.statusMessage ?? instr.availabilityNote ?? instr.description;
                     }
                     if (instr.requiredRewardId && !isRewardUnlocked(instr.requiredRewardId, unlockedRewardIds)) {
                       const reward = REWARD_CATALOG.find((r) => r.id === instr.requiredRewardId);
@@ -559,24 +576,55 @@ export function SettingsScreen({
                   })()}
                 </strong>
               </article>
+              {selectedInstrumentPackStatus ? (
+                <article className="settings-note-card">
+                  <span>Instrument Quality</span>
+                  <strong>
+                    {selectedInstrumentPackStatus.isInstalled
+                      ? `${selectedInstrumentPackStatus.packLabel} installed`
+                      : selectedInstrumentPackStatus.requiresPackForSelection
+                        ? 'No pack installed'
+                        : 'Built-in samples active'}
+                  </strong>
+                  <div className="settings-sample-pack-buttons">
+                    {selectedInstrumentPackStatus.canInstallInApp ? (
+                      <button
+                        className="secondary-button"
+                        onClick={() => void onInstallInstrumentSamplePack(selectedInstrument.id)}
+                      >
+                        {selectedInstrumentPackStatus.installMode === 'manual' ? 'Import Pack…' : 'Install Enhanced Pack'}
+                      </button>
+                    ) : null}
+                    {selectedInstrumentPackStatus.isInstalled ? (
+                      <button
+                        className="secondary-button"
+                        onClick={() => void onRemoveInstrumentSamplePack(selectedInstrument.id)}
+                      >
+                        Remove Pack
+                      </button>
+                    ) : null}
+                  </div>
+                  <em>{selectedInstrumentPackStatus.statusMessage}</em>
+                </article>
+              ) : null}
               {!IS_WEB ? (
                 <article className="settings-note-card">
-                <span>Custom Sample Pack</span>
-                {samplePackPath ? (
-                  <strong>{samplePackPath} ({samplePackFileCount} file{samplePackFileCount !== 1 ? 's' : ''})</strong>
-                ) : (
-                  <strong>Not configured — using built-in sounds.</strong>
-                )}
-                <div className="settings-sample-pack-buttons">
-                  <button className="secondary-button" onClick={() => void browseSamplePack()}>
-                    Browse…
-                  </button>
-                  {samplePackPath && (
-                    <button className="secondary-button" onClick={() => void clearSamplePack()}>
-                      Clear
-                    </button>
+                  <span>Custom Sample Pack</span>
+                  {samplePackPath ? (
+                    <strong>{samplePackPath} ({samplePackFileCount} file{samplePackFileCount !== 1 ? 's' : ''})</strong>
+                  ) : (
+                    <strong>Not configured — using built-in or enhanced instrument sounds.</strong>
                   )}
-                </div>
+                  <div className="settings-sample-pack-buttons">
+                    <button className="secondary-button" onClick={() => void browseSamplePack()}>
+                      Browse…
+                    </button>
+                    {samplePackPath && (
+                      <button className="secondary-button" onClick={() => void clearSamplePack()}>
+                        Clear
+                      </button>
+                    )}
+                  </div>
                   <em>Expected naming: A0.mp3, C1.mp3, Ds1.mp3, Fs1.mp3, etc. (Salamander-style)</em>
                 </article>
               ) : null}

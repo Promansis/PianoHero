@@ -1,3 +1,5 @@
+import { instrumentRequiresInstalledPack } from './instrumentSamplePacks';
+
 export type InstrumentVoice = 'synth' | 'am' | 'fm' | 'mono' | 'sampler';
 export type InstrumentReverbPreset = 'short' | 'medium' | 'hall';
 
@@ -17,7 +19,6 @@ export interface InstrumentDefinition {
   sampleUrls?: Record<string, string>;
   reverbPreset?: InstrumentReverbPreset;
   requiredRewardId?: string;
-  selectable?: boolean;
   availabilityNote?: string;
 }
 
@@ -309,7 +310,6 @@ export const INSTRUMENTS: InstrumentDefinition[] = [
     sampleBaseUrl: '/samples/philharmonia/cello/',
     sampleUrls: PHILHARMONIA_CELLO_SAMPLE_MAP,
     reverbPreset: 'hall',
-    selectable: false,
     availabilityNote: 'Sample assets are not installed yet. Add the Philharmonia cello pack to enable this instrument.',
   },
   {
@@ -323,7 +323,6 @@ export const INSTRUMENTS: InstrumentDefinition[] = [
     sampleBaseUrl: '/samples/philharmonia/string-ensemble/',
     sampleUrls: PHILHARMONIA_STRING_ENSEMBLE_SAMPLE_MAP,
     reverbPreset: 'hall',
-    selectable: false,
     availabilityNote: 'Sample assets are not installed yet. Add the Philharmonia string ensemble pack to enable this instrument.',
   },
   {
@@ -510,8 +509,15 @@ export function isInstrumentId(value: string | null | undefined): value is strin
   return typeof value === 'string' && INSTRUMENTS.some((instrument) => instrument.id === value);
 }
 
-export function isInstrumentSelectable(instrumentId: string): boolean {
-  return getInstrumentDefinition(instrumentId).selectable !== false;
+export function isInstrumentSelectable(
+  instrumentId: string,
+  installedPackInstrumentIds: Iterable<string> = [],
+): boolean {
+  const installed = new Set(installedPackInstrumentIds);
+  if (instrumentRequiresInstalledPack(instrumentId)) {
+    return installed.has(instrumentId);
+  }
+  return true;
 }
 
 export function getInstrumentEffectiveReverbPreset(

@@ -174,7 +174,9 @@ describe('FreePlayScreen', () => {
         breakReminderMinutes={null}
         pitchBendEnabled
         stagePalette="default"
+        instrumentId="acoustic-piano"
         onBackToMainMenu={vi.fn()}
+        onInstrumentChange={vi.fn()}
         onStagePaletteChange={vi.fn()}
         onOpenKeyboardSetup={vi.fn()}
       />,
@@ -197,7 +199,9 @@ describe('FreePlayScreen', () => {
         breakReminderMinutes={null}
         pitchBendEnabled
         stagePalette="default"
+        instrumentId="acoustic-piano"
         onBackToMainMenu={vi.fn()}
+        onInstrumentChange={vi.fn()}
         onStagePaletteChange={vi.fn()}
         onOpenKeyboardSetup={vi.fn()}
       />,
@@ -225,7 +229,9 @@ describe('FreePlayScreen', () => {
         breakReminderMinutes={null}
         pitchBendEnabled
         stagePalette="default"
+        instrumentId="acoustic-piano"
         onBackToMainMenu={vi.fn()}
+        onInstrumentChange={vi.fn()}
         onStagePaletteChange={vi.fn()}
         onOpenKeyboardSetup={vi.fn()}
       />,
@@ -242,6 +248,40 @@ describe('FreePlayScreen', () => {
     expect(screen.getByRole('button', { name: /Particle Galaxy/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Aurora Borealis/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Fireworks/ })).toBeInTheDocument();
+  });
+
+  it('pins the visual mode popout on click after hover and closes it on a second click', () => {
+    render(
+      <FreePlayScreen
+        audioEngine={buildAudioEngineStub()}
+        midiInputService={new MockMidiInputService() as unknown as MidiInputService}
+        keyboardInputService={new MockKeyboardInputService() as unknown as ComputerKeyboardInputService}
+        inputMode="both"
+        keyboardOverlaySize="medium"
+        postureReminderMinutes={null}
+        breakReminderMinutes={null}
+        pitchBendEnabled
+        stagePalette="default"
+        instrumentId="acoustic-piano"
+        onBackToMainMenu={vi.fn()}
+        onInstrumentChange={vi.fn()}
+        onStagePaletteChange={vi.fn()}
+        onOpenKeyboardSetup={vi.fn()}
+      />,
+    );
+
+    const toggleButton = screen.getByRole('button', { name: 'Show visual mode controls' });
+    const popout = screen.getByTestId('free-play-visual-popout');
+
+    fireEvent.mouseEnter(toggleButton);
+    expect(popout).toHaveAttribute('aria-hidden', 'false');
+
+    fireEvent.click(toggleButton);
+    fireEvent.mouseLeave(toggleButton);
+    expect(popout).toHaveAttribute('aria-hidden', 'false');
+
+    fireEvent.click(toggleButton);
+    expect(popout).toHaveAttribute('aria-hidden', 'true');
   });
 
   it('keeps recording and backing-track state when switching visual modes', async () => {
@@ -261,7 +301,9 @@ describe('FreePlayScreen', () => {
         breakReminderMinutes={null}
         pitchBendEnabled
         stagePalette="default"
+        instrumentId="acoustic-piano"
         onBackToMainMenu={vi.fn()}
+        onInstrumentChange={vi.fn()}
         onStagePaletteChange={vi.fn()}
         onOpenKeyboardSetup={vi.fn()}
       />,
@@ -329,7 +371,9 @@ describe('FreePlayScreen', () => {
         breakReminderMinutes={null}
         pitchBendEnabled
         stagePalette="default"
+        instrumentId="acoustic-piano"
         onBackToMainMenu={vi.fn()}
+        onInstrumentChange={vi.fn()}
         onStagePaletteChange={vi.fn()}
         onOpenKeyboardSetup={vi.fn()}
       />,
@@ -383,7 +427,9 @@ describe('FreePlayScreen', () => {
         breakReminderMinutes={null}
         pitchBendEnabled={false}
         stagePalette="default"
+        instrumentId="acoustic-piano"
         onBackToMainMenu={vi.fn()}
+        onInstrumentChange={vi.fn()}
         onStagePaletteChange={vi.fn()}
         onOpenKeyboardSetup={vi.fn()}
       />,
@@ -414,7 +460,9 @@ describe('FreePlayScreen', () => {
         breakReminderMinutes={null}
         pitchBendEnabled
         stagePalette="default"
+        instrumentId="acoustic-piano"
         onBackToMainMenu={vi.fn()}
+        onInstrumentChange={vi.fn()}
         onStagePaletteChange={vi.fn()}
         onOpenKeyboardSetup={vi.fn()}
         unlockedRewardIds={new Set()}

@@ -1,0 +1,13 @@
+{
+  "instrumentId": "clarinet",
+  "packLabel": "Clarinet Enhanced Pack",
+  "version": "1",
+  "assets": [
+    { "note": "A3", "fileName": "clarinet_A3_15_piano_normal.mp3", "url": "/samples/philharmonia/clarinet/clarinet_A3_15_piano_normal.mp3" },
+    { "note": "C4", "fileName": "clarinet_C4_15_piano_normal.mp3", "url": "/samples/philharmonia/clarinet/clarinet_C4_15_piano_normal.mp3" },
+    { "note": "A4", "fileName": "clarinet_A4_15_piano_normal.mp3", "url": "/samples/philharmonia/clarinet/clarinet_A4_15_piano_normal.mp3" },
+    { "note": "C5", "fileName": "clarinet_C5_15_piano_normal.mp3", "url": "/samples/philharmonia/clarinet/clarinet_C5_15_piano_normal.mp3" },
+    { "note": "A5", "fileName": "clarinet_A5_15_piano_normal.mp3", "url": "/samples/philharmonia/clarinet/clarinet_A5_15_piano_normal.mp3" },
+    { "note": "C6", "fileName": "clarinet_C6_15_piano_normal.mp3", "url": "/samples/philharmonia/clarinet/clarinet_C6_15_piano_normal.mp3" }
+  ]
+}

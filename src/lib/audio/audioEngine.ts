@@ -6,7 +6,7 @@ import {
   getInstrumentEffectiveReverbPreset,
   getInstrumentDefinition,
   getInstrumentSustainReleaseTailSec,
-  isInstrumentSelectable,
+  isInstrumentId,
   REVERB_PRESETS,
   type InstrumentDefinition,
   type InstrumentReverbPreset,
@@ -311,7 +311,7 @@ export class AudioEngine {
   }
 
   async setInstrument(instrumentId: string): Promise<void> {
-    const safeInstrumentId = isInstrumentSelectable(instrumentId) ? instrumentId : DEFAULT_INSTRUMENT_ID;
+    const safeInstrumentId = isInstrumentId(instrumentId) ? instrumentId : DEFAULT_INSTRUMENT_ID;
     const definition = getInstrumentDefinition(safeInstrumentId);
     this.instrumentId = definition.id;
     if (!this.initialized) {
@@ -444,24 +444,22 @@ export class AudioEngine {
     return player.buffer.duration;
   }
 
-  async setCustomSampler(urls: Record<string, string>, baseUrl: string): Promise<void> {
+  async setCustomSampler(urls: Record<string, string>, baseUrl?: string | null): Promise<void> {
     this.customSamplerUrls = urls;
-    this.customSamplerBaseUrl = baseUrl;
+    this.customSamplerBaseUrl = baseUrl ?? null;
     if (!this.initialized) {
       return;
     }
+    await this.rebuildInstrument(getInstrumentDefinition(this.instrumentId));
+  }
 
-    const tone = this.tone!;
-    this.allNotesOff();
-    this.sampler?.dispose();
-    this.sampler = null;
-    this.synth?.dispose();
-    this.synth = null;
-    this.sampler = new tone.Sampler({
-      urls,
-      baseUrl,
-    }).connect(this.instrumentOutputNode!);
-    await tone.loaded();
+  async clearCustomSampler(): Promise<void> {
+    this.customSamplerUrls = null;
+    this.customSamplerBaseUrl = null;
+    if (!this.initialized) {
+      return;
+    }
+    await this.rebuildInstrument(getInstrumentDefinition(this.instrumentId));
   }
 
   async renderRecordingToWav(notes: RecordedNoteForExport[], durationSec: number): Promise<Uint8Array> {
@@ -474,8 +472,8 @@ export class AudioEngine {
     const toneBuffer = await tone.Offline(async () => {
       let instrument: Tone.Sampler | Tone.PolySynth;
 
-      if (customUrls && customBaseUrl) {
-        instrument = new tone.Sampler({ urls: customUrls, baseUrl: customBaseUrl }).toDestination();
+      if (customUrls) {
+        instrument = new tone.Sampler({ urls: customUrls, baseUrl: customBaseUrl ?? undefined }).toDestination();
         await tone.loaded();
       } else if (definition.voice === 'sampler' && definition.sampleUrls && definition.sampleBaseUrl) {
         const samplerOpts = definition.options as { release?: number };
@@ -575,6 +573,21 @@ export class AudioEngine {
     const tone = this.tone!;
 
     console.log('[AudioEngine] loadInstrument - voice:', definition.voice);
+
+    if (this.customSamplerUrls) {
+      try {
+        this.sampler = new tone.Sampler({
+          urls: this.customSamplerUrls,
+          baseUrl: this.customSamplerBaseUrl ?? undefined,
+        }).connect(this.instrumentOutputNode!);
+        await tone.loaded();
+        return;
+      } catch (err) {
+        console.error('[AudioEngine] Failed to load custom sampler:', err);
+        this.sampler?.dispose();
+        this.sampler = null;
+      }
+    }
 
     if (definition.voice === 'sampler' && definition.sampleUrls && definition.sampleBaseUrl) {
       try {

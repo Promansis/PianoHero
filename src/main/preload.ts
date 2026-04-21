@@ -86,6 +86,10 @@ const appBridge: AppBridge = {
   pickAudioFile: () => ipcRenderer.invoke('file:pick-audio'),
   pickSampleDirectory: () => ipcRenderer.invoke('file:pick-sample-dir'),
   listAudioFiles: (dir) => ipcRenderer.invoke('file:list-audio', dir),
+  getInstrumentSamplePackStatuses: () => ipcRenderer.invoke('samples:get-statuses'),
+  installInstrumentSamplePack: (instrumentId) => ipcRenderer.invoke('samples:install-pack', instrumentId),
+  removeInstrumentSamplePack: (instrumentId) => ipcRenderer.invoke('samples:remove-pack', instrumentId),
+  resolveInstrumentSampleSource: (instrumentId) => ipcRenderer.invoke('samples:resolve-source', instrumentId),
 };
 
 contextBridge.exposeInMainWorld('appBridge', appBridge);

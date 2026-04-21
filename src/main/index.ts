@@ -15,6 +15,12 @@ import type {
 } from '../shared/dbTypes';
 import { createSongId, importSongFromBuffer, recomputeAllSongDifficulties } from '../shared/importSong';
 import { AppDatabase } from './database';
+import {
+  getDesktopInstrumentSamplePackStatuses,
+  installDesktopInstrumentSamplePack,
+  removeDesktopInstrumentSamplePack,
+  resolveDesktopInstrumentSampleSource,
+} from './instrumentSamplePackStore';
 
 let mainWindow: BrowserWindow | null = null;
 let db: AppDatabase;
@@ -421,6 +427,31 @@ app.whenReady().then(async () => {
       return [];
     }
   });
+
+  ipcMain.handle('samples:get-statuses', () => getDesktopInstrumentSamplePackStatuses(db));
+
+  ipcMain.handle('samples:install-pack', async (_event, instrumentId: string) => {
+    const options: OpenDialogOptions = {
+      properties: ['openDirectory'],
+    };
+    const result = mainWindow
+      ? await dialog.showOpenDialog(mainWindow, options)
+      : await dialog.showOpenDialog(options);
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return getDesktopInstrumentSamplePackStatuses(db);
+    }
+
+    return installDesktopInstrumentSamplePack(db, userDataPath, instrumentId, result.filePaths[0]);
+  });
+
+  ipcMain.handle('samples:remove-pack', (_event, instrumentId: string) =>
+    removeDesktopInstrumentSamplePack(db, userDataPath, instrumentId),
+  );
+
+  ipcMain.handle('samples:resolve-source', (_event, instrumentId: string) =>
+    resolveDesktopInstrumentSampleSource(db, instrumentId),
+  );
 
   await createMainWindow();
 

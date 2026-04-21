@@ -9,6 +9,7 @@ import {
   isInstrumentSelectable,
   type InstrumentReverbPreset,
 } from '../lib/audio/instrumentCatalog';
+import { createUrlsFromFilenames } from '../lib/audio/instrumentSamplePacks';
 import { getUnlockedRewardIds } from '../lib/rewards/rewardCatalog';
 import { CURRICULUM, getLessonById, getTierByLessonId } from '../lib/learning/curriculum';
 import { buildDeveloperUnlockedProgress } from '../lib/learning/developerUnlocks';
@@ -39,6 +40,7 @@ import { MidiInputService } from '../lib/midi/midiInputService';
 import type { MidiInputDevice } from '../lib/midi/types';
 import type { TheorySuggestion } from '../lib/theory/songAnalysis';
 import type { SongRow, UserStatsRow } from '../shared/dbTypes';
+import type { InstrumentSamplePackStatus, ResolvedInstrumentSampleSource } from '../shared/ipc';
 import { AchievementToast } from './components/AchievementToast';
 import { ToastHost } from './components/Toast';
 import { FreePlayScreen } from './components/FreePlayScreen';
@@ -222,21 +224,6 @@ function applyStagePalette(palette: string): void {
   }
 }
 
-// Parses sample filenames into Tone.js note names.
-// Supports Salamander style (Ds1.mp3 -> D#1) and standard style (C#4.mp3 -> C#4).
-function extractNoteName(filename: string): string | null {
-  const base = filename.replace(/\.[^.]+$/, '');
-  const salamander = /^([A-G])s(\d)$/.exec(base);
-  if (salamander) {
-    return `${salamander[1]}#${salamander[2]}`;
-  }
-  const standard = /^([A-G][#b]?\d{1,2})$/.exec(base);
-  if (standard) {
-    return standard[1];
-  }
-  return null;
-}
-
 function getScreenTitle(currentScreen: AppScreen): string {
   switch (currentScreen.screen) {
     case 'setup':
@@ -310,9 +297,60 @@ export function App() {
   const [leadInBeats, setLeadInBeats] = useState(2);
   const [instrumentId, setInstrumentId] = useState(DEFAULT_INSTRUMENT_ID);
   const [instrumentReverbPresets, setInstrumentReverbPresets] = useState<Record<string, InstrumentReverbPreset>>({});
+  const [instrumentSamplePackStatuses, setInstrumentSamplePackStatuses] = useState<Record<string, InstrumentSamplePackStatus>>({});
+  const [customSamplePackPath, setCustomSamplePackPath] = useState('');
   const [postureReminderMinutes, setPostureReminderMinutes] = useState<number | null>(null);
   const [breakReminderMinutes, setBreakReminderMinutes] = useState<number | null>(null);
   const [learningProgress, setLearningProgress] = useState<LearningProgress>(EMPTY_LEARNING_PROGRESS);
+
+  const getInstalledPackInstrumentIds = (statuses: Record<string, InstrumentSamplePackStatus>) =>
+    Object.values(statuses)
+      .filter((status) => status.isInstalled)
+      .map((status) => status.instrumentId);
+
+  const syncInstrumentSamplePackStatuses = async (): Promise<Record<string, InstrumentSamplePackStatus>> => {
+    if (!window.appBridge?.getInstrumentSamplePackStatuses) {
+      setInstrumentSamplePackStatuses({});
+      return {};
+    }
+
+    const statuses = await window.appBridge.getInstrumentSamplePackStatuses();
+    const nextStatuses = Object.fromEntries(statuses.map((status) => [status.instrumentId, status]));
+    setInstrumentSamplePackStatuses(nextStatuses);
+    return nextStatuses;
+  };
+
+  const applyResolvedInstrumentSource = async (
+    nextInstrumentId: string,
+    manualSamplePackPath: string,
+    resolvedSource?: ResolvedInstrumentSampleSource | null,
+  ): Promise<void> => {
+    if (!window.appBridge) {
+      return;
+    }
+
+    if (!IS_WEB && manualSamplePackPath) {
+      const files = await window.appBridge.listAudioFiles(manualSamplePackPath);
+      const urls = createUrlsFromFilenames(files);
+      if (Object.keys(urls).length > 0) {
+        const baseUrl = `file:///${manualSamplePackPath.replace(/\\/g, '/').replace(/\/?$/, '/')}`;
+        await audioEngineRef.current.setCustomSampler(urls, baseUrl);
+        return;
+      }
+    }
+
+    const nextResolvedSource =
+      resolvedSource === undefined && window.appBridge.resolveInstrumentSampleSource
+        ? await window.appBridge.resolveInstrumentSampleSource(nextInstrumentId)
+        : resolvedSource;
+
+    if (nextResolvedSource) {
+      await audioEngineRef.current.setCustomSampler(nextResolvedSource.urls, nextResolvedSource.baseUrl);
+      return;
+    }
+
+    await audioEngineRef.current.clearCustomSampler();
+  };
 
   useEffect(() => {
     const service = new MidiInputService();
@@ -391,6 +429,9 @@ export function App() {
         setSettingsReady(true);
         return;
       }
+
+      const nextInstrumentSamplePackStatuses = await syncInstrumentSamplePackStatuses();
+      const installedPackInstrumentIds = getInstalledPackInstrumentIds(nextInstrumentSamplePackStatuses);
 
       const [
         setupComplete,
@@ -508,6 +549,8 @@ export function App() {
         midiServiceRef.current.setDeviceFilter(rawMidiDeviceId);
       }
 
+      setCustomSamplePackPath(rawCustomSamplePath ?? '');
+
       const nextInputMode = parseInputMode(rawInputMode);
       setInputMode(nextInputMode);
       if (!rawInputMode) {
@@ -526,7 +569,7 @@ export function App() {
 
       const defaultInstrumentId = IS_WEB ? DEFAULT_WEB_INSTRUMENT_ID : DEFAULT_INSTRUMENT_ID;
       const initialInstrumentId =
-        isInstrumentId(rawInstrumentId) && isInstrumentSelectable(rawInstrumentId)
+        isInstrumentId(rawInstrumentId) && isInstrumentSelectable(rawInstrumentId, installedPackInstrumentIds)
           ? rawInstrumentId
           : defaultInstrumentId;
       const nextInstrumentReverbPresets = parseInstrumentReverbPresetMap(rawInstrumentReverbPresets);
@@ -535,27 +578,11 @@ export function App() {
       audioEngineRef.current.setMasterVolume(parseStoredAudioNumber(rawMasterVolume, 80));
       audioEngineRef.current.setMetronomeVolume(parseStoredAudioNumber(rawMetronomeVolume, 65));
       audioEngineRef.current.setReverbLevel(parseStoredAudioNumber(rawReverbLevel, 20));
-      void audioEngineRef.current.setInstrument(initialInstrumentId);
+      await audioEngineRef.current.setInstrument(initialInstrumentId);
+      await applyResolvedInstrumentSource(initialInstrumentId, rawCustomSamplePath ?? '');
       audioEngineRef.current.setInstrumentReverbPreset(
         getInstrumentEffectiveReverbPreset(initialInstrumentId, nextInstrumentReverbPresets),
       );
-
-      if (!IS_WEB && rawCustomSamplePath) {
-        void (async () => {
-          const files = await window.appBridge!.listAudioFiles(rawCustomSamplePath);
-          const urls: Record<string, string> = {};
-          for (const file of files) {
-            const noteName = extractNoteName(file);
-            if (noteName) {
-              urls[noteName] = file;
-            }
-          }
-          if (Object.keys(urls).length > 0) {
-            const baseUrl = 'file:///' + rawCustomSamplePath.replace(/\\/g, '/').replace(/\/?$/, '/');
-            await audioEngineRef.current.setCustomSampler(urls, baseUrl);
-          }
-        })();
-      }
 
       if (!rawInstrumentId) {
         void window.appBridge.setSetting('audio', 'instrumentId', initialInstrumentId);
@@ -622,6 +649,61 @@ export function App() {
     void window.appBridge?.setSetting(INPUT_SETTINGS_CATEGORY, INPUT_MODE_SETTING_KEY, nextMode);
   };
 
+  const persistInstrumentId = (nextInstrumentId: string) => {
+    const installedPackInstrumentIds = getInstalledPackInstrumentIds(instrumentSamplePackStatuses);
+    const safeInstrumentId =
+      isInstrumentId(nextInstrumentId) && isInstrumentSelectable(nextInstrumentId, installedPackInstrumentIds)
+        ? nextInstrumentId
+        : DEFAULT_INSTRUMENT_ID;
+    setInstrumentId(safeInstrumentId);
+    void (async () => {
+      await audioEngineRef.current.setInstrument(safeInstrumentId);
+      await applyResolvedInstrumentSource(safeInstrumentId, customSamplePackPath);
+      audioEngineRef.current.setInstrumentReverbPreset(
+        getInstrumentEffectiveReverbPreset(safeInstrumentId, instrumentReverbPresets),
+      );
+    })();
+    void window.appBridge?.setSetting('audio', 'instrumentId', safeInstrumentId);
+  };
+
+  const installInstrumentSamplePack = async (targetInstrumentId: string) => {
+    if (!window.appBridge?.installInstrumentSamplePack) {
+      return;
+    }
+    const statuses = await window.appBridge.installInstrumentSamplePack(targetInstrumentId);
+    const nextStatuses = Object.fromEntries(statuses.map((status) => [status.instrumentId, status]));
+    setInstrumentSamplePackStatuses(nextStatuses);
+
+    if (targetInstrumentId === instrumentId) {
+      const resolved = await window.appBridge.resolveInstrumentSampleSource(targetInstrumentId);
+      await applyResolvedInstrumentSource(targetInstrumentId, customSamplePackPath, resolved);
+    }
+  };
+
+  const removeInstrumentSamplePack = async (targetInstrumentId: string) => {
+    if (!window.appBridge?.removeInstrumentSamplePack) {
+      return;
+    }
+    const statuses = await window.appBridge.removeInstrumentSamplePack(targetInstrumentId);
+    const nextStatuses = Object.fromEntries(statuses.map((status) => [status.instrumentId, status]));
+    setInstrumentSamplePackStatuses(nextStatuses);
+
+    const installedPackInstrumentIds = getInstalledPackInstrumentIds(nextStatuses);
+    const nextSelectedInstrumentId = isInstrumentSelectable(instrumentId, installedPackInstrumentIds)
+      ? instrumentId
+      : DEFAULT_INSTRUMENT_ID;
+    if (nextSelectedInstrumentId !== instrumentId) {
+      setInstrumentId(nextSelectedInstrumentId);
+      void window.appBridge.setSetting('audio', 'instrumentId', nextSelectedInstrumentId);
+    }
+
+    await audioEngineRef.current.setInstrument(nextSelectedInstrumentId);
+    await applyResolvedInstrumentSource(nextSelectedInstrumentId, customSamplePackPath);
+    audioEngineRef.current.setInstrumentReverbPreset(
+      getInstrumentEffectiveReverbPreset(nextSelectedInstrumentId, instrumentReverbPresets),
+    );
+  };
+
   const retryMidiInit = () => {
     if (!midiServiceRef.current) {
       return;
@@ -639,13 +721,19 @@ export function App() {
         return;
       }
       if (key === 'instrumentId') {
+        const installedPackInstrumentIds = getInstalledPackInstrumentIds(instrumentSamplePackStatuses);
         const nextInstrumentId =
-          isInstrumentId(value) && isInstrumentSelectable(value) ? value : DEFAULT_INSTRUMENT_ID;
+          isInstrumentId(value) && isInstrumentSelectable(value, installedPackInstrumentIds)
+            ? value
+            : DEFAULT_INSTRUMENT_ID;
         setInstrumentId(nextInstrumentId);
-        void audioEngineRef.current.setInstrument(nextInstrumentId);
-        audioEngineRef.current.setInstrumentReverbPreset(
-          getInstrumentEffectiveReverbPreset(nextInstrumentId, instrumentReverbPresets),
-        );
+        void (async () => {
+          await audioEngineRef.current.setInstrument(nextInstrumentId);
+          await applyResolvedInstrumentSource(nextInstrumentId, customSamplePackPath);
+          audioEngineRef.current.setInstrumentReverbPreset(
+            getInstrumentEffectiveReverbPreset(nextInstrumentId, instrumentReverbPresets),
+          );
+        })();
         return;
       }
       if (key === 'instrumentReverbPresets') {
@@ -657,25 +745,9 @@ export function App() {
         return;
       }
       if (key === 'customSamplePackPath') {
-        if (IS_WEB) {
-          return;
-        }
-        if (!value) {
-          return;
-        }
+        setCustomSamplePackPath(value);
         void (async () => {
-          const files = await window.appBridge?.listAudioFiles(value) ?? [];
-          const urls: Record<string, string> = {};
-          for (const file of files) {
-            const noteName = extractNoteName(file);
-            if (noteName) {
-              urls[noteName] = file;
-            }
-          }
-          if (Object.keys(urls).length > 0) {
-            const baseUrl = 'file:///' + value.replace(/\\/g, '/').replace(/\/?$/, '/');
-            await audioEngineRef.current.setCustomSampler(urls, baseUrl);
-          }
+          await applyResolvedInstrumentSource(instrumentId, value);
         })();
         return;
       }
@@ -1268,7 +1340,10 @@ export function App() {
           breakReminderMinutes={breakReminderMinutes}
           pitchBendEnabled={pitchBendEnabled}
           stagePalette={stagePalette}
+          instrumentId={instrumentId}
+          instrumentSamplePackStatuses={instrumentSamplePackStatuses}
           unlockedRewardIds={unlockedRewardIds}
+          onInstrumentChange={persistInstrumentId}
           onStagePaletteChange={persistStagePalette}
           onBackToMainMenu={() => setCurrentScreen({ screen: 'main-menu' })}
           onOpenKeyboardSetup={() => setCurrentScreen({ screen: 'keyboard-setup', returnTo: 'free-play' })}
@@ -1311,8 +1386,11 @@ export function App() {
           inputMode={inputMode}
           midiDevices={midiDevices}
           midiError={midiError}
+          instrumentSamplePackStatuses={instrumentSamplePackStatuses}
           unlockedRewardIds={unlockedRewardIds}
           pitchBendEnabled={pitchBendEnabled}
+          onInstallInstrumentSamplePack={installInstrumentSamplePack}
+          onRemoveInstrumentSamplePack={removeInstrumentSamplePack}
           onDeveloperUnlockAll={handleDeveloperUnlockAll}
           onSettingChange={applySettingChange}
           onLearningProgressReset={handleLearningProgressReset}
@@ -1400,6 +1478,10 @@ export function App() {
           keyboardOverlaySize={keyboardOverlaySize}
           breakReminderMinutes={breakReminderMinutes}
           pitchBendEnabled={pitchBendEnabled}
+          instrumentId={instrumentId}
+          instrumentSamplePackStatuses={instrumentSamplePackStatuses}
+          unlockedRewardIds={unlockedRewardIds}
+          onInstrumentChange={persistInstrumentId}
           onExit={() => setCurrentScreen({ screen: 'main-menu' })}
           onGameFinished={handleGameFinished}
           onOpenKeyboardSetup={() => setCurrentScreen({ screen: 'keyboard-setup', returnTo: 'library' })}
@@ -1427,6 +1509,10 @@ export function App() {
           keyboardOverlaySize={keyboardOverlaySize}
           breakReminderMinutes={breakReminderMinutes}
           pitchBendEnabled={pitchBendEnabled}
+          instrumentId={instrumentId}
+          instrumentSamplePackStatuses={instrumentSamplePackStatuses}
+          unlockedRewardIds={unlockedRewardIds}
+          onInstrumentChange={persistInstrumentId}
           onExit={() => navigateToLesson(currentScreen.lessonId, currentScreen.stepIndex)}
           exitLabel="Back to Lesson"
           onGameFinished={handleGameFinished}
@@ -1462,6 +1548,10 @@ export function App() {
           keyboardOverlaySize={keyboardOverlaySize}
           breakReminderMinutes={breakReminderMinutes}
           pitchBendEnabled={pitchBendEnabled}
+          instrumentId={instrumentId}
+          instrumentSamplePackStatuses={instrumentSamplePackStatuses}
+          unlockedRewardIds={unlockedRewardIds}
+          onInstrumentChange={persistInstrumentId}
           onExit={() => setCurrentScreen({ screen: 'learn-hub' })}
           exitLabel="Back to Learn Hub"
           onGameFinished={handleGameFinished}
