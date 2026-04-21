@@ -19,6 +19,22 @@ const MIDI_JS_FLUIDR3_BASE_URL =
 
 const PACKS = [
   {
+    instrumentId: 'honky-tonk',
+    source: {
+      type: 'midi-js',
+      sourceName: 'FluidR3_GM via MIDI.js Soundfonts',
+      licenseLabel: 'CC BY 3.0',
+      attributionUrl: 'https://github.com/gleitz/midi-js-soundfonts',
+      remoteInstrumentId: 'honkytonk_piano',
+    },
+    standardDir: join(PUBLIC_DIR, 'samples', 'fluidr3', 'honky-tonk'),
+    enhancedDir: join(PUBLIC_DIR, 'instrument-packs', 'honky-tonk', 'assets'),
+    manifestPath: join(PUBLIC_DIR, 'instrument-packs', 'honky-tonk', 'manifest.json'),
+    packLabel: 'Honky-Tonk Enhanced Pack',
+    standardFiles: ['C1.mp3', 'G1.mp3', 'C2.mp3', 'G2.mp3', 'C3.mp3', 'G3.mp3', 'C4.mp3', 'G4.mp3', 'C5.mp3', 'G5.mp3', 'C6.mp3', 'G6.mp3', 'C7.mp3'],
+    enhancedFiles: ['A0.mp3', 'C1.mp3', 'Eb1.mp3', 'G1.mp3', 'Bb1.mp3', 'C2.mp3', 'Eb2.mp3', 'G2.mp3', 'Bb2.mp3', 'C3.mp3', 'Eb3.mp3', 'G3.mp3', 'Bb3.mp3', 'C4.mp3', 'Eb4.mp3', 'G4.mp3', 'Bb4.mp3', 'C5.mp3', 'Eb5.mp3', 'G5.mp3', 'Bb5.mp3', 'C6.mp3', 'Eb6.mp3', 'G6.mp3', 'Bb6.mp3', 'C7.mp3', 'C8.mp3'],
+  },
+  {
     instrumentId: 'flute',
     source: {
       type: 'tonejs',
@@ -47,6 +63,22 @@ const PACKS = [
     packLabel: 'Trumpet Enhanced Pack',
     standardFiles: ['F3.mp3', 'C4.mp3', 'F4.mp3', 'As4.mp3', 'F5.mp3', 'C6.mp3'],
     enhancedFiles: ['F3.mp3', 'A3.mp3', 'C4.mp3', 'Ds4.mp3', 'F4.mp3', 'G4.mp3', 'As4.mp3', 'D5.mp3', 'F5.mp3', 'A5.mp3', 'C6.mp3'],
+  },
+  {
+    instrumentId: 'saxophone',
+    source: {
+      type: 'midi-js',
+      sourceName: 'FluidR3_GM via MIDI.js Soundfonts',
+      licenseLabel: 'CC BY 3.0',
+      attributionUrl: 'https://github.com/gleitz/midi-js-soundfonts',
+      remoteInstrumentId: 'alto_sax',
+    },
+    standardDir: join(PUBLIC_DIR, 'samples', 'fluidr3', 'saxophone'),
+    enhancedDir: join(PUBLIC_DIR, 'instrument-packs', 'saxophone', 'assets'),
+    manifestPath: join(PUBLIC_DIR, 'instrument-packs', 'saxophone', 'manifest.json'),
+    packLabel: 'Saxophone Enhanced Pack',
+    standardFiles: ['A3.mp3', 'C4.mp3', 'Eb4.mp3', 'G4.mp3', 'Bb4.mp3', 'D5.mp3', 'F5.mp3', 'A5.mp3', 'C6.mp3'],
+    enhancedFiles: ['A3.mp3', 'C4.mp3', 'Eb4.mp3', 'F4.mp3', 'G4.mp3', 'A4.mp3', 'Bb4.mp3', 'C5.mp3', 'D5.mp3', 'Eb5.mp3', 'F5.mp3', 'G5.mp3', 'A5.mp3', 'Bb5.mp3', 'C6.mp3'],
   },
   {
     instrumentId: 'cello',

@@ -1,0 +1,85 @@
+{
+  "instrumentId": "saxophone",
+  "packLabel": "Saxophone Enhanced Pack",
+  "version": "2",
+  "sourceName": "FluidR3_GM via MIDI.js Soundfonts",
+  "licenseLabel": "CC BY 3.0",
+  "attributionUrl": "https://github.com/gleitz/midi-js-soundfonts",
+  "assets": [
+    {
+      "note": "A3",
+      "fileName": "A3.mp3",
+      "url": "/instrument-packs/saxophone/assets/A3.mp3"
+    },
+    {
+      "note": "C4",
+      "fileName": "C4.mp3",
+      "url": "/instrument-packs/saxophone/assets/C4.mp3"
+    },
+    {
+      "note": "Eb4",
+      "fileName": "Eb4.mp3",
+      "url": "/instrument-packs/saxophone/assets/Eb4.mp3"
+    },
+    {
+      "note": "F4",
+      "fileName": "F4.mp3",
+      "url": "/instrument-packs/saxophone/assets/F4.mp3"
+    },
+    {
+      "note": "G4",
+      "fileName": "G4.mp3",
+      "url": "/instrument-packs/saxophone/assets/G4.mp3"
+    },
+    {
+      "note": "A4",
+      "fileName": "A4.mp3",
+      "url": "/instrument-packs/saxophone/assets/A4.mp3"
+    },
+    {
+      "note": "Bb4",
+      "fileName": "Bb4.mp3",
+      "url": "/instrument-packs/saxophone/assets/Bb4.mp3"
+    },
+    {
+      "note": "C5",
+      "fileName": "C5.mp3",
+      "url": "/instrument-packs/saxophone/assets/C5.mp3"
+    },
+    {
+      "note": "D5",
+      "fileName": "D5.mp3",
+      "url": "/instrument-packs/saxophone/assets/D5.mp3"
+    },
+    {
+      "note": "Eb5",
+      "fileName": "Eb5.mp3",
+      "url": "/instrument-packs/saxophone/assets/Eb5.mp3"
+    },
+    {
+      "note": "F5",
+      "fileName": "F5.mp3",
+      "url": "/instrument-packs/saxophone/assets/F5.mp3"
+    },
+    {
+      "note": "G5",
+      "fileName": "G5.mp3",
+      "url": "/instrument-packs/saxophone/assets/G5.mp3"
+    },
+    {
+      "note": "A5",
+      "fileName": "A5.mp3",
+      "url": "/instrument-packs/saxophone/assets/A5.mp3"
+    },
+    {
+      "note": "Bb5",
+      "fileName": "Bb5.mp3",
+      "url": "/instrument-packs/saxophone/assets/Bb5.mp3"
+    },
+    {
+      "note": "C6",
+      "fileName": "C6.mp3",
+      "url": "/instrument-packs/saxophone/assets/C6.mp3"
+    }
+  ]
+}

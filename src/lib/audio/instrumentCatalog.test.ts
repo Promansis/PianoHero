@@ -23,7 +23,7 @@ describe('instrumentCatalog', () => {
     expect(isInstrumentId(null)).toBe(false);
   });
 
-  it('ships pilot redistributable flute and trumpet samples while keeping other orchestral expansion instruments', () => {
+  it('ships pilot redistributable flute and trumpet samples while keeping orchestral voices on bundled sample sets', () => {
     expect(getInstrumentDefinition('flute').voice).toBe('sampler');
     expect(getInstrumentDefinition('flute').sampleBaseUrl).toBe('/samples/nbrosowsky/flute/');
     expect(getInstrumentDefinition('flute').sampleUrls).toMatchObject({
@@ -36,10 +36,10 @@ describe('instrumentCatalog', () => {
     });
     expect(getInstrumentDefinition('clarinet').sampleBaseUrl).toBe('/samples/philharmonia/clarinet/');
     expect(getInstrumentDefinition('saxophone').voice).toBe('sampler');
-    expect(getInstrumentDefinition('saxophone').sampleBaseUrl).toBe('/samples/philharmonia/saxophone/');
+    expect(getInstrumentDefinition('saxophone').sampleBaseUrl).toBe('/samples/fluidr3/saxophone/');
     expect(getInstrumentDefinition('saxophone').sampleUrls).toMatchObject({
-      A3: 'saxophone_A3_1_piano_normal.mp3',
-      C5: 'saxophone_C5_1_piano_normal.mp3',
+      A3: 'A3.mp3',
+      C6: 'C6.mp3',
     });
   });
 
@@ -50,9 +50,13 @@ describe('instrumentCatalog', () => {
     expect(getInstrumentDefinition('string-ensemble').sampleBaseUrl).toBe('/samples/fluidr3/string-ensemble/');
   });
 
-  it('uses sampled piano content for honky-tonk and derives sustain tails per instrument', () => {
+  it('uses distinct bundled samples for honky-tonk and derives sustain tails per instrument', () => {
     expect(getInstrumentDefinition('honky-tonk').voice).toBe('sampler');
-    expect(getInstrumentDefinition('honky-tonk').sampleBaseUrl).toBe('/samples/salamander/');
+    expect(getInstrumentDefinition('honky-tonk').sampleBaseUrl).toBe('/samples/fluidr3/honky-tonk/');
+    expect(getInstrumentDefinition('honky-tonk').sampleUrls).toMatchObject({
+      C4: 'C4.mp3',
+      G6: 'G6.mp3',
+    });
     expect(getInstrumentSustainReleaseTailSec('warm-pad')).toBeGreaterThan(getInstrumentSustainReleaseTailSec('acoustic-piano'));
   });
 });

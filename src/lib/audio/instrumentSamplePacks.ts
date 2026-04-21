@@ -20,6 +20,13 @@ export interface InstrumentSamplePackDefinition {
 export const INSTALLED_INSTRUMENT_SAMPLE_PACKS_SETTING_KEY = 'installedInstrumentSamplePacks';
 
 export const INSTRUMENT_SAMPLE_PACK_DEFINITIONS: Record<string, InstrumentSamplePackDefinition> = {
+  'honky-tonk': {
+    instrumentId: 'honky-tonk',
+    packLabel: 'Honky-Tonk Enhanced Pack',
+    installMode: 'managed',
+    manifestPath: '/instrument-packs/honky-tonk/manifest.json',
+    installHelpText: 'Install an enhanced honky-tonk pack with denser saloon-piano coverage.',
+  },
   flute: {
     instrumentId: 'flute',
     packLabel: 'Flute Enhanced Pack',
@@ -33,6 +40,13 @@ export const INSTRUMENT_SAMPLE_PACK_DEFINITIONS: Record<string, InstrumentSample
     installMode: 'managed',
     manifestPath: '/instrument-packs/trumpet/manifest.json',
     installHelpText: 'Install an enhanced trumpet pack with brighter long-note samples.',
+  },
+  saxophone: {
+    instrumentId: 'saxophone',
+    packLabel: 'Saxophone Enhanced Pack',
+    installMode: 'managed',
+    manifestPath: '/instrument-packs/saxophone/manifest.json',
+    installHelpText: 'Install an enhanced saxophone pack with denser reed-solo coverage.',
   },
   cello: {
     instrumentId: 'cello',

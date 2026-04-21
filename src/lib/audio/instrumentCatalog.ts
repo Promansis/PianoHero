@@ -55,6 +55,22 @@ const SALAMANDER_SAMPLE_MAP = {
   C8: 'C8.mp3',
 } as const;
 
+const FLUIDR3_HONKY_TONK_SAMPLE_MAP = {
+  C1: 'C1.mp3',
+  G1: 'G1.mp3',
+  C2: 'C2.mp3',
+  G2: 'G2.mp3',
+  C3: 'C3.mp3',
+  G3: 'G3.mp3',
+  C4: 'C4.mp3',
+  G4: 'G4.mp3',
+  C5: 'C5.mp3',
+  G5: 'G5.mp3',
+  C6: 'C6.mp3',
+  G6: 'G6.mp3',
+  C7: 'C7.mp3',
+} as const;
+
 const NBROSOWSKY_FLUTE_SAMPLE_MAP = {
   C4: 'C4.mp3',
   A4: 'A4.mp3',
@@ -91,17 +107,19 @@ const PHILHARMONIA_FRENCH_HORN_SAMPLE_MAP = {
   C5: 'french-horn_C5_15_piano_normal.mp3',
 } as const;
 
-const PHILHARMONIA_SAXOPHONE_SAMPLE_MAP = {
-  A3: 'saxophone_A3_1_piano_normal.mp3',
-  D4: 'saxophone_D4_1_piano_normal.mp3',
-  G4: 'saxophone_G4_1_piano_normal.mp3',
-  C5: 'saxophone_C5_1_piano_normal.mp3',
-  F5: 'saxophone_F5_1_piano_normal.mp3',
-  A5: 'saxophone_A5_1_piano_normal.mp3',
-  C6: 'saxophone_C6_1_piano_normal.mp3',
+const FLUIDR3_SAXOPHONE_SAMPLE_MAP = {
+  A3: 'A3.mp3',
+  C4: 'C4.mp3',
+  'D#4': 'Eb4.mp3',
+  G4: 'G4.mp3',
+  'A#4': 'Bb4.mp3',
+  D5: 'D5.mp3',
+  F5: 'F5.mp3',
+  A5: 'A5.mp3',
+  C6: 'C6.mp3',
 } as const;
 
-const PHILHARMONIA_CELLO_SAMPLE_MAP = {
+const FLUIDR3_CELLO_SAMPLE_MAP = {
   C2: 'C2.mp3',
   G2: 'G2.mp3',
   C3: 'C3.mp3',
@@ -112,7 +130,7 @@ const PHILHARMONIA_CELLO_SAMPLE_MAP = {
   G5: 'G5.mp3',
 } as const;
 
-const PHILHARMONIA_STRING_ENSEMBLE_SAMPLE_MAP = {
+const FLUIDR3_STRING_ENSEMBLE_SAMPLE_MAP = {
   C2: 'C2.mp3',
   G2: 'G2.mp3',
   C3: 'C3.mp3',
@@ -301,13 +319,13 @@ export const INSTRUMENTS: InstrumentDefinition[] = [
   {
     id: 'saxophone',
     label: 'Saxophone',
-    description: 'Private-use Philharmonia saxophone samples with a punchy reed tone.',
+    description: 'FluidR3 alto sax samples bundled with lighter anchor spacing for a cleaner reed lead.',
     voice: 'sampler',
     options: {
       release: 1.1,
     },
-    sampleBaseUrl: '/samples/philharmonia/saxophone/',
-    sampleUrls: PHILHARMONIA_SAXOPHONE_SAMPLE_MAP,
+    sampleBaseUrl: '/samples/fluidr3/saxophone/',
+    sampleUrls: FLUIDR3_SAXOPHONE_SAMPLE_MAP,
     reverbPreset: 'medium',
   },
   {
@@ -319,7 +337,7 @@ export const INSTRUMENTS: InstrumentDefinition[] = [
       release: 1.6,
     },
     sampleBaseUrl: '/samples/fluidr3/cello/',
-    sampleUrls: PHILHARMONIA_CELLO_SAMPLE_MAP,
+    sampleUrls: FLUIDR3_CELLO_SAMPLE_MAP,
     reverbPreset: 'hall',
   },
   {
@@ -331,7 +349,7 @@ export const INSTRUMENTS: InstrumentDefinition[] = [
       release: 1.9,
     },
     sampleBaseUrl: '/samples/fluidr3/string-ensemble/',
-    sampleUrls: PHILHARMONIA_STRING_ENSEMBLE_SAMPLE_MAP,
+    sampleUrls: FLUIDR3_STRING_ENSEMBLE_SAMPLE_MAP,
     reverbPreset: 'hall',
   },
   {
@@ -471,14 +489,14 @@ export const INSTRUMENTS: InstrumentDefinition[] = [
   {
     id: 'honky-tonk',
     label: 'Honky-Tonk',
-    description: 'Salamander piano samples voiced for a brighter saloon character, with a synth fallback if samples fail.',
+    description: 'FluidR3 honky-tonk piano samples bundled with lighter anchor spacing for a distinct saloon bite.',
     voice: 'sampler',
     requiredRewardId: 'instrument:honky-tonk',
     options: {
       release: 0.95,
     },
-    sampleBaseUrl: '/samples/salamander/',
-    sampleUrls: SALAMANDER_SAMPLE_MAP,
+    sampleBaseUrl: '/samples/fluidr3/honky-tonk/',
+    sampleUrls: FLUIDR3_HONKY_TONK_SAMPLE_MAP,
     reverbPreset: 'short',
   },
   {

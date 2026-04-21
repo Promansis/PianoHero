@@ -247,6 +247,13 @@ async function recomputeAllSongDifficulties({ db: db2, midiFilesDir }) {
 }
 const INSTALLED_INSTRUMENT_SAMPLE_PACKS_SETTING_KEY = "installedInstrumentSamplePacks";
 const INSTRUMENT_SAMPLE_PACK_DEFINITIONS = {
+  "honky-tonk": {
+    instrumentId: "honky-tonk",
+    packLabel: "Honky-Tonk Enhanced Pack",
+    installMode: "managed",
+    manifestPath: "/instrument-packs/honky-tonk/manifest.json",
+    installHelpText: "Install an enhanced honky-tonk pack with denser saloon-piano coverage."
+  },
   flute: {
     instrumentId: "flute",
     packLabel: "Flute Enhanced Pack",
@@ -260,6 +267,13 @@ const INSTRUMENT_SAMPLE_PACK_DEFINITIONS = {
     installMode: "managed",
     manifestPath: "/instrument-packs/trumpet/manifest.json",
     installHelpText: "Install an enhanced trumpet pack with brighter long-note samples."
+  },
+  saxophone: {
+    instrumentId: "saxophone",
+    packLabel: "Saxophone Enhanced Pack",
+    installMode: "managed",
+    manifestPath: "/instrument-packs/saxophone/manifest.json",
+    installHelpText: "Install an enhanced saxophone pack with denser reed-solo coverage."
   },
   cello: {
     instrumentId: "cello",
