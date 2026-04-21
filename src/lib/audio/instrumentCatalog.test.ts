@@ -23,7 +23,7 @@ describe('instrumentCatalog', () => {
     expect(isInstrumentId(null)).toBe(false);
   });
 
-  it('ships pilot redistributable flute and trumpet samples while keeping orchestral voices on bundled sample sets', () => {
+  it('ships redistributable and bundled sampled instruments on the expected source folders', () => {
     expect(getInstrumentDefinition('flute').voice).toBe('sampler');
     expect(getInstrumentDefinition('flute').sampleBaseUrl).toBe('/samples/nbrosowsky/flute/');
     expect(getInstrumentDefinition('flute').sampleUrls).toMatchObject({
@@ -41,6 +41,9 @@ describe('instrumentCatalog', () => {
       A3: 'A3.mp3',
       C6: 'C6.mp3',
     });
+    expect(getInstrumentDefinition('marimba').sampleBaseUrl).toBe('/samples/fluidr3/marimba/');
+    expect(getInstrumentDefinition('bell').sampleBaseUrl).toBe('/samples/fluidr3/bell/');
+    expect(getInstrumentDefinition('vibraphone').sampleBaseUrl).toBe('/samples/fluidr3/vibraphone/');
   });
 
   it('ships bundled low-string defaults for cello and string ensemble', () => {

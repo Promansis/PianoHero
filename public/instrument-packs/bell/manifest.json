@@ -1,0 +1,70 @@
+{
+  "instrumentId": "bell",
+  "packLabel": "Bell Enhanced Pack",
+  "version": "2",
+  "sourceName": "FluidR3_GM via MIDI.js Soundfonts",
+  "licenseLabel": "CC BY 3.0",
+  "attributionUrl": "https://github.com/gleitz/midi-js-soundfonts",
+  "assets": [
+    {
+      "note": "C5",
+      "fileName": "C5.mp3",
+      "url": "/instrument-packs/bell/assets/C5.mp3"
+    },
+    {
+      "note": "Eb5",
+      "fileName": "Eb5.mp3",
+      "url": "/instrument-packs/bell/assets/Eb5.mp3"
+    },
+    {
+      "note": "G5",
+      "fileName": "G5.mp3",
+      "url": "/instrument-packs/bell/assets/G5.mp3"
+    },
+    {
+      "note": "Bb5",
+      "fileName": "Bb5.mp3",
+      "url": "/instrument-packs/bell/assets/Bb5.mp3"
+    },
+    {
+      "note": "C6",
+      "fileName": "C6.mp3",
+      "url": "/instrument-packs/bell/assets/C6.mp3"
+    },
+    {
+      "note": "Eb6",
+      "fileName": "Eb6.mp3",
+      "url": "/instrument-packs/bell/assets/Eb6.mp3"
+    },
+    {
+      "note": "G6",
+      "fileName": "G6.mp3",
+      "url": "/instrument-packs/bell/assets/G6.mp3"
+    },
+    {
+      "note": "Bb6",
+      "fileName": "Bb6.mp3",
+      "url": "/instrument-packs/bell/assets/Bb6.mp3"
+    },
+    {
+      "note": "C7",
+      "fileName": "C7.mp3",
+      "url": "/instrument-packs/bell/assets/C7.mp3"
+    },
+    {
+      "note": "Eb7",
+      "fileName": "Eb7.mp3",
+      "url": "/instrument-packs/bell/assets/Eb7.mp3"
+    },
+    {
+      "note": "G7",
+      "fileName": "G7.mp3",
+      "url": "/instrument-packs/bell/assets/G7.mp3"
+    },
+    {
+      "note": "C8",
+      "fileName": "C8.mp3",
+      "url": "/instrument-packs/bell/assets/C8.mp3"
+    }
+  ]
+}

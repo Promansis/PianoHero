@@ -11,16 +11,22 @@ describe('instrumentSamplePacks', () => {
     expect(listPackEnabledInstrumentIds()).toEqual([
       'honky-tonk',
       'flute',
+      'marimba',
       'trumpet',
       'saxophone',
+      'bell',
       'cello',
+      'vibraphone',
       'string-ensemble',
     ]);
     expect(getInstrumentSamplePackDefinition('honky-tonk')?.installMode).toBe('managed');
     expect(getInstrumentSamplePackDefinition('flute')?.installMode).toBe('managed');
+    expect(getInstrumentSamplePackDefinition('marimba')?.installMode).toBe('managed');
     expect(getInstrumentSamplePackDefinition('trumpet')?.installMode).toBe('managed');
     expect(getInstrumentSamplePackDefinition('saxophone')?.installMode).toBe('managed');
+    expect(getInstrumentSamplePackDefinition('bell')?.installMode).toBe('managed');
     expect(getInstrumentSamplePackDefinition('cello')?.installMode).toBe('managed');
+    expect(getInstrumentSamplePackDefinition('vibraphone')?.installMode).toBe('managed');
     expect(getInstrumentSamplePackDefinition('string-ensemble')?.installMode).toBe('managed');
     expect(getInstrumentSamplePackDefinition('clarinet')).toBeNull();
   });
@@ -48,9 +54,14 @@ describe('instrumentSamplePacks', () => {
     ).toBe(false);
   });
 
-  it('reports managed pack availability for honky-tonk, saxophone, cello, and string ensemble across runtimes', () => {
+  it('reports managed pack availability for upgraded sampled instruments across runtimes', () => {
     const desktopStatuses = buildInstrumentSamplePackStatuses('desktop', {});
     expect(desktopStatuses.find((status) => status.instrumentId === 'honky-tonk')).toMatchObject({
+      canInstallInApp: true,
+      installMode: 'managed',
+      requiresPackForSelection: false,
+    });
+    expect(desktopStatuses.find((status) => status.instrumentId === 'marimba')).toMatchObject({
       canInstallInApp: true,
       installMode: 'managed',
       requiresPackForSelection: false,
@@ -60,7 +71,17 @@ describe('instrumentSamplePacks', () => {
       installMode: 'managed',
       requiresPackForSelection: false,
     });
+    expect(desktopStatuses.find((status) => status.instrumentId === 'bell')).toMatchObject({
+      canInstallInApp: true,
+      installMode: 'managed',
+      requiresPackForSelection: false,
+    });
     expect(desktopStatuses.find((status) => status.instrumentId === 'cello')).toMatchObject({
+      canInstallInApp: true,
+      installMode: 'managed',
+      requiresPackForSelection: false,
+    });
+    expect(desktopStatuses.find((status) => status.instrumentId === 'vibraphone')).toMatchObject({
       canInstallInApp: true,
       installMode: 'managed',
       requiresPackForSelection: false,
@@ -72,12 +93,27 @@ describe('instrumentSamplePacks', () => {
       installMode: 'managed',
       requiresPackForSelection: false,
     });
+    expect(webStatuses.find((status) => status.instrumentId === 'marimba')).toMatchObject({
+      canInstallInApp: true,
+      installMode: 'managed',
+      requiresPackForSelection: false,
+    });
     expect(webStatuses.find((status) => status.instrumentId === 'saxophone')).toMatchObject({
       canInstallInApp: true,
       installMode: 'managed',
       requiresPackForSelection: false,
     });
+    expect(webStatuses.find((status) => status.instrumentId === 'bell')).toMatchObject({
+      canInstallInApp: true,
+      installMode: 'managed',
+      requiresPackForSelection: false,
+    });
     expect(webStatuses.find((status) => status.instrumentId === 'cello')).toMatchObject({
+      canInstallInApp: true,
+      installMode: 'managed',
+      requiresPackForSelection: false,
+    });
+    expect(webStatuses.find((status) => status.instrumentId === 'vibraphone')).toMatchObject({
       canInstallInApp: true,
       installMode: 'managed',
       requiresPackForSelection: false,

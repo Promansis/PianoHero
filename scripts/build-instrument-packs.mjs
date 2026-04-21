@@ -50,6 +50,22 @@ const PACKS = [
     enhancedFiles: ['C4.mp3', 'E4.mp3', 'A4.mp3', 'C5.mp3', 'E5.mp3', 'A5.mp3', 'C6.mp3', 'E6.mp3', 'A6.mp3', 'C7.mp3'],
   },
   {
+    instrumentId: 'marimba',
+    source: {
+      type: 'midi-js',
+      sourceName: 'FluidR3_GM via MIDI.js Soundfonts',
+      licenseLabel: 'CC BY 3.0',
+      attributionUrl: 'https://github.com/gleitz/midi-js-soundfonts',
+      remoteInstrumentId: 'marimba',
+    },
+    standardDir: join(PUBLIC_DIR, 'samples', 'fluidr3', 'marimba'),
+    enhancedDir: join(PUBLIC_DIR, 'instrument-packs', 'marimba', 'assets'),
+    manifestPath: join(PUBLIC_DIR, 'instrument-packs', 'marimba', 'manifest.json'),
+    packLabel: 'Marimba Enhanced Pack',
+    standardFiles: ['C2.mp3', 'G2.mp3', 'C3.mp3', 'G3.mp3', 'C4.mp3', 'G4.mp3', 'C5.mp3', 'G5.mp3', 'C6.mp3'],
+    enhancedFiles: ['C2.mp3', 'Eb2.mp3', 'G2.mp3', 'Bb2.mp3', 'C3.mp3', 'Eb3.mp3', 'G3.mp3', 'Bb3.mp3', 'C4.mp3', 'Eb4.mp3', 'G4.mp3', 'Bb4.mp3', 'C5.mp3', 'Eb5.mp3', 'G5.mp3', 'Bb5.mp3', 'C6.mp3'],
+  },
+  {
     instrumentId: 'trumpet',
     source: {
       type: 'tonejs',
@@ -81,6 +97,22 @@ const PACKS = [
     enhancedFiles: ['A3.mp3', 'C4.mp3', 'Eb4.mp3', 'F4.mp3', 'G4.mp3', 'A4.mp3', 'Bb4.mp3', 'C5.mp3', 'D5.mp3', 'Eb5.mp3', 'F5.mp3', 'G5.mp3', 'A5.mp3', 'Bb5.mp3', 'C6.mp3'],
   },
   {
+    instrumentId: 'bell',
+    source: {
+      type: 'midi-js',
+      sourceName: 'FluidR3_GM via MIDI.js Soundfonts',
+      licenseLabel: 'CC BY 3.0',
+      attributionUrl: 'https://github.com/gleitz/midi-js-soundfonts',
+      remoteInstrumentId: 'glockenspiel',
+    },
+    standardDir: join(PUBLIC_DIR, 'samples', 'fluidr3', 'bell'),
+    enhancedDir: join(PUBLIC_DIR, 'instrument-packs', 'bell', 'assets'),
+    manifestPath: join(PUBLIC_DIR, 'instrument-packs', 'bell', 'manifest.json'),
+    packLabel: 'Bell Enhanced Pack',
+    standardFiles: ['C5.mp3', 'G5.mp3', 'C6.mp3', 'G6.mp3', 'C7.mp3', 'G7.mp3', 'C8.mp3'],
+    enhancedFiles: ['C5.mp3', 'Eb5.mp3', 'G5.mp3', 'Bb5.mp3', 'C6.mp3', 'Eb6.mp3', 'G6.mp3', 'Bb6.mp3', 'C7.mp3', 'Eb7.mp3', 'G7.mp3', 'C8.mp3'],
+  },
+  {
     instrumentId: 'cello',
     source: {
       type: 'midi-js',
@@ -95,6 +127,22 @@ const PACKS = [
     packLabel: 'Cello Enhanced Pack',
     standardFiles: ['C2.mp3', 'G2.mp3', 'C3.mp3', 'G3.mp3', 'C4.mp3', 'G4.mp3', 'C5.mp3', 'G5.mp3'],
     enhancedFiles: ['C2.mp3', 'Eb2.mp3', 'G2.mp3', 'Bb2.mp3', 'C3.mp3', 'Eb3.mp3', 'G3.mp3', 'Bb3.mp3', 'C4.mp3', 'Eb4.mp3', 'G4.mp3', 'Bb4.mp3', 'C5.mp3', 'Eb5.mp3', 'G5.mp3', 'C6.mp3'],
+  },
+  {
+    instrumentId: 'vibraphone',
+    source: {
+      type: 'midi-js',
+      sourceName: 'FluidR3_GM via MIDI.js Soundfonts',
+      licenseLabel: 'CC BY 3.0',
+      attributionUrl: 'https://github.com/gleitz/midi-js-soundfonts',
+      remoteInstrumentId: 'vibraphone',
+    },
+    standardDir: join(PUBLIC_DIR, 'samples', 'fluidr3', 'vibraphone'),
+    enhancedDir: join(PUBLIC_DIR, 'instrument-packs', 'vibraphone', 'assets'),
+    manifestPath: join(PUBLIC_DIR, 'instrument-packs', 'vibraphone', 'manifest.json'),
+    packLabel: 'Vibraphone Enhanced Pack',
+    standardFiles: ['A2.mp3', 'C3.mp3', 'Eb3.mp3', 'G3.mp3', 'A3.mp3', 'C4.mp3', 'Eb4.mp3', 'G4.mp3', 'A4.mp3', 'C5.mp3', 'Eb5.mp3', 'G5.mp3', 'A5.mp3', 'C6.mp3'],
+    enhancedFiles: ['A2.mp3', 'C3.mp3', 'Eb3.mp3', 'F3.mp3', 'G3.mp3', 'A3.mp3', 'Bb3.mp3', 'C4.mp3', 'Eb4.mp3', 'F4.mp3', 'G4.mp3', 'A4.mp3', 'Bb4.mp3', 'C5.mp3', 'Eb5.mp3', 'F5.mp3', 'G5.mp3', 'A5.mp3', 'Bb5.mp3', 'C6.mp3'],
   },
   {
     instrumentId: 'string-ensemble',

@@ -34,6 +34,13 @@ export const INSTRUMENT_SAMPLE_PACK_DEFINITIONS: Record<string, InstrumentSample
     manifestPath: '/instrument-packs/flute/manifest.json',
     installHelpText: 'Install an enhanced flute pack with denser sample anchors.',
   },
+  marimba: {
+    instrumentId: 'marimba',
+    packLabel: 'Marimba Enhanced Pack',
+    installMode: 'managed',
+    manifestPath: '/instrument-packs/marimba/manifest.json',
+    installHelpText: 'Install an enhanced marimba pack with denser mallet coverage.',
+  },
   trumpet: {
     instrumentId: 'trumpet',
     packLabel: 'Trumpet Enhanced Pack',
@@ -48,12 +55,26 @@ export const INSTRUMENT_SAMPLE_PACK_DEFINITIONS: Record<string, InstrumentSample
     manifestPath: '/instrument-packs/saxophone/manifest.json',
     installHelpText: 'Install an enhanced saxophone pack with denser reed-solo coverage.',
   },
+  bell: {
+    instrumentId: 'bell',
+    packLabel: 'Bell Enhanced Pack',
+    installMode: 'managed',
+    manifestPath: '/instrument-packs/bell/manifest.json',
+    installHelpText: 'Install an enhanced bell pack with denser glockenspiel coverage.',
+  },
   cello: {
     instrumentId: 'cello',
     packLabel: 'Cello Enhanced Pack',
     installMode: 'managed',
     manifestPath: '/instrument-packs/cello/manifest.json',
     installHelpText: 'Install an enhanced cello pack with denser orchestral coverage.',
+  },
+  vibraphone: {
+    instrumentId: 'vibraphone',
+    packLabel: 'Vibraphone Enhanced Pack',
+    installMode: 'managed',
+    manifestPath: '/instrument-packs/vibraphone/manifest.json',
+    installHelpText: 'Install an enhanced vibraphone pack with denser resonant coverage.',
   },
   'string-ensemble': {
     instrumentId: 'string-ensemble',

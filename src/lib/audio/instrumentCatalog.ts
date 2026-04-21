@@ -141,6 +141,45 @@ const FLUIDR3_STRING_ENSEMBLE_SAMPLE_MAP = {
   G5: 'G5.mp3',
 } as const;
 
+const FLUIDR3_MARIMBA_SAMPLE_MAP = {
+  C2: 'C2.mp3',
+  G2: 'G2.mp3',
+  C3: 'C3.mp3',
+  G3: 'G3.mp3',
+  C4: 'C4.mp3',
+  G4: 'G4.mp3',
+  C5: 'C5.mp3',
+  G5: 'G5.mp3',
+  C6: 'C6.mp3',
+} as const;
+
+const FLUIDR3_GLOCKENSPIEL_SAMPLE_MAP = {
+  C5: 'C5.mp3',
+  G5: 'G5.mp3',
+  C6: 'C6.mp3',
+  G6: 'G6.mp3',
+  C7: 'C7.mp3',
+  G7: 'G7.mp3',
+  C8: 'C8.mp3',
+} as const;
+
+const FLUIDR3_VIBRAPHONE_SAMPLE_MAP = {
+  A2: 'A2.mp3',
+  C3: 'C3.mp3',
+  'D#3': 'Eb3.mp3',
+  G3: 'G3.mp3',
+  A3: 'A3.mp3',
+  C4: 'C4.mp3',
+  'D#4': 'Eb4.mp3',
+  G4: 'G4.mp3',
+  A4: 'A4.mp3',
+  C5: 'C5.mp3',
+  'D#5': 'Eb5.mp3',
+  G5: 'G5.mp3',
+  A5: 'A5.mp3',
+  C6: 'C6.mp3',
+} as const;
+
 // nbrosowsky/tonejs-instruments (MIT) — downloaded by scripts/download-samples.mjs
 const NBROSOWSKY_ORGAN_SAMPLE_MAP = {
   A1: 'A1.mp3', A2: 'A2.mp3', A3: 'A3.mp3', A4: 'A4.mp3', A5: 'A5.mp3',
@@ -355,37 +394,37 @@ export const INSTRUMENTS: InstrumentDefinition[] = [
   {
     id: 'marimba',
     label: 'Marimba',
-    description: 'Sampled harp, giving a resonant plucked character with natural decay.',
+    description: 'FluidR3 marimba samples bundled with lighter anchor spacing for warm wooden mallets.',
     voice: 'sampler',
     options: {
       release: 0.8,
     },
-    sampleBaseUrl: '/samples/nbrosowsky/harp/',
-    sampleUrls: NBROSOWSKY_HARP_SAMPLE_MAP,
+    sampleBaseUrl: '/samples/fluidr3/marimba/',
+    sampleUrls: FLUIDR3_MARIMBA_SAMPLE_MAP,
     reverbPreset: 'medium',
   },
   {
     id: 'bell',
     label: 'Bell',
-    description: 'Sampled xylophone/glockenspiel for a bright, metallic tone.',
+    description: 'FluidR3 glockenspiel samples bundled with lighter anchor spacing for a bright metallic bell tone.',
     voice: 'sampler',
     options: {
       release: 1.5,
     },
-    sampleBaseUrl: '/samples/nbrosowsky/xylophone/',
-    sampleUrls: NBROSOWSKY_XYLOPHONE_SAMPLE_MAP,
+    sampleBaseUrl: '/samples/fluidr3/bell/',
+    sampleUrls: FLUIDR3_GLOCKENSPIEL_SAMPLE_MAP,
     reverbPreset: 'medium',
   },
   {
     id: 'vibraphone',
     label: 'Vibraphone',
-    description: 'Sampled vibraphone with a warm metallic resonance and natural decay.',
+    description: 'FluidR3 vibraphone samples bundled with lighter anchor spacing for a warm metallic resonance.',
     voice: 'sampler',
     options: {
       release: 1.8,
     },
-    sampleBaseUrl: '/samples/nbrosowsky/vibraphone/',
-    sampleUrls: NBROSOWSKY_VIBRAPHONE_SAMPLE_MAP,
+    sampleBaseUrl: '/samples/fluidr3/vibraphone/',
+    sampleUrls: FLUIDR3_VIBRAPHONE_SAMPLE_MAP,
     reverbPreset: 'medium',
   },
   {
