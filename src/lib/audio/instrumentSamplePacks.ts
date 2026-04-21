@@ -27,33 +27,12 @@ export const INSTRUMENT_SAMPLE_PACK_DEFINITIONS: Record<string, InstrumentSample
     manifestPath: '/instrument-packs/flute/manifest.json',
     installHelpText: 'Install an enhanced flute pack with denser sample anchors.',
   },
-  clarinet: {
-    instrumentId: 'clarinet',
-    packLabel: 'Clarinet Enhanced Pack',
-    installMode: 'managed',
-    manifestPath: '/instrument-packs/clarinet/manifest.json',
-    installHelpText: 'Install an enhanced clarinet pack with denser sample anchors.',
-  },
   trumpet: {
     instrumentId: 'trumpet',
     packLabel: 'Trumpet Enhanced Pack',
     installMode: 'managed',
     manifestPath: '/instrument-packs/trumpet/manifest.json',
     installHelpText: 'Install an enhanced trumpet pack with brighter long-note samples.',
-  },
-  'french-horn': {
-    instrumentId: 'french-horn',
-    packLabel: 'French Horn Enhanced Pack',
-    installMode: 'managed',
-    manifestPath: '/instrument-packs/french-horn/manifest.json',
-    installHelpText: 'Install an enhanced horn pack with denser orchestral coverage.',
-  },
-  saxophone: {
-    instrumentId: 'saxophone',
-    packLabel: 'Saxophone Enhanced Pack',
-    installMode: 'managed',
-    manifestPath: '/instrument-packs/saxophone/manifest.json',
-    installHelpText: 'Install an enhanced saxophone pack with denser reed-note coverage.',
   },
   cello: {
     instrumentId: 'cello',
@@ -192,6 +171,9 @@ export function isValidPackManifest(value: unknown): value is InstrumentSamplePa
     typeof manifest.instrumentId === 'string' &&
     typeof manifest.packLabel === 'string' &&
     typeof manifest.version === 'string' &&
+    typeof manifest.sourceName === 'string' &&
+    typeof manifest.licenseLabel === 'string' &&
+    typeof manifest.attributionUrl === 'string' &&
     Array.isArray(manifest.assets) &&
     manifest.assets.every((asset) =>
       asset &&

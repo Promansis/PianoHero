@@ -55,12 +55,13 @@ const SALAMANDER_SAMPLE_MAP = {
   C8: 'C8.mp3',
 } as const;
 
-const PHILHARMONIA_FLUTE_SAMPLE_MAP = {
-  A4: 'flute_A4_15_piano_normal.mp3',
-  C5: 'flute_C5_15_piano_normal.mp3',
-  A5: 'flute_A5_15_piano_normal.mp3',
-  C6: 'flute_C6_15_mezzo-piano_normal.mp3',
-  A6: 'flute_A6_15_piano_normal.mp3',
+const NBROSOWSKY_FLUTE_SAMPLE_MAP = {
+  C4: 'C4.mp3',
+  A4: 'A4.mp3',
+  E5: 'E5.mp3',
+  C6: 'C6.mp3',
+  A6: 'A6.mp3',
+  C7: 'C7.mp3',
 } as const;
 
 const PHILHARMONIA_CLARINET_SAMPLE_MAP = {
@@ -72,11 +73,13 @@ const PHILHARMONIA_CLARINET_SAMPLE_MAP = {
   C6: 'clarinet_C6_15_piano_normal.mp3',
 } as const;
 
-const PHILHARMONIA_TRUMPET_SAMPLE_MAP = {
-  'A#3': 'trumpet_As3_long_piano_normal.mp3',
-  A4: 'trumpet_A4_long_piano_normal.mp3',
-  C5: 'trumpet_C5_long_piano_normal.mp3',
-  A5: 'trumpet_A5_15_mezzo-forte_normal.mp3',
+const NBROSOWSKY_TRUMPET_SAMPLE_MAP = {
+  F3: 'F3.mp3',
+  C4: 'C4.mp3',
+  F4: 'F4.mp3',
+  'A#4': 'As4.mp3',
+  F5: 'F5.mp3',
+  C6: 'C6.mp3',
 } as const;
 
 const PHILHARMONIA_FRENCH_HORN_SAMPLE_MAP = {
@@ -242,13 +245,13 @@ export const INSTRUMENTS: InstrumentDefinition[] = [
   {
     id: 'flute',
     label: 'Flute',
-    description: 'Private-use Philharmonia flute samples for a more natural melody voice.',
+    description: 'Redistributable flute samples from nbrosowsky/tonejs-instruments, curated for lighter bundled coverage.',
     voice: 'sampler',
     options: {
       release: 1.1,
     },
-    sampleBaseUrl: '/samples/philharmonia/flute/',
-    sampleUrls: PHILHARMONIA_FLUTE_SAMPLE_MAP,
+    sampleBaseUrl: '/samples/nbrosowsky/flute/',
+    sampleUrls: NBROSOWSKY_FLUTE_SAMPLE_MAP,
     reverbPreset: 'short',
   },
   {
@@ -266,13 +269,13 @@ export const INSTRUMENTS: InstrumentDefinition[] = [
   {
     id: 'trumpet',
     label: 'Trumpet',
-    description: 'Private-use Philharmonia trumpet samples for bright fanfare lines.',
+    description: 'Redistributable trumpet samples from nbrosowsky/tonejs-instruments, curated for bright bundled fanfare lines.',
     voice: 'sampler',
     options: {
       release: 0.9,
     },
-    sampleBaseUrl: '/samples/philharmonia/trumpet/',
-    sampleUrls: PHILHARMONIA_TRUMPET_SAMPLE_MAP,
+    sampleBaseUrl: '/samples/nbrosowsky/trumpet/',
+    sampleUrls: NBROSOWSKY_TRUMPET_SAMPLE_MAP,
     reverbPreset: 'medium',
   },
   {

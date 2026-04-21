@@ -1,7 +1,7 @@
 import { app, ipcMain, dialog, BrowserWindow } from "electron";
 import { existsSync, readFileSync, renameSync, rmSync, mkdirSync, copyFileSync, readdirSync, writeFileSync } from "node:fs";
 import { writeFile, readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import * as MidiPackage from "@tonejs/midi";
 import Database from "better-sqlite3";
@@ -244,6 +244,126 @@ async function recomputeAllSongDifficulties({ db: db2, midiFilesDir }) {
     }
   }
   return { updated, errors };
+}
+const INSTALLED_INSTRUMENT_SAMPLE_PACKS_SETTING_KEY = "installedInstrumentSamplePacks";
+const INSTRUMENT_SAMPLE_PACK_DEFINITIONS = {
+  flute: {
+    instrumentId: "flute",
+    packLabel: "Flute Enhanced Pack",
+    installMode: "managed",
+    manifestPath: "/instrument-packs/flute/manifest.json",
+    installHelpText: "Install an enhanced flute pack with denser sample anchors."
+  },
+  trumpet: {
+    instrumentId: "trumpet",
+    packLabel: "Trumpet Enhanced Pack",
+    installMode: "managed",
+    manifestPath: "/instrument-packs/trumpet/manifest.json",
+    installHelpText: "Install an enhanced trumpet pack with brighter long-note samples."
+  },
+  cello: {
+    instrumentId: "cello",
+    packLabel: "Cello Pack",
+    installMode: "manual",
+    requiresPackForSelection: true,
+    installHelpText: "Import a cello sample directory to enable the cello instrument."
+  },
+  "string-ensemble": {
+    instrumentId: "string-ensemble",
+    packLabel: "String Ensemble Pack",
+    installMode: "manual",
+    requiresPackForSelection: true,
+    installHelpText: "Import a string ensemble sample directory to enable the string ensemble instrument."
+  }
+};
+function getInstrumentSamplePackDefinition(instrumentId) {
+  return INSTRUMENT_SAMPLE_PACK_DEFINITIONS[instrumentId] ?? null;
+}
+function listPackEnabledInstrumentIds() {
+  return Object.keys(INSTRUMENT_SAMPLE_PACK_DEFINITIONS);
+}
+function extractNoteName(filename) {
+  const base = filename.replace(/\.[^.]+$/, "");
+  const salamander = /^([A-G])s(\d{1,2})$/.exec(base);
+  if (salamander) {
+    return `${salamander[1]}#${salamander[2]}`;
+  }
+  const philharmonia = /([A-G](?:s|#|b)?\d{1,2})_(?:\d+|long)/i.exec(base);
+  if (philharmonia) {
+    return philharmonia[1].replace("s", "#");
+  }
+  const standard = /^([A-G][#b]?\d{1,2})$/.exec(base);
+  if (standard) {
+    return standard[1];
+  }
+  return null;
+}
+function createUrlsFromFilenames(files) {
+  const urls = {};
+  for (const file of files) {
+    const noteName = extractNoteName(file);
+    if (noteName) {
+      urls[noteName] = file;
+    }
+  }
+  return urls;
+}
+function parseInstalledInstrumentSamplePacks(rawValue) {
+  if (!rawValue) {
+    return {};
+  }
+  try {
+    const parsed = JSON.parse(rawValue);
+    return Object.fromEntries(
+      Object.entries(parsed).filter(
+        ([, value]) => Boolean(
+          value && typeof value.instrumentId === "string" && typeof value.packLabel === "string" && typeof value.installedAt === "string" && value.urls && typeof value.urls === "object"
+        )
+      )
+    );
+  } catch {
+    return {};
+  }
+}
+function buildInstrumentSamplePackStatuses(runtime, installedPacks) {
+  return listPackEnabledInstrumentIds().map((instrumentId) => {
+    const definition = getInstrumentSamplePackDefinition(instrumentId);
+    const installedRecord = installedPacks[instrumentId];
+    const canInstallInApp = runtime === "desktop";
+    return {
+      instrumentId,
+      packLabel: definition.packLabel,
+      isInstalled: Boolean(installedRecord),
+      canInstallInApp,
+      requiresPackForSelection: Boolean(definition.requiresPackForSelection),
+      installMode: definition.installMode,
+      installedAt: installedRecord?.installedAt ?? null,
+      installedVersion: installedRecord?.version ?? null,
+      statusMessage: installedRecord ? `${definition.packLabel} installed.` : definition.requiresPackForSelection ? definition.installHelpText : `Using built-in samples. ${definition.installHelpText}`
+    };
+  });
+}
+function resolveInstalledInstrumentSampleSource(installedPacks, instrumentId) {
+  const installedRecord = installedPacks[instrumentId];
+  if (!installedRecord) {
+    return null;
+  }
+  return {
+    instrumentId,
+    source: "enhanced",
+    baseUrl: installedRecord.baseUrl ?? null,
+    urls: installedRecord.urls,
+    packLabel: installedRecord.packLabel
+  };
+}
+function isValidPackManifest(value) {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const manifest = value;
+  return typeof manifest.instrumentId === "string" && typeof manifest.packLabel === "string" && typeof manifest.version === "string" && typeof manifest.sourceName === "string" && typeof manifest.licenseLabel === "string" && typeof manifest.attributionUrl === "string" && Array.isArray(manifest.assets) && manifest.assets.every(
+    (asset) => asset && typeof asset.note === "string" && typeof asset.fileName === "string" && typeof asset.url === "string"
+  );
 }
 function getUnlockableAchievementIds(metrics, unlockedIds) {
   const unlockable = [];
@@ -1996,138 +2116,6 @@ function buildTheorySessionSeries(fromDate, toDate, rowsByDate) {
   }
   return series;
 }
-const INSTALLED_INSTRUMENT_SAMPLE_PACKS_SETTING_KEY = "installedInstrumentSamplePacks";
-const INSTRUMENT_SAMPLE_PACK_DEFINITIONS = {
-  flute: {
-    instrumentId: "flute",
-    packLabel: "Flute Enhanced Pack",
-    installMode: "managed",
-    manifestPath: "/instrument-packs/flute/manifest.json",
-    installHelpText: "Install an enhanced flute pack with denser sample anchors."
-  },
-  clarinet: {
-    instrumentId: "clarinet",
-    packLabel: "Clarinet Enhanced Pack",
-    installMode: "managed",
-    manifestPath: "/instrument-packs/clarinet/manifest.json",
-    installHelpText: "Install an enhanced clarinet pack with denser sample anchors."
-  },
-  trumpet: {
-    instrumentId: "trumpet",
-    packLabel: "Trumpet Enhanced Pack",
-    installMode: "managed",
-    manifestPath: "/instrument-packs/trumpet/manifest.json",
-    installHelpText: "Install an enhanced trumpet pack with brighter long-note samples."
-  },
-  "french-horn": {
-    instrumentId: "french-horn",
-    packLabel: "French Horn Enhanced Pack",
-    installMode: "managed",
-    manifestPath: "/instrument-packs/french-horn/manifest.json",
-    installHelpText: "Install an enhanced horn pack with denser orchestral coverage."
-  },
-  saxophone: {
-    instrumentId: "saxophone",
-    packLabel: "Saxophone Enhanced Pack",
-    installMode: "managed",
-    manifestPath: "/instrument-packs/saxophone/manifest.json",
-    installHelpText: "Install an enhanced saxophone pack with denser reed-note coverage."
-  },
-  cello: {
-    instrumentId: "cello",
-    packLabel: "Cello Pack",
-    installMode: "manual",
-    requiresPackForSelection: true,
-    installHelpText: "Import a cello sample directory to enable the cello instrument."
-  },
-  "string-ensemble": {
-    instrumentId: "string-ensemble",
-    packLabel: "String Ensemble Pack",
-    installMode: "manual",
-    requiresPackForSelection: true,
-    installHelpText: "Import a string ensemble sample directory to enable the string ensemble instrument."
-  }
-};
-function getInstrumentSamplePackDefinition(instrumentId) {
-  return INSTRUMENT_SAMPLE_PACK_DEFINITIONS[instrumentId] ?? null;
-}
-function listPackEnabledInstrumentIds() {
-  return Object.keys(INSTRUMENT_SAMPLE_PACK_DEFINITIONS);
-}
-function extractNoteName(filename) {
-  const base = filename.replace(/\.[^.]+$/, "");
-  const salamander = /^([A-G])s(\d{1,2})$/.exec(base);
-  if (salamander) {
-    return `${salamander[1]}#${salamander[2]}`;
-  }
-  const philharmonia = /([A-G](?:s|#|b)?\d{1,2})_(?:\d+|long)/i.exec(base);
-  if (philharmonia) {
-    return philharmonia[1].replace("s", "#");
-  }
-  const standard = /^([A-G][#b]?\d{1,2})$/.exec(base);
-  if (standard) {
-    return standard[1];
-  }
-  return null;
-}
-function createUrlsFromFilenames(files) {
-  const urls = {};
-  for (const file of files) {
-    const noteName = extractNoteName(file);
-    if (noteName) {
-      urls[noteName] = file;
-    }
-  }
-  return urls;
-}
-function parseInstalledInstrumentSamplePacks(rawValue) {
-  if (!rawValue) {
-    return {};
-  }
-  try {
-    const parsed = JSON.parse(rawValue);
-    return Object.fromEntries(
-      Object.entries(parsed).filter(
-        ([, value]) => Boolean(
-          value && typeof value.instrumentId === "string" && typeof value.packLabel === "string" && typeof value.installedAt === "string" && value.urls && typeof value.urls === "object"
-        )
-      )
-    );
-  } catch {
-    return {};
-  }
-}
-function buildInstrumentSamplePackStatuses(runtime, installedPacks) {
-  return listPackEnabledInstrumentIds().map((instrumentId) => {
-    const definition = getInstrumentSamplePackDefinition(instrumentId);
-    const installedRecord = installedPacks[instrumentId];
-    const canInstallInApp = runtime === "desktop";
-    return {
-      instrumentId,
-      packLabel: definition.packLabel,
-      isInstalled: Boolean(installedRecord),
-      canInstallInApp,
-      requiresPackForSelection: Boolean(definition.requiresPackForSelection),
-      installMode: definition.installMode,
-      installedAt: installedRecord?.installedAt ?? null,
-      installedVersion: installedRecord?.version ?? null,
-      statusMessage: installedRecord ? `${definition.packLabel} installed.` : definition.requiresPackForSelection ? definition.installHelpText : `Using built-in samples. ${definition.installHelpText}`
-    };
-  });
-}
-function resolveInstalledInstrumentSampleSource(installedPacks, instrumentId) {
-  const installedRecord = installedPacks[instrumentId];
-  if (!installedRecord) {
-    return null;
-  }
-  return {
-    instrumentId,
-    source: "enhanced",
-    baseUrl: installedRecord.baseUrl ?? null,
-    urls: installedRecord.urls,
-    packLabel: installedRecord.packLabel
-  };
-}
 const AUDIO_EXTENSIONS = /* @__PURE__ */ new Set([".mp3", ".wav", ".ogg", ".flac", ".m4a"]);
 function listAudioFiles(dir) {
   try {
@@ -2145,13 +2133,56 @@ function getInstalledPacks(db2) {
 function saveInstalledPacks(db2, installedPacks) {
   db2.setSetting("audio", INSTALLED_INSTRUMENT_SAMPLE_PACKS_SETTING_KEY, JSON.stringify(installedPacks));
 }
-function getDesktopInstrumentSamplePackStatuses(db2) {
-  return buildInstrumentSamplePackStatuses("desktop", getInstalledPacks(db2));
+function getAppStaticRootCandidates(appPath) {
+  return [
+    resolve(appPath, "public"),
+    resolve(appPath, "out", "renderer"),
+    resolve(appPath, "dist", "web"),
+    resolve(process.cwd(), "public"),
+    resolve(process.cwd(), "out", "renderer"),
+    resolve(process.cwd(), "dist", "web")
+  ];
 }
-function resolveDesktopInstrumentSampleSource(db2, instrumentId) {
-  return resolveInstalledInstrumentSampleSource(getInstalledPacks(db2), instrumentId);
+function resolveBundledFilePath(appPath, assetPath) {
+  const relativePath = assetPath.replace(/^\//, "");
+  for (const candidate of getAppStaticRootCandidates(appPath)) {
+    const absolutePath = join(candidate, relativePath);
+    if (existsSync(absolutePath)) {
+      return absolutePath;
+    }
+  }
+  throw new Error(`Bundled asset not found: ${assetPath}`);
 }
-function installDesktopInstrumentSamplePack(db2, userDataPath, instrumentId, sourceDir) {
+function loadBundledManifest(appPath, manifestPath) {
+  const manifestFile = resolveBundledFilePath(appPath, manifestPath);
+  const manifest = JSON.parse(readFileSync(manifestFile, "utf8"));
+  if (!isValidPackManifest(manifest)) {
+    throw new Error(`Invalid bundled sample pack manifest: ${manifestPath}`);
+  }
+  return manifest;
+}
+function installManagedDesktopInstrumentSamplePack(db2, userDataPath, appPath, instrumentId, manifestPath) {
+  const manifest = loadBundledManifest(appPath, manifestPath);
+  const destinationDir = join(userDataPath, "instrument-sample-packs", instrumentId);
+  rmSync(destinationDir, { recursive: true, force: true });
+  mkdirSync(destinationDir, { recursive: true });
+  for (const asset of manifest.assets) {
+    const sourceFile = resolveBundledFilePath(appPath, asset.url);
+    copyFileSync(sourceFile, join(destinationDir, asset.fileName));
+  }
+  const installedPacks = getInstalledPacks(db2);
+  installedPacks[instrumentId] = {
+    instrumentId,
+    packLabel: manifest.packLabel,
+    version: manifest.version,
+    installedAt: (/* @__PURE__ */ new Date()).toISOString(),
+    baseUrl: `file:///${destinationDir.replace(/\\/g, "/").replace(/\/?$/, "/")}`,
+    urls: Object.fromEntries(manifest.assets.map((asset) => [asset.note, asset.fileName]))
+  };
+  saveInstalledPacks(db2, installedPacks);
+  return buildInstrumentSamplePackStatuses("desktop", installedPacks);
+}
+function installManualDesktopInstrumentSamplePack(db2, userDataPath, instrumentId, sourceDir) {
   const definition = getInstrumentSamplePackDefinition(instrumentId);
   if (!definition) {
     throw new Error(`No sample pack is configured for instrument: ${instrumentId}`);
@@ -2178,6 +2209,28 @@ function installDesktopInstrumentSamplePack(db2, userDataPath, instrumentId, sou
   };
   saveInstalledPacks(db2, installedPacks);
   return buildInstrumentSamplePackStatuses("desktop", installedPacks);
+}
+function getDesktopInstrumentSamplePackStatuses(db2) {
+  return buildInstrumentSamplePackStatuses("desktop", getInstalledPacks(db2));
+}
+function resolveDesktopInstrumentSampleSource(db2, instrumentId) {
+  return resolveInstalledInstrumentSampleSource(getInstalledPacks(db2), instrumentId);
+}
+function installDesktopInstrumentSamplePack(db2, userDataPath, appPath, instrumentId, sourceDir) {
+  const definition = getInstrumentSamplePackDefinition(instrumentId);
+  if (!definition) {
+    throw new Error(`No sample pack is configured for instrument: ${instrumentId}`);
+  }
+  if (definition.installMode === "managed") {
+    if (!definition.manifestPath) {
+      throw new Error(`Managed pack manifest missing for ${instrumentId}.`);
+    }
+    return installManagedDesktopInstrumentSamplePack(db2, userDataPath, appPath, instrumentId, definition.manifestPath);
+  }
+  if (!sourceDir) {
+    throw new Error(`A source directory is required to install the ${definition.packLabel}.`);
+  }
+  return installManualDesktopInstrumentSamplePack(db2, userDataPath, instrumentId, sourceDir);
 }
 function removeDesktopInstrumentSamplePack(db2, userDataPath, instrumentId) {
   const installedPacks = getInstalledPacks(db2);
@@ -2521,6 +2574,13 @@ app.whenReady().then(async () => {
   });
   ipcMain.handle("samples:get-statuses", () => getDesktopInstrumentSamplePackStatuses(db));
   ipcMain.handle("samples:install-pack", async (_event, instrumentId) => {
+    const definition = getInstrumentSamplePackDefinition(instrumentId);
+    if (!definition) {
+      throw new Error(`No sample pack is configured for instrument: ${instrumentId}`);
+    }
+    if (definition.installMode === "managed") {
+      return installDesktopInstrumentSamplePack(db, userDataPath, app.getAppPath(), instrumentId);
+    }
     const options = {
       properties: ["openDirectory"]
     };
@@ -2528,7 +2588,7 @@ app.whenReady().then(async () => {
     if (result.canceled || result.filePaths.length === 0) {
       return getDesktopInstrumentSamplePackStatuses(db);
     }
-    return installDesktopInstrumentSamplePack(db, userDataPath, instrumentId, result.filePaths[0]);
+    return installDesktopInstrumentSamplePack(db, userDataPath, app.getAppPath(), instrumentId, result.filePaths[0]);
   });
   ipcMain.handle(
     "samples:remove-pack",

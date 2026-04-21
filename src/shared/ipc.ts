@@ -71,6 +71,9 @@ export interface InstrumentSamplePackManifest {
   instrumentId: string;
   packLabel: string;
   version: string;
+  sourceName: string;
+  licenseLabel: string;
+  attributionUrl: string;
   assets: InstrumentSamplePackAsset[];
 }
 

@@ -1,11 +1,65 @@
 {
   "instrumentId": "trumpet",
   "packLabel": "Trumpet Enhanced Pack",
-  "version": "1",
+  "version": "2",
+  "sourceName": "nbrosowsky/tonejs-instruments",
+  "licenseLabel": "MIT",
+  "attributionUrl": "https://github.com/nbrosowsky/tonejs-instruments",
   "assets": [
-    { "note": "A#3", "fileName": "trumpet_As3_long_piano_normal.mp3", "url": "/samples/philharmonia/trumpet/trumpet_As3_long_piano_normal.mp3" },
-    { "note": "A4", "fileName": "trumpet_A4_long_piano_normal.mp3", "url": "/samples/philharmonia/trumpet/trumpet_A4_long_piano_normal.mp3" },
-    { "note": "C5", "fileName": "trumpet_C5_long_piano_normal.mp3", "url": "/samples/philharmonia/trumpet/trumpet_C5_long_piano_normal.mp3" },
-    { "note": "A5", "fileName": "trumpet_A5_15_mezzo-forte_normal.mp3", "url": "/samples/philharmonia/trumpet/trumpet_A5_15_mezzo-forte_normal.mp3" }
+    {
+      "note": "F3",
+      "fileName": "F3.mp3",
+      "url": "/instrument-packs/trumpet/assets/F3.mp3"
+    },
+    {
+      "note": "A3",
+      "fileName": "A3.mp3",
+      "url": "/instrument-packs/trumpet/assets/A3.mp3"
+    },
+    {
+      "note": "C4",
+      "fileName": "C4.mp3",
+      "url": "/instrument-packs/trumpet/assets/C4.mp3"
+    },
+    {
+      "note": "D#4",
+      "fileName": "Ds4.mp3",
+      "url": "/instrument-packs/trumpet/assets/Ds4.mp3"
+    },
+    {
+      "note": "F4",
+      "fileName": "F4.mp3",
+      "url": "/instrument-packs/trumpet/assets/F4.mp3"
+    },
+    {
+      "note": "G4",
+      "fileName": "G4.mp3",
+      "url": "/instrument-packs/trumpet/assets/G4.mp3"
+    },
+    {
+      "note": "A#4",
+      "fileName": "As4.mp3",
+      "url": "/instrument-packs/trumpet/assets/As4.mp3"
+    },
+    {
+      "note": "D5",
+      "fileName": "D5.mp3",
+      "url": "/instrument-packs/trumpet/assets/D5.mp3"
+    },
+    {
+      "note": "F5",
+      "fileName": "F5.mp3",
+      "url": "/instrument-packs/trumpet/assets/F5.mp3"
+    },
+    {
+      "note": "A5",
+      "fileName": "A5.mp3",
+      "url": "/instrument-packs/trumpet/assets/A5.mp3"
+    },
+    {
+      "note": "C6",
+      "fileName": "C6.mp3",
+      "url": "/instrument-packs/trumpet/assets/C6.mp3"
+    }
   ]
 }

@@ -191,6 +191,7 @@ export function SettingsScreen({
   const [samplePackPath, setSamplePackPath] = useState<string | null>(null);
   const [showLatencyWizard, setShowLatencyWizard] = useState(false);
   const [samplePackFileCount, setSamplePackFileCount] = useState(0);
+  const [activePackActionInstrumentId, setActivePackActionInstrumentId] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -260,6 +261,28 @@ export function SettingsScreen({
     instrumentReverbPresets,
   );
   const reverbCustomizationUnlocked = isRewardUnlocked('audio:reverb-customization', unlockedRewardIds);
+
+  const installSelectedInstrumentPack = async () => {
+    setActivePackActionInstrumentId(selectedInstrument.id);
+    setStatusMessage(`Installing ${selectedInstrumentPackStatus?.packLabel ?? 'instrument pack'}...`);
+    try {
+      await onInstallInstrumentSamplePack(selectedInstrument.id);
+      setStatusMessage(`${selectedInstrumentPackStatus?.packLabel ?? selectedInstrument.label} ready.`);
+    } finally {
+      setActivePackActionInstrumentId(null);
+    }
+  };
+
+  const removeSelectedInstrumentPack = async () => {
+    setActivePackActionInstrumentId(selectedInstrument.id);
+    setStatusMessage(`Removing ${selectedInstrumentPackStatus?.packLabel ?? 'instrument pack'}...`);
+    try {
+      await onRemoveInstrumentSamplePack(selectedInstrument.id);
+      setStatusMessage(`${selectedInstrument.label} reverted to bundled audio.`);
+    } finally {
+      setActivePackActionInstrumentId(null);
+    }
+  };
 
   const persistSetting = async (category: string, key: string, value: string) => {
     setValues((current) => ({ ...current, [getSettingKey(category, key)]: value }));
@@ -590,15 +613,21 @@ export function SettingsScreen({
                     {selectedInstrumentPackStatus.canInstallInApp ? (
                       <button
                         className="secondary-button"
-                        onClick={() => void onInstallInstrumentSamplePack(selectedInstrument.id)}
+                        disabled={activePackActionInstrumentId === selectedInstrument.id}
+                        onClick={() => void installSelectedInstrumentPack()}
                       >
-                        {selectedInstrumentPackStatus.installMode === 'manual' ? 'Import Pack…' : 'Install Enhanced Pack'}
+                        {activePackActionInstrumentId === selectedInstrument.id
+                          ? 'Working...'
+                          : selectedInstrumentPackStatus.installMode === 'manual'
+                            ? 'Import Pack…'
+                            : 'Install Enhanced Pack'}
                       </button>
                     ) : null}
                     {selectedInstrumentPackStatus.isInstalled ? (
                       <button
                         className="secondary-button"
-                        onClick={() => void onRemoveInstrumentSamplePack(selectedInstrument.id)}
+                        disabled={activePackActionInstrumentId === selectedInstrument.id}
+                        onClick={() => void removeSelectedInstrumentPack()}
                       >
                         Remove Pack
                       </button>

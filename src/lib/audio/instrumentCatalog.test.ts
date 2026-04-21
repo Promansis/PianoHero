@@ -23,13 +23,18 @@ describe('instrumentCatalog', () => {
     expect(isInstrumentId(null)).toBe(false);
   });
 
-  it('ships Philharmonia-backed sampled instruments for the private-use expansion', () => {
+  it('ships pilot redistributable flute and trumpet samples while keeping other orchestral expansion instruments', () => {
     expect(getInstrumentDefinition('flute').voice).toBe('sampler');
-    expect(getInstrumentDefinition('clarinet').sampleBaseUrl).toBe('/samples/philharmonia/clarinet/');
-    expect(getInstrumentDefinition('trumpet').sampleUrls).toMatchObject({
-      'A#3': 'trumpet_As3_long_piano_normal.mp3',
-      A4: 'trumpet_A4_long_piano_normal.mp3',
+    expect(getInstrumentDefinition('flute').sampleBaseUrl).toBe('/samples/nbrosowsky/flute/');
+    expect(getInstrumentDefinition('flute').sampleUrls).toMatchObject({
+      C4: 'C4.mp3',
+      C7: 'C7.mp3',
     });
+    expect(getInstrumentDefinition('trumpet').sampleUrls).toMatchObject({
+      F3: 'F3.mp3',
+      'A#4': 'As4.mp3',
+    });
+    expect(getInstrumentDefinition('clarinet').sampleBaseUrl).toBe('/samples/philharmonia/clarinet/');
     expect(getInstrumentDefinition('saxophone').voice).toBe('sampler');
     expect(getInstrumentDefinition('saxophone').sampleBaseUrl).toBe('/samples/philharmonia/saxophone/');
     expect(getInstrumentDefinition('saxophone').sampleUrls).toMatchObject({

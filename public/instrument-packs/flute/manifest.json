@@ -1,12 +1,60 @@
 {
   "instrumentId": "flute",
   "packLabel": "Flute Enhanced Pack",
-  "version": "1",
+  "version": "2",
+  "sourceName": "nbrosowsky/tonejs-instruments",
+  "licenseLabel": "MIT",
+  "attributionUrl": "https://github.com/nbrosowsky/tonejs-instruments",
   "assets": [
-    { "note": "A4", "fileName": "flute_A4_15_piano_normal.mp3", "url": "/samples/philharmonia/flute/flute_A4_15_piano_normal.mp3" },
-    { "note": "C5", "fileName": "flute_C5_15_piano_normal.mp3", "url": "/samples/philharmonia/flute/flute_C5_15_piano_normal.mp3" },
-    { "note": "A5", "fileName": "flute_A5_15_piano_normal.mp3", "url": "/samples/philharmonia/flute/flute_A5_15_piano_normal.mp3" },
-    { "note": "C6", "fileName": "flute_C6_15_mezzo-piano_normal.mp3", "url": "/samples/philharmonia/flute/flute_C6_15_mezzo-piano_normal.mp3" },
-    { "note": "A6", "fileName": "flute_A6_15_piano_normal.mp3", "url": "/samples/philharmonia/flute/flute_A6_15_piano_normal.mp3" }
+    {
+      "note": "C4",
+      "fileName": "C4.mp3",
+      "url": "/instrument-packs/flute/assets/C4.mp3"
+    },
+    {
+      "note": "E4",
+      "fileName": "E4.mp3",
+      "url": "/instrument-packs/flute/assets/E4.mp3"
+    },
+    {
+      "note": "A4",
+      "fileName": "A4.mp3",
+      "url": "/instrument-packs/flute/assets/A4.mp3"
+    },
+    {
+      "note": "C5",
+      "fileName": "C5.mp3",
+      "url": "/instrument-packs/flute/assets/C5.mp3"
+    },
+    {
+      "note": "E5",
+      "fileName": "E5.mp3",
+      "url": "/instrument-packs/flute/assets/E5.mp3"
+    },
+    {
+      "note": "A5",
+      "fileName": "A5.mp3",
+      "url": "/instrument-packs/flute/assets/A5.mp3"
+    },
+    {
+      "note": "C6",
+      "fileName": "C6.mp3",
+      "url": "/instrument-packs/flute/assets/C6.mp3"
+    },
+    {
+      "note": "E6",
+      "fileName": "E6.mp3",
+      "url": "/instrument-packs/flute/assets/E6.mp3"
+    },
+    {
+      "note": "A6",
+      "fileName": "A6.mp3",
+      "url": "/instrument-packs/flute/assets/A6.mp3"
+    },
+    {
+      "note": "C7",
+      "fileName": "C7.mp3",
+      "url": "/instrument-packs/flute/assets/C7.mp3"
+    }
   ]
 }

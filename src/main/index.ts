@@ -14,6 +14,7 @@ import type {
   TheoryResultRow,
 } from '../shared/dbTypes';
 import { createSongId, importSongFromBuffer, recomputeAllSongDifficulties } from '../shared/importSong';
+import { getInstrumentSamplePackDefinition } from '../lib/audio/instrumentSamplePacks';
 import { AppDatabase } from './database';
 import {
   getDesktopInstrumentSamplePackStatuses,
@@ -431,6 +432,15 @@ app.whenReady().then(async () => {
   ipcMain.handle('samples:get-statuses', () => getDesktopInstrumentSamplePackStatuses(db));
 
   ipcMain.handle('samples:install-pack', async (_event, instrumentId: string) => {
+    const definition = getInstrumentSamplePackDefinition(instrumentId);
+    if (!definition) {
+      throw new Error(`No sample pack is configured for instrument: ${instrumentId}`);
+    }
+
+    if (definition.installMode === 'managed') {
+      return installDesktopInstrumentSamplePack(db, userDataPath, app.getAppPath(), instrumentId);
+    }
+
     const options: OpenDialogOptions = {
       properties: ['openDirectory'],
     };
@@ -442,7 +452,7 @@ app.whenReady().then(async () => {
       return getDesktopInstrumentSamplePackStatuses(db);
     }
 
-    return installDesktopInstrumentSamplePack(db, userDataPath, instrumentId, result.filePaths[0]);
+    return installDesktopInstrumentSamplePack(db, userDataPath, app.getAppPath(), instrumentId, result.filePaths[0]);
   });
 
   ipcMain.handle('samples:remove-pack', (_event, instrumentId: string) =>

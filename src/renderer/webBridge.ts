@@ -3,17 +3,35 @@ import {
   buildInstrumentSamplePackStatuses,
   getInstrumentSamplePackDefinition,
   isValidPackManifest,
-  parseInstalledInstrumentSamplePacks,
-  resolveInstalledInstrumentSampleSource,
 } from '../lib/audio/instrumentSamplePacks';
 import type {
   AppBridge,
   ImportResult,
   InstalledInstrumentSamplePackRecord,
   InstrumentSamplePackManifest,
+  ResolvedInstrumentSampleSource,
 } from '../shared/ipc';
 
-const WEB_INSTALLED_PACKS_STORAGE_KEY = 'pianohero:installedInstrumentSamplePacks';
+const WEB_PACK_DB_NAME = 'pianohero-instrument-sample-packs';
+const WEB_PACK_DB_VERSION = 1;
+const WEB_PACK_OBJECT_STORE = 'packs';
+
+interface StoredWebInstrumentPack {
+  instrumentId: string;
+  packLabel: string;
+  version: string;
+  installedAt: string;
+  sourceName: string;
+  licenseLabel: string;
+  attributionUrl: string;
+  assets: Array<{
+    note: string;
+    fileName: string;
+    blob: Blob;
+  }>;
+}
+
+const objectUrlCache = new Map<string, string[]>();
 
 async function parseRpcResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
@@ -44,12 +62,93 @@ async function callRpc(method: string, args: unknown[]): Promise<unknown> {
   return parseRpcResponse(response);
 }
 
-function getStoredInstrumentSamplePacks(): Record<string, InstalledInstrumentSamplePackRecord> {
-  return parseInstalledInstrumentSamplePacks(window.localStorage.getItem(WEB_INSTALLED_PACKS_STORAGE_KEY));
+function revokeObjectUrls(instrumentId: string): void {
+  const cachedUrls = objectUrlCache.get(instrumentId);
+  if (!cachedUrls) {
+    return;
+  }
+  for (const url of cachedUrls) {
+    URL.revokeObjectURL(url);
+  }
+  objectUrlCache.delete(instrumentId);
 }
 
-function setStoredInstrumentSamplePacks(installedPacks: Record<string, InstalledInstrumentSamplePackRecord>): void {
-  window.localStorage.setItem(WEB_INSTALLED_PACKS_STORAGE_KEY, JSON.stringify(installedPacks));
+function openPackDatabase(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = window.indexedDB.open(WEB_PACK_DB_NAME, WEB_PACK_DB_VERSION);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(WEB_PACK_OBJECT_STORE)) {
+        db.createObjectStore(WEB_PACK_OBJECT_STORE, { keyPath: 'instrumentId' });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error ?? new Error('Unable to open the instrument pack database.'));
+  });
+}
+
+async function withPackStore<T>(
+  mode: IDBTransactionMode,
+  run: (store: IDBObjectStore) => Promise<T>,
+): Promise<T> {
+  const db = await openPackDatabase();
+  try {
+    const tx = db.transaction(WEB_PACK_OBJECT_STORE, mode);
+    const store = tx.objectStore(WEB_PACK_OBJECT_STORE);
+    const result = await run(store);
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error ?? new Error('IndexedDB transaction failed.'));
+      tx.onabort = () => reject(tx.error ?? new Error('IndexedDB transaction was aborted.'));
+    });
+    return result;
+  } finally {
+    db.close();
+  }
+}
+
+function readRequest<T>(request: IDBRequest<T>): Promise<T> {
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error ?? new Error('IndexedDB request failed.'));
+  });
+}
+
+async function getStoredWebInstrumentPacks(): Promise<Record<string, StoredWebInstrumentPack>> {
+  return withPackStore('readonly', async (store) => {
+    const records = await readRequest(store.getAll() as IDBRequest<StoredWebInstrumentPack[]>);
+    return Object.fromEntries(records.map((record) => [record.instrumentId, record]));
+  });
+}
+
+async function putStoredWebInstrumentPack(record: StoredWebInstrumentPack): Promise<void> {
+  await withPackStore('readwrite', async (store) => {
+    await readRequest(store.put(record));
+  });
+}
+
+async function deleteStoredWebInstrumentPack(instrumentId: string): Promise<void> {
+  await withPackStore('readwrite', async (store) => {
+    await readRequest(store.delete(instrumentId));
+  });
+}
+
+function toInstalledRecordMap(
+  packs: Record<string, StoredWebInstrumentPack>,
+): Record<string, InstalledInstrumentSamplePackRecord> {
+  return Object.fromEntries(
+    Object.values(packs).map((pack) => [
+      pack.instrumentId,
+      {
+        instrumentId: pack.instrumentId,
+        packLabel: pack.packLabel,
+        version: pack.version,
+        installedAt: pack.installedAt,
+        urls: {},
+        baseUrl: null,
+      },
+    ]),
+  );
 }
 
 async function fetchPackManifest(instrumentId: string): Promise<InstrumentSamplePackManifest> {
@@ -69,6 +168,64 @@ async function fetchPackManifest(instrumentId: string): Promise<InstrumentSample
   }
 
   return manifest;
+}
+
+async function installManagedWebInstrumentPack(instrumentId: string): Promise<Record<string, StoredWebInstrumentPack>> {
+  const manifest = await fetchPackManifest(instrumentId);
+  const assets = await Promise.all(
+    manifest.assets.map(async (asset) => {
+      const response = await fetch(asset.url);
+      if (!response.ok) {
+        throw new Error(`Unable to download ${asset.fileName} for ${manifest.packLabel}.`);
+      }
+      return {
+        note: asset.note,
+        fileName: asset.fileName,
+        blob: await response.blob(),
+      };
+    }),
+  );
+
+  await putStoredWebInstrumentPack({
+    instrumentId: manifest.instrumentId,
+    packLabel: manifest.packLabel,
+    version: manifest.version,
+    installedAt: new Date().toISOString(),
+    sourceName: manifest.sourceName,
+    licenseLabel: manifest.licenseLabel,
+    attributionUrl: manifest.attributionUrl,
+    assets,
+  });
+
+  return getStoredWebInstrumentPacks();
+}
+
+async function resolveStoredWebInstrumentPack(
+  instrumentId: string,
+): Promise<ResolvedInstrumentSampleSource | null> {
+  const packs = await getStoredWebInstrumentPacks();
+  const pack = packs[instrumentId];
+  if (!pack) {
+    return null;
+  }
+
+  revokeObjectUrls(instrumentId);
+  const urls: Record<string, string> = {};
+  const createdUrls: string[] = [];
+  for (const asset of pack.assets) {
+    const objectUrl = URL.createObjectURL(asset.blob);
+    createdUrls.push(objectUrl);
+    urls[asset.note] = objectUrl;
+  }
+  objectUrlCache.set(instrumentId, createdUrls);
+
+  return {
+    instrumentId,
+    source: 'enhanced',
+    urls,
+    baseUrl: null,
+    packLabel: pack.packLabel,
+  };
 }
 
 const desktopStubNames = new Set<keyof AppBridge>([
@@ -121,39 +278,24 @@ export const webBridge = new Proxy({} as AppBridge, {
     }
 
     if (property === 'getInstrumentSamplePackStatuses') {
-      return async () => buildInstrumentSamplePackStatuses('web', getStoredInstrumentSamplePacks());
+      return async () => buildInstrumentSamplePackStatuses('web', toInstalledRecordMap(await getStoredWebInstrumentPacks()));
     }
 
     if (property === 'installInstrumentSamplePack') {
-      return async (instrumentId: string) => {
-        const manifest = await fetchPackManifest(instrumentId);
-        const installedPacks = getStoredInstrumentSamplePacks();
-        installedPacks[instrumentId] = {
-          instrumentId,
-          packLabel: manifest.packLabel,
-          version: manifest.version,
-          installedAt: new Date().toISOString(),
-          baseUrl: null,
-          urls: Object.fromEntries(
-            manifest.assets.map((asset) => [asset.note, new URL(asset.url, window.location.origin).href]),
-          ),
-        };
-        setStoredInstrumentSamplePacks(installedPacks);
-        return buildInstrumentSamplePackStatuses('web', installedPacks);
-      };
+      return async (instrumentId: string) =>
+        buildInstrumentSamplePackStatuses('web', toInstalledRecordMap(await installManagedWebInstrumentPack(instrumentId)));
     }
 
     if (property === 'removeInstrumentSamplePack') {
       return async (instrumentId: string) => {
-        const installedPacks = getStoredInstrumentSamplePacks();
-        delete installedPacks[instrumentId];
-        setStoredInstrumentSamplePacks(installedPacks);
-        return buildInstrumentSamplePackStatuses('web', installedPacks);
+        revokeObjectUrls(instrumentId);
+        await deleteStoredWebInstrumentPack(instrumentId);
+        return buildInstrumentSamplePackStatuses('web', toInstalledRecordMap(await getStoredWebInstrumentPacks()));
       };
     }
 
     if (property === 'resolveInstrumentSampleSource') {
-      return async (instrumentId: string) => resolveInstalledInstrumentSampleSource(getStoredInstrumentSamplePacks(), instrumentId);
+      return async (instrumentId: string) => resolveStoredWebInstrumentPack(instrumentId);
     }
 
     if (desktopStubNames.has(property as keyof AppBridge)) {
