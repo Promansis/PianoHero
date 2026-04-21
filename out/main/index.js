@@ -263,17 +263,17 @@ const INSTRUMENT_SAMPLE_PACK_DEFINITIONS = {
   },
   cello: {
     instrumentId: "cello",
-    packLabel: "Cello Pack",
-    installMode: "manual",
-    requiresPackForSelection: true,
-    installHelpText: "Import a cello sample directory to enable the cello instrument."
+    packLabel: "Cello Enhanced Pack",
+    installMode: "managed",
+    manifestPath: "/instrument-packs/cello/manifest.json",
+    installHelpText: "Install an enhanced cello pack with denser orchestral coverage."
   },
   "string-ensemble": {
     instrumentId: "string-ensemble",
-    packLabel: "String Ensemble Pack",
-    installMode: "manual",
-    requiresPackForSelection: true,
-    installHelpText: "Import a string ensemble sample directory to enable the string ensemble instrument."
+    packLabel: "String Ensemble Enhanced Pack",
+    installMode: "managed",
+    manifestPath: "/instrument-packs/string-ensemble/manifest.json",
+    installHelpText: "Install an enhanced string ensemble pack with denser sustained coverage."
   }
 };
 function getInstrumentSamplePackDefinition(instrumentId) {

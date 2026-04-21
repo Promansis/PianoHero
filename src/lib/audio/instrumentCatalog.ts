@@ -102,17 +102,25 @@ const PHILHARMONIA_SAXOPHONE_SAMPLE_MAP = {
 } as const;
 
 const PHILHARMONIA_CELLO_SAMPLE_MAP = {
-  C2: 'cello_C2_1_forte_arco-normal.mp3',
-  G2: 'cello_G2_1_piano_arco-normal.mp3',
-  C3: 'cello_C3_1_piano_arco-normal.mp3',
-  G3: 'cello_G3_1_piano_arco-normal.mp3',
+  C2: 'C2.mp3',
+  G2: 'G2.mp3',
+  C3: 'C3.mp3',
+  G3: 'G3.mp3',
+  C4: 'C4.mp3',
+  G4: 'G4.mp3',
+  C5: 'C5.mp3',
+  G5: 'G5.mp3',
 } as const;
 
 const PHILHARMONIA_STRING_ENSEMBLE_SAMPLE_MAP = {
-  C3: 'string-ensemble_C3_1_piano_arco-normal.mp3',
-  G3: 'string-ensemble_G3_1_piano_arco-normal.mp3',
-  C4: 'string-ensemble_C4_1_piano_arco-normal.mp3',
-  G4: 'string-ensemble_G4_1_piano_arco-normal.mp3',
+  C2: 'C2.mp3',
+  G2: 'G2.mp3',
+  C3: 'C3.mp3',
+  G3: 'G3.mp3',
+  C4: 'C4.mp3',
+  G4: 'G4.mp3',
+  C5: 'C5.mp3',
+  G5: 'G5.mp3',
 } as const;
 
 // nbrosowsky/tonejs-instruments (MIT) — downloaded by scripts/download-samples.mjs
@@ -305,28 +313,26 @@ export const INSTRUMENTS: InstrumentDefinition[] = [
   {
     id: 'cello',
     label: 'Cello',
-    description: 'Reserved for Philharmonia cello samples once the private-use assets are added locally.',
+    description: 'FluidR3_GM cello samples bundled with lighter anchor spacing for warm low strings.',
     voice: 'sampler',
     options: {
       release: 1.6,
     },
-    sampleBaseUrl: '/samples/philharmonia/cello/',
+    sampleBaseUrl: '/samples/fluidr3/cello/',
     sampleUrls: PHILHARMONIA_CELLO_SAMPLE_MAP,
     reverbPreset: 'hall',
-    availabilityNote: 'Sample assets are not installed yet. Add the Philharmonia cello pack to enable this instrument.',
   },
   {
     id: 'string-ensemble',
     label: 'String Ensemble',
-    description: 'Reserved for Philharmonia string ensemble samples once the private-use assets are added locally.',
+    description: 'FluidR3_GM string ensemble samples bundled with lighter anchor spacing for sustained string pads.',
     voice: 'sampler',
     options: {
       release: 1.9,
     },
-    sampleBaseUrl: '/samples/philharmonia/string-ensemble/',
+    sampleBaseUrl: '/samples/fluidr3/string-ensemble/',
     sampleUrls: PHILHARMONIA_STRING_ENSEMBLE_SAMPLE_MAP,
     reverbPreset: 'hall',
-    availabilityNote: 'Sample assets are not installed yet. Add the Philharmonia string ensemble pack to enable this instrument.',
   },
   {
     id: 'marimba',

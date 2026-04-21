@@ -7,11 +7,12 @@ import {
 } from './instrumentSamplePacks';
 
 describe('instrumentSamplePacks', () => {
-  it('enables managed packs only for the flute and trumpet pilot instruments', () => {
+  it('enables managed packs for the bundled enhanced-pack instruments', () => {
     expect(listPackEnabledInstrumentIds()).toEqual(['flute', 'trumpet', 'cello', 'string-ensemble']);
     expect(getInstrumentSamplePackDefinition('flute')?.installMode).toBe('managed');
     expect(getInstrumentSamplePackDefinition('trumpet')?.installMode).toBe('managed');
-    expect(getInstrumentSamplePackDefinition('cello')?.installMode).toBe('manual');
+    expect(getInstrumentSamplePackDefinition('cello')?.installMode).toBe('managed');
+    expect(getInstrumentSamplePackDefinition('string-ensemble')?.installMode).toBe('managed');
     expect(getInstrumentSamplePackDefinition('clarinet')).toBeNull();
   });
 
@@ -38,19 +39,19 @@ describe('instrumentSamplePacks', () => {
     ).toBe(false);
   });
 
-  it('reports desktop manual pack availability for cello and string ensemble', () => {
+  it('reports managed pack availability for cello and string ensemble across runtimes', () => {
     const desktopStatuses = buildInstrumentSamplePackStatuses('desktop', {});
     expect(desktopStatuses.find((status) => status.instrumentId === 'cello')).toMatchObject({
       canInstallInApp: true,
-      installMode: 'manual',
-      requiresPackForSelection: true,
+      installMode: 'managed',
+      requiresPackForSelection: false,
     });
 
     const webStatuses = buildInstrumentSamplePackStatuses('web', {});
     expect(webStatuses.find((status) => status.instrumentId === 'cello')).toMatchObject({
-      canInstallInApp: false,
-      installMode: 'manual',
-      requiresPackForSelection: true,
+      canInstallInApp: true,
+      installMode: 'managed',
+      requiresPackForSelection: false,
     });
   });
 });

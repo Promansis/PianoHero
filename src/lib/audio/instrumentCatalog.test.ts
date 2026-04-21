@@ -43,10 +43,11 @@ describe('instrumentCatalog', () => {
     });
   });
 
-  it('exposes placeholder orchestral entries without enabling synth fallback selection', () => {
-    expect(isInstrumentSelectable('cello')).toBe(false);
-    expect(isInstrumentSelectable('string-ensemble')).toBe(false);
-    expect(getInstrumentDefinition('cello').availabilityNote).toMatch(/Sample assets are not installed yet/i);
+  it('ships bundled low-string defaults for cello and string ensemble', () => {
+    expect(isInstrumentSelectable('cello')).toBe(true);
+    expect(isInstrumentSelectable('string-ensemble')).toBe(true);
+    expect(getInstrumentDefinition('cello').sampleBaseUrl).toBe('/samples/fluidr3/cello/');
+    expect(getInstrumentDefinition('string-ensemble').sampleBaseUrl).toBe('/samples/fluidr3/string-ensemble/');
   });
 
   it('uses sampled piano content for honky-tonk and derives sustain tails per instrument', () => {
