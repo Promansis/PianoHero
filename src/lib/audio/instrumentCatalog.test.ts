@@ -62,4 +62,21 @@ describe('instrumentCatalog', () => {
     });
     expect(getInstrumentSustainReleaseTailSec('warm-pad')).toBeGreaterThan(getInstrumentSustainReleaseTailSec('acoustic-piano'));
   });
+
+  it('separates the chip, laser, and lead synth presets by engine and envelope shape', () => {
+    const chiptune = getInstrumentDefinition('8-bit');
+    const laser = getInstrumentDefinition('laser');
+    const lead = getInstrumentDefinition('synth-lead');
+
+    expect(chiptune.voice).toBe('synth');
+    expect(laser.voice).toBe('mono');
+    expect(lead.voice).toBe('fm');
+
+    expect((chiptune.options as { oscillator: { type: string } }).oscillator.type).toBe('square8');
+    expect((laser.options as { filterEnvelope: { octaves: number } }).filterEnvelope.octaves).toBeGreaterThan(5);
+    expect((lead.options as { oscillator: { type: string } }).oscillator.type).toBe('triangle');
+
+    expect(getInstrumentSustainReleaseTailSec('synth-lead')).toBeGreaterThan(getInstrumentSustainReleaseTailSec('laser'));
+    expect(getInstrumentSustainReleaseTailSec('laser')).toBeGreaterThanOrEqual(getInstrumentSustainReleaseTailSec('8-bit'));
+  });
 });
