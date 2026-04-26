@@ -18,19 +18,25 @@ vi.mock('./components/AchievementToast', () => ({
 
 vi.mock('./components/MainMenuScreen', () => ({
   MainMenuScreen: ({
+    onOpenLibrary,
     onOpenFreePlay,
     onOpenLearn,
+    onOpenProgress,
     onOpenSoundboard,
     onOpenSettings,
   }: {
+    onOpenLibrary: () => void;
     onOpenFreePlay: () => void;
     onOpenLearn: () => void;
+    onOpenProgress: () => void;
     onOpenSoundboard: () => void;
     onOpenSettings: () => void;
   }) => (
     <>
+      <button onClick={onOpenLibrary}>Open Library</button>
       <button onClick={onOpenFreePlay}>Open Free Play</button>
       <button onClick={onOpenLearn}>Open Learn</button>
+      <button onClick={onOpenProgress}>Open Progress</button>
       <button onClick={onOpenSoundboard}>Open Soundboard</button>
       <button onClick={onOpenSettings}>Open Settings</button>
     </>
@@ -259,10 +265,26 @@ describe('App', () => {
     fireEvent.click(await screen.findByText('Open Lesson'));
     fireEvent.click(await screen.findByText('Start Drill'));
     fireEvent.click(await screen.findByText('Open Keyboard Setup'));
-    fireEvent.click(screen.getByText('Back'));
+    fireEvent.click(screen.getByRole('button', { name: 'Back to Lesson' }));
 
     expect(screen.getByText('Start Drill')).toBeInTheDocument();
     expect(screen.queryByText('Keyboard Setup')).not.toBeInTheDocument();
+  });
+
+  it('renders breadcrumbs on standard screens and the home button returns to the main menu', async () => {
+    render(<App />);
+
+    fireEvent.click(await screen.findByText('Open Library'));
+
+    expect(screen.getByText('Library', { selector: 'div' })).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toHaveTextContent('Main Menu');
+    expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toHaveTextContent('Library');
+    expect(screen.getByRole('button', { name: 'Back to Main Menu' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'PIANO HERO' }));
+
+    expect(screen.getByText('Open Library')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Back to Main Menu' })).not.toBeInTheDocument();
   });
 
   it('launches lesson drills in piano-hero mode instead of wait-for-input learning mode', async () => {

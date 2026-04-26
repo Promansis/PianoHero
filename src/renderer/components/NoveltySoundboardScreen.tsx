@@ -15,7 +15,7 @@ import type { InputEvent, InputMode } from '../../lib/input/types';
 import { MidiInputService } from '../../lib/midi/midiInputService';
 import { midiToLabel } from '../../lib/piano/pianoLayout';
 import { AnimalSoundboardCanvas, type AnimalSoundboardBurst } from './AnimalSoundboardCanvas';
-import { PianoKeyboard, type KeyboardOverlayEffect } from './PianoKeyboard';
+import { PianoKeyboard, type KeyboardKeyLabel, type KeyboardOverlayEffect } from './PianoKeyboard';
 
 interface NoveltySoundboardScreenProps {
   audioEngine: AudioEngine;
@@ -61,13 +61,25 @@ export function NoveltySoundboardScreen({
   const [keyboardOctaveShift, setKeyboardOctaveShift] = useState(keyboardInputService.getState().octaveShift);
   const effectCounterRef = useRef(0);
   const animalStageRef = useRef<HTMLDivElement | null>(null);
+  const animalMapButtonRef = useRef<HTMLButtonElement | null>(null);
+  const menuButtonRef = useRef<HTMLButtonElement | null>(null);
   const oneShotPlaybackLockedRef = useRef(false);
   const oneShotUnlockTimeoutRef = useRef<number | null>(null);
 
   const mode = useMemo(() => getSoundboardMode(modeId), [modeId]);
   const highlightedNotes = useMemo(() => mode.clips.map((clip) => clip.midi), [mode]);
   const keyLabels = useMemo(
-    () => Object.fromEntries(mode.clips.map((clip) => [clip.midi, mode.id === 'animals' ? clip.emoji ?? clip.shortLabel : clip.shortLabel])),
+    () =>
+      Object.fromEntries(
+        mode.clips.map((clip) => [
+          clip.midi,
+          {
+            text: mode.id === 'animals' ? clip.emoji ?? clip.shortLabel : clip.shortLabel,
+            title: clip.label,
+            ariaLabel: `${midiToLabel(clip.midi)} key: ${clip.label}`,
+          } satisfies KeyboardKeyLabel,
+        ]),
+      ),
     [mode],
   );
   const statusFallback = `${mode.heading}.`;
@@ -98,14 +110,18 @@ export function NoveltySoundboardScreen({
       }
       event.stopPropagation();
       event.preventDefault();
-      setOverlayVisible((current) => !current);
+      if (overlayVisible) {
+        closeOverlay(true);
+        return;
+      }
+      setOverlayVisible(true);
     };
 
     window.addEventListener('keydown', handleEscape, true);
     return () => {
       window.removeEventListener('keydown', handleEscape, true);
     };
-  }, []);
+  }, [overlayVisible]);
 
   useEffect(() => {
     if (!(isAnimalMapPinned && mode.id === 'animals')) {
@@ -117,8 +133,7 @@ export function NoveltySoundboardScreen({
       if (!stage || stage.contains(event.target as Node)) {
         return;
       }
-      setIsAnimalMapPinned(false);
-      setIsAnimalMapHovered(false);
+      closeAnimalMap(true);
     };
 
     window.addEventListener('pointerdown', handlePointerDown);
@@ -217,6 +232,24 @@ export function NoveltySoundboardScreen({
   const stageStatus = lastPlayedId
     ? mode.clips.find((clip) => clip.id === lastPlayedId)?.label ?? 'Ready'
     : 'Ready';
+  const focusAfterClose = (ref: { current: HTMLButtonElement | null }) => {
+    window.requestAnimationFrame(() => {
+      ref.current?.focus();
+    });
+  };
+  const closeOverlay = (returnFocus = false) => {
+    setOverlayVisible(false);
+    if (returnFocus) {
+      focusAfterClose(menuButtonRef);
+    }
+  };
+  const closeAnimalMap = (returnFocus = false) => {
+    setIsAnimalMapPinned(false);
+    setIsAnimalMapHovered(false);
+    if (returnFocus) {
+      focusAfterClose(animalMapButtonRef);
+    }
+  };
 
   useEffect(() => {
     const heldByNote = new Map<number, Set<string>>();
@@ -311,12 +344,13 @@ export function NoveltySoundboardScreen({
           {isAnimalMode ? (
             <button
               className="immersive-menu-btn animal-map-toggle"
+              ref={animalMapButtonRef}
               aria-label="Show animal key map"
+              aria-controls="animal-key-map-popout"
               aria-expanded={isAnimalMapOpen}
               onClick={() => {
                 if (isAnimalMapOpen) {
-                  setIsAnimalMapPinned(false);
-                  setIsAnimalMapHovered(false);
+                  closeAnimalMap(true);
                   return;
                 }
                 setIsAnimalMapPinned(true);
@@ -338,7 +372,13 @@ export function NoveltySoundboardScreen({
               🐾
             </button>
           ) : null}
-          <button className="immersive-menu-btn" onClick={() => setOverlayVisible(true)}>
+          <button
+            className="immersive-menu-btn"
+            ref={menuButtonRef}
+            aria-controls="soundboard-overlay-panel"
+            aria-expanded={overlayVisible}
+            onClick={() => setOverlayVisible(true)}
+          >
             Menu
           </button>
         </div>
@@ -358,6 +398,7 @@ export function NoveltySoundboardScreen({
         {isAnimalMode ? (
           <section
             className={`panel animal-soundboard-map-popout${isAnimalMapOpen ? ' open' : ''}`}
+            id="animal-key-map-popout"
             aria-label="Animal key map"
             aria-hidden={!isAnimalMapOpen}
             data-testid="animal-key-map-popout"
@@ -381,6 +422,7 @@ export function NoveltySoundboardScreen({
                   key={`${mode.id}-${clip.id}`}
                   className={`panel soundboard-clip-card${lastPlayedId === clip.id ? ' active' : ''}`}
                   onClick={() => void triggerClip(clip)}
+                  title={`${clip.label} (${midiToLabel(clip.midi)})`}
                 >
                   <span className="soundboard-shortcut">{midiToLabel(clip.midi)}</span>
                   <strong>{clip.emoji ? `${clip.emoji} ${clip.label}` : clip.label}</strong>
@@ -414,15 +456,21 @@ export function NoveltySoundboardScreen({
           className="immersive-overlay"
           onClick={(event) => {
             if (event.target === event.currentTarget) {
-              setOverlayVisible(false);
+              closeOverlay(true);
             }
           }}
         >
-          <div className="immersive-overlay-panel soundboard-overlay-panel">
+          <div
+            className="immersive-overlay-panel soundboard-overlay-panel"
+            id="soundboard-overlay-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="soundboard-overlay-title"
+          >
             <div className="immersive-overlay-header">
-              <h2>{mode.label} Soundboard</h2>
+              <h2 id="soundboard-overlay-title">{mode.label} Soundboard</h2>
               <div className="immersive-overlay-actions">
-                <button className="primary-button" onClick={() => setOverlayVisible(false)}>
+                <button className="primary-button" onClick={() => closeOverlay(true)}>
                   Resume
                 </button>
                 <button className="secondary-button" onClick={onBackToMainMenu}>
@@ -508,6 +556,7 @@ export function NoveltySoundboardScreen({
                     key={`${mode.id}-${clip.id}`}
                     className={`panel soundboard-clip-card${lastPlayedId === clip.id ? ' active' : ''}`}
                     onClick={() => void triggerClip(clip)}
+                    title={`${clip.label} (${midiToLabel(clip.midi)})`}
                   >
                     <span className="soundboard-shortcut">{midiToLabel(clip.midi)}</span>
                     <strong>{clip.emoji ? `${clip.emoji} ${clip.label}` : clip.label}</strong>

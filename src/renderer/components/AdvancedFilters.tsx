@@ -17,6 +17,8 @@ interface AdvancedFiltersProps {
 }
 
 export function AdvancedFilters({ isOpen, filters, onToggle, onChange, onClear }: AdvancedFiltersProps) {
+  const contentId = 'library-advanced-filters-content';
+
   return (
     <section className="panel advanced-filters">
       <div className="panel-heading">
@@ -28,14 +30,19 @@ export function AdvancedFilters({ isOpen, filters, onToggle, onChange, onClear }
           <button className="secondary-button" onClick={onClear}>
             Clear
           </button>
-          <button className="secondary-button" onClick={onToggle}>
+          <button
+            className="secondary-button"
+            aria-expanded={isOpen}
+            aria-controls={contentId}
+            onClick={onToggle}
+          >
             {isOpen ? 'Hide Filters' : 'Show Filters'}
           </button>
         </div>
       </div>
 
       {isOpen && (
-        <div className="advanced-filters-grid">
+        <div className="advanced-filters-grid" id={contentId}>
           <label>
             <span>Duration Min (sec)</span>
             <input

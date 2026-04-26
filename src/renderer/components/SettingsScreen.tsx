@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   DEFAULT_INSTRUMENT_ID,
   getInstrumentDefinition,
@@ -158,6 +158,38 @@ function ConfirmActionModal({
         </div>
       </section>
     </div>
+  );
+}
+
+interface SettingsGroupCardProps {
+  eyebrow?: string;
+  title: string;
+  description?: string;
+  footer?: string;
+  children: ReactNode;
+  className?: string;
+}
+
+function SettingsGroupCard({
+  eyebrow,
+  title,
+  description,
+  footer,
+  children,
+  className,
+}: SettingsGroupCardProps) {
+  return (
+    <article className={`settings-group-card${className ? ` ${className}` : ''}`}>
+      <div className="settings-group-header">
+        <div>
+          {eyebrow ? <p className="eyebrow">{eyebrow}</p> : null}
+          <h2>{title}</h2>
+        </div>
+        {description ? <p className="panel-copy">{description}</p> : null}
+      </div>
+      <div className="settings-group-body">{children}</div>
+      {footer ? <p className="settings-group-footer">{footer}</p> : null}
+    </article>
   );
 }
 
@@ -438,525 +470,625 @@ export function SettingsScreen({
         </div>
       </section>
 
-      <section className="settings-layout">
-        <aside className="panel settings-tabs">
-          {(Object.keys(TAB_LABELS) as SettingsTab[]).map((tab) => (
-            <button
-              key={tab}
-              className={activeTab === tab ? 'primary-button' : 'secondary-button'}
-              onClick={() => setActiveTab(tab)}
-            >
-              {TAB_LABELS[tab]}
-            </button>
-          ))}
-        </aside>
+      <section className="settings-tab-row" role="tablist" aria-label="Settings sections">
+        {(Object.keys(TAB_LABELS) as SettingsTab[]).map((tab) => (
+          <button
+            key={tab}
+            id={`settings-tab-${tab}`}
+            role="tab"
+            aria-selected={activeTab === tab}
+            aria-controls={`settings-panel-${tab}`}
+            className={activeTab === tab ? 'primary-button' : 'secondary-button'}
+            onClick={() => setActiveTab(tab)}
+          >
+            {TAB_LABELS[tab]}
+          </button>
+        ))}
+      </section>
 
-        <section className="panel settings-panel">
-          {activeTab === 'audio' && (
-            <div className="settings-grid">
-              <label>
-                <span>Instrument</span>
-                <select
-                  value={values['audio.instrumentId']}
-                  onChange={(event) => void persistSetting('audio', 'instrumentId', event.target.value)}
-                >
-                  {INSTRUMENTS.map((instrument) => {
-                    const locked = instrument.requiredRewardId
-                      ? !isRewardUnlocked(instrument.requiredRewardId, unlockedRewardIds)
-                      : false;
-                    const unavailable = !isInstrumentSelectable(instrument.id, installedPackInstrumentIds);
-                    const packStatus = instrumentSamplePackStatuses[instrument.id];
-                    const disabled = locked || unavailable;
-                    return (
-                      <option key={instrument.id} value={instrument.id} disabled={disabled}>
-                        {locked
-                          ? `\uD83D\uDD12 ${instrument.label}`
-                          : unavailable
-                            ? `${instrument.label} (${packStatus?.requiresPackForSelection ? 'Install pack required' : 'Unavailable'})`
-                            : instrument.label}
-                      </option>
-                    );
-                  })}
-                </select>
-              </label>
-              <label>
-                <span>Master Volume</span>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={values['audio.masterVolume']}
-                  onChange={(event) => void persistSetting('audio', 'masterVolume', event.target.value)}
-                />
-              </label>
-              <label>
-                <span>Metronome Volume</span>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={values['audio.metronomeVolume']}
-                  onChange={(event) => void persistSetting('audio', 'metronomeVolume', event.target.value)}
-                />
-              </label>
-              <label>
-                <span>Metronome Sound</span>
-                <select
-                  value={values['audio.metronomeSound']}
-                  onChange={(event) => void persistSetting('audio', 'metronomeSound', event.target.value)}
-                >
-                  <option value="classic">Classic (Square)</option>
-                  <option value="wood">Wood (Triangle)</option>
-                  <option value="soft">Soft (Sine)</option>
-                  <option value="digital">Digital (Sawtooth)</option>
-                </select>
-              </label>
-              <label>
-                <span>Pitch Bend</span>
-                <select
-                  value={values['audio.pitchBendEnabled'] ?? 'true'}
-                  onChange={(event) => void persistSetting('audio', 'pitchBendEnabled', event.target.value)}
-                  disabled={!isRewardUnlocked('audio:pitch-bend', unlockedRewardIds)}
-                >
-                  <option value="true">Enabled</option>
-                  <option value="false">Disabled</option>
-                </select>
-                <em>
-                  {!isRewardUnlocked('audio:pitch-bend', unlockedRewardIds)
-                    ? 'Unlock Music Theorist rewards to customize pitch-bend behavior.'
-                    : 'Allow expressive wheel or joystick bends during play.'}
-                </em>
-              </label>
-              <label>
-                <span>{selectedInstrument.label} Reverb</span>
-                <select
-                  aria-label={`${selectedInstrument.label} Reverb`}
-                  value={selectedInstrumentReverbPreset}
-                  onChange={(event) => {
-                    const nextPreset = event.target.value as InstrumentReverbPreset;
-                    const nextMap = { ...instrumentReverbPresets };
-                    if (nextPreset === (selectedInstrument.reverbPreset ?? 'medium')) {
-                      delete nextMap[selectedInstrument.id];
-                    } else {
-                      nextMap[selectedInstrument.id] = nextPreset;
-                    }
-                    void persistSetting('audio', 'instrumentReverbPresets', JSON.stringify(nextMap));
-                  }}
-                  disabled={!reverbCustomizationUnlocked}
-                >
-                  <option value="short">Short</option>
-                  <option value="medium">Medium</option>
-                  <option value="hall">Hall</option>
-                </select>
-                <em>
-                  {!reverbCustomizationUnlocked
-                    ? 'Unlock Music Theorist rewards to customize each instrument reverb preset.'
-                    : `Defaults to ${selectedInstrument.reverbPreset ?? 'medium'} unless you override it here.`}
-                </em>
-              </label>
-              <label>
-                <span>Reverb Level</span>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={values['audio.reverbLevel']}
-                  onChange={(event) => void persistSetting('audio', 'reverbLevel', event.target.value)}
-                />
-              </label>
-              <div className="latency-comp-row">
+      <section className="panel settings-panel">
+        {activeTab === 'audio' && (
+          <div
+            className="settings-content-grid"
+            role="tabpanel"
+            id="settings-panel-audio"
+            aria-labelledby="settings-tab-audio"
+          >
+            <SettingsGroupCard eyebrow="Audio" title="Instrument" description="Choose the default voice for playback and practice.">
+              <div className="settings-grid">
                 <label>
-                  <span>Latency Compensation (ms)</span>
+                  <span>Instrument</span>
+                  <select
+                    value={values['audio.instrumentId']}
+                    onChange={(event) => void persistSetting('audio', 'instrumentId', event.target.value)}
+                  >
+                    {INSTRUMENTS.map((instrument) => {
+                      const locked = instrument.requiredRewardId
+                        ? !isRewardUnlocked(instrument.requiredRewardId, unlockedRewardIds)
+                        : false;
+                      const unavailable = !isInstrumentSelectable(instrument.id, installedPackInstrumentIds);
+                      const packStatus = instrumentSamplePackStatuses[instrument.id];
+                      const disabled = locked || unavailable;
+                      return (
+                        <option key={instrument.id} value={instrument.id} disabled={disabled}>
+                          {locked
+                            ? `\uD83D\uDD12 ${instrument.label}`
+                            : unavailable
+                              ? `${instrument.label} (${packStatus?.requiresPackForSelection ? 'Install pack required' : 'Unavailable'})`
+                              : instrument.label}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </label>
+                <article className="settings-note-card">
+                  <span>Instrument Notes</span>
+                  <strong>
+                    {(() => {
+                      const instr = INSTRUMENTS.find((i) => i.id === values['audio.instrumentId']);
+                      if (!instr) return 'Choose a built-in voice for practice and playback.';
+                      if (!isInstrumentSelectable(instr.id, installedPackInstrumentIds)) {
+                        return instrumentSamplePackStatuses[instr.id]?.statusMessage ?? instr.availabilityNote ?? instr.description;
+                      }
+                      if (instr.requiredRewardId && !isRewardUnlocked(instr.requiredRewardId, unlockedRewardIds)) {
+                        const reward = REWARD_CATALOG.find((r) => r.id === instr.requiredRewardId);
+                        return reward ? `Locked — ${reward.description}` : 'Locked — earn an achievement to unlock.';
+                      }
+                      return instr.description;
+                    })()}
+                  </strong>
+                </article>
+              </div>
+            </SettingsGroupCard>
+
+            <SettingsGroupCard
+              title="Output & FX"
+              footer={
+                !isRewardUnlocked('audio:pitch-bend', unlockedRewardIds)
+                  ? 'Unlock Music Theorist rewards to customize pitch bend.'
+                  : !reverbCustomizationUnlocked
+                    ? 'Unlock Music Theorist rewards to customize per-instrument reverb.'
+                    : `Per-instrument reverb defaults to ${selectedInstrument.reverbPreset ?? 'medium'} unless overridden here.`
+              }
+            >
+              <div className="settings-grid">
+                <label>
+                  <span>Master Volume</span>
                   <input
-                    type="number"
+                    type="range"
                     min={0}
-                    max={300}
-                    value={values['audio.latencyCompMs']}
-                    onChange={(event) => void persistSetting('audio', 'latencyCompMs', event.target.value)}
+                    max={100}
+                    value={values['audio.masterVolume']}
+                    onChange={(event) => void persistSetting('audio', 'masterVolume', event.target.value)}
                   />
                 </label>
-                <button
-                  className="secondary-button latency-calibrate-btn"
-                  onClick={() => setShowLatencyWizard(true)}
-                >
-                  Calibrate…
-                </button>
-              </div>
-              <article className="settings-note-card">
-                <span>Instrument Notes</span>
-                <strong>
-                  {(() => {
-                    const instr = INSTRUMENTS.find((i) => i.id === values['audio.instrumentId']);
-                    if (!instr) return 'Choose a built-in voice for practice and playback.';
-                    if (!isInstrumentSelectable(instr.id, installedPackInstrumentIds)) {
-                      return instrumentSamplePackStatuses[instr.id]?.statusMessage ?? instr.availabilityNote ?? instr.description;
-                    }
-                    if (instr.requiredRewardId && !isRewardUnlocked(instr.requiredRewardId, unlockedRewardIds)) {
-                      const reward = REWARD_CATALOG.find((r) => r.id === instr.requiredRewardId);
-                      return reward ? `Locked — ${reward.description}` : 'Locked — earn an achievement to unlock.';
-                    }
-                    return instr.description;
-                  })()}
-                </strong>
-              </article>
-              {selectedInstrumentPackStatus ? (
-                <article className="settings-note-card">
-                  <span>Instrument Quality</span>
-                  <strong>
-                    {selectedInstrumentPackStatus.isInstalled
-                      ? `${selectedInstrumentPackStatus.packLabel} installed`
-                      : selectedInstrumentPackStatus.requiresPackForSelection
-                        ? 'No pack installed'
-                        : 'Built-in samples active'}
-                  </strong>
-                  <div className="settings-sample-pack-buttons">
-                    {selectedInstrumentPackStatus.canInstallInApp ? (
-                      <button
-                        className="secondary-button"
-                        disabled={activePackActionInstrumentId === selectedInstrument.id}
-                        onClick={() => void installSelectedInstrumentPack()}
-                      >
-                        {activePackActionInstrumentId === selectedInstrument.id
-                          ? 'Working...'
-                          : selectedInstrumentPackStatus.installMode === 'manual'
-                            ? 'Import Pack…'
-                            : 'Install Enhanced Pack'}
-                      </button>
-                    ) : null}
-                    {selectedInstrumentPackStatus.isInstalled ? (
-                      <button
-                        className="secondary-button"
-                        disabled={activePackActionInstrumentId === selectedInstrument.id}
-                        onClick={() => void removeSelectedInstrumentPack()}
-                      >
-                        Remove Pack
-                      </button>
-                    ) : null}
-                  </div>
-                  <em>{selectedInstrumentPackStatus.statusMessage}</em>
-                </article>
-              ) : null}
-              {!IS_WEB ? (
-                <article className="settings-note-card">
-                  <span>Custom Sample Pack</span>
-                  {samplePackPath ? (
-                    <strong>{samplePackPath} ({samplePackFileCount} file{samplePackFileCount !== 1 ? 's' : ''})</strong>
-                  ) : (
-                    <strong>Not configured — using built-in or enhanced instrument sounds.</strong>
-                  )}
-                  <div className="settings-sample-pack-buttons">
-                    <button className="secondary-button" onClick={() => void browseSamplePack()}>
-                      Browse…
-                    </button>
-                    {samplePackPath && (
-                      <button className="secondary-button" onClick={() => void clearSamplePack()}>
-                        Clear
-                      </button>
-                    )}
-                  </div>
-                  <em>Expected naming: A0.mp3, C1.mp3, Ds1.mp3, Fs1.mp3, etc. (Salamander-style)</em>
-                </article>
-              ) : null}
-            </div>
-          )}
-
-          {activeTab === 'visual' && (
-            <div className="settings-grid">
-              <label>
-                <span>Theme</span>
-                <select
-                  value={values['visual.theme']}
-                  onChange={(event) => void persistSetting('visual', 'theme', event.target.value)}
-                >
-                  <option value="dark">Dark</option>
-                  <option value="light">Light</option>
-                  <option value="warm">Warm</option>
-                  <option value="neon" disabled={!isRewardUnlocked('theme:neon', unlockedRewardIds)}>
-                    {isRewardUnlocked('theme:neon', unlockedRewardIds) ? 'Neon' : 'Neon (Locked)'}
-                  </option>
-                </select>
-                <em>
-                  {isRewardUnlocked('theme:neon', unlockedRewardIds)
-                    ? 'Switch between the core themes and your unlocked neon reward theme.'
-                    : 'Unlock the Neon theme reward to enable the arcade palette.'}
-                </em>
-              </label>
-              <label>
-                <span>Color Blind Mode</span>
-                <select
-                  value={values['visual.colorBlindMode']}
-                  onChange={(event) => void persistSetting('visual', 'colorBlindMode', event.target.value)}
-                >
-                  <option value="false">Off</option>
-                  <option value="true">On</option>
-                </select>
-              </label>
-              <label>
-                <span>Note Labels</span>
-                <select
-                  value={values['visual.noteLabels']}
-                  onChange={(event) => void persistSetting('visual', 'noteLabels', event.target.value)}
-                >
-                  <option value="alphabetic">Alphabetic</option>
-                  <option value="symbols">Symbols</option>
-                  <option value="both">Both</option>
-                  <option value="none">None</option>
-                </select>
-              </label>
-              <label>
-                <span>Note Label Size</span>
-                <select
-                  value={values['visual.noteLabelSize'] ?? 'medium'}
-                  onChange={(event) => void persistSetting('visual', 'noteLabelSize', event.target.value)}
-                >
-                  <option value="small">Small</option>
-                  <option value="medium">Medium</option>
-                  <option value="large">Large</option>
-                </select>
-              </label>
-              <label>
-                <span>Keyboard Overlay Size</span>
-                <div className="keyboard-size-preview-row">
+                <label>
+                  <span>Reverb Level</span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={values['audio.reverbLevel']}
+                    onChange={(event) => void persistSetting('audio', 'reverbLevel', event.target.value)}
+                  />
+                </label>
+                <label>
+                  <span>Pitch Bend</span>
                   <select
-                    value={values['visual.keyboardOverlaySize']}
-                    onChange={(event) => void persistSetting('visual', 'keyboardOverlaySize', event.target.value)}
+                    value={values['audio.pitchBendEnabled'] ?? 'true'}
+                    onChange={(event) => void persistSetting('audio', 'pitchBendEnabled', event.target.value)}
+                    disabled={!isRewardUnlocked('audio:pitch-bend', unlockedRewardIds)}
+                  >
+                    <option value="true">Enabled</option>
+                    <option value="false">Disabled</option>
+                  </select>
+                </label>
+                <label>
+                  <span>{selectedInstrument.label} Reverb</span>
+                  <select
+                    aria-label={`${selectedInstrument.label} Reverb`}
+                    value={selectedInstrumentReverbPreset}
+                    onChange={(event) => {
+                      const nextPreset = event.target.value as InstrumentReverbPreset;
+                      const nextMap = { ...instrumentReverbPresets };
+                      if (nextPreset === (selectedInstrument.reverbPreset ?? 'medium')) {
+                        delete nextMap[selectedInstrument.id];
+                      } else {
+                        nextMap[selectedInstrument.id] = nextPreset;
+                      }
+                      void persistSetting('audio', 'instrumentReverbPresets', JSON.stringify(nextMap));
+                    }}
+                    disabled={!reverbCustomizationUnlocked}
+                  >
+                    <option value="short">Short</option>
+                    <option value="medium">Medium</option>
+                    <option value="hall">Hall</option>
+                  </select>
+                </label>
+              </div>
+            </SettingsGroupCard>
+
+            <SettingsGroupCard title="Metronome" footer="Adjust the click mix and tone for song sessions and drills.">
+              <div className="settings-grid">
+                <label>
+                  <span>Metronome Volume</span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={values['audio.metronomeVolume']}
+                    onChange={(event) => void persistSetting('audio', 'metronomeVolume', event.target.value)}
+                  />
+                </label>
+                <label>
+                  <span>Metronome Sound</span>
+                  <select
+                    value={values['audio.metronomeSound']}
+                    onChange={(event) => void persistSetting('audio', 'metronomeSound', event.target.value)}
+                  >
+                    <option value="classic">Classic (Square)</option>
+                    <option value="wood">Wood (Triangle)</option>
+                    <option value="soft">Soft (Sine)</option>
+                    <option value="digital">Digital (Sawtooth)</option>
+                  </select>
+                </label>
+              </div>
+            </SettingsGroupCard>
+
+            <SettingsGroupCard title="Latency" footer="Run calibration if playback feels early or late against your input.">
+              <div className="settings-grid settings-grid-single">
+                <div className="latency-comp-row">
+                  <label>
+                    <span>Latency Compensation (ms)</span>
+                    <input
+                      type="number"
+                      min={0}
+                      max={300}
+                      value={values['audio.latencyCompMs']}
+                      onChange={(event) => void persistSetting('audio', 'latencyCompMs', event.target.value)}
+                    />
+                  </label>
+                  <button
+                    className="secondary-button latency-calibrate-btn"
+                    onClick={() => setShowLatencyWizard(true)}
+                  >
+                    Calibrate…
+                  </button>
+                </div>
+              </div>
+            </SettingsGroupCard>
+
+            <SettingsGroupCard title="Sample Packs" footer="Desktop installs support enhanced packs and manual sample folders.">
+              <div className="settings-grid">
+                {selectedInstrumentPackStatus ? (
+                  <article className="settings-note-card">
+                    <span>Instrument Quality</span>
+                    <strong>
+                      {selectedInstrumentPackStatus.isInstalled
+                        ? `${selectedInstrumentPackStatus.packLabel} installed`
+                        : selectedInstrumentPackStatus.requiresPackForSelection
+                          ? 'No pack installed'
+                          : 'Built-in samples active'}
+                    </strong>
+                    <div className="settings-sample-pack-buttons">
+                      {selectedInstrumentPackStatus.canInstallInApp ? (
+                        <button
+                          className="secondary-button"
+                          disabled={activePackActionInstrumentId === selectedInstrument.id}
+                          onClick={() => void installSelectedInstrumentPack()}
+                        >
+                          {activePackActionInstrumentId === selectedInstrument.id
+                            ? 'Working...'
+                            : selectedInstrumentPackStatus.installMode === 'manual'
+                              ? 'Import Pack…'
+                              : 'Install Enhanced Pack'}
+                        </button>
+                      ) : null}
+                      {selectedInstrumentPackStatus.isInstalled ? (
+                        <button
+                          className="secondary-button"
+                          disabled={activePackActionInstrumentId === selectedInstrument.id}
+                          onClick={() => void removeSelectedInstrumentPack()}
+                        >
+                          Remove Pack
+                        </button>
+                      ) : null}
+                    </div>
+                    <em>{selectedInstrumentPackStatus.statusMessage}</em>
+                  </article>
+                ) : (
+                  <article className="settings-note-card">
+                    <span>Enhanced Packs</span>
+                    <strong>No instrument sample pack controls are available for the current selection.</strong>
+                  </article>
+                )}
+                {!IS_WEB ? (
+                  <article className="settings-note-card">
+                    <span>Custom Sample Pack</span>
+                    {samplePackPath ? (
+                      <strong>{samplePackPath} ({samplePackFileCount} file{samplePackFileCount !== 1 ? 's' : ''})</strong>
+                    ) : (
+                      <strong>Not configured.</strong>
+                    )}
+                    <div className="settings-sample-pack-buttons">
+                      <button className="secondary-button" onClick={() => void browseSamplePack()}>
+                        Browse…
+                      </button>
+                      {samplePackPath ? (
+                        <button className="secondary-button" onClick={() => void clearSamplePack()}>
+                          Clear
+                        </button>
+                      ) : null}
+                    </div>
+                    <em>Expected naming: A0.mp3, C1.mp3, Ds1.mp3, Fs1.mp3, and similar Salamander-style files.</em>
+                  </article>
+                ) : (
+                  <article className="settings-note-card">
+                    <span>Custom Sample Pack</span>
+                    <strong>Custom sample folders are available in the desktop app.</strong>
+                  </article>
+                )}
+              </div>
+            </SettingsGroupCard>
+          </div>
+        )}
+
+        {activeTab === 'visual' && (
+          <div
+            className="settings-content-grid"
+            role="tabpanel"
+            id="settings-panel-visual"
+            aria-labelledby="settings-tab-visual"
+          >
+            <SettingsGroupCard
+              eyebrow="Visual"
+              title="Appearance"
+              footer={
+                isRewardUnlocked('theme:neon', unlockedRewardIds)
+                  ? 'Neon theme unlocked and ready.'
+                  : 'Unlock the Neon theme reward to enable the arcade palette.'
+              }
+            >
+              <div className="settings-grid">
+                <label>
+                  <span>Theme</span>
+                  <select
+                    value={values['visual.theme']}
+                    onChange={(event) => void persistSetting('visual', 'theme', event.target.value)}
+                  >
+                    <option value="dark">Dark</option>
+                    <option value="light">Light</option>
+                    <option value="warm">Warm</option>
+                    <option value="neon" disabled={!isRewardUnlocked('theme:neon', unlockedRewardIds)}>
+                      {isRewardUnlocked('theme:neon', unlockedRewardIds) ? 'Neon' : 'Neon (Locked)'}
+                    </option>
+                  </select>
+                </label>
+                <label>
+                  <span>Color Blind Mode</span>
+                  <select
+                    value={values['visual.colorBlindMode']}
+                    onChange={(event) => void persistSetting('visual', 'colorBlindMode', event.target.value)}
+                  >
+                    <option value="false">Off</option>
+                    <option value="true">On</option>
+                  </select>
+                </label>
+              </div>
+            </SettingsGroupCard>
+
+            <SettingsGroupCard title="Labels & Keyboard" footer={`Preview window: ${values['visual.beatsVisible']} beats ahead.`}>
+              <div className="settings-grid">
+                <label>
+                  <span>Note Labels</span>
+                  <select
+                    value={values['visual.noteLabels']}
+                    onChange={(event) => void persistSetting('visual', 'noteLabels', event.target.value)}
+                  >
+                    <option value="alphabetic">Alphabetic</option>
+                    <option value="symbols">Symbols</option>
+                    <option value="both">Both</option>
+                    <option value="none">None</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Note Label Size</span>
+                  <select
+                    value={values['visual.noteLabelSize'] ?? 'medium'}
+                    onChange={(event) => void persistSetting('visual', 'noteLabelSize', event.target.value)}
                   >
                     <option value="small">Small</option>
                     <option value="medium">Medium</option>
                     <option value="large">Large</option>
                   </select>
-                  <KeyboardSizeThumbnail size={(values['visual.keyboardOverlaySize'] as 'small' | 'medium' | 'large') ?? 'medium'} />
-                </div>
-              </label>
-              <label>
-                <span>Note Preview (beats ahead)</span>
-                <input
-                  type="range"
-                  min={4}
-                  max={16}
-                  step={1}
-                  value={values['visual.beatsVisible']}
-                  onChange={(event) => void persistSetting('visual', 'beatsVisible', event.target.value)}
-                />
-                <em>{values['visual.beatsVisible']} beats</em>
-              </label>
-              <label>
-                <span>Left Hand Color</span>
-                <input
-                  type="color"
-                  value={values['visual.leftHandColor'] || '#1f3d7a'}
-                  onChange={(event) => void persistSetting('visual', 'leftHandColor', event.target.value)}
-                />
-                <em>Color of falling notes assigned to the left hand</em>
-                {values['visual.leftHandColor'] && (
-                  <button
-                    className="secondary-button"
-                    onClick={() => void persistSetting('visual', 'leftHandColor', '')}
+                </label>
+                <label>
+                  <span>Keyboard Overlay Size</span>
+                  <div className="keyboard-size-preview-row">
+                    <select
+                      value={values['visual.keyboardOverlaySize']}
+                      onChange={(event) => void persistSetting('visual', 'keyboardOverlaySize', event.target.value)}
+                    >
+                      <option value="small">Small</option>
+                      <option value="medium">Medium</option>
+                      <option value="large">Large</option>
+                    </select>
+                    <KeyboardSizeThumbnail size={(values['visual.keyboardOverlaySize'] as 'small' | 'medium' | 'large') ?? 'medium'} />
+                  </div>
+                </label>
+                <label>
+                  <span>Note Preview (beats ahead)</span>
+                  <input
+                    type="range"
+                    min={4}
+                    max={16}
+                    step={1}
+                    value={values['visual.beatsVisible']}
+                    onChange={(event) => void persistSetting('visual', 'beatsVisible', event.target.value)}
+                  />
+                </label>
+                <label>
+                  <span>Fingering Numbers</span>
+                  <select
+                    value={values['fingering.displayMode']}
+                    onChange={(event) => void persistSetting('fingering', 'displayMode', event.target.value)}
                   >
-                    Reset
-                  </button>
-                )}
-              </label>
-              <label>
-                <span>Right Hand Color</span>
-                <input
-                  type="color"
-                  value={values['visual.rightHandColor'] || '#9a4c33'}
-                  onChange={(event) => void persistSetting('visual', 'rightHandColor', event.target.value)}
-                />
-                <em>Color of falling notes assigned to the right hand</em>
-                {values['visual.rightHandColor'] && (
-                  <button
-                    className="secondary-button"
-                    onClick={() => void persistSetting('visual', 'rightHandColor', '')}
+                    <option value="always">Always</option>
+                    <option value="learning-only">Learning Only</option>
+                    <option value="never">Never</option>
+                  </select>
+                </label>
+              </div>
+            </SettingsGroupCard>
+
+            <SettingsGroupCard title="Colors" footer="Reset either hand color to fall back to the active theme.">
+              <div className="settings-grid">
+                <label>
+                  <span>Left Hand Color</span>
+                  <input
+                    type="color"
+                    value={values['visual.leftHandColor'] || '#1f3d7a'}
+                    onChange={(event) => void persistSetting('visual', 'leftHandColor', event.target.value)}
+                  />
+                  {values['visual.leftHandColor'] ? (
+                    <button
+                      className="secondary-button"
+                      onClick={() => void persistSetting('visual', 'leftHandColor', '')}
+                    >
+                      Reset
+                    </button>
+                  ) : null}
+                </label>
+                <label>
+                  <span>Right Hand Color</span>
+                  <input
+                    type="color"
+                    value={values['visual.rightHandColor'] || '#9a4c33'}
+                    onChange={(event) => void persistSetting('visual', 'rightHandColor', event.target.value)}
+                  />
+                  {values['visual.rightHandColor'] ? (
+                    <button
+                      className="secondary-button"
+                      onClick={() => void persistSetting('visual', 'rightHandColor', '')}
+                    >
+                      Reset
+                    </button>
+                  ) : null}
+                </label>
+              </div>
+            </SettingsGroupCard>
+          </div>
+        )}
+
+        {activeTab === 'gameplay' && (
+          <div
+            className="settings-content-grid"
+            role="tabpanel"
+            id="settings-panel-gameplay"
+            aria-labelledby="settings-tab-gameplay"
+          >
+            <SettingsGroupCard eyebrow="Gameplay" title="Session Defaults" footer="These defaults are used when a new song session starts.">
+              <div className="settings-grid">
+                <label>
+                  <span>Wait Mode Default</span>
+                  <select
+                    value={values['gameplay.waitModeDefault']}
+                    onChange={(event) => void persistSetting('gameplay', 'waitModeDefault', event.target.value)}
                   >
-                    Reset
-                  </button>
+                    <option value="false">Off</option>
+                    <option value="true">On</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Metronome Default</span>
+                  <select
+                    value={values['gameplay.metronomeDefault']}
+                    onChange={(event) => void persistSetting('gameplay', 'metronomeDefault', event.target.value)}
+                  >
+                    <option value="false">Off</option>
+                    <option value="true">On</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Timing Window</span>
+                  <select
+                    value={values['gameplay.hitWindowMs']}
+                    onChange={(event) => void persistSetting('gameplay', 'hitWindowMs', event.target.value)}
+                  >
+                    <option value="50">Strict (50 ms)</option>
+                    <option value="100">Standard (100 ms)</option>
+                    <option value="150">Relaxed (150 ms)</option>
+                    <option value="200">Forgiving (200 ms)</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Lead-in Beats</span>
+                  <select
+                    value={values['gameplay.leadInBeats'] ?? '2'}
+                    onChange={(event) => void persistSetting('gameplay', 'leadInBeats', event.target.value)}
+                  >
+                    <option value="0">None</option>
+                    <option value="1">1 beat</option>
+                    <option value="2">2 beats</option>
+                    <option value="4">4 beats</option>
+                  </select>
+                </label>
+              </div>
+            </SettingsGroupCard>
+          </div>
+        )}
+
+        {activeTab === 'input' && (
+          <div
+            className="settings-content-grid"
+            role="tabpanel"
+            id="settings-panel-input"
+            aria-labelledby="settings-tab-input"
+          >
+            <SettingsGroupCard eyebrow="Input" title="MIDI" footer={`Current input mode: ${inputMode === 'both' ? 'MIDI + Keyboard' : inputMode === 'midi' ? 'MIDI Only' : 'Keyboard Only'}.`}>
+              <div className="settings-grid">
+                <label>
+                  <span>Input Mode</span>
+                  <select
+                    value={inputMode}
+                    onChange={(event) => {
+                      const nextMode = event.target.value as InputMode;
+                      onInputModeChange(nextMode);
+                      void persistSetting('input', 'mode', nextMode);
+                    }}
+                  >
+                    <option value="both">MIDI + Keyboard</option>
+                    <option value="midi">MIDI Only</option>
+                    <option value="computer-keyboard">Keyboard Only</option>
+                  </select>
+                </label>
+                <label>
+                  <span>MIDI Device</span>
+                  <select
+                    value={values['input.midiDeviceId']}
+                    onChange={(event) => void persistSetting('input', 'midiDeviceId', event.target.value)}
+                  >
+                    <option value="">Any connected device</option>
+                    {midiDevices.map((device) => (
+                      <option key={device.id} value={device.id}>
+                        {device.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {midiError ? (
+                  <article className="settings-note-card">
+                    <span>MIDI Status</span>
+                    <strong>Permission denied or unavailable</strong>
+                    <button className="secondary-button" onClick={onRetryMidi} style={{ marginTop: '0.5rem' }}>
+                      Retry MIDI Access
+                    </button>
+                  </article>
+                ) : (
+                  <article className="settings-note-card">
+                    <span>Detected Device</span>
+                    <strong>{selectedMidiDeviceName}</strong>
+                  </article>
                 )}
-              </label>
-              <label>
-                <span>Fingering Numbers</span>
-                <select
-                  value={values['fingering.displayMode']}
-                  onChange={(event) => void persistSetting('fingering', 'displayMode', event.target.value)}
-                >
-                  <option value="always">Always</option>
-                  <option value="learning-only">Learning Only</option>
-                  <option value="never">Never</option>
-                </select>
-                <em>Show finger numbers (1–5) on falling notes during play</em>
-              </label>
-            </div>
-          )}
+              </div>
+            </SettingsGroupCard>
 
-          {activeTab === 'gameplay' && (
-            <div className="settings-grid">
-              <label>
-                <span>Wait Mode Default</span>
-                <select
-                  value={values['gameplay.waitModeDefault']}
-                  onChange={(event) => void persistSetting('gameplay', 'waitModeDefault', event.target.value)}
-                >
-                  <option value="false">Off</option>
-                  <option value="true">On</option>
-                </select>
-                <em>When on, notes won't scroll until you play them</em>
-              </label>
-              <label>
-                <span>Metronome Default</span>
-                <select
-                  value={values['gameplay.metronomeDefault']}
-                  onChange={(event) => void persistSetting('gameplay', 'metronomeDefault', event.target.value)}
-                >
-                  <option value="false">Off</option>
-                  <option value="true">On</option>
-                </select>
-                <em>Start each song session with the metronome enabled</em>
-              </label>
-              <label>
-                <span>Timing Window</span>
-                <select
-                  value={values['gameplay.hitWindowMs']}
-                  onChange={(event) => void persistSetting('gameplay', 'hitWindowMs', event.target.value)}
-                >
-                  <option value="50">Strict (50 ms)</option>
-                  <option value="100">Standard (100 ms)</option>
-                  <option value="150">Relaxed (150 ms)</option>
-                  <option value="200">Forgiving (200 ms)</option>
-                </select>
-              </label>
-              <label>
-                <span>Lead-in Beats</span>
-                <select
-                  value={values['gameplay.leadInBeats'] ?? '2'}
-                  onChange={(event) => void persistSetting('gameplay', 'leadInBeats', event.target.value)}
-                >
-                  <option value="0">None</option>
-                  <option value="1">1 beat</option>
-                  <option value="2">2 beats</option>
-                  <option value="4">4 beats</option>
-                </select>
-              </label>
-            </div>
-          )}
+            <SettingsGroupCard title="Keyboard Mapping" footer="Open the keyboard setup screen to remap computer-keyboard notes.">
+              <div className="settings-grid settings-grid-single">
+                <button className="secondary-button" onClick={onOpenKeyboardSetup}>
+                  Open Keyboard Mapping
+                </button>
+              </div>
+            </SettingsGroupCard>
+          </div>
+        )}
 
-          {activeTab === 'input' && (
-            <div className="settings-grid">
-              <label>
-                <span>Input Mode</span>
-                <select
-                  value={inputMode}
-                  onChange={(event) => {
-                    const nextMode = event.target.value as InputMode;
-                    onInputModeChange(nextMode);
-                    void persistSetting('input', 'mode', nextMode);
-                  }}
-                >
-                  <option value="both">MIDI + Keyboard</option>
-                  <option value="midi">MIDI Only</option>
-                  <option value="computer-keyboard">Keyboard Only</option>
-                </select>
-              </label>
-              <label>
-                <span>MIDI Device</span>
-                <select
-                  value={values['input.midiDeviceId']}
-                  onChange={(event) => void persistSetting('input', 'midiDeviceId', event.target.value)}
-                >
-                  <option value="">Any connected device</option>
-                  {midiDevices.map((device) => (
-                    <option key={device.id} value={device.id}>
-                      {device.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              {midiError ? (
+        {activeTab === 'practice' && (
+          <div
+            className="settings-content-grid"
+            role="tabpanel"
+            id="settings-panel-practice"
+            aria-labelledby="settings-tab-practice"
+          >
+            <SettingsGroupCard eyebrow="Practice" title="Goals & Reminders" footer="Set the daily target to 0 if you want the goal tracker off.">
+              <div className="settings-grid">
+                <label>
+                  <span>Daily Goal (minutes)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={600}
+                    value={values['practice.dailyGoalMinutes']}
+                    onChange={(event) => void persistSetting('practice', 'dailyGoalMinutes', event.target.value)}
+                  />
+                </label>
+                <label>
+                  <span>Posture Reminder (minutes)</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={120}
+                    value={values['practice.postureReminderMinutes']}
+                    onChange={(event) => void persistSetting('practice', 'postureReminderMinutes', event.target.value)}
+                  />
+                </label>
+                <label>
+                  <span>Break Reminder (minutes)</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={120}
+                    value={values['practice.breakReminderMinutes']}
+                    onChange={(event) => void persistSetting('practice', 'breakReminderMinutes', event.target.value)}
+                  />
+                </label>
+              </div>
+            </SettingsGroupCard>
+
+            <SettingsGroupCard title="Save Status">
+              <div className="settings-grid settings-grid-single">
                 <article className="settings-note-card">
-                  <span>MIDI Status</span>
-                  <strong>Permission denied or unavailable</strong>
-                  <button className="secondary-button" onClick={onRetryMidi} style={{ marginTop: '0.5rem' }}>
-                    Retry MIDI Access
+                  <span>Save Status</span>
+                  <strong>{isSaving ? 'Saving...' : 'All changes saved'}</strong>
+                </article>
+              </div>
+            </SettingsGroupCard>
+
+            <SettingsGroupCard
+              title="Danger Zone"
+              description="Destructive actions live together here so they stay easy to find and hard to hit by accident."
+              className="settings-danger-zone"
+            >
+              <div className="settings-danger-actions">
+                <article className="settings-note-card settings-danger-card">
+                  <span>Reset Learning Progress</span>
+                  <strong>Keeps your library, playlists, folders, and settings, but clears achievements and practice history.</strong>
+                  <button className="danger-button" disabled={isResettingProgress} onClick={() => setResetTarget('progress')}>
+                    Reset Learning Progress
                   </button>
                 </article>
-              ) : (
-                <article className="settings-note-card">
-                  <span>Detected Device</span>
-                  <strong>{selectedMidiDeviceName}</strong>
+                <article className="settings-note-card settings-danger-card">
+                  <span>Reset User Data</span>
+                  <strong>Clears songs, playlists, folders, results, achievements, and saved settings.</strong>
+                  <button className="danger-button" disabled={isResetting} onClick={() => setResetTarget('data')}>
+                    Reset User Data
+                  </button>
                 </article>
-              )}
-              <button className="secondary-button" onClick={onOpenKeyboardSetup}>
-                Open Keyboard Mapping
-              </button>
-            </div>
-          )}
-
-          {activeTab === 'practice' && (
-            <div className="settings-grid">
-              <label>
-                <span>Daily Goal (minutes)</span>
-                <input
-                  type="number"
-                  min={0}
-                  max={600}
-                  value={values['practice.dailyGoalMinutes']}
-                  onChange={(event) => void persistSetting('practice', 'dailyGoalMinutes', event.target.value)}
-                />
-                <em>Set this to 0 to disable the daily-goal tracker.</em>
-              </label>
-              <label>
-                <span>Posture Reminder (minutes)</span>
-                <input
-                  type="number"
-                  min={1}
-                  max={120}
-                  value={values['practice.postureReminderMinutes']}
-                  onChange={(event) => void persistSetting('practice', 'postureReminderMinutes', event.target.value)}
-                />
-                <em>Reminds you to check your hand position and posture</em>
-              </label>
-              <label>
-                <span>Break Reminder (minutes)</span>
-                <input
-                  type="number"
-                  min={1}
-                  max={120}
-                  value={values['practice.breakReminderMinutes']}
-                  onChange={(event) => void persistSetting('practice', 'breakReminderMinutes', event.target.value)}
-                />
-              </label>
-              <article className="settings-note-card">
-                <span>Save Status</span>
-                <strong>{isSaving ? 'Saving...' : 'All changes saved'}</strong>
-              </article>
-              <article className="settings-note-card settings-danger-card">
-                <span>Reset Learning Progress</span>
-                <strong>Keeps your library, playlists, folders, and settings, but clears achievements and practice history.</strong>
-                <button className="danger-button" disabled={isResettingProgress} onClick={() => setResetTarget('progress')}>
-                  Reset Learning Progress
-                </button>
-              </article>
-              <article className="settings-note-card settings-danger-card">
-                <span>Reset User Data</span>
-                <strong>Clears songs, playlists, folders, results, achievements, and saved settings.</strong>
-                <button className="danger-button" disabled={isResetting} onClick={() => setResetTarget('data')}>
-                  Reset User Data
-                </button>
-              </article>
-              <article className="settings-note-card settings-danger-card">
-                <span>Developer Tools</span>
-                <strong>Unlock all achievements, rewards, lessons, and capstones for testing. Reset learning progress to restore the normal locked state.</strong>
-                <button
-                  className="secondary-button"
-                  disabled={isUnlockingDeveloperContent}
-                  onClick={() => setResetTarget('developer-unlock')}
-                >
-                  Unlock All Developer Content
-                </button>
-              </article>
-            </div>
-          )}
-        </section>
+                <article className="settings-note-card settings-danger-card">
+                  <span>Developer Tools</span>
+                  <strong>Unlock all achievements, rewards, lessons, and capstones for testing. Reset learning progress to restore the normal locked state.</strong>
+                  <button
+                    className="secondary-button"
+                    disabled={isUnlockingDeveloperContent}
+                    onClick={() => setResetTarget('developer-unlock')}
+                  >
+                    Unlock All Developer Content
+                  </button>
+                </article>
+              </div>
+            </SettingsGroupCard>
+          </div>
+        )}
       </section>
       {resetTarget === 'progress' && (
         <ConfirmActionModal

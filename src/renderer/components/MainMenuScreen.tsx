@@ -105,82 +105,99 @@ const MENU_CARDS: Array<{
   title: string;
   subtitle: string;
   accent: string;
+  priority: 'primary' | 'secondary';
   onSelect: (props: MainMenuScreenProps) => void;
 }> = [
   {
     icon: <IconPlay />,
     title: 'Play',
-    subtitle: 'Open the song library and jump into scored sessions.',
+    subtitle: 'Start a scored run.',
     accent: 'var(--color-accent)',
+    priority: 'primary',
     onSelect: (props) => props.onOpenLibrary(),
   },
   {
     icon: <IconLearn />,
     title: 'Learn',
-    subtitle: 'Follow the structured curriculum from first notes to advanced drills.',
+    subtitle: 'Continue lessons.',
     accent: 'var(--color-accent-secondary)',
+    priority: 'primary',
     onSelect: (props) => props.onOpenLearn(),
   },
   {
     icon: <IconFreePlay />,
     title: 'Free Play',
-    subtitle: 'Practice without scoring, record ideas, and load backing tracks.',
+    subtitle: 'Jam, record, explore.',
     accent: 'var(--color-good)',
+    priority: 'primary',
     onSelect: (props) => props.onOpenFreePlay(),
   },
   {
     icon: <IconSoundboard />,
     title: 'Soundboard',
-    subtitle: 'Trigger kid-friendly one-shots with big buttons and number keys.',
+    subtitle: 'Trigger quick hits.',
     accent: 'var(--color-ok)',
+    priority: 'secondary',
     onSelect: (props) => props.onOpenSoundboard(),
   },
   {
     icon: <IconTheory />,
     title: 'Theory',
-    subtitle: 'Sharpen scales, intervals, and quiz speed between songs.',
+    subtitle: 'Train scales and intervals.',
     accent: 'var(--color-perfect)',
+    priority: 'secondary',
     onSelect: (props) => props.onOpenTheory(),
   },
   {
     icon: <IconProgress />,
     title: 'Progress',
-    subtitle: 'Review streaks, charts, goals, and accuracy trends.',
+    subtitle: 'Check streaks and scores.',
     accent: 'var(--color-ok)',
+    priority: 'secondary',
     onSelect: (props) => props.onOpenProgress(),
   },
   {
     icon: <IconSettings />,
     title: 'Settings',
-    subtitle: 'Tune audio, visuals, input defaults, and accessibility.',
+    subtitle: 'Tune controls and audio.',
     accent: 'var(--color-miss)',
+    priority: 'secondary',
     onSelect: (props) => props.onOpenSettings(),
   },
   {
     icon: <IconSetup />,
     title: 'Setup',
-    subtitle: 'Configure keyboard controls, onboarding, and device basics.',
+    subtitle: 'Map keys and devices.',
     accent: 'var(--color-accent)',
+    priority: 'secondary',
     onSelect: (props) => props.onOpenSetup(),
   },
 ];
 
 export function MainMenuScreen(props: MainMenuScreenProps) {
+  const primaryCards = MENU_CARDS.filter((card) => card.priority === 'primary');
+  const secondaryCards = MENU_CARDS.filter((card) => card.priority === 'secondary');
+
   return (
     <main className="app-shell main-menu-screen">
       <section className="main-menu-hero">
-        <p className="eyebrow">Arcade Practice</p>
-        <h1>Piano Hero</h1>
-        <p className="song-title">
-          Pick a mode, chase cleaner runs, and keep your practice feeling like a game instead of a settings-heavy app.
-        </p>
+        <div className="main-menu-hero-copy">
+          <p className="eyebrow">Arcade Practice</p>
+          <h1>Piano Hero</h1>
+          <p className="song-title">Pick a lane. Chase a cleaner run. Keep the streak alive.</p>
+        </div>
+        <div className="main-menu-hero-status" aria-hidden="true">
+          <span>Mode Select</span>
+          <span>3 Core Routes</span>
+          <span>5 Bonus Modes</span>
+        </div>
       </section>
 
-      <section className="main-menu-grid">
-        {MENU_CARDS.map((card, index) => (
+      <section aria-label="Primary destinations" className="main-menu-grid">
+        {primaryCards.map((card, index) => (
           <button
             key={card.title}
-            className="menu-card"
+            className="menu-card menu-card-primary"
             style={
               {
                 '--card-color': card.accent,
@@ -196,6 +213,37 @@ export function MainMenuScreen(props: MainMenuScreenProps) {
             <span className="menu-card-subtitle">{card.subtitle}</span>
           </button>
         ))}
+      </section>
+
+      <section className="panel main-menu-secondary-shell">
+        <div className="main-menu-secondary-heading">
+          <div>
+            <p className="eyebrow">More Modes</p>
+            <h2>Bonus lanes</h2>
+          </div>
+          <p className="panel-copy">Quick jumps for training, tuning, and tracking your next high-score push.</p>
+        </div>
+        <section aria-label="More destinations" className="main-menu-secondary-grid">
+          {secondaryCards.map((card, index) => (
+            <button
+              key={card.title}
+              className="menu-card menu-card-secondary"
+              style={
+                {
+                  '--card-color': card.accent,
+                  '--card-delay': `${(index + primaryCards.length) * 70}ms`,
+                } as CSSProperties
+              }
+              onClick={() => card.onSelect(props)}
+            >
+              <span className="menu-card-icon" aria-hidden="true">
+                {card.icon}
+              </span>
+              <span className="menu-card-title">{card.title}</span>
+              <span className="menu-card-subtitle">{card.subtitle}</span>
+            </button>
+          ))}
+        </section>
       </section>
     </main>
   );

@@ -224,49 +224,96 @@ function applyStagePalette(palette: string): void {
   }
 }
 
-function getScreenTitle(currentScreen: AppScreen): string {
+function getKeyboardSetupReturnTrail(returnTo: KeyboardSetupReturnTarget): string[] {
+  if (isLessonReturnTarget(returnTo)) {
+    return ['Main Menu', 'Learn', 'Lesson'];
+  }
+
+  switch (returnTo) {
+    case 'setup':
+      return ['Setup'];
+    case 'library':
+      return ['Main Menu', 'Library'];
+    case 'settings':
+      return ['Main Menu', 'Settings'];
+    case 'free-play':
+      return ['Main Menu', 'Free Play'];
+    case 'soundboard':
+      return ['Main Menu', 'Soundboard'];
+  }
+}
+
+function getScreenBreadcrumbs(currentScreen: AppScreen): string[] {
   switch (currentScreen.screen) {
     case 'setup':
-      return 'Setup';
+      return ['Setup'];
     case 'main-menu':
-      return 'Main Menu';
+      return ['Main Menu'];
     case 'library':
-      return 'Song Library';
+      return ['Main Menu', 'Library'];
     case 'learn-hub':
-      return 'Learn';
+      return ['Main Menu', 'Learn'];
     case 'lesson':
-      return 'Lesson';
+      return ['Main Menu', 'Learn', 'Lesson'];
     case 'free-play':
-      return 'Free Play';
+      return ['Main Menu', 'Free Play'];
     case 'soundboard':
-      return 'Soundboard';
+      return ['Main Menu', 'Soundboard'];
     case 'theory-hub':
-      return 'Theory';
+      return ['Main Menu', 'Theory'];
     case 'progress-dashboard':
-      return 'Progress';
+      return ['Main Menu', 'Progress'];
     case 'settings':
-      return 'Settings';
+      return ['Main Menu', 'Settings'];
     case 'scale-practice':
-      return 'Scale Practice';
+      return currentScreen.returnTo
+        ? ['Main Menu', 'Learn', 'Lesson', 'Scale Practice']
+        : ['Main Menu', 'Theory', 'Scale Practice'];
     case 'interval-trainer':
-      return 'Interval Trainer';
+      return currentScreen.returnTo
+        ? ['Main Menu', 'Learn', 'Lesson', 'Interval Trainer']
+        : ['Main Menu', 'Theory', 'Interval Trainer'];
     case 'theory-quiz':
-      return 'Theory Quiz';
+      return currentScreen.returnTo ? ['Main Menu', 'Learn', 'Lesson', 'Quiz'] : ['Main Menu', 'Theory', 'Quiz'];
     case 'keyboard-setup':
-      return 'Keyboard Setup';
+      return [...getKeyboardSetupReturnTrail(currentScreen.returnTo), 'Keyboard Setup'];
     case 'game':
-      return 'In Game';
+      return ['Main Menu', 'In Game'];
     case 'lesson-drill':
-      return 'Lesson Drill';
+      return ['Main Menu', 'Learn', 'Lesson Drill'];
     case 'capstone':
-      return 'Tier Capstone';
+      return ['Main Menu', 'Learn', 'Tier Capstone'];
     case 'results':
-      return 'Results';
+      return ['Main Menu', 'Results'];
   }
 }
 
 function isLessonReturnTarget(value: KeyboardSetupReturnTarget): value is LessonReturnTarget {
   return typeof value === 'object' && value !== null && 'lessonId' in value && 'stepIndex' in value;
+}
+
+function getContextualBackLabel(currentScreen: AppScreen): string {
+  switch (currentScreen.screen) {
+    case 'lesson':
+      return 'Back to Learn';
+    case 'scale-practice':
+    case 'interval-trainer':
+    case 'theory-quiz':
+      return currentScreen.returnTo ? 'Back to Lesson' : 'Back to Theory';
+    case 'keyboard-setup': {
+      const trail = getKeyboardSetupReturnTrail(currentScreen.returnTo);
+      return `Back to ${trail[trail.length - 1]}`;
+    }
+    case 'learn-hub':
+    case 'library':
+    case 'progress-dashboard':
+    case 'settings':
+    case 'theory-hub':
+    case 'results':
+      return 'Back to Main Menu';
+    default:
+      return 'Back';
+  }
 }
 
 export function App() {
@@ -1376,7 +1423,12 @@ export function App() {
       break;
 
     case 'progress-dashboard':
-      screenContent = <ProgressDashboardScreen unlockedRewardIds={unlockedRewardIds} />;
+      screenContent = (
+        <ProgressDashboardScreen
+          unlockedRewardIds={unlockedRewardIds}
+          onOpenLibrary={() => setCurrentScreen({ screen: 'library' })}
+        />
+      );
       break;
 
     case 'settings':
@@ -1599,21 +1651,42 @@ export function App() {
   const showAppChrome =
     currentScreen.screen !== 'game' &&
     currentScreen.screen !== 'free-play' &&
+    currentScreen.screen !== 'soundboard' &&
     currentScreen.screen !== 'lesson-drill' &&
     currentScreen.screen !== 'capstone';
   const canNavigateBack = currentScreen.screen !== 'setup' && currentScreen.screen !== 'main-menu';
+  const breadcrumbLabels = getScreenBreadcrumbs(currentScreen);
+  const backLabel = getContextualBackLabel(currentScreen);
 
   return (
     <>
       {showAppChrome ? (
         <div className="app-frame">
           <header className="app-topbar">
-            <div className="app-topbar-brand">PIANO HERO</div>
-            <div className="app-topbar-title">{getScreenTitle(currentScreen)}</div>
+            <button
+              className="app-topbar-home"
+              onClick={() => setCurrentScreen({ screen: 'main-menu' })}
+              title="Go to Main Menu"
+              type="button"
+            >
+              PIANO HERO
+            </button>
+            <nav className="app-breadcrumbs" aria-label="Breadcrumb">
+              {breadcrumbLabels.map((label, index) => (
+                <span className="app-breadcrumb-entry" key={`${label}-${index}`}>
+                  <span className={`app-breadcrumb${index === breadcrumbLabels.length - 1 ? ' current' : ''}`}>{label}</span>
+                  {index < breadcrumbLabels.length - 1 ? (
+                    <span aria-hidden="true" className="app-breadcrumb-separator">
+                      /
+                    </span>
+                  ) : null}
+                </span>
+              ))}
+            </nav>
             <div className="app-topbar-actions">
               {canNavigateBack ? (
                 <button className="secondary-button chrome-back-button" onClick={handleBackNavigation}>
-                  Back
+                  {backLabel}
                 </button>
               ) : (
                 <div className="app-topbar-spacer" aria-hidden="true" />

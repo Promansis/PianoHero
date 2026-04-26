@@ -875,12 +875,19 @@ function addTreeGrowth(state: SceneState, note: FreePlayVisualNote): void {
 }
 
 function addGalaxyBurst(state: SceneState, note: FreePlayVisualNote, props: FreePlayCanvasSceneProps): void {
-  state.galaxySpinBoost = clamp(state.galaxySpinBoost + note.velocity * 0.012, 0, 0.06);
+  const polyphony = Math.max(1, props.activeNotes.length);
+  const recentClusterSize = state.noteHistory.filter((event) => note.createdAt - event.createdAt <= 180).length;
+  const densityDamping = 1 / (1 + Math.max(0, recentClusterSize - 1) * 0.55 + Math.max(0, polyphony - 1) * 0.24);
+  state.galaxySpinBoost = clamp(
+    state.galaxySpinBoost + note.velocity * 0.0032 * densityDamping,
+    0,
+    0.009,
+  );
   const baseSeed = seededUnit(note.id, 20);
   const pitchRatio = clamp((note.midi - state.adaptiveMin) / Math.max(1, state.adaptiveMax - state.adaptiveMin), 0, 1);
   const baseRadiusRatio = clamp(0.10 + pitchRatio * 0.55 + (baseSeed - 0.5) * 0.08, 0.08, 0.72);
-  const armCount = props.activeNotes.length >= 3 ? 4 : 3;
-  const particleCount = Math.round(10 + note.velocity * 20 + Math.max(0, props.activeNotes.length - 1) * 5);
+  const armCount = polyphony >= 3 ? 4 : 3;
+  const particleCount = Math.round(10 + note.velocity * 20 + Math.max(0, polyphony - 1) * 5);
   for (let index = 0; index < particleCount; index += 1) {
     const particleId = `${note.id}-galaxy-${index}`;
     const seed = seededUnit(particleId, 1);
@@ -893,7 +900,7 @@ function addGalaxyBurst(state: SceneState, note: FreePlayVisualNote, props: Free
       laneRatio: baseRadiusRatio,
       radiusRatio: Math.max(0.04, baseRadiusRatio * (0.45 + seed * 0.75)),
       targetRadiusRatio: baseRadiusRatio * (0.90 + seed * 0.22),
-      spin: 0.0005 + note.velocity * 0.0013 + seed * 0.0006,
+      spin: 0.00009 + note.velocity * 0.00016 * densityDamping + seed * 0.00012,
       size: 1.4 + note.velocity * 3.1 + seed * 1.2,
       hue: (midiToHue(note.midi) + seed * 26) % 360,
       alpha: 0.35 + note.velocity * 0.45,
@@ -1202,10 +1209,13 @@ function updateGenerativeModes(
     state.galaxySupernova = nextGalaxySupernova(state.galaxySupernova, deltaMs, sustainAndHarmony);
   }
   state.galaxySpinBoost = lerp(state.galaxySpinBoost, 0, 0.022);
+  const recentGalaxyParticleCount = state.galaxyParticles.filter((particle) => now - particle.createdAt <= 2200).length;
+  const galaxyLoadDamping = 1 / Math.sqrt(1 + recentGalaxyParticleCount / 28);
   for (const particle of state.galaxyParticles) {
     particle.targetRadiusRatio = particle.laneRatio * (1 + state.galaxySupernova * 0.9);
     particle.radiusRatio = lerp(particle.radiusRatio, particle.targetRadiusRatio, 0.045);
-    particle.angle += (particle.spin + state.galaxySpinBoost) * deltaMs * (1 + state.galaxySupernova * 0.3);
+    particle.angle +=
+      (particle.spin + state.galaxySpinBoost) * deltaMs * galaxyLoadDamping * (1 + state.galaxySupernova * 0.08);
     particle.alpha *= 0.9994;
   }
 
@@ -1533,8 +1543,72 @@ function drawClassicPiano(
   context: CanvasRenderingContext2D,
   width: number,
   height: number,
+  now: number,
+  intensity: number,
+  silence: number,
 ): void {
   drawBackground(context, width, height, '#141a27', '#05070d');
+
+  const idlePulse = (Math.sin(now * 0.00115) + 1) * 0.5;
+  const ambientAlpha = 0.1 + silence * 0.12 + intensity * 0.08;
+  const deckTop = height * 0.7;
+
+  const spotlight = context.createRadialGradient(
+    width * 0.5,
+    height * 0.58,
+    width * 0.04,
+    width * 0.5,
+    height * 0.58,
+    width * 0.62,
+  );
+  spotlight.addColorStop(0, `rgba(188, 222, 255, ${0.12 + idlePulse * 0.08 + intensity * 0.12})`);
+  spotlight.addColorStop(0.52, `rgba(72, 115, 196, ${ambientAlpha})`);
+  spotlight.addColorStop(1, 'rgba(8, 12, 20, 0)');
+  context.fillStyle = spotlight;
+  context.fillRect(0, 0, width, height);
+
+  const sideGlow = context.createLinearGradient(0, 0, width, 0);
+  sideGlow.addColorStop(0, `rgba(88, 132, 214, ${0.09 + silence * 0.05})`);
+  sideGlow.addColorStop(0.18, 'rgba(88, 132, 214, 0)');
+  sideGlow.addColorStop(0.82, 'rgba(88, 132, 214, 0)');
+  sideGlow.addColorStop(1, `rgba(88, 132, 214, ${0.09 + silence * 0.05})`);
+  context.fillStyle = sideGlow;
+  context.fillRect(0, 0, width, height);
+
+  context.fillStyle = 'rgba(6, 10, 18, 0.86)';
+  context.fillRect(0, deckTop, width, height - deckTop);
+
+  context.fillStyle = 'rgba(255, 255, 255, 0.04)';
+  context.fillRect(width * 0.18, deckTop + 6, width * 0.64, 3);
+
+  for (let index = 0; index < 3; index += 1) {
+    const orbit = ((now * (0.00042 + index * 0.00009)) + index * 0.33) % 1;
+    const x = width * (0.22 + orbit * 0.56);
+    const y = height * (0.2 + index * 0.16 + Math.sin(now * 0.001 + index * 2.2) * 0.02);
+    const dust = context.createRadialGradient(x, y, 0, x, y, width * 0.08);
+    dust.addColorStop(0, `rgba(236, 244, 255, ${0.07 + idlePulse * 0.04})`);
+    dust.addColorStop(1, 'rgba(236, 244, 255, 0)');
+    context.fillStyle = dust;
+    context.fillRect(x - width * 0.08, y - width * 0.08, width * 0.16, width * 0.16);
+  }
+
+  context.save();
+  context.globalAlpha = 0.34 + silence * 0.18;
+  context.strokeStyle = 'rgba(179, 214, 255, 0.16)';
+  context.lineWidth = 1;
+  context.beginPath();
+  context.moveTo(width * 0.12, deckTop - 40);
+  context.quadraticCurveTo(width * 0.5, deckTop - 74 - idlePulse * 10, width * 0.88, deckTop - 40);
+  context.stroke();
+  context.restore();
+
+  context.save();
+  context.globalAlpha = 0.72;
+  context.fillStyle = 'rgba(240, 245, 255, 0.84)';
+  context.font = '700 12px "Segoe UI", system-ui, sans-serif';
+  context.textAlign = 'left';
+  context.fillText('Studio listening...', 28, height - 30);
+  context.restore();
 }
 
 function drawColorRibbons(
@@ -2795,7 +2869,7 @@ export function FreePlayCanvasScene(props: FreePlayCanvasSceneProps) {
           drawConcertStage(context, width, height, state, nextProps, now, intensity, pitchCenter, keyCenter.hue);
           break;
         case 'classic-piano':
-          drawClassicPiano(context, width, height);
+          drawClassicPiano(context, width, height, now, intensity, silence);
           break;
         case 'color-ribbons':
           drawColorRibbons(context, width, height, state.ribbons, now, keyCenter.hue, state.adaptiveMin, state.adaptiveMax);

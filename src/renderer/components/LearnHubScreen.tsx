@@ -14,6 +14,18 @@ function countCompletedLessons(lessons: Lesson[], progress: LearningProgress): n
   return lessons.filter((lesson) => !lesson.isStub && isLessonCompleted(progress, lesson.id)).length;
 }
 
+function countCompletedSteps(lesson: Lesson, progress: LearningProgress): number {
+  if (lesson.isStub) {
+    return 0;
+  }
+
+  if (isLessonCompleted(progress, lesson.id)) {
+    return lesson.steps.length;
+  }
+
+  return new Set(progress.completedSteps[lesson.id] ?? []).size;
+}
+
 export function LearnHubScreen({ tiers, progress, onOpenLesson, onToggleGating, onStartCapstone }: LearnHubScreenProps) {
   const [openTierIds, setOpenTierIds] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(tiers.map((tier, index) => [tier.id, index === 0])),
@@ -66,6 +78,7 @@ export function LearnHubScreen({ tiers, progress, onOpenLesson, onToggleGating, 
           const activeLessonCount = tier.lessons.filter((lesson) => !lesson.isStub).length;
           const isOpen = openTierIds[tier.id] ?? false;
           const allLessonsComplete = completedCount === activeLessonCount && activeLessonCount > 0;
+          const tierProgress = activeLessonCount > 0 ? (completedCount / activeLessonCount) * 100 : 0;
           const capstone = tier.capstone;
           const capstoneCleared = capstone ? isTierCapstoneCleared(progress, tier.id, capstone.accuracyThreshold) : false;
           const capstoneBestAccuracy = progress.capstoneResults[tier.id] ?? 0;
@@ -83,7 +96,15 @@ export function LearnHubScreen({ tiers, progress, onOpenLesson, onToggleGating, 
                   <p className="panel-copy">{tier.summary}</p>
                 </div>
                 <div className="learn-tier-meta">
-                  <strong>{completedCount} / {activeLessonCount}</strong>
+                  <div
+                    aria-label={`${completedCount} of ${activeLessonCount} lessons complete`}
+                    className="learn-tier-progress"
+                  >
+                    <div className="learn-tier-progress-bar" aria-hidden="true">
+                      <span style={{ width: `${tierProgress}%` }} />
+                    </div>
+                    <strong>{completedCount} / {activeLessonCount}</strong>
+                  </div>
                   <span>{isOpen ? 'Hide' : 'Show'}</span>
                 </div>
               </button>
@@ -97,6 +118,9 @@ export function LearnHubScreen({ tiers, progress, onOpenLesson, onToggleGating, 
                       const completed = isLessonCompleted(progress, lesson.id);
                       const unlocked = isLessonUnlocked(tiers, progress, lesson);
                       const disabled = lesson.isStub || !unlocked;
+                      const completedStepCount = countCompletedSteps(lesson, progress);
+                      const totalStepCount = lesson.steps.length;
+                      const lessonProgress = totalStepCount > 0 ? (completedStepCount / totalStepCount) * 100 : 0;
                       const statusLabel = lesson.isStub
                         ? 'Coming soon'
                         : completed
@@ -117,6 +141,17 @@ export function LearnHubScreen({ tiers, progress, onOpenLesson, onToggleGating, 
                             <p className="eyebrow">Lesson {lesson.order}</p>
                             <h3>{lesson.title}</h3>
                             <p className="panel-copy">{lesson.summary}</p>
+                            <div
+                              aria-label={`${completedStepCount} of ${totalStepCount} steps completed`}
+                              className="learn-lesson-progress"
+                            >
+                              <div className="learn-lesson-progress-copy">
+                                <strong>{completedStepCount} / {totalStepCount} steps</strong>
+                              </div>
+                              <div className="learn-lesson-progress-bar" aria-hidden="true">
+                                <span style={{ width: `${lessonProgress}%` }} />
+                              </div>
+                            </div>
                           </div>
                           <div className="learn-lesson-meta">
                             <strong>{lesson.estMinutes} min</strong>

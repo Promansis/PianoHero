@@ -22,28 +22,26 @@ function daysAgo(days: number): string {
   return `${year}-${month}-${day}`;
 }
 
-interface WeekComparison {
-  thisWeek: { practiceMinutes: number; songsPlayed: number; avgAccuracy: number | null };
-  lastWeek: { practiceMinutes: number; songsPlayed: number; avgAccuracy: number | null };
+function hasSeriesData<T>(entries: T[], getValue: (entry: T) => number): boolean {
+  return entries.some((entry) => getValue(entry) > 0);
 }
 
-function weekComparisonDelta(current: number, previous: number): string {
-  const diff = current - previous;
-  if (diff === 0) {
-    return '—';
-  }
-  return diff > 0 ? `+${diff}` : `${diff}`;
+function sumSeries<T>(entries: T[], getValue: (entry: T) => number): number {
+  return entries.reduce((total, entry) => total + getValue(entry), 0);
 }
 
 interface ProgressDashboardScreenProps {
   unlockedRewardIds?: Set<string>;
+  onOpenLibrary: () => void;
 }
 
-export function ProgressDashboardScreen({ unlockedRewardIds = new Set() }: ProgressDashboardScreenProps) {
+export function ProgressDashboardScreen({
+  unlockedRewardIds = new Set(),
+  onOpenLibrary,
+}: ProgressDashboardScreenProps) {
   const [stats, setStats] = useState<ProgressStatsResult | null>(null);
   const [streak, setStreak] = useState<PracticeStreak | null>(null);
   const [achievements, setAchievements] = useState<AchievementRow[]>([]);
-  const [weekComparison, setWeekComparison] = useState<WeekComparison | null>(null);
   const [dailyGoalMinutes, setDailyGoalMinutes] = useState<number | null>(null);
   const [todayMinutes, setTodayMinutes] = useState(0);
   const [topSongs, setTopSongs] = useState<TopSongStat[]>([]);
@@ -62,19 +60,15 @@ export function ProgressDashboardScreen({ unlockedRewardIds = new Set() }: Progr
       try {
         const fromDate = daysAgo(29);
         const toDate = daysAgo(0);
-        const thisWeekFrom = daysAgo(6);
-        const lastWeekFrom = daysAgo(13);
-        const lastWeekTo = daysAgo(7);
-        const [nextStats, nextStreak, nextAchievements, thisWeekStats, lastWeekStats, rawDailyGoal, nextTopSongs, nextTroubleSpots] = await Promise.all([
-          window.appBridge.getProgressStats(fromDate, toDate),
-          window.appBridge.getPracticeStreak(),
-          window.appBridge.getAllAchievements(),
-          window.appBridge.getProgressStats(thisWeekFrom, toDate),
-          window.appBridge.getProgressStats(lastWeekFrom, lastWeekTo),
-          window.appBridge.getSetting('practice', 'dailyGoalMinutes'),
-          window.appBridge.getProgressTopSongs(),
-          window.appBridge.getAllUnresolvedTroubleSpots(),
-        ]);
+        const [nextStats, nextStreak, nextAchievements, rawDailyGoal, nextTopSongs, nextTroubleSpots] =
+          await Promise.all([
+            window.appBridge.getProgressStats(fromDate, toDate),
+            window.appBridge.getPracticeStreak(),
+            window.appBridge.getAllAchievements(),
+            window.appBridge.getSetting('practice', 'dailyGoalMinutes'),
+            window.appBridge.getProgressTopSongs(),
+            window.appBridge.getAllUnresolvedTroubleSpots(),
+          ]);
 
         setStats(nextStats);
         setStreak(nextStreak);
@@ -85,36 +79,13 @@ export function ProgressDashboardScreen({ unlockedRewardIds = new Set() }: Progr
         const parsedGoal = Number(rawDailyGoal);
         if (Number.isFinite(parsedGoal) && parsedGoal > 0) {
           setDailyGoalMinutes(parsedGoal);
+        } else {
+          setDailyGoalMinutes(null);
         }
+
         const today = daysAgo(0);
-        const todayEntry = nextStats.practiceTimeByDay.find((d) => d.date === today);
+        const todayEntry = nextStats.practiceTimeByDay.find((entry) => entry.date === today);
         setTodayMinutes(todayEntry?.minutes ?? 0);
-
-        const sumMinutes = (s: ProgressStatsResult) =>
-          s.practiceTimeByDay.reduce((acc, d) => acc + d.minutes, 0);
-        const sumSongs = (s: ProgressStatsResult) =>
-          s.songsPlayedByWeek.reduce((acc, w) => acc + w.count, 0);
-        const avgAccuracy = (s: ProgressStatsResult): number | null => {
-          const entries = s.accuracyTrend.filter((d) => d.avgAccuracy > 0);
-          if (entries.length === 0) {
-            return null;
-          }
-          return Math.round(entries.reduce((acc, d) => acc + d.avgAccuracy, 0) / entries.length * 10) / 10;
-        };
-
-        setWeekComparison({
-          thisWeek: {
-            practiceMinutes: sumMinutes(thisWeekStats),
-            songsPlayed: sumSongs(thisWeekStats),
-            avgAccuracy: avgAccuracy(thisWeekStats),
-          },
-          lastWeek: {
-            practiceMinutes: sumMinutes(lastWeekStats),
-            songsPlayed: sumSongs(lastWeekStats),
-            avgAccuracy: avgAccuracy(lastWeekStats),
-          },
-        });
-
         setErrorMessage(null);
       } catch (error) {
         setErrorMessage((error as Error).message);
@@ -130,6 +101,33 @@ export function ProgressDashboardScreen({ unlockedRewardIds = new Set() }: Progr
     () => achievements.filter((achievement) => achievement.unlockedAt),
     [achievements],
   );
+  const averageAccuracy = useMemo(() => {
+    if (!stats) {
+      return null;
+    }
+
+    const entries = stats.accuracyTrend.filter((entry) => entry.avgAccuracy > 0);
+    if (entries.length === 0) {
+      return null;
+    }
+
+    return Math.round((entries.reduce((total, entry) => total + entry.avgAccuracy, 0) / entries.length) * 10) / 10;
+  }, [stats]);
+  const songsPlayedTotal = useMemo(
+    () => (stats ? sumSeries(stats.songsPlayedByWeek, (entry) => entry.count) : 0),
+    [stats],
+  );
+  const practiceTimeHasData = stats ? hasSeriesData(stats.practiceTimeByDay, (entry) => entry.minutes) : false;
+  const accuracyHasData = stats ? hasSeriesData(stats.accuracyTrend, (entry) => entry.avgAccuracy) : false;
+  const songsPlayedHasData = stats ? hasSeriesData(stats.songsPlayedByWeek, (entry) => entry.count) : false;
+  const hasMeaningfulProgress = Boolean(
+    stats &&
+      (stats.totalStats.totalPracticeTimeSec > 0 || songsPlayedHasData || accuracyHasData),
+  );
+  const dailyGoalProgress =
+    dailyGoalMinutes && dailyGoalMinutes > 0
+      ? Math.min(100, Math.round((todayMinutes / dailyGoalMinutes) * 100))
+      : 0;
 
   if (isLoading) {
     return (
@@ -145,7 +143,7 @@ export function ProgressDashboardScreen({ unlockedRewardIds = new Set() }: Progr
   if (!stats || !streak) {
     return (
       <main className="app-shell progress-dashboard-screen">
-        <section className="panel library-header">
+        <section className="panel progress-hero-card progress-empty-state-card">
           <div>
             <p className="eyebrow">Progress Dashboard</p>
             <h1>Progress unavailable</h1>
@@ -156,164 +154,138 @@ export function ProgressDashboardScreen({ unlockedRewardIds = new Set() }: Progr
     );
   }
 
+  if (!hasMeaningfulProgress) {
+    return (
+      <main className="app-shell progress-dashboard-screen">
+        <section className="panel progress-hero-card progress-empty-state-card">
+          <div>
+            <p className="eyebrow">Progress Dashboard</p>
+            <h1>Nothing to chart yet</h1>
+            <p className="song-title">
+              Import a song, play a session, or finish a lesson so this dashboard has real practice data to track.
+            </p>
+          </div>
+          <div className="progress-empty-state-actions">
+            <button className="primary-button" onClick={onOpenLibrary}>
+              Go to Library
+            </button>
+            {errorMessage ? <p className="panel-copy">{errorMessage}</p> : null}
+          </div>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="app-shell progress-dashboard-screen">
-      <section className="panel library-header">
-        <div>
+      <section className="panel progress-hero-card">
+        <div className="progress-hero-copy">
           <p className="eyebrow">Progress Dashboard</p>
           <h1>
-            Long-term practice view
-            {isRewardUnlocked('title:maestro', unlockedRewardIds) && (
+            Current streak
+            {isRewardUnlocked('title:maestro', unlockedRewardIds) ? (
               <span className="maestro-title-badge"> · Maestro</span>
-            )}
+            ) : null}
           </h1>
-          <p className="song-title">Track consistency, workload, and how cleanly your scores are trending.</p>
+          <p className="song-title">Keep your chain alive, keep your charts moving, and make the next session count.</p>
+        </div>
+        <div className="progress-hero-highlight">
+          <strong>{streak.currentStreak}</strong>
+          <span>{streak.currentStreak === 1 ? 'day in a row' : 'days in a row'}</span>
+        </div>
+        <div className="progress-hero-stats">
+          <article className="progress-hero-stat">
+            <span>Total Practice</span>
+            <strong>{formatDuration(stats.totalStats.totalPracticeTimeSec)}</strong>
+          </article>
+          <article className="progress-hero-stat">
+            <span>Songs Played</span>
+            <strong>{songsPlayedTotal}</strong>
+          </article>
+          <article className="progress-hero-stat">
+            <span>Accuracy Avg</span>
+            <strong>{averageAccuracy !== null ? `${averageAccuracy}%` : 'No scored runs'}</strong>
+          </article>
+          <article className="progress-hero-stat">
+            <span>Longest Streak</span>
+            <strong>{streak.longestStreak} days</strong>
+          </article>
+          {dailyGoalMinutes !== null ? (
+            <article className="progress-hero-stat progress-hero-stat-goal">
+              <span>Today&apos;s Goal</span>
+              <strong>
+                {todayMinutes}m / {dailyGoalMinutes}m
+              </strong>
+              <div className="daily-goal-bar-track">
+                <div className="daily-goal-bar-fill" style={{ width: `${dailyGoalProgress}%` }} />
+              </div>
+            </article>
+          ) : null}
         </div>
       </section>
 
-      <section className="dashboard-stat-grid">
-        <article className="panel dashboard-stat-card">
-          <span>Total Songs</span>
-          <strong>{stats.totalStats.totalSongs}</strong>
-        </article>
-        <article className="panel dashboard-stat-card">
-          <span>Mastered</span>
-          <strong>{stats.totalStats.songsMastered}</strong>
-        </article>
-        <article className="panel dashboard-stat-card">
-          <span>Practice Time</span>
-          <strong>{formatDuration(stats.totalStats.totalPracticeTimeSec)}</strong>
-        </article>
-        <article className="panel dashboard-stat-card">
-          <span>Favorite Genre</span>
-          <strong>{stats.totalStats.favoriteGenre}</strong>
-        </article>
-      </section>
-
-      {dailyGoalMinutes !== null && (
-        <section className="panel daily-goal-panel">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">Daily Goal</p>
-              <h2>Today&apos;s practice</h2>
-            </div>
-            <strong className="daily-goal-fraction">{todayMinutes}m / {dailyGoalMinutes}m</strong>
-          </div>
-          <div className="daily-goal-bar-track">
-            <div
-              className="daily-goal-bar-fill"
-              style={{ width: `${Math.min(100, Math.round((todayMinutes / dailyGoalMinutes) * 100))}%` }}
+      <section className="dashboard-chart-grid progress-primary-chart-grid">
+        <article className="panel chart-panel">
+          {practiceTimeHasData ? (
+            <LineChart
+              title="Practice Time"
+              color="var(--color-accent)"
+              data={stats.practiceTimeByDay.map((entry) => ({
+                label: entry.date.slice(5),
+                value: entry.minutes,
+              }))}
+              emptyLabel="No practice time recorded yet."
             />
-          </div>
-          <p className="panel-copy">
-            {todayMinutes >= dailyGoalMinutes
-              ? 'Goal reached for today.'
-              : `${dailyGoalMinutes - todayMinutes} minute${dailyGoalMinutes - todayMinutes === 1 ? '' : 's'} remaining to hit your daily goal.`}
-          </p>
-        </section>
-      )}
-
-      <section className="dashboard-chart-grid">
-        <article className="panel chart-panel">
-          <LineChart
-            title="Practice Time (Last 30 Days)"
-            color="var(--color-accent)"
-            data={stats.practiceTimeByDay.map((entry) => ({
-              label: entry.date.slice(5),
-              value: entry.minutes,
-            }))}
-            emptyLabel="No practice time recorded yet."
-          />
-        </article>
-        <article className="panel chart-panel">
-          <BarChart
-            title="Songs Played Per Week"
-            color="var(--color-accent-secondary)"
-            data={stats.songsPlayedByWeek.map((entry) => ({
-              label: entry.weekStart.slice(5),
-              value: entry.count,
-            }))}
-            emptyLabel="No weekly song history yet."
-          />
-        </article>
-        <article className="panel chart-panel">
-          <LineChart
-            title="Accuracy Trend"
-            color="var(--color-good)"
-            data={stats.accuracyTrend.map((entry) => ({
-              label: entry.date.slice(5),
-              value: entry.avgAccuracy,
-            }))}
-            maxValue={100}
-            emptyLabel="No scored song sessions yet."
-          />
-        </article>
-      </section>
-
-      <section className="dashboard-chart-grid dashboard-chart-grid--two-col">
-        <article className="panel chart-panel">
-          <BarChart
-            title="Theory Sessions (Last 30 Days)"
-            color="var(--color-ok)"
-            data={stats.theorySessionsByDay.map((entry) => ({
-              label: entry.date.slice(5),
-              value: entry.sessions,
-            }))}
-            emptyLabel="No theory sessions recorded yet."
-          />
-        </article>
-        <article className="panel hit-quality-panel">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">Hit Quality (Last 30 Days)</p>
-              <h2>Note breakdown</h2>
+          ) : (
+            <div className="progress-inline-empty">
+              <p className="eyebrow">Practice Time</p>
+              <h2>Practice time will show up here.</h2>
+              <p className="panel-copy">Play or learn a song to start building the timeline.</p>
             </div>
-          </div>
-          {(() => {
-            const { perfect, good, ok, misses } = stats.hitQuality;
-            const total = perfect + good + ok + misses;
-            if (total === 0) {
-              return <p className="empty-state">No scored sessions yet.</p>;
-            }
-            const pct = (n: number) => Math.round((n / total) * 100);
-            return (
-              <>
-                <div className="hit-quality-bar">
-                  <div className="hit-quality-segment hit-quality-perfect" style={{ width: `${pct(perfect)}%` }} />
-                  <div className="hit-quality-segment hit-quality-good" style={{ width: `${pct(good)}%` }} />
-                  <div className="hit-quality-segment hit-quality-ok" style={{ width: `${pct(ok)}%` }} />
-                  <div className="hit-quality-segment hit-quality-miss" style={{ width: `${pct(misses)}%` }} />
-                </div>
-                <div className="hit-quality-legend">
-                  <div className="hit-quality-legend-item">
-                    <span className="hit-quality-dot hit-quality-perfect" />
-                    <span>Perfect</span>
-                    <strong>{pct(perfect)}%</strong>
-                  </div>
-                  <div className="hit-quality-legend-item">
-                    <span className="hit-quality-dot hit-quality-good" />
-                    <span>Good</span>
-                    <strong>{pct(good)}%</strong>
-                  </div>
-                  <div className="hit-quality-legend-item">
-                    <span className="hit-quality-dot hit-quality-ok" />
-                    <span>OK</span>
-                    <strong>{pct(ok)}%</strong>
-                  </div>
-                  <div className="hit-quality-legend-item">
-                    <span className="hit-quality-dot hit-quality-miss" />
-                    <span>Miss</span>
-                    <strong>{pct(misses)}%</strong>
-                  </div>
-                </div>
-                <p className="panel-copy">{total.toLocaleString()} notes judged</p>
-              </>
-            );
-          })()}
+          )}
+        </article>
+        <article className="panel chart-panel">
+          {accuracyHasData ? (
+            <LineChart
+              title="Accuracy Trend"
+              color="var(--color-good)"
+              data={stats.accuracyTrend.map((entry) => ({
+                label: entry.date.slice(5),
+                value: entry.avgAccuracy,
+              }))}
+              maxValue={100}
+              emptyLabel="No scored song sessions yet."
+            />
+          ) : (
+            <div className="progress-inline-empty">
+              <p className="eyebrow">Accuracy Trend</p>
+              <h2>Scored sessions will fill this chart.</h2>
+              <p className="panel-copy">Use Play mode to track how cleanly your runs are improving.</p>
+            </div>
+          )}
+        </article>
+        <article className="panel chart-panel">
+          {songsPlayedHasData ? (
+            <BarChart
+              title="Songs Played"
+              color="var(--color-accent-secondary)"
+              data={stats.songsPlayedByWeek.map((entry) => ({
+                label: entry.weekStart.slice(5),
+                value: entry.count,
+              }))}
+              emptyLabel="No weekly song history yet."
+            />
+          ) : (
+            <div className="progress-inline-empty">
+              <p className="eyebrow">Songs Played</p>
+              <h2>Your weekly play count starts here.</h2>
+              <p className="panel-copy">Open the library and finish a few sessions to give this chart shape.</p>
+            </div>
+          )}
         </article>
       </section>
 
-      <section className="dashboard-meta-grid">
+      <section className="progress-secondary-grid">
         <article className="panel top-songs-panel">
           <div className="panel-heading">
             <div>
@@ -328,7 +300,9 @@ export function ProgressDashboardScreen({ unlockedRewardIds = new Set() }: Progr
               {topSongs.map((song, index) => (
                 <li key={song.songId} className="top-songs-item">
                   <span className="top-songs-rank">{index + 1}</span>
-                  <span className="top-songs-title">{song.title}</span>
+                  <span className="top-songs-title" title={song.title}>
+                    {song.title}
+                  </span>
                   <span className="top-songs-plays">{song.playCount}×</span>
                   <span className="top-songs-accuracy">{Math.round(song.bestAccuracy)}%</span>
                 </li>
@@ -351,115 +325,24 @@ export function ProgressDashboardScreen({ unlockedRewardIds = new Set() }: Progr
               {troubleSpots.map((spot) => (
                 <li key={spot.id} className="trouble-spots-global-item">
                   <div className="trouble-spots-global-main">
-                    <strong className="trouble-spots-global-song">{spot.songTitle}</strong>
-                    <span className="trouble-spots-global-range">Measures {spot.measureStart}–{spot.measureEnd}</span>
+                    <strong className="trouble-spots-global-song" title={spot.songTitle}>
+                      {spot.songTitle}
+                    </strong>
+                    <span className="trouble-spots-global-range">
+                      Measures {spot.measureStart}–{spot.measureEnd}
+                    </span>
                   </div>
                   <div className="trouble-spots-global-stats">
-                    {spot.latestAccuracy !== null && (
+                    {spot.latestAccuracy !== null ? (
                       <span className="trouble-spots-global-acc">{Math.round(spot.latestAccuracy)}%</span>
-                    )}
-                    {spot.struggleCount > 0 && (
+                    ) : null}
+                    {spot.struggleCount > 0 ? (
                       <span className="trouble-spots-global-struggles">×{spot.struggleCount}</span>
-                    )}
+                    ) : null}
                   </div>
                 </li>
               ))}
             </ul>
-          )}
-        </article>
-      </section>
-
-      {weekComparison && (
-        <section className="panel week-comparison-panel">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">Week over Week</p>
-              <h2>This week vs last week</h2>
-            </div>
-          </div>
-          <div className="week-comparison-grid">
-            <div className="week-comparison-col">
-              <p className="eyebrow">This Week</p>
-              <div className="result-stat">
-                <span>Practice Time</span>
-                <strong>{weekComparison.thisWeek.practiceMinutes}m</strong>
-              </div>
-              <div className="result-stat">
-                <span>Songs Played</span>
-                <strong>{weekComparison.thisWeek.songsPlayed}</strong>
-              </div>
-              <div className="result-stat">
-                <span>Avg Accuracy</span>
-                <strong>{weekComparison.thisWeek.avgAccuracy !== null ? `${weekComparison.thisWeek.avgAccuracy}%` : '—'}</strong>
-              </div>
-            </div>
-            <div className="week-comparison-col week-comparison-deltas">
-              <p className="eyebrow">Change</p>
-              <div className="result-stat">
-                <span>Time</span>
-                <strong>{weekComparisonDelta(weekComparison.thisWeek.practiceMinutes, weekComparison.lastWeek.practiceMinutes)}m</strong>
-              </div>
-              <div className="result-stat">
-                <span>Songs</span>
-                <strong>{weekComparisonDelta(weekComparison.thisWeek.songsPlayed, weekComparison.lastWeek.songsPlayed)}</strong>
-              </div>
-              <div className="result-stat">
-                <span>Accuracy</span>
-                <strong>
-                  {weekComparison.thisWeek.avgAccuracy !== null && weekComparison.lastWeek.avgAccuracy !== null
-                    ? (() => {
-                        const diff = Math.round((weekComparison.thisWeek.avgAccuracy - weekComparison.lastWeek.avgAccuracy) * 10) / 10;
-                        return diff === 0 ? '—' : `${diff > 0 ? '+' : ''}${diff}%`;
-                      })()
-                    : '—'}
-                </strong>
-              </div>
-            </div>
-            <div className="week-comparison-col">
-              <p className="eyebrow">Last Week</p>
-              <div className="result-stat">
-                <span>Practice Time</span>
-                <strong>{weekComparison.lastWeek.practiceMinutes}m</strong>
-              </div>
-              <div className="result-stat">
-                <span>Songs Played</span>
-                <strong>{weekComparison.lastWeek.songsPlayed}</strong>
-              </div>
-              <div className="result-stat">
-                <span>Avg Accuracy</span>
-                <strong>{weekComparison.lastWeek.avgAccuracy !== null ? `${weekComparison.lastWeek.avgAccuracy}%` : '—'}</strong>
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
-
-      <section className="dashboard-meta-grid">
-        <article className="panel streak-panel">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">Practice Streaks</p>
-              <h2>Consistency</h2>
-            </div>
-          </div>
-          <div className="streak-values">
-            <div>
-              <span>Current</span>
-              <strong>{streak.currentStreak} days</strong>
-            </div>
-            <div>
-              <span>Longest</span>
-              <strong>{streak.longestStreak} days</strong>
-            </div>
-          </div>
-          <div className="streak-badges">
-            <span className={streak.currentStreak >= 7 ? 'milestone-badge unlocked' : 'milestone-badge'}>7-day streak</span>
-            <span className={streak.currentStreak >= 30 ? 'milestone-badge unlocked' : 'milestone-badge'}>30-day streak</span>
-          </div>
-          {streak.streakFreezes > 0 && (
-            <p className="streak-freeze-info">
-              {streak.streakFreezes} streak freeze{streak.streakFreezes !== 1 ? 's' : ''} available — used automatically if you miss a day
-            </p>
           )}
         </article>
 
@@ -467,14 +350,16 @@ export function ProgressDashboardScreen({ unlockedRewardIds = new Set() }: Progr
           <div className="panel-heading">
             <div>
               <p className="eyebrow">Achievements</p>
-              <h2>Unlocked Milestones</h2>
+              <h2>Unlocked milestones</h2>
             </div>
           </div>
           {unlockedAchievements.length === 0 ? (
             <p className="empty-state">No achievements unlocked yet.</p>
           ) : (
             <div className="achievement-grid">
-              {ACHIEVEMENTS.filter((achievement) => unlockedAchievements.some((row) => row.id === achievement.id)).map((achievement) => (
+              {ACHIEVEMENTS.filter((achievement) =>
+                unlockedAchievements.some((row) => row.id === achievement.id),
+              ).map((achievement) => (
                 <article className="achievement-card unlocked" key={achievement.id}>
                   <span className="achievement-card-icon">{achievement.icon}</span>
                   <strong>{achievement.name}</strong>

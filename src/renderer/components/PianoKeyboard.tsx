@@ -10,6 +10,12 @@ export interface KeyboardOverlayEffect {
   alt: string;
 }
 
+export interface KeyboardKeyLabel {
+  text: string;
+  title?: string;
+  ariaLabel?: string;
+}
+
 interface PianoKeyboardProps {
   activeNotes: number[];
   upcomingNotes: Array<{ midi: number; hand: Hand; finger?: number; priority?: NotePriority }>;
@@ -17,7 +23,7 @@ interface PianoKeyboardProps {
   highlightColor?: 'scale' | 'chord';
   chordLabel?: string | null;
   size?: 'small' | 'medium' | 'large';
-  keyLabels?: Partial<Record<number, string>>;
+  keyLabels?: Partial<Record<number, KeyboardKeyLabel>>;
   heading?: string;
   copy?: string;
   minMidi?: number;
@@ -98,15 +104,24 @@ export function PianoKeyboard({
             const cue = upcoming.get(key.midi);
             const isActive = activeSet.has(key.midi);
             const isHighlighted = matchesHighlight(key.midi, highlightedNotes);
+            const labelConfig = keyLabels[key.midi];
+            const labelText = labelConfig?.text ?? (key.note.startsWith('C') ? key.note : '');
+            const labelTitle = labelConfig?.title;
+            const keyTitle = labelTitle ?? key.note;
+            const keyAriaLabel = labelConfig?.ariaLabel ?? keyTitle;
             return (
               <div
                 key={key.midi}
                 className={`white-key ${isActive ? 'active' : ''} ${cue ? `cue-${cue.priority ?? cue.hand}` : ''} ${isHighlighted ? `${highlightColor}-highlight` : ''}`}
                 style={{ width: `${whiteKeyWidth}%` }}
-                title={key.note}
+                aria-label={keyAriaLabel}
+                title={keyTitle}
               >
-                <span className={`key-caption${keyLabels[key.midi] ? ' custom' : ''}`}>
-                  {keyLabels[key.midi] ?? (key.note.startsWith('C') ? key.note : '')}
+                <span
+                  className={`key-caption${labelConfig ? ' custom' : ''}`}
+                  title={labelTitle}
+                >
+                  {labelText}
                 </span>
                 {cue?.finger !== undefined && (
                   <strong className={`key-finger${cue.priority ? ` finger-${cue.priority}` : ''}`}>{cue.finger}</strong>
@@ -121,14 +136,22 @@ export function PianoKeyboard({
             const cue = upcoming.get(key.midi);
             const isActive = activeSet.has(key.midi);
             const isHighlighted = matchesHighlight(key.midi, highlightedNotes);
+            const labelConfig = keyLabels[key.midi];
+            const keyTitle = labelConfig?.title ?? key.note;
+            const keyAriaLabel = labelConfig?.ariaLabel ?? keyTitle;
             return (
               <div
                 key={key.midi}
                 className={`black-key ${isActive ? 'active' : ''} ${cue ? `cue-${cue.priority ?? cue.hand}` : ''} ${isHighlighted ? `${highlightColor}-highlight` : ''}`}
                 style={{ left: `${key.left}%`, width: `${whiteKeyWidth * BLACK_KEY_WIDTH}%` }}
-                title={key.note}
+                aria-label={keyAriaLabel}
+                title={keyTitle}
               >
-                {keyLabels[key.midi] && <span className="key-caption black">{keyLabels[key.midi]}</span>}
+                {labelConfig ? (
+                  <span className="key-caption black" title={labelConfig.title}>
+                    {labelConfig.text}
+                  </span>
+                ) : null}
                 {cue?.finger !== undefined && (
                   <strong className={`key-finger black${cue.priority ? ` finger-${cue.priority}` : ''}`}>{cue.finger}</strong>
                 )}

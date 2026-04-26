@@ -11,6 +11,7 @@ interface LibrarySidebarProps {
   activeView: LibraryActiveView;
   folders: FolderRow[];
   playlists: PlaylistRow[];
+  framed?: boolean;
   onChangeView: (view: LibraryActiveView) => void;
   onCreateFolder: (name: string) => void;
   onRenameFolder: (folderId: string, name: string) => void;
@@ -34,7 +35,7 @@ export function LibrarySidebar(props: LibrarySidebarProps) {
   const [draftName, setDraftName] = useState('');
 
   return (
-    <aside className="panel library-sidebar">
+    <aside className={`library-sidebar${props.framed === false ? ' library-sidebar-embedded' : ' panel'}`}>
       <div className="sidebar-section">
         <button
           className={isActive(props.activeView, 'all') ? 'primary-button' : 'secondary-button'}
@@ -52,12 +53,17 @@ export function LibrarySidebar(props: LibrarySidebarProps) {
 
       <div className="sidebar-section">
         <div className="sidebar-section-header">
-          <button className="secondary-button" onClick={() => setShowFolders((value) => !value)}>
+          <button
+            className="secondary-button"
+            aria-expanded={showFolders}
+            aria-controls="library-sidebar-folders"
+            onClick={() => setShowFolders((value) => !value)}
+          >
             {showFolders ? 'Hide Folders' : 'Show Folders'}
           </button>
         </div>
         {showFolders && (
-          <>
+          <div id="library-sidebar-folders">
             <div className="sidebar-list">
               {props.folders.map((folder) => (
                 <div key={folder.id} className="sidebar-row">
@@ -115,18 +121,23 @@ export function LibrarySidebar(props: LibrarySidebarProps) {
                 Add
               </button>
             </div>
-          </>
+          </div>
         )}
       </div>
 
       <div className="sidebar-section">
         <div className="sidebar-section-header">
-          <button className="secondary-button" onClick={() => setShowPlaylists((value) => !value)}>
+          <button
+            className="secondary-button"
+            aria-expanded={showPlaylists}
+            aria-controls="library-sidebar-playlists"
+            onClick={() => setShowPlaylists((value) => !value)}
+          >
             {showPlaylists ? 'Hide Playlists' : 'Show Playlists'}
           </button>
         </div>
         {showPlaylists && (
-          <>
+          <div id="library-sidebar-playlists">
             <div className="sidebar-list">
               {props.playlists.map((playlist) => (
                 <div key={playlist.id} className="sidebar-row">
@@ -186,7 +197,7 @@ export function LibrarySidebar(props: LibrarySidebarProps) {
                 Add
               </button>
             </div>
-          </>
+          </div>
         )}
       </div>
     </aside>

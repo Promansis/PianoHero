@@ -133,6 +133,12 @@ function withinDateRange(date: string, from: string, to: string): boolean {
   return true;
 }
 
+function isCompactLibraryViewport(): boolean {
+  return typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+    ? window.matchMedia('(max-width: 780px)').matches
+    : false;
+}
+
 export function LibraryScreen({
   audioEngine,
   onStartSession,
@@ -151,9 +157,14 @@ export function LibraryScreen({
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [difficultyFilter, setDifficultyFilter] = useState<DifficultyFilter>('all');
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [isMobileLayout, setIsMobileLayout] = useState(() => isCompactLibraryViewport());
+  const [viewMode, setViewMode] = useState<ViewMode>(() => (isCompactLibraryViewport() ? 'list' : 'grid'));
   const [advancedFilters, setAdvancedFilters] = useState<LibraryAdvancedFilters>(EMPTY_ADVANCED_FILTERS);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [showCollectionsDisclosure, setShowCollectionsDisclosure] = useState(false);
+  const [showRecommendationsPanel, setShowRecommendationsPanel] = useState(() => !isCompactLibraryViewport());
+  const [showPracticePlanPanel, setShowPracticePlanPanel] = useState(() => !isCompactLibraryViewport());
+  const [showMaintenanceTools, setShowMaintenanceTools] = useState(false);
   const [selectedTagFilters, setSelectedTagFilters] = useState<string[]>([]);
   const [selectedSongIds, setSelectedSongIds] = useState<Set<string>>(new Set());
   const [statusMessage, setStatusMessage] = useState('Build your library by importing MIDI files.');
@@ -166,6 +177,7 @@ export function LibraryScreen({
   const [draft, setDraft] = useState<SongDraft | null>(null);
   const [recommendations, setRecommendations] = useState<RecommendationResult | null>(null);
   const [previewSongId, setPreviewSongId] = useState<string | null>(null);
+  const [expandedSongActionsId, setExpandedSongActionsId] = useState<string | null>(null);
   const previewTimeoutsRef = useRef<number[]>([]);
   const [userPresets, setUserPresets] = useState<FilterPreset[]>(() => {
     try {
@@ -221,6 +233,49 @@ export function LibraryScreen({
   useEffect(() => {
     void refreshLibrary();
   }, []);
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') {
+      return;
+    }
+
+    const mediaQuery = window.matchMedia('(max-width: 780px)');
+    const updateLayout = (matches: boolean) => {
+      setIsMobileLayout(matches);
+    };
+
+    updateLayout(mediaQuery.matches);
+
+    const handleChange = (event: MediaQueryListEvent) => {
+      updateLayout(event.matches);
+    };
+
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', handleChange);
+      return () => {
+        mediaQuery.removeEventListener('change', handleChange);
+      };
+    }
+
+    mediaQuery.addListener(handleChange);
+    return () => {
+      mediaQuery.removeListener(handleChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isMobileLayout) {
+      setViewMode('list');
+      setShowCollectionsDisclosure(false);
+      setShowRecommendationsPanel(false);
+      setShowPracticePlanPanel(false);
+      return;
+    }
+
+    setShowCollectionsDisclosure(false);
+    setShowRecommendationsPanel(true);
+    setShowPracticePlanPanel(true);
+  }, [isMobileLayout]);
 
   useEffect(() => {
     const loadPlaylistSongs = async () => {
@@ -702,9 +757,20 @@ export function LibraryScreen({
       : activeView.type === 'favorites'
         ? 'Favorites'
         : 'All Songs';
+  const contentDescription = currentPlaylist
+    ? `${visibleSongs.length} song${visibleSongs.length === 1 ? '' : 's'} in this playlist.`
+    : activeView.type === 'folder'
+      ? `${visibleSongs.length} song${visibleSongs.length === 1 ? '' : 's'} in this folder.`
+      : activeView.type === 'favorites'
+        ? `${visibleSongs.length} saved favorite${visibleSongs.length === 1 ? '' : 's'} ready to revisit.`
+        : `${visibleSongs.length} of ${songs.length} song${songs.length === 1 ? '' : 's'} visible in your library.`;
 
   const renderSongCard = (song: SongRow) => {
     const stats = statsBySongId[song.id];
+    const artistName = song.artist.trim();
+    const folderName = song.folderId ? folders.find((folder) => folder.id === song.folderId)?.name ?? 'Folder' : 'Unfiled';
+    const moreActionsOpen = expandedSongActionsId === song.id;
+    const moreActionsId = `song-card-more-actions-${song.id}`;
 
     return (
       <article className="panel song-card" key={song.id}>
@@ -730,8 +796,14 @@ export function LibraryScreen({
             </label>
             <div>
               <p className="eyebrow">{song.genre || 'Library Song'}</p>
-              <h2>{song.title}</h2>
-              <p className="panel-copy">{song.artist || 'Unknown artist'}</p>
+              <h2 className="song-card-title" title={song.title}>
+                {song.title}
+              </h2>
+              {artistName ? (
+                <p className="panel-copy song-card-artist" title={artistName}>
+                  {artistName}
+                </p>
+              ) : null}
             </div>
           </div>
         </div>
@@ -742,7 +814,9 @@ export function LibraryScreen({
           </span>
           <span>{formatDuration(song.durationSec)}</span>
           <span>{Math.round(song.bpm)} BPM</span>
-          <span>{song.folderId ? folders.find((folder) => folder.id === song.folderId)?.name ?? 'Folder' : 'Unfiled'}</span>
+          <span className="song-card-folder" title={folderName}>
+            {folderName}
+          </span>
         </div>
 
         {song.tags.length > 0 && (
@@ -793,25 +867,37 @@ export function LibraryScreen({
           <button className="secondary-button" onClick={() => { stopPreview(); onStartSession(song, 'learning'); }}>
             Learn
           </button>
-          <button className="secondary-button" onClick={() => { stopPreview(); onStartSession(song, 'performance'); }}>
-            Perform
-          </button>
-          {previewSongId === song.id ? (
-            <button className="secondary-button" onClick={stopPreview}>
-              Stop Preview
-            </button>
-          ) : (
-            <button className="secondary-button" onClick={() => void handlePreview(song)} disabled={previewSongId !== null}>
-              Preview
-            </button>
-          )}
-          <button className="secondary-button" onClick={() => setEditingSongId(song.id)}>
-            Edit Metadata
-          </button>
-          <button className="secondary-button favorite-toggle" onClick={() => void handleToggleFavorite(song.id)}>
-            {song.isFavorite ? 'Favorite' : 'Mark Favorite'}
+          <button
+            className={moreActionsOpen ? 'primary-button' : 'secondary-button'}
+            aria-expanded={moreActionsOpen}
+            aria-controls={moreActionsId}
+            onClick={() => setExpandedSongActionsId((current) => (current === song.id ? null : song.id))}
+          >
+            {moreActionsOpen ? 'Less' : 'More'}
           </button>
         </div>
+        {moreActionsOpen ? (
+          <div className="song-card-more-actions" id={moreActionsId}>
+            <button className="secondary-button" onClick={() => { stopPreview(); onStartSession(song, 'performance'); }}>
+              Perform
+            </button>
+            {previewSongId === song.id ? (
+              <button className="secondary-button" onClick={stopPreview}>
+                Stop Preview
+              </button>
+            ) : (
+              <button className="secondary-button" onClick={() => void handlePreview(song)} disabled={previewSongId !== null}>
+                Preview
+              </button>
+            )}
+            <button className="secondary-button" onClick={() => setEditingSongId(song.id)}>
+              Edit Metadata
+            </button>
+            <button className="secondary-button favorite-toggle" onClick={() => void handleToggleFavorite(song.id)}>
+              {song.isFavorite ? 'Favorite' : 'Mark Favorite'}
+            </button>
+          </div>
+        ) : null}
       </article>
     );
   };
@@ -822,6 +908,27 @@ export function LibraryScreen({
     { title: 'You Might Like', items: recommendations.youMightLike },
     { title: 'Revisit', items: recommendations.revisit },
   ] : [];
+  const handleChangeView = (view: LibraryActiveView) => {
+    setActiveView(view);
+    setSelectedSongIds(new Set());
+    setExpandedSongActionsId(null);
+    setShowCollectionsDisclosure(false);
+  };
+  const sidebarContent = (
+    <LibrarySidebar
+      activeView={activeView}
+      folders={folders}
+      playlists={playlists}
+      framed={!isMobileLayout}
+      onChangeView={handleChangeView}
+      onCreateFolder={(name) => void handleCreateFolder(name)}
+      onRenameFolder={(folderId, name) => void handleRenameFolder(folderId, name)}
+      onDeleteFolder={(folderId) => void handleDeleteFolder(folderId)}
+      onCreatePlaylist={(name) => void handleCreatePlaylist(name)}
+      onRenamePlaylist={(playlistId, name) => void handleRenamePlaylist(playlistId, name)}
+      onDeletePlaylist={(playlistId) => void handleDeletePlaylist(playlistId)}
+    />
+  );
 
   return (
     <main className="app-shell library-screen">
@@ -880,120 +987,21 @@ export function LibraryScreen({
       </section>
 
       <section className="library-layout">
-        <LibrarySidebar
-          activeView={activeView}
-          folders={folders}
-          playlists={playlists}
-          onChangeView={(view) => {
-            setActiveView(view);
-            setSelectedSongIds(new Set());
-          }}
-          onCreateFolder={(name) => void handleCreateFolder(name)}
-          onRenameFolder={(folderId, name) => void handleRenameFolder(folderId, name)}
-          onDeleteFolder={(folderId) => void handleDeleteFolder(folderId)}
-          onCreatePlaylist={(name) => void handleCreatePlaylist(name)}
-          onRenamePlaylist={(playlistId, name) => void handleRenamePlaylist(playlistId, name)}
-          onDeletePlaylist={(playlistId) => void handleDeletePlaylist(playlistId)}
-        />
+        {!isMobileLayout ? sidebarContent : null}
 
         <div className="library-content">
-          {activeView.type === 'all' && (
-            <section className="panel recommendations-section">
-              <div className="panel-heading">
-                <div>
-                  <p className="eyebrow">Recommended for You</p>
-                  <h2>What to play next</h2>
-                </div>
+          <section className="tag-filter-summary">
+            <div className="panel active-filters-panel library-collection-summary">
+              <div>
+                <p className="eyebrow">{activeView.type === 'all' ? 'Library Overview' : 'Current Collection'}</p>
+                <h2>{contentTitle}</h2>
+                <p className="panel-copy">{contentDescription}</p>
               </div>
-              {isRecommendationsLoading ? (
-                <div className="loading-spinner" />
-              ) : recommendationGroups.every((group) => group.items.length === 0) ? (
-                <p className="empty-state">Play a few sessions to unlock personalized recommendations.</p>
-              ) : (
-                <div className="recommendation-groups">
-                  {recommendationGroups.map((group) => (
-                    <article className="recommendation-group" key={group.title}>
-                      <div className="recommendation-group-header">
-                        <h3>{group.title}</h3>
-                      </div>
-                      <div className="recommendation-carousel">
-                        {group.items.map((item) => (
-                          <article className="recommendation-card" key={`${group.title}-${item.song.id}`}>
-                            <p className="eyebrow">{item.song.genre || 'Library Pick'}</p>
-                            <h3>{item.song.title}</h3>
-                            <p className="panel-copy">{item.reason}</p>
-                            <div className="song-card-meta">
-                              <span>Difficulty {item.song.difficulty}</span>
-                              <span>{Math.round(item.song.bpm)} BPM</span>
-                            </div>
-                            <div className="song-card-actions">
-                              <button className="primary-button" onClick={() => onStartSession(item.song, 'piano-hero')}>
-                                Play
-                              </button>
-                              <button className="secondary-button" onClick={() => onStartSession(item.song, 'learning')}>
-                                Learn
-                              </button>
-                            </div>
-                          </article>
-                        ))}
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              )}
-            </section>
-          )}
-
-          {activeView.type === 'all' && recommendations && (
-            (() => {
-              const revisitSong = recommendations.revisit[0]?.song ?? null;
-              const challengeSong = recommendations.nextChallenge[0]?.song ?? null;
-              if (!revisitSong && !challengeSong) {
-                return null;
-              }
-              return (
-                <section className="panel practice-plan-section">
-                  <div className="panel-heading">
-                    <div>
-                      <p className="eyebrow">Practice Plan</p>
-                      <h2>Suggested session</h2>
-                    </div>
-                  </div>
-                  <p className="panel-copy">A ready-made routine for your next practice slot.</p>
-                  <ol className="practice-routine-steps">
-                    <li className="practice-routine-step">
-                      <div className="step-number">1</div>
-                      <div className="step-body">
-                        <strong>Warm-up: Theory drill</strong>
-                        <p className="panel-copy">A quick scale or chord quiz to get the fingers and ears engaged.</p>
-                      </div>
-                      <button className="secondary-button" onClick={onStartTheoryPractice}>Open Theory</button>
-                    </li>
-                    {revisitSong && (
-                      <li className="practice-routine-step">
-                        <div className="step-number">2</div>
-                        <div className="step-body">
-                          <strong>Review: {revisitSong.title}</strong>
-                          <p className="panel-copy">Revisit a recent song to consolidate what you already know.</p>
-                        </div>
-                        <button className="secondary-button" onClick={() => { stopPreview(); onStartSession(revisitSong, 'learning'); }}>Learn</button>
-                      </li>
-                    )}
-                    {challengeSong && (
-                      <li className="practice-routine-step">
-                        <div className="step-number">{revisitSong ? 3 : 2}</div>
-                        <div className="step-body">
-                          <strong>Challenge: {challengeSong.title}</strong>
-                          <p className="panel-copy">Push your current level with something slightly harder.</p>
-                        </div>
-                        <button className="secondary-button" onClick={() => { stopPreview(); onStartSession(challengeSong, 'piano-hero'); }}>Play</button>
-                      </li>
-                    )}
-                  </ol>
-                </section>
-              );
-            })()
-          )}
+              {selectedTagFilters.length > 0 ? (
+                <TagChips tags={selectedTagFilters} removable onChange={setSelectedTagFilters} />
+              ) : null}
+            </div>
+          </section>
 
           <section className="panel search-bar">
             <label className="search-field">
@@ -1034,21 +1042,47 @@ export function LibraryScreen({
               </select>
             </label>
 
-            <div className="view-toggle">
-              <button
-                className={viewMode === 'grid' ? 'primary-button' : 'secondary-button'}
-                onClick={() => setViewMode('grid')}
-              >
-                Grid
-              </button>
-              <button
-                className={viewMode === 'list' ? 'primary-button' : 'secondary-button'}
-                onClick={() => setViewMode('list')}
-              >
-                List
-              </button>
-            </div>
+            {!isMobileLayout ? (
+              <div className="view-toggle">
+                <button
+                  className={viewMode === 'grid' ? 'primary-button' : 'secondary-button'}
+                  onClick={() => setViewMode('grid')}
+                >
+                  Grid
+                </button>
+                <button
+                  className={viewMode === 'list' ? 'primary-button' : 'secondary-button'}
+                  onClick={() => setViewMode('list')}
+                >
+                  List
+                </button>
+              </div>
+            ) : null}
           </section>
+
+          {isMobileLayout ? (
+            <section className="panel library-mobile-disclosure">
+              <div className="panel-heading">
+                <div>
+                  <p className="eyebrow">Collections</p>
+                  <h2>Folders, playlists, and favorites</h2>
+                </div>
+                <button
+                  className="secondary-button"
+                  aria-expanded={showCollectionsDisclosure}
+                  aria-controls="library-mobile-collections"
+                  onClick={() => setShowCollectionsDisclosure((value) => !value)}
+                >
+                  {showCollectionsDisclosure ? 'Hide Collections' : 'Show Collections'}
+                </button>
+              </div>
+              {showCollectionsDisclosure ? (
+                <div id="library-mobile-collections" className="library-mobile-collections">
+                  {sidebarContent}
+                </div>
+              ) : null}
+            </section>
+          ) : null}
 
           <section className="filter-chips filter-presets">
             <span className="filter-preset-label">Quick Filters:</span>
@@ -1124,38 +1158,167 @@ export function LibraryScreen({
             }}
           />
 
-          <section className="panel">
+          {activeView.type === 'all' ? (
+            <section className="panel recommendations-section">
+              <div className="panel-heading">
+                <div>
+                  <p className="eyebrow">Recommended for You</p>
+                  <h2>What to play next</h2>
+                </div>
+                <button
+                  className="secondary-button"
+                  aria-expanded={showRecommendationsPanel}
+                  aria-controls="library-recommendations-panel"
+                  onClick={() => setShowRecommendationsPanel((value) => !value)}
+                >
+                  {showRecommendationsPanel ? 'Hide Suggestions' : 'Show Suggestions'}
+                </button>
+              </div>
+              {showRecommendationsPanel ? (
+                <div id="library-recommendations-panel">
+                  {isRecommendationsLoading ? (
+                    <div className="recommendation-carousel recommendation-skeleton-grid" aria-hidden="true">
+                      {Array.from({ length: 3 }, (_, index) => (
+                        <article className="recommendation-card recommendation-card-skeleton" key={`recommendation-skeleton-${index}`}>
+                          <span className="recommendation-skeleton-line recommendation-skeleton-line-short" />
+                          <span className="recommendation-skeleton-line recommendation-skeleton-line-title" />
+                          <span className="recommendation-skeleton-line" />
+                          <span className="recommendation-skeleton-line recommendation-skeleton-line-short" />
+                        </article>
+                      ))}
+                    </div>
+                  ) : recommendationGroups.every((group) => group.items.length === 0) ? (
+                    <p className="empty-state">Play a few scored sessions so Piano Hero can suggest what to tackle next.</p>
+                  ) : (
+                    <div className="recommendation-groups">
+                      {recommendationGroups.map((group) => (
+                        <article className="recommendation-group" key={group.title}>
+                          <div className="recommendation-group-header">
+                            <h3>{group.title}</h3>
+                          </div>
+                          <div className="recommendation-carousel">
+                            {group.items.map((item) => (
+                              <article className="recommendation-card" key={`${group.title}-${item.song.id}`}>
+                                <p className="eyebrow">{item.song.genre || 'Library Pick'}</p>
+                                <h3 title={item.song.title}>{item.song.title}</h3>
+                                <p className="panel-copy">{item.reason}</p>
+                                <div className="song-card-meta">
+                                  <span>Difficulty {item.song.difficulty}</span>
+                                  <span>{Math.round(item.song.bpm)} BPM</span>
+                                </div>
+                                <div className="song-card-actions">
+                                  <button className="primary-button" onClick={() => onStartSession(item.song, 'piano-hero')}>
+                                    Play
+                                  </button>
+                                  <button className="secondary-button" onClick={() => onStartSession(item.song, 'learning')}>
+                                    Learn
+                                  </button>
+                                </div>
+                              </article>
+                            ))}
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : null}
+            </section>
+          ) : null}
+
+          {activeView.type === 'all' && recommendations ? (
+            (() => {
+              const revisitSong = recommendations.revisit[0]?.song ?? null;
+              const challengeSong = recommendations.nextChallenge[0]?.song ?? null;
+              if (!revisitSong && !challengeSong) {
+                return null;
+              }
+              return (
+                <section className="panel practice-plan-section">
+                  <div className="panel-heading">
+                    <div>
+                      <p className="eyebrow">Practice Plan</p>
+                      <h2>Suggested session</h2>
+                    </div>
+                    <button
+                      className="secondary-button"
+                      aria-expanded={showPracticePlanPanel}
+                      aria-controls="library-practice-plan-panel"
+                      onClick={() => setShowPracticePlanPanel((value) => !value)}
+                    >
+                      {showPracticePlanPanel ? 'Hide Plan' : 'Show Plan'}
+                    </button>
+                  </div>
+                  {showPracticePlanPanel ? (
+                    <div id="library-practice-plan-panel">
+                      <p className="panel-copy">A ready-made routine for your next practice slot.</p>
+                      <ol className="practice-routine-steps">
+                        <li className="practice-routine-step">
+                          <div className="step-number">1</div>
+                          <div className="step-body">
+                            <strong>Warm-up: Theory drill</strong>
+                            <p className="panel-copy">A quick scale or chord quiz to get the fingers and ears engaged.</p>
+                          </div>
+                          <button className="secondary-button" onClick={onStartTheoryPractice}>Open Theory</button>
+                        </li>
+                        {revisitSong ? (
+                          <li className="practice-routine-step">
+                            <div className="step-number">2</div>
+                            <div className="step-body">
+                              <strong title={revisitSong.title}>Review: {revisitSong.title}</strong>
+                              <p className="panel-copy">Revisit a recent song to consolidate what you already know.</p>
+                            </div>
+                            <button className="secondary-button" onClick={() => { stopPreview(); onStartSession(revisitSong, 'learning'); }}>Learn</button>
+                          </li>
+                        ) : null}
+                        {challengeSong ? (
+                          <li className="practice-routine-step">
+                            <div className="step-number">{revisitSong ? 3 : 2}</div>
+                            <div className="step-body">
+                              <strong title={challengeSong.title}>Challenge: {challengeSong.title}</strong>
+                              <p className="panel-copy">Push your current level with something slightly harder.</p>
+                            </div>
+                            <button className="secondary-button" onClick={() => { stopPreview(); onStartSession(challengeSong, 'piano-hero'); }}>Play</button>
+                          </li>
+                        ) : null}
+                      </ol>
+                    </div>
+                  ) : null}
+                </section>
+              );
+            })()
+          ) : null}
+
+          <section className="panel library-maintenance-section">
             <div className="panel-heading">
               <div>
                 <p className="eyebrow">Advanced Library Tools</p>
                 <h2>Maintenance</h2>
               </div>
+              <button
+                className="secondary-button"
+                aria-expanded={showMaintenanceTools}
+                aria-controls="library-maintenance-panel"
+                onClick={() => setShowMaintenanceTools((value) => !value)}
+              >
+                {showMaintenanceTools ? 'Hide Tools' : 'Show Tools'}
+              </button>
             </div>
-            <p className="panel-copy">
-              Reload each stored MIDI file, recompute the difficulty model, and refresh computed song metadata.
-            </p>
-            <button
-              className="secondary-button"
-              disabled={isLoading || isRecomputingDifficulties || songs.length === 0}
-              onClick={() => void handleRecomputeDifficulties()}
-            >
-              {isRecomputingDifficulties ? 'Recomputing...' : 'Recompute All Difficulties'}
-            </button>
-          </section>
-
-          {(selectedTagFilters.length > 0 || activeView.type !== 'all') && (
-            <section className="tag-filter-summary">
-              <div className="panel active-filters-panel">
-                <div>
-                  <p className="eyebrow">Current View</p>
-                  <h2>{contentTitle}</h2>
-                </div>
-                {selectedTagFilters.length > 0 && (
-                  <TagChips tags={selectedTagFilters} removable onChange={setSelectedTagFilters} />
-                )}
+            {showMaintenanceTools ? (
+              <div id="library-maintenance-panel" className="library-maintenance-body">
+                <p className="panel-copy">
+                  Reload each stored MIDI file, recompute the difficulty model, and refresh computed song metadata.
+                </p>
+                <button
+                  className="secondary-button"
+                  disabled={isLoading || isRecomputingDifficulties || songs.length === 0}
+                  onClick={() => void handleRecomputeDifficulties()}
+                >
+                  {isRecomputingDifficulties ? 'Recomputing...' : 'Recompute All Difficulties'}
+                </button>
               </div>
-            </section>
-          )}
+            ) : null}
+          </section>
 
           {selectedSongIds.size > 0 && (
             <BulkActionBar
@@ -1236,7 +1399,11 @@ export function LibraryScreen({
                 </label>
                 <label>
                   <span>Artist</span>
-                  <input value={draft.artist} onChange={(event) => setDraft({ ...draft, artist: event.target.value })} />
+                  <input
+                    value={draft.artist}
+                    placeholder="Artist name (optional)"
+                    onChange={(event) => setDraft({ ...draft, artist: event.target.value })}
+                  />
                 </label>
                 <label>
                   <span>Genre</span>
@@ -1308,9 +1475,17 @@ export function LibraryScreen({
           ) : visibleSongs.length === 0 ? (
             <section className="panel empty-state-panel">
               {songs.length === 0 ? (
-                <p className="empty-state">No songs imported yet. Use the Import button above to add MIDI files to your library.</p>
+                <>
+                  <p className="eyebrow">Library Empty</p>
+                  <h2>Upload MIDI to start your setlist.</h2>
+                  <p className="empty-state">Use Upload MIDI or Import Folder above, then come back here to play, learn, and build practice plans.</p>
+                </>
               ) : (
-                <p className="empty-state">No songs match the current filters. Try clearing the search or adjusting the difficulty filter.</p>
+                <>
+                  <p className="eyebrow">No Matches</p>
+                  <h2>Widen the filter and try again.</h2>
+                  <p className="empty-state">Nothing matches the current search, collection, or filter settings. Clear a filter or switch collections to bring songs back.</p>
+                </>
               )}
             </section>
           ) : (
