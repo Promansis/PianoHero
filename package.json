@@ -17,6 +17,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
+    "normalize:samples": "node scripts/normalize-audio-assets.mjs",
     "postinstall": "node scripts/postinstall.cjs",
     "rebuild": "electron-rebuild -f -w better-sqlite3"
   },

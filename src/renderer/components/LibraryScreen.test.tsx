@@ -74,7 +74,7 @@ describe('LibraryScreen', () => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
     localStorage.clear();
-    delete (window as Window & { matchMedia?: typeof window.matchMedia }).matchMedia;
+    Reflect.deleteProperty(window, 'matchMedia');
   });
 
   it('shows actual web import error messages in the library feedback', async () => {
