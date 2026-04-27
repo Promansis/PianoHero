@@ -1,4 +1,5 @@
-import type { CSSProperties, ReactNode } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
+import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode } from 'react';
 
 interface MainMenuScreenProps {
   onOpenLibrary: () => void;
@@ -9,6 +10,23 @@ interface MainMenuScreenProps {
   onOpenProgress: () => void;
   onOpenSettings: () => void;
   onOpenSetup: () => void;
+}
+
+type MenuStyle = CSSProperties & {
+  '--card-color'?: string;
+  '--entrance-delay'?: string;
+  '--mouse-x'?: string;
+  '--mouse-y'?: string;
+};
+
+interface MenuCard {
+  icon: ReactNode;
+  title: string;
+  eyebrow: string;
+  subtitle: string;
+  accent: string;
+  priority: 'primary' | 'secondary';
+  onSelect: (props: MainMenuScreenProps) => void;
 }
 
 function IconPlay() {
@@ -100,18 +118,12 @@ function IconSetup() {
   );
 }
 
-const MENU_CARDS: Array<{
-  icon: ReactNode;
-  title: string;
-  subtitle: string;
-  accent: string;
-  priority: 'primary' | 'secondary';
-  onSelect: (props: MainMenuScreenProps) => void;
-}> = [
+const MENU_CARDS: MenuCard[] = [
   {
     icon: <IconPlay />,
     title: 'Play',
-    subtitle: 'Start a scored run.',
+    eyebrow: 'Main Stage',
+    subtitle: 'Open the song library and start a scored run.',
     accent: 'var(--color-accent)',
     priority: 'primary',
     onSelect: (props) => props.onOpenLibrary(),
@@ -119,7 +131,8 @@ const MENU_CARDS: Array<{
   {
     icon: <IconLearn />,
     title: 'Learn',
-    subtitle: 'Continue lessons.',
+    eyebrow: 'Guided Track',
+    subtitle: 'Continue lessons with a cleaner practice flow.',
     accent: 'var(--color-accent-secondary)',
     priority: 'primary',
     onSelect: (props) => props.onOpenLearn(),
@@ -127,7 +140,8 @@ const MENU_CARDS: Array<{
   {
     icon: <IconFreePlay />,
     title: 'Free Play',
-    subtitle: 'Jam, record, explore.',
+    eyebrow: 'Open Keys',
+    subtitle: 'Jam, record ideas, and explore without scoring.',
     accent: 'var(--color-good)',
     priority: 'primary',
     onSelect: (props) => props.onOpenFreePlay(),
@@ -135,7 +149,8 @@ const MENU_CARDS: Array<{
   {
     icon: <IconSoundboard />,
     title: 'Soundboard',
-    subtitle: 'Trigger quick hits.',
+    eyebrow: 'Performance FX',
+    subtitle: 'Trigger quick hits and playful one-shots.',
     accent: 'var(--color-ok)',
     priority: 'secondary',
     onSelect: (props) => props.onOpenSoundboard(),
@@ -143,7 +158,8 @@ const MENU_CARDS: Array<{
   {
     icon: <IconTheory />,
     title: 'Theory',
-    subtitle: 'Train scales and intervals.',
+    eyebrow: 'Musicianship',
+    subtitle: 'Train scales, intervals, and fast recall.',
     accent: 'var(--color-perfect)',
     priority: 'secondary',
     onSelect: (props) => props.onOpenTheory(),
@@ -151,7 +167,8 @@ const MENU_CARDS: Array<{
   {
     icon: <IconProgress />,
     title: 'Progress',
-    subtitle: 'Check streaks and scores.',
+    eyebrow: 'Score Room',
+    subtitle: 'Review streaks, goals, and accuracy trends.',
     accent: 'var(--color-ok)',
     priority: 'secondary',
     onSelect: (props) => props.onOpenProgress(),
@@ -159,7 +176,8 @@ const MENU_CARDS: Array<{
   {
     icon: <IconSettings />,
     title: 'Settings',
-    subtitle: 'Tune controls and audio.',
+    eyebrow: 'Control Desk',
+    subtitle: 'Tune audio, visuals, input, and accessibility.',
     accent: 'var(--color-miss)',
     priority: 'secondary',
     onSelect: (props) => props.onOpenSettings(),
@@ -167,82 +185,254 @@ const MENU_CARDS: Array<{
   {
     icon: <IconSetup />,
     title: 'Setup',
-    subtitle: 'Map keys and devices.',
+    eyebrow: 'First Run',
+    subtitle: 'Map keys, devices, and onboarding basics.',
     accent: 'var(--color-accent)',
     priority: 'secondary',
     onSelect: (props) => props.onOpenSetup(),
   },
 ];
 
+const STATUS_ITEMS = [
+  ['Stage', 'Ready'],
+  ['Core Routes', '3'],
+  ['Bonus Modes', '5'],
+] as const;
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
+function shouldReduceMotion(): boolean {
+  return typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+    ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    : false;
+}
+
+function isCompactViewport(): boolean {
+  return typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+    ? window.matchMedia('(max-width: 780px)').matches
+    : false;
+}
+
+function requestFrame(callback: FrameRequestCallback): number {
+  if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+    return window.requestAnimationFrame(callback);
+  }
+
+  callback(0);
+  return -1;
+}
+
+function cancelFrame(frameId: number | null): void {
+  if (frameId === null || frameId < 0) {
+    return;
+  }
+
+  if (typeof window !== 'undefined' && typeof window.cancelAnimationFrame === 'function') {
+    window.cancelAnimationFrame(frameId);
+  }
+}
+
+function getCardDelay(priority: MenuCard['priority'], index: number): string {
+  return priority === 'primary' ? `${520 + index * 110}ms` : `${900 + index * 70}ms`;
+}
+
 export function MainMenuScreen(props: MainMenuScreenProps) {
-  const primaryCards = MENU_CARDS.filter((card) => card.priority === 'primary');
-  const secondaryCards = MENU_CARDS.filter((card) => card.priority === 'secondary');
+  const mainRef = useRef<HTMLElement | null>(null);
+  const screenFrameRef = useRef<number | null>(null);
+  const screenPointerRef = useRef({ x: 0, y: 0 });
+  const cardFrameRef = useRef<number | null>(null);
+  const pendingCardTiltRef = useRef<{
+    element: HTMLButtonElement;
+    shineX: number;
+    shineY: number;
+    tiltX: number;
+    tiltY: number;
+  } | null>(null);
+
+  const primaryCards = useMemo(() => MENU_CARDS.filter((card) => card.priority === 'primary'), []);
+  const secondaryCards = useMemo(() => MENU_CARDS.filter((card) => card.priority === 'secondary'), []);
+
+  useEffect(() => {
+    return () => {
+      cancelFrame(screenFrameRef.current);
+      cancelFrame(cardFrameRef.current);
+    };
+  }, []);
+
+  const handleScreenPointerMove = (event: ReactPointerEvent<HTMLElement>) => {
+    if (shouldReduceMotion()) {
+      return;
+    }
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) {
+      return;
+    }
+
+    screenPointerRef.current = {
+      x: clamp((event.clientX - rect.left) / rect.width - 0.5, -0.5, 0.5),
+      y: clamp((event.clientY - rect.top) / rect.height - 0.5, -0.5, 0.5),
+    };
+
+    if (screenFrameRef.current !== null) {
+      return;
+    }
+
+    screenFrameRef.current = requestFrame(() => {
+      screenFrameRef.current = null;
+      const node = mainRef.current;
+      if (!node) {
+        return;
+      }
+
+      node.style.setProperty('--mouse-x', screenPointerRef.current.x.toFixed(3));
+      node.style.setProperty('--mouse-y', screenPointerRef.current.y.toFixed(3));
+    });
+  };
+
+  const handleScreenPointerLeave = () => {
+    cancelFrame(screenFrameRef.current);
+    screenFrameRef.current = null;
+    mainRef.current?.style.setProperty('--mouse-x', '0');
+    mainRef.current?.style.setProperty('--mouse-y', '0');
+  };
+
+  const handleCardPointerMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (shouldReduceMotion() || isCompactViewport()) {
+      return;
+    }
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) {
+      return;
+    }
+
+    const x = clamp((event.clientX - rect.left) / rect.width, 0, 1);
+    const y = clamp((event.clientY - rect.top) / rect.height, 0, 1);
+
+    pendingCardTiltRef.current = {
+      element: event.currentTarget,
+      shineX: x * 100,
+      shineY: y * 100,
+      tiltX: (0.5 - y) * 8,
+      tiltY: (x - 0.5) * -10,
+    };
+
+    if (cardFrameRef.current !== null) {
+      return;
+    }
+
+    cardFrameRef.current = requestFrame(() => {
+      cardFrameRef.current = null;
+      const nextTilt = pendingCardTiltRef.current;
+      if (!nextTilt) {
+        return;
+      }
+
+      nextTilt.element.style.setProperty('--tilt-x', nextTilt.tiltX.toFixed(3));
+      nextTilt.element.style.setProperty('--tilt-y', nextTilt.tiltY.toFixed(3));
+      nextTilt.element.style.setProperty('--shine-x', `${nextTilt.shineX.toFixed(2)}%`);
+      nextTilt.element.style.setProperty('--shine-y', `${nextTilt.shineY.toFixed(2)}%`);
+    });
+  };
+
+  const handleCardPointerLeave = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (pendingCardTiltRef.current?.element === event.currentTarget) {
+      pendingCardTiltRef.current = null;
+    }
+
+    event.currentTarget.style.setProperty('--tilt-x', '0');
+    event.currentTarget.style.setProperty('--tilt-y', '0');
+    event.currentTarget.style.setProperty('--shine-x', '50%');
+    event.currentTarget.style.setProperty('--shine-y', '18%');
+  };
+
+  const renderMenuCard = (card: MenuCard, index: number) => (
+    <button
+      key={card.title}
+      aria-label={`${card.title}. ${card.subtitle}`}
+      className={`menu-card menu-card-${card.priority}`}
+      onClick={() => card.onSelect(props)}
+      onPointerLeave={handleCardPointerLeave}
+      onPointerMove={handleCardPointerMove}
+      style={
+        {
+          '--card-color': card.accent,
+          '--entrance-delay': getCardDelay(card.priority, index),
+        } as MenuStyle
+      }
+      type="button"
+    >
+      <span className="menu-card-glow" aria-hidden="true" />
+      <span className="menu-card-sheen" aria-hidden="true" />
+      <span className="menu-card-icon" aria-hidden="true">
+        {card.icon}
+      </span>
+      <span className="menu-card-copy">
+        <span className="menu-card-eyebrow">{card.eyebrow}</span>
+        <span className="menu-card-title">{card.title}</span>
+        <span className="menu-card-subtitle">{card.subtitle}</span>
+      </span>
+      <span className="menu-card-action" aria-hidden="true">
+        Open
+      </span>
+    </button>
+  );
 
   return (
-    <main className="app-shell main-menu-screen">
+    <main
+      className="app-shell main-menu-screen"
+      onPointerLeave={handleScreenPointerLeave}
+      onPointerMove={handleScreenPointerMove}
+      ref={mainRef}
+      style={{ '--mouse-x': '0', '--mouse-y': '0' } as MenuStyle}
+    >
+      <div className="main-menu-backdrop" aria-hidden="true">
+        <span className="main-menu-light main-menu-light-a" />
+        <span className="main-menu-light main-menu-light-b" />
+        <span className="main-menu-facet main-menu-facet-a" />
+        <span className="main-menu-facet main-menu-facet-b" />
+        <span className="main-menu-score-lines" />
+      </div>
+
       <section className="main-menu-hero">
-        <div className="main-menu-hero-copy">
-          <p className="eyebrow">Arcade Practice</p>
+        <div className="main-menu-hero-copy entrance-animate" style={{ '--entrance-delay': '0ms' } as MenuStyle}>
+          <p className="eyebrow">Concert Practice</p>
           <h1>Piano Hero</h1>
-          <p className="song-title">Pick a lane. Chase a cleaner run. Keep the streak alive.</p>
+          <p className="song-title">Step into a polished practice stage built for cleaner runs, faster learning, and one more take.</p>
         </div>
-        <div className="main-menu-hero-status" aria-hidden="true">
-          <span>Mode Select</span>
-          <span>3 Core Routes</span>
-          <span>5 Bonus Modes</span>
+        <div className="main-menu-hero-status entrance-animate" aria-hidden="true" style={{ '--entrance-delay': '260ms' } as MenuStyle}>
+          <span className="main-menu-status-kicker">Session Board</span>
+          {STATUS_ITEMS.map(([label, value], index) => (
+            <span className="main-menu-status-row" key={label}>
+              <span>{label}</span>
+              <strong>{value}</strong>
+              <span className="main-menu-status-meter">
+                <i style={{ '--entrance-delay': `${index * 90}ms` } as MenuStyle} />
+                <i style={{ '--entrance-delay': `${index * 90 + 80}ms` } as MenuStyle} />
+                <i style={{ '--entrance-delay': `${index * 90 + 160}ms` } as MenuStyle} />
+              </span>
+            </span>
+          ))}
         </div>
       </section>
 
       <section aria-label="Primary destinations" className="main-menu-grid">
-        {primaryCards.map((card, index) => (
-          <button
-            key={card.title}
-            className="menu-card menu-card-primary"
-            style={
-              {
-                '--card-color': card.accent,
-                '--card-delay': `${index * 70}ms`,
-              } as CSSProperties
-            }
-            onClick={() => card.onSelect(props)}
-          >
-            <span className="menu-card-icon" aria-hidden="true">
-              {card.icon}
-            </span>
-            <span className="menu-card-title">{card.title}</span>
-            <span className="menu-card-subtitle">{card.subtitle}</span>
-          </button>
-        ))}
+        {primaryCards.map((card, index) => renderMenuCard(card, index))}
       </section>
 
-      <section className="panel main-menu-secondary-shell">
+      <section className="main-menu-secondary-shell entrance-animate" style={{ '--entrance-delay': '820ms' } as MenuStyle}>
         <div className="main-menu-secondary-heading">
           <div>
-            <p className="eyebrow">More Modes</p>
-            <h2>Bonus lanes</h2>
+            <p className="eyebrow">Backstage</p>
+            <h2>More ways to practice</h2>
           </div>
-          <p className="panel-copy">Quick jumps for training, tuning, and tracking your next high-score push.</p>
+          <p className="panel-copy">Training rooms, progress checks, and setup controls stay close without competing with the main performance routes.</p>
         </div>
         <section aria-label="More destinations" className="main-menu-secondary-grid">
-          {secondaryCards.map((card, index) => (
-            <button
-              key={card.title}
-              className="menu-card menu-card-secondary"
-              style={
-                {
-                  '--card-color': card.accent,
-                  '--card-delay': `${(index + primaryCards.length) * 70}ms`,
-                } as CSSProperties
-              }
-              onClick={() => card.onSelect(props)}
-            >
-              <span className="menu-card-icon" aria-hidden="true">
-                {card.icon}
-              </span>
-              <span className="menu-card-title">{card.title}</span>
-              <span className="menu-card-subtitle">{card.subtitle}</span>
-            </button>
-          ))}
+          {secondaryCards.map((card, index) => renderMenuCard(card, index))}
         </section>
       </section>
     </main>

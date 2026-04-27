@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" role="img" aria-label="Concert stage with piano keys and spotlights">
+  <defs>
+    <radialGradient id="hallGlow" cx="50%" cy="16%" r="70%">
+      <stop offset="0" stop-color="#3d2d39"/>
+      <stop offset="0.36" stop-color="#13131f"/>
+      <stop offset="1" stop-color="#04050a"/>
+    </radialGradient>
+    <radialGradient id="amberPool" cx="50%" cy="78%" r="44%">
+      <stop offset="0" stop-color="#ffe0a1" stop-opacity="0.42"/>
+      <stop offset="0.44" stop-color="#8f6540" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#05050a" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="beamGold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff1c8" stop-opacity="0"/>
+      <stop offset="0.42" stop-color="#fff1c8" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#fff1c8" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="beamViolet" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ba9cff" stop-opacity="0"/>
+      <stop offset="0.48" stop-color="#ba9cff" stop-opacity="0.2"/>
+      <stop offset="1" stop-color="#ba9cff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="floorFade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#29202b" stop-opacity="0.86"/>
+      <stop offset="1" stop-color="#020308" stop-opacity="0.98"/>
+    </linearGradient>
+    <filter id="softBlur">
+      <feGaussianBlur stdDeviation="16"/>
+    </filter>
+  </defs>
+
+  <rect width="1600" height="1000" fill="url(#hallGlow)"/>
+  <rect width="1600" height="1000" fill="url(#amberPool)"/>
+
+  <g opacity="0.82" filter="url(#softBlur)">
+    <path d="M220 -80 L520 -80 L680 900 L130 900 Z" fill="url(#beamGold)"/>
+    <path d="M1190 -90 L1460 -90 L1040 930 L760 930 Z" fill="url(#beamViolet)"/>
+    <path d="M690 -110 L920 -110 L1035 890 L555 890 Z" fill="url(#beamGold)" opacity="0.5"/>
+  </g>
+
+  <g opacity="0.28">
+    <path d="M116 255 C420 200 682 232 940 202 C1160 176 1350 206 1512 238" fill="none" stroke="#ffe8b8" stroke-width="2"/>
+    <path d="M94 306 C398 250 690 286 950 250 C1176 220 1366 256 1518 288" fill="none" stroke="#ffffff" stroke-width="1" opacity="0.35"/>
+    <path d="M126 360 C428 308 704 340 978 304 C1206 274 1380 310 1510 346" fill="none" stroke="#ba9cff" stroke-width="1.4"/>
+  </g>
+
+  <g opacity="0.42">
+    <ellipse cx="1210" cy="580" rx="210" ry="46" fill="#000000"/>
+    <path d="M1040 548 C1116 462 1308 454 1418 532 C1388 584 1234 604 1040 548 Z" fill="#09070c"/>
+    <path d="M1068 550 C1138 488 1286 482 1380 534" fill="none" stroke="#ffe0a1" stroke-width="5" stroke-opacity="0.2"/>
+    <rect x="1114" y="575" width="310" height="30" rx="15" fill="#08070b"/>
+    <rect x="1156" y="602" width="22" height="104" rx="11" fill="#08070b"/>
+    <rect x="1346" y="598" width="24" height="114" rx="12" fill="#08070b"/>
+  </g>
+
+  <g transform="translate(0 742)">
+    <path d="M0 66 C270 4 520 -10 800 0 C1098 12 1340 12 1600 70 L1600 258 L0 258 Z" fill="url(#floorFade)"/>
+    <g opacity="0.78" transform="translate(168 64) skewX(-13)">
+      <rect x="0" y="0" width="1260" height="174" rx="14" fill="#f6eee2" opacity="0.22"/>
+      <g fill="#f6eee2" opacity="0.52">
+        <rect x="8" y="0" width="56" height="174"/>
+        <rect x="78" y="0" width="56" height="174"/>
+        <rect x="148" y="0" width="56" height="174"/>
+        <rect x="218" y="0" width="56" height="174"/>
+        <rect x="288" y="0" width="56" height="174"/>
+        <rect x="358" y="0" width="56" height="174"/>
+        <rect x="428" y="0" width="56" height="174"/>
+        <rect x="498" y="0" width="56" height="174"/>
+        <rect x="568" y="0" width="56" height="174"/>
+        <rect x="638" y="0" width="56" height="174"/>
+        <rect x="708" y="0" width="56" height="174"/>
+        <rect x="778" y="0" width="56" height="174"/>
+        <rect x="848" y="0" width="56" height="174"/>
+        <rect x="918" y="0" width="56" height="174"/>
+        <rect x="988" y="0" width="56" height="174"/>
+        <rect x="1058" y="0" width="56" height="174"/>
+        <rect x="1128" y="0" width="56" height="174"/>
+        <rect x="1198" y="0" width="54" height="174"/>
+      </g>
+      <g fill="#03040a" opacity="0.76">
+        <rect x="48" y="0" width="30" height="112" rx="4"/>
+        <rect x="118" y="0" width="30" height="112" rx="4"/>
+        <rect x="258" y="0" width="30" height="112" rx="4"/>
+        <rect x="328" y="0" width="30" height="112" rx="4"/>
+        <rect x="398" y="0" width="30" height="112" rx="4"/>
+        <rect x="538" y="0" width="30" height="112" rx="4"/>
+        <rect x="608" y="0" width="30" height="112" rx="4"/>
+        <rect x="748" y="0" width="30" height="112" rx="4"/>
+        <rect x="818" y="0" width="30" height="112" rx="4"/>
+        <rect x="888" y="0" width="30" height="112" rx="4"/>
+        <rect x="1028" y="0" width="30" height="112" rx="4"/>
+        <rect x="1098" y="0" width="30" height="112" rx="4"/>
+      </g>
+    </g>
+  </g>
+
+  <rect width="1600" height="1000" fill="#000000" opacity="0.16"/>
+</svg>
