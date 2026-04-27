@@ -274,6 +274,8 @@ describe('App', () => {
   it('renders breadcrumbs on standard screens and the home button returns to the main menu', async () => {
     render(<App />);
 
+    expect(document.querySelector('.app-topbar')).toBeNull();
+
     fireEvent.click(await screen.findByText('Open Library'));
 
     expect(screen.getByText('Library', { selector: 'div' })).toBeInTheDocument();

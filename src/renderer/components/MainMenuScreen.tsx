@@ -124,7 +124,7 @@ const MENU_CARDS: MenuCard[] = [
     title: 'Play',
     eyebrow: 'Main Stage',
     subtitle: 'Open the song library and start a scored run.',
-    accent: 'var(--color-accent)',
+    accent: 'var(--menu-neon-gold)',
     priority: 'primary',
     onSelect: (props) => props.onOpenLibrary(),
   },
@@ -133,7 +133,7 @@ const MENU_CARDS: MenuCard[] = [
     title: 'Learn',
     eyebrow: 'Guided Track',
     subtitle: 'Continue lessons with a cleaner practice flow.',
-    accent: 'var(--color-accent-secondary)',
+    accent: 'var(--menu-neon-violet)',
     priority: 'primary',
     onSelect: (props) => props.onOpenLearn(),
   },
@@ -142,7 +142,7 @@ const MENU_CARDS: MenuCard[] = [
     title: 'Free Play',
     eyebrow: 'Open Keys',
     subtitle: 'Jam, record ideas, and explore without scoring.',
-    accent: 'var(--color-good)',
+    accent: 'var(--menu-neon-cyan)',
     priority: 'primary',
     onSelect: (props) => props.onOpenFreePlay(),
   },
@@ -151,7 +151,7 @@ const MENU_CARDS: MenuCard[] = [
     title: 'Soundboard',
     eyebrow: 'Performance FX',
     subtitle: 'Trigger quick hits and playful one-shots.',
-    accent: 'var(--color-ok)',
+    accent: 'var(--menu-neon-blue)',
     priority: 'secondary',
     onSelect: (props) => props.onOpenSoundboard(),
   },
@@ -160,7 +160,7 @@ const MENU_CARDS: MenuCard[] = [
     title: 'Theory',
     eyebrow: 'Musicianship',
     subtitle: 'Train scales, intervals, and fast recall.',
-    accent: 'var(--color-perfect)',
+    accent: 'var(--menu-neon-magenta)',
     priority: 'secondary',
     onSelect: (props) => props.onOpenTheory(),
   },
@@ -169,7 +169,7 @@ const MENU_CARDS: MenuCard[] = [
     title: 'Progress',
     eyebrow: 'Score Room',
     subtitle: 'Review streaks, goals, and accuracy trends.',
-    accent: 'var(--color-ok)',
+    accent: 'var(--menu-neon-teal)',
     priority: 'secondary',
     onSelect: (props) => props.onOpenProgress(),
   },
@@ -178,7 +178,7 @@ const MENU_CARDS: MenuCard[] = [
     title: 'Settings',
     eyebrow: 'Control Desk',
     subtitle: 'Tune audio, visuals, input, and accessibility.',
-    accent: 'var(--color-miss)',
+    accent: 'var(--menu-neon-coral)',
     priority: 'secondary',
     onSelect: (props) => props.onOpenSettings(),
   },
@@ -187,7 +187,7 @@ const MENU_CARDS: MenuCard[] = [
     title: 'Setup',
     eyebrow: 'First Run',
     subtitle: 'Map keys, devices, and onboarding basics.',
-    accent: 'var(--color-accent)',
+    accent: 'var(--menu-neon-indigo)',
     priority: 'secondary',
     onSelect: (props) => props.onOpenSetup(),
   },
@@ -399,11 +399,10 @@ export function MainMenuScreen(props: MainMenuScreenProps) {
 
       <section className="main-menu-hero">
         <div className="main-menu-hero-copy entrance-animate" style={{ '--entrance-delay': '0ms' } as MenuStyle}>
-          <p className="eyebrow">Concert Practice</p>
-          <h1>Piano Hero</h1>
+          <h1>LumaKeys</h1>
           <p className="song-title">Step into a polished practice stage built for cleaner runs, faster learning, and one more take.</p>
         </div>
-        <div className="main-menu-hero-status entrance-animate" aria-hidden="true" style={{ '--entrance-delay': '260ms' } as MenuStyle}>
+        <div className="main-menu-hero-status" aria-hidden="true">
           <span className="main-menu-status-kicker">Session Board</span>
           {STATUS_ITEMS.map(([label, value], index) => (
             <span className="main-menu-status-row" key={label}>

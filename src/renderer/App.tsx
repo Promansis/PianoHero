@@ -1650,6 +1650,7 @@ export function App() {
 
   const showAppChrome =
     currentScreen.screen !== 'game' &&
+    currentScreen.screen !== 'main-menu' &&
     currentScreen.screen !== 'free-play' &&
     currentScreen.screen !== 'soundboard' &&
     currentScreen.screen !== 'lesson-drill' &&

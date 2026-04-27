@@ -7,7 +7,7 @@ import { AppDatabase } from '../main/database';
 import { createBridgeRouter } from './bridgeRouter';
 import { createMidiRouter } from './midiRouter';
 
-const port = Number(process.env.PORT ?? 3000);
+const port = Number(process.env.PORT ?? 3100);
 const dataDir = resolve(process.env.PIANOHERO_DATA_DIR ?? join(process.cwd(), '.pianohero-data'));
 const midiFilesDir = join(dataDir, 'midi-files');
 const dbPath = join(dataDir, 'pianohero.db');
