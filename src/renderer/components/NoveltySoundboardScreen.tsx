@@ -14,6 +14,7 @@ import { ComputerKeyboardInputService } from '../../lib/input/computerKeyboardIn
 import type { InputEvent, InputMode } from '../../lib/input/types';
 import { MidiInputService } from '../../lib/midi/midiInputService';
 import { midiToLabel } from '../../lib/piano/pianoLayout';
+import { useTimeoutRegistry } from '../useTimeoutRegistry';
 import { AnimalSoundboardCanvas, type AnimalSoundboardBurst } from './AnimalSoundboardCanvas';
 import { PianoKeyboard, type KeyboardKeyLabel, type KeyboardOverlayEffect } from './PianoKeyboard';
 
@@ -49,6 +50,7 @@ export function NoveltySoundboardScreen({
   onBackToMainMenu,
   onOpenKeyboardSetup,
 }: NoveltySoundboardScreenProps) {
+  const { setTrackedTimeout, clearTrackedTimeout, clearAllTimeouts } = useTimeoutRegistry();
   const [activeNotes, setActiveNotes] = useState<number[]>([]);
   const [lastPlayedId, setLastPlayedId] = useState<string | null>(null);
   const [modeId, setModeId] = useState<SoundboardModeId>(DEFAULT_SOUNDBOARD_MODE_ID);
@@ -86,6 +88,9 @@ export function NoveltySoundboardScreen({
   const [statusMessage, setStatusMessage] = useState(statusFallback);
 
   useEffect(() => {
+    clearAllTimeouts();
+    oneShotPlaybackLockedRef.current = false;
+    oneShotUnlockTimeoutRef.current = null;
     setStatusMessage(mode.copy);
     setLastPlayedId(null);
     setActiveNotes([]);
@@ -93,15 +98,16 @@ export function NoveltySoundboardScreen({
     setAnimalBursts([]);
     setIsAnimalMapHovered(false);
     setIsAnimalMapPinned(false);
-  }, [mode]);
+  }, [clearAllTimeouts, mode]);
 
   useEffect(() => {
     return () => {
       if (oneShotUnlockTimeoutRef.current !== null) {
-        window.clearTimeout(oneShotUnlockTimeoutRef.current);
+        clearTrackedTimeout(oneShotUnlockTimeoutRef.current);
       }
+      clearAllTimeouts();
     };
-  }, []);
+  }, [clearAllTimeouts, clearTrackedTimeout]);
 
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
@@ -160,7 +166,7 @@ export function NoveltySoundboardScreen({
       },
     ]);
 
-    window.setTimeout(() => {
+    setTrackedTimeout(() => {
       setFloatingEffects((current) => current.filter((effect) => effect.id !== effectId));
     }, 1500);
   };
@@ -171,7 +177,6 @@ export function NoveltySoundboardScreen({
     }
 
     const burstId = `${clip.id}-burst-${effectCounterRef.current}`;
-    const clipIndex = mode.clips.findIndex((candidate) => candidate.id === clip.id);
     const lane =
       (clip.midi - SOUNDBOARD_MIN_MIDI) / Math.max(1, SOUNDBOARD_MAX_MIDI - SOUNDBOARD_MIN_MIDI);
     const normalizedX = 0.06 + lane * 0.88;
@@ -192,7 +197,7 @@ export function NoveltySoundboardScreen({
       createdAt: performance.now(),
     };
     setAnimalBursts((current) => [...current.slice(-11), burst]);
-    window.setTimeout(() => {
+    setTrackedTimeout(() => {
       setAnimalBursts((current) => current.filter((item) => item.id !== burstId));
     }, burst.durationMs + 460);
   };
@@ -211,9 +216,9 @@ export function NoveltySoundboardScreen({
     try {
       const durationMs = Math.max(100, (await audioEngine.getOneShotDurationSec(clip.src)) * 1000);
       if (oneShotUnlockTimeoutRef.current !== null) {
-        window.clearTimeout(oneShotUnlockTimeoutRef.current);
+        clearTrackedTimeout(oneShotUnlockTimeoutRef.current);
       }
-      oneShotUnlockTimeoutRef.current = window.setTimeout(() => {
+      oneShotUnlockTimeoutRef.current = setTrackedTimeout(() => {
         oneShotPlaybackLockedRef.current = false;
         oneShotUnlockTimeoutRef.current = null;
       }, durationMs);
@@ -221,7 +226,7 @@ export function NoveltySoundboardScreen({
     } catch {
       oneShotPlaybackLockedRef.current = false;
       if (oneShotUnlockTimeoutRef.current !== null) {
-        window.clearTimeout(oneShotUnlockTimeoutRef.current);
+        clearTrackedTimeout(oneShotUnlockTimeoutRef.current);
         oneShotUnlockTimeoutRef.current = null;
       }
     }
@@ -313,6 +318,7 @@ export function NoveltySoundboardScreen({
       unsubscribeMidi();
       unsubscribeKeyboard();
       unsubscribeKeyboardState();
+      setActiveNotes([]);
     };
   }, [audioEngine, inputMode, keyboardInputService, midiInputService, modeId]);
 

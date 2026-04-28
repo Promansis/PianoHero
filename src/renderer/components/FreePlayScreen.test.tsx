@@ -130,6 +130,7 @@ function buildAudioEngineStub(): AudioEngine {
     init: vi.fn().mockResolvedValue(undefined),
     noteOn: vi.fn().mockResolvedValue(undefined),
     noteOff: vi.fn(),
+    allNotesOff: vi.fn(),
     setPitchBend: vi.fn(),
     setModulation: vi.fn(),
     setSustain: vi.fn(),

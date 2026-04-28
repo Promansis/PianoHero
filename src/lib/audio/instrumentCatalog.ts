@@ -188,28 +188,6 @@ const NBROSOWSKY_ORGAN_SAMPLE_MAP = {
   'F#1': 'Fs1.mp3', 'F#2': 'Fs2.mp3', 'F#3': 'Fs3.mp3', 'F#4': 'Fs4.mp3', 'F#5': 'Fs5.mp3',
 } as const;
 
-const NBROSOWSKY_HARP_SAMPLE_MAP = {
-  A2: 'A2.mp3', A4: 'A4.mp3', A6: 'A6.mp3',
-  B1: 'B1.mp3', B3: 'B3.mp3', B5: 'B5.mp3', B6: 'B6.mp3',
-  C3: 'C3.mp3', C5: 'C5.mp3',
-  D2: 'D2.mp3', D4: 'D4.mp3', D6: 'D6.mp3', D7: 'D7.mp3',
-  E1: 'E1.mp3', E3: 'E3.mp3', E5: 'E5.mp3',
-  F2: 'F2.mp3', F4: 'F4.mp3', F6: 'F6.mp3', F7: 'F7.mp3',
-  G1: 'G1.mp3', G3: 'G3.mp3', G5: 'G5.mp3',
-} as const;
-
-const NBROSOWSKY_XYLOPHONE_SAMPLE_MAP = {
-  G4: 'G4.mp3', G5: 'G5.mp3', G6: 'G6.mp3', G7: 'G7.mp3',
-  C5: 'C5.mp3', C6: 'C6.mp3', C7: 'C7.mp3', C8: 'C8.mp3',
-} as const;
-
-const NBROSOWSKY_VIBRAPHONE_SAMPLE_MAP = {
-  A3: 'A3.mp3', A4: 'A4.mp3', A5: 'A5.mp3',
-  C3: 'C3.mp3', C4: 'C4.mp3', C5: 'C5.mp3', C6: 'C6.mp3',
-  'D#4': 'Ds4.mp3', 'D#5': 'Ds5.mp3',
-  'F#4': 'Fs4.mp3', 'F#5': 'Fs5.mp3',
-} as const;
-
 const NBROSOWSKY_BASS_ELECTRIC_SAMPLE_MAP = {
   'A#1': 'As1.mp3', 'A#2': 'As2.mp3', 'A#3': 'As3.mp3', 'A#4': 'As4.mp3',
   'C#1': 'Cs1.mp3', 'C#2': 'Cs2.mp3', 'C#3': 'Cs3.mp3', 'C#4': 'Cs4.mp3', 'C#5': 'Cs5.mp3',

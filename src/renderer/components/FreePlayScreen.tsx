@@ -291,6 +291,10 @@ export function FreePlayScreen({
       playbackTimeoutsRef.current = [];
       visualNoteTimeoutsRef.current = [];
       visualHeldByNoteRef.current.clear();
+      audioEngine.stopBackingTrack();
+      audioEngine.setSustain(false);
+      audioEngine.setPitchBend(0);
+      audioEngine.allNotesOff();
     };
   }, [audioEngine, inputMode, isRecording, keyboardInputService, midiInputService, recordingStartedAt]);
 
@@ -402,8 +406,12 @@ export function FreePlayScreen({
   }, [isVisualControlsPinned]);
 
   useEffect(() => {
+    let ignore = false;
     void (async () => {
       const saved = await window.appBridge?.getSetting('audio', 'backingTrackVolume');
+      if (ignore) {
+        return;
+      }
       if (saved !== null && saved !== undefined) {
         const parsed = Number(saved);
         if (Number.isFinite(parsed)) {
@@ -412,6 +420,9 @@ export function FreePlayScreen({
         }
       }
     })();
+    return () => {
+      ignore = true;
+    };
   }, [audioEngine]);
 
   const recordingDuration = useMemo(() => {
@@ -534,6 +545,10 @@ export function FreePlayScreen({
     if (!window.appBridge) {
       return;
     }
+    if (IS_WEB) {
+      setStatusMessage('Backing tracks are available in the desktop app.');
+      return;
+    }
     const picked = await window.appBridge.pickAudioFile();
     if (!picked) {
       return;
@@ -575,6 +590,10 @@ export function FreePlayScreen({
       setStatusMessage('Record something before exporting.');
       return;
     }
+    if (IS_WEB) {
+      setStatusMessage('WAV export to a file is available in the desktop app.');
+      return;
+    }
     setIsExportingWav(true);
     setStatusMessage('Rendering WAV (this may take a moment)...');
     try {
@@ -601,6 +620,10 @@ export function FreePlayScreen({
       setStatusMessage('Record something before exporting.');
       return;
     }
+    if (IS_WEB) {
+      setStatusMessage('MIDI export to a file is available in the desktop app.');
+      return;
+    }
 
     const midi = new Midi();
     const track = midi.addTrack();
@@ -623,6 +646,8 @@ export function FreePlayScreen({
     const savedPath = await window.appBridge.saveMidiFile('free-play-recording.mid', midi.toArray());
     if (savedPath) {
       setStatusMessage(`Saved recording to ${savedPath}.`);
+    } else {
+      setStatusMessage('MIDI export cancelled.');
     }
   };
 

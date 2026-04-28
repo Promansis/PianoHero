@@ -1,5 +1,5 @@
 import type { Hand } from '../../lib/game/types';
-import { BLACK_KEY_WIDTH, buildKeyRangeLayout, KEY_LAYOUT, WHITE_KEY_WIDTH } from '../../lib/piano/pianoLayout';
+import { BLACK_KEY_WIDTH, buildKeyRangeLayout, KEY_LAYOUT } from '../../lib/piano/pianoLayout';
 
 export type NotePriority = 'next' | 'soon' | 'other';
 

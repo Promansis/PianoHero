@@ -910,7 +910,7 @@ function addGalaxyBurst(state: SceneState, note: FreePlayVisualNote, props: Free
   }
 }
 
-function auroraHueForNote(midi: number, register: NoteRegister, id: string): number {
+function auroraHueForNote(_midi: number, register: NoteRegister, id: string): number {
   const seed = seededUnit(id, 9);
   if (register === 'low') {
     return 132 + seed * 74;
@@ -2322,7 +2322,7 @@ function drawAuroraBorealis(
   silence: number,
   intensity: number,
   harmony: number,
-  sustainOn: boolean,
+  _sustainOn: boolean,
   pitchCenter: number,
 ): void {
   const sky = context.createLinearGradient(0, 0, 0, height);
@@ -2526,7 +2526,7 @@ function drawSacredGeometry(
   width: number,
   height: number,
   state: SceneState,
-  now: number,
+  _now: number,
 ): void {
   const bg = context.createLinearGradient(0, 0, 0, height);
   bg.addColorStop(0, '#06040e');
