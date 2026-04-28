@@ -61,7 +61,14 @@ import { TheoryHubScreen } from './components/TheoryHubScreen';
 import { TheoryQuizScreen } from './components/TheoryQuizScreen';
 
 type LessonReturnTarget = { lessonId: string; stepIndex: number };
-type KeyboardSetupReturnTarget = 'setup' | 'library' | 'settings' | 'free-play' | 'soundboard' | LessonReturnTarget;
+type KeyboardSetupReturnTarget =
+  | 'setup'
+  | 'library'
+  | 'learn-hub'
+  | 'settings'
+  | 'free-play'
+  | 'soundboard'
+  | LessonReturnTarget;
 
 type AppScreen =
   | { screen: 'setup' }
@@ -234,6 +241,8 @@ function getKeyboardSetupReturnTrail(returnTo: KeyboardSetupReturnTarget): strin
       return ['Setup'];
     case 'library':
       return ['Main Menu', 'Library'];
+    case 'learn-hub':
+      return ['Main Menu', 'Learn'];
     case 'settings':
       return ['Main Menu', 'Settings'];
     case 'free-play':
@@ -328,6 +337,7 @@ export function App() {
   const [midiDevices, setMidiDevices] = useState<MidiInputDevice[]>([]);
   const [achievementToastQueue, setAchievementToastQueue] = useState<string[]>([]);
   const [showDailyGoalToast, setShowDailyGoalToast] = useState(false);
+  const [startupError, setStartupError] = useState<string | null>(null);
   const [unlockedRewardIds, setUnlockedRewardIds] = useState<Set<string>>(new Set());
   const [currentScreen, setCurrentScreen] = useState<AppScreen>({ screen: 'main-menu' });
   const [colorBlindMode, setColorBlindMode] = useState(false);
@@ -400,6 +410,7 @@ export function App() {
   };
 
   useEffect(() => {
+    let disposed = false;
     const service = new MidiInputService();
     midiServiceRef.current = service;
     keyboardServiceRef.current.init();
@@ -412,13 +423,19 @@ export function App() {
       service
         .init()
         .then(() => {
-          setMidiError(false);
+          if (!disposed) {
+            setMidiError(false);
+          }
         })
         .catch(() => {
-          setMidiError(true);
+          if (!disposed) {
+            setMidiError(true);
+          }
         })
         .finally(() => {
-          setMidiReady(true);
+          if (!disposed) {
+            setMidiReady(true);
+          }
         });
     };
 
@@ -430,7 +447,14 @@ export function App() {
     const handlePermissionChange = () => {
       if (permissionStatus?.state === 'granted') {
         setMidiError(false);
-        service.init().then(() => setMidiError(false)).catch(() => {});
+        service
+          .init()
+          .then(() => {
+            if (!disposed) {
+              setMidiError(false);
+            }
+          })
+          .catch(() => {});
       }
     };
 
@@ -438,6 +462,9 @@ export function App() {
       navigator.permissions
         .query({ name: 'midi' as PermissionName })
         .then((status) => {
+          if (disposed) {
+            return;
+          }
           permissionStatus = status;
           status.addEventListener('change', handlePermissionChange);
         })
@@ -445,6 +472,7 @@ export function App() {
     }
 
     return () => {
+      disposed = true;
       permissionStatus?.removeEventListener('change', handlePermissionChange);
       unsubscribeDevices();
       service.dispose();
@@ -471,210 +499,254 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    let ignore = false;
     const loadAppSettings = async () => {
       if (!window.appBridge) {
-        setSettingsReady(true);
+        if (!ignore) {
+          setSettingsReady(true);
+        }
         return;
       }
 
-      const nextInstrumentSamplePackStatuses = await syncInstrumentSamplePackStatuses();
-      const installedPackInstrumentIds = getInstalledPackInstrumentIds(nextInstrumentSamplePackStatuses);
+      try {
+        const nextInstrumentSamplePackStatuses = await syncInstrumentSamplePackStatuses();
+        const installedPackInstrumentIds = getInstalledPackInstrumentIds(nextInstrumentSamplePackStatuses);
 
-      const [
-        setupComplete,
-        reminder,
-        savedHandSize,
-        rawInputMode,
-        rawKeyboardMapping,
-        rawInstrumentId,
-        rawMasterVolume,
-        rawMetronomeVolume,
-        rawReverbLevel,
-        rawTheme,
-        rawColorBlind,
-        rawNoteLabels,
-        rawKeyboardSize,
-        rawStagePalette,
-        rawLatencyComp,
-        rawWaitMode,
-        rawMetronomeDefault,
-        rawBreakReminder,
-        rawMidiDeviceId,
-        rawCustomSamplePath,
-        rawHitWindow,
-        rawBeatsVisible,
-        rawLeftHandColor,
-        rawRightHandColor,
-        rawMetronomeSound,
-        rawLeadInBeats,
-        rawNoteLabelSize,
-        rawPitchBendEnabled,
-        rawInstrumentReverbPresets,
-      ] = await Promise.all([
-        window.appBridge.getSetting('onboarding', 'setupComplete'),
-        window.appBridge.getSetting('practice', 'postureReminderMinutes'),
-        window.appBridge.getSetting('fingering', 'handSize'),
-        window.appBridge.getSetting(INPUT_SETTINGS_CATEGORY, INPUT_MODE_SETTING_KEY),
-        window.appBridge.getSetting(INPUT_SETTINGS_CATEGORY, INPUT_KEYBOARD_MAPPING_SETTING_KEY),
-        window.appBridge.getSetting('audio', 'instrumentId'),
-        window.appBridge.getSetting('audio', 'masterVolume'),
-        window.appBridge.getSetting('audio', 'metronomeVolume'),
-        window.appBridge.getSetting('audio', 'reverbLevel'),
-        window.appBridge.getSetting('visual', 'theme'),
-        window.appBridge.getSetting('visual', 'colorBlindMode'),
-        window.appBridge.getSetting('visual', 'noteLabels'),
-        window.appBridge.getSetting('visual', 'keyboardOverlaySize'),
-        window.appBridge.getSetting('visual', 'stagePalette'),
-        window.appBridge.getSetting('audio', 'latencyCompMs'),
-        window.appBridge.getSetting('gameplay', 'waitModeDefault'),
-        window.appBridge.getSetting('gameplay', 'metronomeDefault'),
-        window.appBridge.getSetting('practice', 'breakReminderMinutes'),
-        window.appBridge.getSetting('input', 'midiDeviceId'),
-        window.appBridge.getSetting('audio', 'customSamplePackPath'),
-        window.appBridge.getSetting('gameplay', 'hitWindowMs'),
-        window.appBridge.getSetting('visual', 'beatsVisible'),
-        window.appBridge.getSetting('visual', 'leftHandColor'),
-        window.appBridge.getSetting('visual', 'rightHandColor'),
-        window.appBridge.getSetting('audio', 'metronomeSound'),
-        window.appBridge.getSetting('gameplay', 'leadInBeats'),
-        window.appBridge.getSetting('visual', 'noteLabelSize'),
-        window.appBridge.getSetting('audio', 'pitchBendEnabled'),
-        window.appBridge.getSetting('audio', 'instrumentReverbPresets'),
-      ]);
+        const [
+          setupComplete,
+          reminder,
+          savedHandSize,
+          rawInputMode,
+          rawKeyboardMapping,
+          rawInstrumentId,
+          rawMasterVolume,
+          rawMetronomeVolume,
+          rawReverbLevel,
+          rawTheme,
+          rawColorBlind,
+          rawNoteLabels,
+          rawKeyboardSize,
+          rawStagePalette,
+          rawLatencyComp,
+          rawWaitMode,
+          rawMetronomeDefault,
+          rawBreakReminder,
+          rawMidiDeviceId,
+          rawCustomSamplePath,
+          rawHitWindow,
+          rawBeatsVisible,
+          rawLeftHandColor,
+          rawRightHandColor,
+          rawMetronomeSound,
+          rawLeadInBeats,
+          rawNoteLabelSize,
+          rawPitchBendEnabled,
+          rawInstrumentReverbPresets,
+        ] = await Promise.all([
+          window.appBridge.getSetting('onboarding', 'setupComplete'),
+          window.appBridge.getSetting('practice', 'postureReminderMinutes'),
+          window.appBridge.getSetting('fingering', 'handSize'),
+          window.appBridge.getSetting(INPUT_SETTINGS_CATEGORY, INPUT_MODE_SETTING_KEY),
+          window.appBridge.getSetting(INPUT_SETTINGS_CATEGORY, INPUT_KEYBOARD_MAPPING_SETTING_KEY),
+          window.appBridge.getSetting('audio', 'instrumentId'),
+          window.appBridge.getSetting('audio', 'masterVolume'),
+          window.appBridge.getSetting('audio', 'metronomeVolume'),
+          window.appBridge.getSetting('audio', 'reverbLevel'),
+          window.appBridge.getSetting('visual', 'theme'),
+          window.appBridge.getSetting('visual', 'colorBlindMode'),
+          window.appBridge.getSetting('visual', 'noteLabels'),
+          window.appBridge.getSetting('visual', 'keyboardOverlaySize'),
+          window.appBridge.getSetting('visual', 'stagePalette'),
+          window.appBridge.getSetting('audio', 'latencyCompMs'),
+          window.appBridge.getSetting('gameplay', 'waitModeDefault'),
+          window.appBridge.getSetting('gameplay', 'metronomeDefault'),
+          window.appBridge.getSetting('practice', 'breakReminderMinutes'),
+          window.appBridge.getSetting('input', 'midiDeviceId'),
+          window.appBridge.getSetting('audio', 'customSamplePackPath'),
+          window.appBridge.getSetting('gameplay', 'hitWindowMs'),
+          window.appBridge.getSetting('visual', 'beatsVisible'),
+          window.appBridge.getSetting('visual', 'leftHandColor'),
+          window.appBridge.getSetting('visual', 'rightHandColor'),
+          window.appBridge.getSetting('audio', 'metronomeSound'),
+          window.appBridge.getSetting('gameplay', 'leadInBeats'),
+          window.appBridge.getSetting('visual', 'noteLabelSize'),
+          window.appBridge.getSetting('audio', 'pitchBendEnabled'),
+          window.appBridge.getSetting('audio', 'instrumentReverbPresets'),
+        ]);
 
-      if (reminder) {
-        const parsed = Number(reminder);
-        if (Number.isFinite(parsed) && parsed > 0) {
-          setPostureReminderMinutes(parsed);
+        if (ignore) {
+          return;
         }
-      }
-      if (savedHandSize === 'small' || savedHandSize === 'medium' || savedHandSize === 'large') {
-        setHandSize(savedHandSize);
-      }
 
-      const theme =
-        rawTheme === 'warm' || rawTheme === 'light' || rawTheme === 'dark' || rawTheme === 'neon'
-          ? rawTheme
-          : DEFAULT_THEME;
-      applyTheme(theme);
-      if (!rawTheme) {
-        void window.appBridge.setSetting('visual', 'theme', theme);
-      }
+        setStartupError(null);
 
-      setColorBlindMode(rawColorBlind === 'true');
+        if (reminder) {
+          const parsed = Number(reminder);
+          if (Number.isFinite(parsed) && parsed > 0) {
+            setPostureReminderMinutes(parsed);
+          }
+        }
+        if (savedHandSize === 'small' || savedHandSize === 'medium' || savedHandSize === 'large') {
+          setHandSize(savedHandSize);
+        }
 
-      if (rawNoteLabels === 'alphabetic' || rawNoteLabels === 'symbols' || rawNoteLabels === 'both' || rawNoteLabels === 'none') {
-        setNoteLabels(rawNoteLabels);
-      }
+        const theme =
+          rawTheme === 'warm' || rawTheme === 'light' || rawTheme === 'dark' || rawTheme === 'neon'
+            ? rawTheme
+            : DEFAULT_THEME;
+        applyTheme(theme);
+        if (!rawTheme) {
+          void window.appBridge.setSetting('visual', 'theme', theme);
+        }
 
-      if (rawKeyboardSize === 'small' || rawKeyboardSize === 'large') {
-        setKeyboardOverlaySize(rawKeyboardSize);
-      }
+        setColorBlindMode(rawColorBlind === 'true');
 
-      const nextStagePalette =
-        rawStagePalette === 'aurora-emerald' || rawStagePalette === 'constellation-galactic'
-          ? rawStagePalette
-          : DEFAULT_STAGE_PALETTE;
-      setStagePalette(nextStagePalette);
-      applyStagePalette(nextStagePalette);
+        if (rawNoteLabels === 'alphabetic' || rawNoteLabels === 'symbols' || rawNoteLabels === 'both' || rawNoteLabels === 'none') {
+          setNoteLabels(rawNoteLabels);
+        }
 
-      const parsedLatency = Number(rawLatencyComp);
-      if (Number.isFinite(parsedLatency)) {
-        setLatencyCompMs(parsedLatency);
-      }
+        if (rawKeyboardSize === 'small' || rawKeyboardSize === 'large') {
+          setKeyboardOverlaySize(rawKeyboardSize);
+        }
 
-      setWaitModeDefault(rawWaitMode === 'true');
-      setMetronomeDefault(rawMetronomeDefault === 'true');
-      setPitchBendEnabled(rawPitchBendEnabled !== 'false');
+        const nextStagePalette =
+          rawStagePalette === 'aurora-emerald' || rawStagePalette === 'constellation-galactic'
+            ? rawStagePalette
+            : DEFAULT_STAGE_PALETTE;
+        setStagePalette(nextStagePalette);
+        applyStagePalette(nextStagePalette);
 
-      const parsedBreak = Number(rawBreakReminder);
-      if (Number.isFinite(parsedBreak) && parsedBreak > 0) {
-        setBreakReminderMinutes(parsedBreak);
-      }
+        const parsedLatency = Number(rawLatencyComp);
+        if (Number.isFinite(parsedLatency)) {
+          setLatencyCompMs(parsedLatency);
+        }
 
-      if (rawMidiDeviceId && midiServiceRef.current) {
-        midiServiceRef.current.setDeviceFilter(rawMidiDeviceId);
-      }
+        setWaitModeDefault(rawWaitMode === 'true');
+        setMetronomeDefault(rawMetronomeDefault === 'true');
+        setPitchBendEnabled(rawPitchBendEnabled !== 'false');
 
-      setCustomSamplePackPath(rawCustomSamplePath ?? '');
+        const parsedBreak = Number(rawBreakReminder);
+        if (Number.isFinite(parsedBreak) && parsedBreak > 0) {
+          setBreakReminderMinutes(parsedBreak);
+        }
 
-      const nextInputMode = parseInputMode(rawInputMode);
-      setInputMode(nextInputMode);
-      if (!rawInputMode) {
-        void window.appBridge.setSetting(INPUT_SETTINGS_CATEGORY, INPUT_MODE_SETTING_KEY, nextInputMode);
-      }
+        if (rawMidiDeviceId && midiServiceRef.current) {
+          midiServiceRef.current.setDeviceFilter(rawMidiDeviceId);
+        }
 
-      const parsedMapping = parseKeyboardMapping(rawKeyboardMapping);
-      keyboardServiceRef.current.setMapping(parsedMapping);
-      if (!rawKeyboardMapping) {
-        void window.appBridge.setSetting(
-          INPUT_SETTINGS_CATEGORY,
-          INPUT_KEYBOARD_MAPPING_SETTING_KEY,
-          stringifyKeyboardMapping(parsedMapping),
+        setCustomSamplePackPath(rawCustomSamplePath ?? '');
+
+        const nextInputMode = parseInputMode(rawInputMode);
+        setInputMode(nextInputMode);
+        if (!rawInputMode) {
+          void window.appBridge.setSetting(INPUT_SETTINGS_CATEGORY, INPUT_MODE_SETTING_KEY, nextInputMode);
+        }
+
+        const parsedMapping = parseKeyboardMapping(rawKeyboardMapping);
+        keyboardServiceRef.current.setMapping(parsedMapping);
+        if (!rawKeyboardMapping) {
+          void window.appBridge.setSetting(
+            INPUT_SETTINGS_CATEGORY,
+            INPUT_KEYBOARD_MAPPING_SETTING_KEY,
+            stringifyKeyboardMapping(parsedMapping),
+          );
+        }
+
+        const defaultInstrumentId = IS_WEB ? DEFAULT_WEB_INSTRUMENT_ID : DEFAULT_INSTRUMENT_ID;
+        const initialInstrumentId =
+          isInstrumentId(rawInstrumentId) && isInstrumentSelectable(rawInstrumentId, installedPackInstrumentIds)
+            ? rawInstrumentId
+            : defaultInstrumentId;
+        const nextInstrumentReverbPresets = parseInstrumentReverbPresetMap(rawInstrumentReverbPresets);
+        setInstrumentId(initialInstrumentId);
+        setInstrumentReverbPresets(nextInstrumentReverbPresets);
+        audioEngineRef.current.setMasterVolume(parseStoredAudioNumber(rawMasterVolume, 80));
+        audioEngineRef.current.setMetronomeVolume(parseStoredAudioNumber(rawMetronomeVolume, 65));
+        audioEngineRef.current.setReverbLevel(parseStoredAudioNumber(rawReverbLevel, 20));
+        await audioEngineRef.current.setInstrument(initialInstrumentId);
+        await applyResolvedInstrumentSource(initialInstrumentId, rawCustomSamplePath ?? '');
+        if (ignore) {
+          return;
+        }
+        audioEngineRef.current.setInstrumentReverbPreset(
+          getInstrumentEffectiveReverbPreset(initialInstrumentId, nextInstrumentReverbPresets),
         );
+
+        if (!rawInstrumentId) {
+          void window.appBridge.setSetting('audio', 'instrumentId', initialInstrumentId);
+        }
+
+        const parsedHitWindow = Number(rawHitWindow);
+        if (Number.isFinite(parsedHitWindow) && parsedHitWindow > 0) {
+          setHitWindowMs(parsedHitWindow);
+        }
+
+        const parsedBeatsVisible = Number(rawBeatsVisible);
+        if (Number.isFinite(parsedBeatsVisible) && parsedBeatsVisible > 0) {
+          setBeatsVisible(parsedBeatsVisible);
+        }
+
+        const parsedLeadIn = Number(rawLeadInBeats);
+        if (Number.isFinite(parsedLeadIn) && parsedLeadIn >= 0) {
+          setLeadInBeats(Math.round(parsedLeadIn));
+        }
+
+        if (rawNoteLabelSize === 'small' || rawNoteLabelSize === 'large') {
+          setNoteLabelSize(rawNoteLabelSize);
+        }
+
+        applyHandColor('left', rawLeftHandColor ?? DEFAULT_LEFT_HAND_COLOR);
+        applyHandColor('right', rawRightHandColor ?? DEFAULT_RIGHT_HAND_COLOR);
+
+        if (rawMetronomeSound) {
+          audioEngineRef.current.setMetronomeSound(rawMetronomeSound);
+        }
+
+        setCurrentScreen({ screen: setupComplete === 'true' ? 'main-menu' : 'setup' });
+        setSettingsReady(true);
+
+        const achievements = await window.appBridge.getAllAchievements().catch(() => null);
+        if (!ignore && achievements) {
+          setUnlockedRewardIds(getUnlockedRewardIds(achievements));
+        }
+      } catch {
+        if (ignore) {
+          return;
+        }
+        applyTheme(DEFAULT_THEME);
+        applyHandColor('left', DEFAULT_LEFT_HAND_COLOR);
+        applyHandColor('right', DEFAULT_RIGHT_HAND_COLOR);
+        applyStagePalette(DEFAULT_STAGE_PALETTE);
+        setStartupError('Some saved settings could not be loaded. Defaults are active for this session.');
+        setCurrentScreen({ screen: 'main-menu' });
+        setSettingsReady(true);
       }
-
-      const defaultInstrumentId = IS_WEB ? DEFAULT_WEB_INSTRUMENT_ID : DEFAULT_INSTRUMENT_ID;
-      const initialInstrumentId =
-        isInstrumentId(rawInstrumentId) && isInstrumentSelectable(rawInstrumentId, installedPackInstrumentIds)
-          ? rawInstrumentId
-          : defaultInstrumentId;
-      const nextInstrumentReverbPresets = parseInstrumentReverbPresetMap(rawInstrumentReverbPresets);
-      setInstrumentId(initialInstrumentId);
-      setInstrumentReverbPresets(nextInstrumentReverbPresets);
-      audioEngineRef.current.setMasterVolume(parseStoredAudioNumber(rawMasterVolume, 80));
-      audioEngineRef.current.setMetronomeVolume(parseStoredAudioNumber(rawMetronomeVolume, 65));
-      audioEngineRef.current.setReverbLevel(parseStoredAudioNumber(rawReverbLevel, 20));
-      await audioEngineRef.current.setInstrument(initialInstrumentId);
-      await applyResolvedInstrumentSource(initialInstrumentId, rawCustomSamplePath ?? '');
-      audioEngineRef.current.setInstrumentReverbPreset(
-        getInstrumentEffectiveReverbPreset(initialInstrumentId, nextInstrumentReverbPresets),
-      );
-
-      if (!rawInstrumentId) {
-        void window.appBridge.setSetting('audio', 'instrumentId', initialInstrumentId);
-      }
-
-      const parsedHitWindow = Number(rawHitWindow);
-      if (Number.isFinite(parsedHitWindow) && parsedHitWindow > 0) {
-        setHitWindowMs(parsedHitWindow);
-      }
-
-      const parsedBeatsVisible = Number(rawBeatsVisible);
-      if (Number.isFinite(parsedBeatsVisible) && parsedBeatsVisible > 0) {
-        setBeatsVisible(parsedBeatsVisible);
-      }
-
-      const parsedLeadIn = Number(rawLeadInBeats);
-      if (Number.isFinite(parsedLeadIn) && parsedLeadIn >= 0) {
-        setLeadInBeats(Math.round(parsedLeadIn));
-      }
-
-      if (rawNoteLabelSize === 'small' || rawNoteLabelSize === 'large') {
-        setNoteLabelSize(rawNoteLabelSize);
-      }
-
-      applyHandColor('left', rawLeftHandColor ?? DEFAULT_LEFT_HAND_COLOR);
-      applyHandColor('right', rawRightHandColor ?? DEFAULT_RIGHT_HAND_COLOR);
-
-      if (rawMetronomeSound) {
-        audioEngineRef.current.setMetronomeSound(rawMetronomeSound);
-      }
-
-      setCurrentScreen({ screen: setupComplete === 'true' ? 'main-menu' : 'setup' });
-      setSettingsReady(true);
-
-      const achievements = await window.appBridge.getAllAchievements();
-      setUnlockedRewardIds(getUnlockedRewardIds(achievements));
     };
 
     void loadAppSettings();
+
+    return () => {
+      ignore = true;
+    };
   }, []);
 
   useEffect(() => {
-    void loadLearningProgress(window.appBridge).then((progress) => {
-      setLearningProgress(progress);
-    });
+    let ignore = false;
+    void loadLearningProgress(window.appBridge)
+      .then((progress) => {
+        if (!ignore) {
+          setLearningProgress(progress);
+        }
+      })
+      .catch(() => {
+        if (!ignore) {
+          setLearningProgress(EMPTY_LEARNING_PROGRESS);
+          setStartupError('Some saved settings could not be loaded. Defaults are active for this session.');
+        }
+      });
+    return () => {
+      ignore = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -1613,7 +1685,7 @@ export function App() {
             );
             setCurrentScreen({ screen: 'learn-hub' });
           }}
-          onOpenKeyboardSetup={() => setCurrentScreen({ screen: 'keyboard-setup', returnTo: 'library' })}
+          onOpenKeyboardSetup={() => setCurrentScreen({ screen: 'keyboard-setup', returnTo: 'learn-hub' })}
         />
       );
       break;
@@ -1698,6 +1770,17 @@ export function App() {
         </div>
       ) : (
         screenContent
+      )}
+      {startupError && (
+        <aside className="achievement-toast achievement-toast--goal" role="status" aria-live="polite">
+          <div>
+            <p className="eyebrow">Startup Defaults Active</p>
+            <strong>{startupError}</strong>
+          </div>
+          <button className="secondary-button" onClick={() => setStartupError(null)}>
+            Dismiss
+          </button>
+        </aside>
       )}
       {showDailyGoalToast && (
         <aside className="achievement-toast achievement-toast--goal" role="status" aria-live="polite">

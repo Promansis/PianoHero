@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { ComputerKeyboardInputService, isBindableCode } from '../../lib/input/computerKeyboardInputService';
 import {
   INPUT_KEYBOARD_MAPPING_SETTING_KEY,
-  INPUT_MODE_SETTING_KEY,
   INPUT_SETTINGS_CATEGORY,
   KEYBOARD_NOTE_ACTIONS,
   assignKeyboardCode,
@@ -233,7 +232,6 @@ export function KeyboardSetupScreen({
             onChange={(event) => {
               const nextMode = event.target.value as InputMode;
               onInputModeChange(nextMode);
-              void window.appBridge?.setSetting(INPUT_SETTINGS_CATEGORY, INPUT_MODE_SETTING_KEY, nextMode);
             }}
           >
             <option value="both">Both</option>

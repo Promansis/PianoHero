@@ -195,8 +195,8 @@ const MENU_CARDS: MenuCard[] = [
 
 const STATUS_ITEMS = [
   ['Stage', 'Ready'],
-  ['Core Routes', '3'],
-  ['Bonus Modes', '5'],
+  ['Core Routes', String(MENU_CARDS.filter((card) => card.priority === 'primary').length)],
+  ['Bonus Modes', String(MENU_CARDS.filter((card) => card.priority === 'secondary').length)],
 ] as const;
 
 function clamp(value: number, min: number, max: number): number {
@@ -399,7 +399,7 @@ export function MainMenuScreen(props: MainMenuScreenProps) {
 
       <section className="main-menu-hero">
         <div className="main-menu-hero-copy entrance-animate" style={{ '--entrance-delay': '0ms' } as MenuStyle}>
-          <h1>LumaKeys</h1>
+          <h1>Piano Hero</h1>
           <p className="song-title">Step into a polished practice stage built for cleaner runs, faster learning, and one more take.</p>
         </div>
         <div className="main-menu-hero-status" aria-hidden="true">

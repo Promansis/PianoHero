@@ -1,6 +1,10 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createDefaultKeyboardMapping } from '../../lib/input/settings';
+import {
+  INPUT_MODE_SETTING_KEY,
+  INPUT_SETTINGS_CATEGORY,
+  createDefaultKeyboardMapping,
+} from '../../lib/input/settings';
 import type { ComputerKeyboardInputService } from '../../lib/input/computerKeyboardInputService';
 import type { InputEvent, KeyboardInputState, KeyboardMapping } from '../../lib/input/types';
 import { KeyboardSetupScreen } from './KeyboardSetupScreen';
@@ -102,5 +106,26 @@ describe('KeyboardSetupScreen', () => {
     await waitFor(() => {
       expect(service.suspended).toBe(true);
     });
+  });
+
+  it('delegates input mode persistence to the parent app shell', async () => {
+    const onInputModeChange = vi.fn();
+
+    render(
+      <KeyboardSetupScreen
+        keyboardInputService={new MockKeyboardInputService() as unknown as ComputerKeyboardInputService}
+        inputMode="both"
+        onInputModeChange={onInputModeChange}
+      />,
+    );
+
+    fireEvent.change(await screen.findByLabelText('Input Mode'), { target: { value: 'midi' } });
+
+    expect(onInputModeChange).toHaveBeenCalledWith('midi');
+    expect(window.appBridge?.setSetting).not.toHaveBeenCalledWith(
+      INPUT_SETTINGS_CATEGORY,
+      INPUT_MODE_SETTING_KEY,
+      'midi',
+    );
   });
 });

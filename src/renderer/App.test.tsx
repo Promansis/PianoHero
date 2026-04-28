@@ -44,8 +44,17 @@ vi.mock('./components/MainMenuScreen', () => ({
 }));
 
 vi.mock('./components/LearnHubScreen', () => ({
-  LearnHubScreen: ({ onOpenLesson }: { onOpenLesson: (lessonId: string) => void }) => (
-    <button onClick={() => onOpenLesson('novice-02-finger-numbers')}>Open Lesson</button>
+  LearnHubScreen: ({
+    onOpenLesson,
+    onStartCapstone,
+  }: {
+    onOpenLesson: (lessonId: string) => void;
+    onStartCapstone: (tierId: string) => void;
+  }) => (
+    <>
+      <button onClick={() => onOpenLesson('novice-02-finger-numbers')}>Open Lesson</button>
+      <button onClick={() => onStartCapstone('novice')}>Start Capstone</button>
+    </>
   ),
 }));
 
@@ -198,6 +207,18 @@ vi.mock('../lib/input/computerKeyboardInputService', () => ({
   },
 }));
 
+vi.mock('../lib/midi/midiFileParser', () => ({
+  parseMidiFile: vi.fn(() => ({
+    id: 'capstone-novice',
+    title: 'Capstone',
+    ppq: 480,
+    bpm: 120,
+    durationSec: 2,
+    tracks: [],
+    notes: [],
+  })),
+}));
+
 describe('App', () => {
   afterEach(() => {
     cleanup();
@@ -230,6 +251,7 @@ describe('App', () => {
       }),
       setSetting: setSettingSpy,
       listAudioFiles: vi.fn().mockResolvedValue([]),
+      loadCurriculumMidi: vi.fn(async () => new Uint8Array([1, 2, 3])),
       getAllAchievements: vi.fn(async () =>
         achievements.map((achievement) => ({
           ...achievement,
@@ -268,6 +290,19 @@ describe('App', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Back to Lesson' }));
 
     expect(screen.getByText('Start Drill')).toBeInTheDocument();
+    expect(screen.queryByText('Keyboard Setup')).not.toBeInTheDocument();
+  });
+
+  it('returns keyboard setup opened from a capstone back to the learn hub', async () => {
+    render(<App />);
+
+    fireEvent.click(await screen.findByText('Open Learn'));
+    fireEvent.click(await screen.findByText('Start Capstone'));
+    fireEvent.click(await screen.findByText('Open Keyboard Setup'));
+    fireEvent.click(screen.getByRole('button', { name: 'Back to Learn' }));
+
+    expect(screen.getByText('Open Lesson')).toBeInTheDocument();
+    expect(screen.getByText('Start Capstone')).toBeInTheDocument();
     expect(screen.queryByText('Keyboard Setup')).not.toBeInTheDocument();
   });
 
@@ -340,6 +375,21 @@ describe('App', () => {
     await screen.findByText('Open Free Play');
 
     expect(setInstrumentReverbPresetSpy).toHaveBeenCalledWith('hall');
+  });
+
+  it('keeps the shell usable with defaults when startup settings fail', async () => {
+    window.appBridge = {
+      ...window.appBridge!,
+      getSetting: vi.fn(async () => {
+        throw new Error('settings unavailable');
+      }),
+    } as typeof window.appBridge;
+
+    render(<App />);
+
+    expect(await screen.findByText('Open Library')).toBeInTheDocument();
+    expect(screen.getByText('Startup Defaults Active')).toBeInTheDocument();
+    expect(screen.getByText('Some saved settings could not be loaded. Defaults are active for this session.')).toBeInTheDocument();
   });
 
   it('persists instrument changes triggered from immersive free play controls', async () => {
