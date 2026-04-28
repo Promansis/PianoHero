@@ -99,15 +99,17 @@ export function ResultsScreen({
   const stars = getStarCount(result.accuracy);
   const isMaestro = unlockedRewardIds?.has('title:maestro') ?? false;
   const hasMaestroConfetti = unlockedRewardIds?.has('effect:maestro-confetti') ?? false;
+  const isTemporarySong = song.id.startsWith('temp-');
   const troubleSpots = result.measureAccuracy.filter((entry) => entry.accuracy < 70);
   const feedback = buildFeedback(result);
 
   useEffect(() => {
+    let ignore = false;
     if (didPersistRef.current) {
       return;
     }
     const bridge = window.appBridge;
-    if (!bridge) {
+    if (!bridge || isTemporarySong) {
       setTroubleSpotsLoading(false);
       return;
     }
@@ -133,19 +135,30 @@ export function ResultsScreen({
         if (outcome.dailyGoalReached) onDailyGoalReached?.();
         if (outcome.songGoalReached) onSongGoalReached?.();
         const nextTroubleSpots = await bridge.getTroubleSpots(song.id);
+        if (ignore) {
+          return;
+        }
         setHistoricalTroubleSpots(nextTroubleSpots);
         setSaveError(null);
       } catch (error) {
-        setSaveError((error as Error).message);
+        if (!ignore) {
+          setSaveError((error as Error).message);
+        }
       } finally {
-        setTroubleSpotsLoading(false);
+        if (!ignore) {
+          setTroubleSpotsLoading(false);
+        }
       }
     })();
-  }, [onAchievementsUnlocked, onDailyGoalReached, onSongGoalReached, result, song.id]);
+    return () => {
+      ignore = true;
+    };
+  }, [isTemporarySong, onAchievementsUnlocked, onDailyGoalReached, onSongGoalReached, result, song.id]);
 
   useEffect(() => {
+    let ignore = false;
     const loadAnalysis = async () => {
-      if (!window.appBridge) {
+      if (!window.appBridge || isTemporarySong) {
         return;
       }
 
@@ -155,15 +168,23 @@ export function ResultsScreen({
           songId: song.id,
           title: song.title,
         });
+        if (ignore) {
+          return;
+        }
         setAnalysis(analyzeSong(parsedSong));
         setAnalysisError(null);
       } catch (error) {
-        setAnalysisError((error as Error).message);
+        if (!ignore) {
+          setAnalysisError((error as Error).message);
+        }
       }
     };
 
     void loadAnalysis();
-  }, [song.id, song.title]);
+    return () => {
+      ignore = true;
+    };
+  }, [isTemporarySong, song.id, song.title]);
 
   useEffect(() => {
     if ((grade !== 'S' && grade !== 'A') || !hasMaestroConfetti) return;
@@ -386,6 +407,7 @@ export function ResultsScreen({
             </div>
           </div>
           <p className="panel-copy">{feedback}</p>
+          {isTemporarySong && <p className="panel-copy">Unsaved MIDI run. Results, trouble spots, and practice history were not saved.</p>}
           {saveError && <p className="panel-copy">Unable to save this run: {saveError}</p>}
         </article>
 
@@ -420,7 +442,7 @@ export function ResultsScreen({
               ))}
             </ul>
           )}
-          {troubleSpotsLoading && <p className="panel-copy">Loading historical trouble spot data.</p>}
+          {troubleSpotsLoading && !isTemporarySong && <p className="panel-copy">Loading historical trouble spot data.</p>}
         </article>
       </section>
 
@@ -432,7 +454,8 @@ export function ResultsScreen({
           </div>
         </div>
         {analysisError && <p className="panel-copy">Theory analysis unavailable: {analysisError}</p>}
-        {!analysis && !analysisError && <p className="panel-copy">Analyzing key center, harmony, and practice suggestions.</p>}
+        {!analysis && !analysisError && !isTemporarySong && <p className="panel-copy">Analyzing key center, harmony, and practice suggestions.</p>}
+        {isTemporarySong && <p className="panel-copy">Theory analysis is available after importing the song into the library.</p>}
         {analysis && (
           <div className="theory-connections-grid">
             <div className="result-stat">

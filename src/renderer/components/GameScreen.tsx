@@ -109,11 +109,6 @@ function formatTime(seconds: number): string {
   return `${minutes}:${String(remainder).padStart(2, '0')}`;
 }
 
-async function createSongId(bytes: ArrayBuffer): Promise<string> {
-  const hash = await crypto.subtle.digest('SHA-256', bytes);
-  return [...new Uint8Array(hash)].map((value) => value.toString(16).padStart(2, '0')).join('');
-}
-
 function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
   return bytes.slice().buffer;
 }
@@ -146,7 +141,7 @@ function loopEndForSong(song: ParsedSong | null, sessionConfig: SessionConfig): 
 
 function buildTempSong(title: string): SongRow {
   return {
-    id: `temp-${title}`,
+    id: `temp-${crypto.randomUUID()}`,
     title,
     artist: '',
     genre: '',
@@ -476,6 +471,9 @@ export function GameScreen({
       unsubscribeMidi();
       unsubscribeKeyboard();
       unsubscribeKeyboardState();
+      audioEngine.setSustain(false);
+      audioEngine.setPitchBend(0);
+      audioEngine.allNotesOff();
     };
   }, [audioEngine, inputMode, keyboardInputService, midiInputService]);
 
@@ -780,13 +778,12 @@ export function GameScreen({
       return;
     }
 
-    const nextSongId = await createSongId(toArrayBuffer(picked.data));
     const tempSong = buildTempSong(picked.name.replace(/\.(mid|midi)$/i, ''));
-    tempSong.id = nextSongId;
     currentSongRef.current = tempSong;
     baselineStatsRef.current = null;
     setCustomFingerings([]);
     await loadSongFromBytes(toArrayBuffer(picked.data), tempSong, sessionConfig, []);
+    setStatusMessage('Loaded an unsaved MIDI file for this run. Results and fingerings will not be saved.');
   };
 
   const handleDroppedFile = async (file: File) => {
@@ -795,13 +792,12 @@ export function GameScreen({
     }
 
     const bytes = await file.arrayBuffer();
-    const nextSongId = await createSongId(bytes);
     const tempSong = buildTempSong(file.name.replace(/\.(mid|midi)$/i, ''));
-    tempSong.id = nextSongId;
     currentSongRef.current = tempSong;
     baselineStatsRef.current = null;
     setCustomFingerings([]);
     await loadSongFromBytes(bytes, tempSong, sessionConfig, []);
+    setStatusMessage('Loaded an unsaved MIDI file for this run. Results and fingerings will not be saved.');
   };
 
   const runCountdown = async (song: ParsedSong, startSec: number, countdownConfig: SessionConfig) => {
@@ -1073,7 +1069,8 @@ export function GameScreen({
   const currentTimeLabel = formatTime(snapshot.currentTimeSec - loopStart);
   const durationLabel = formatTime(snapshot.durationSec);
   const canImportMidi = source.kind === 'library-song' && !IS_WEB;
-  const canPersistCurrentSong = source.kind === 'library-song' && !currentSongRef.current.id.startsWith('temp-');
+  const isTemporaryLibrarySong = source.kind === 'library-song' && currentSongRef.current.id.startsWith('temp-');
+  const canPersistCurrentSong = source.kind === 'library-song' && !isTemporaryLibrarySong;
 
   const sessionToolbar = (
     <SessionToolbar
@@ -1164,6 +1161,12 @@ export function GameScreen({
       {/* Minimal HUD — always visible during gameplay */}
       <div className="immersive-hud">
         <div className="immersive-hud-stats">
+          {isTemporaryLibrarySong && (
+            <div className="immersive-hud-item">
+              <span>Run</span>
+              <strong>Unsaved MIDI</strong>
+            </div>
+          )}
           <div className="immersive-hud-item">
             <span>Score</span>
             <strong>{snapshot.score.totalScore.toLocaleString()}</strong>
@@ -1252,7 +1255,12 @@ export function GameScreen({
         <div className="immersive-overlay" onClick={(e) => { if (e.target === e.currentTarget) setOverlayVisible(false); }}>
           <div className="immersive-overlay-panel">
             <div className="immersive-overlay-header">
-              <h2>{currentSongRef.current.title}</h2>
+              <div>
+                <h2>{currentSongRef.current.title}</h2>
+                {isTemporaryLibrarySong ? (
+                  <p className="panel-copy">Unsaved MIDI run. Results, trouble spots, and fingerings are disabled.</p>
+                ) : null}
+              </div>
               <div className="immersive-overlay-actions">
                 <button className="primary-button" onClick={() => setOverlayVisible(false)}>
                   Resume

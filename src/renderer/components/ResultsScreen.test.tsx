@@ -272,4 +272,74 @@ describe('ResultsScreen', () => {
 
     expect(document.querySelector('.confetti-canvas')).toBeInTheDocument();
   });
+
+  it('does not persist results for unsaved temporary MIDI runs', () => {
+    const saveGameResult = vi.fn();
+    window.appBridge = {
+      saveGameResult,
+      getTroubleSpots: vi.fn(),
+      loadMidiFileData: vi.fn(),
+    } as unknown as typeof window.appBridge;
+
+    render(
+      <ResultsScreen
+        result={{
+          songId: 'temp-run',
+          score: 1000,
+          accuracy: 95,
+          maxCombo: 10,
+          perfectHits: 10,
+          goodHits: 0,
+          okHits: 0,
+          misses: 0,
+          tempo: 1,
+          mode: 'piano-hero',
+          durationSec: 10,
+          measureAccuracy: [],
+        }}
+        song={{
+          id: 'temp-run',
+          title: 'Dropped MIDI',
+          artist: '',
+          genre: '',
+          filePath: '',
+          difficulty: 3,
+          durationSec: 10,
+          bpm: 120,
+          noteCount: 20,
+          dateAdded: new Date().toISOString(),
+          timesPlayed: 0,
+          tags: [],
+          isFavorite: false,
+          folderId: null,
+          trackAssignments: {},
+        }}
+        sessionConfig={{
+          mode: 'piano-hero',
+          tempoMultiplier: 1,
+          handFilter: 'both',
+          loopRange: null,
+          waitForInput: false,
+          metronomeEnabled: false,
+          handSize: 'medium',
+          fingeringDisplayMode: 'always',
+          pitchBendEnabled: true,
+          latencyCompMs: 0,
+          hitWindowMs: 100,
+          beatsVisible: 8,
+          leadInBeats: 2,
+        }}
+        baselineStats={null}
+        onRetry={vi.fn()}
+        onPracticeSections={vi.fn()}
+        onStartTheoryPractice={vi.fn()}
+        onMainMenu={vi.fn()}
+        hasNextSong={false}
+        onNextSong={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/Results, trouble spots, and practice history were not saved/)).toBeInTheDocument();
+    expect(saveGameResult).not.toHaveBeenCalled();
+  });
 });
