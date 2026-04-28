@@ -86,7 +86,8 @@ export function ScalePracticeScreen({
     listenTimeoutsRef.current = [];
     setIsListening(false);
     setListenIndex(null);
-  }, []);
+    audioEngine.allNotesOff();
+  }, [audioEngine]);
 
   const handleListen = useCallback(async () => {
     if (isListening) { stopListen(); return; }
@@ -180,6 +181,8 @@ export function ScalePracticeScreen({
     return () => {
       unsubscribeMidi();
       unsubscribeKeyboard();
+      audioEngine.setSustain(false);
+      audioEngine.allNotesOff();
     };
   }, [audioEngine, currentScale, direction, inputMode, isActive, keyboardInputService, midiInputService]);
 

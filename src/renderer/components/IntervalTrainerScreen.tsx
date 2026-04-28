@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AudioEngine } from '../../lib/audio/audioEngine';
-import { ALL_INTERVALS, EASY_INTERVALS, HARD_INTERVALS, MEDIUM_INTERVALS } from '../../lib/theory/intervals';
+import { EASY_INTERVALS, HARD_INTERVALS, MEDIUM_INTERVALS } from '../../lib/theory/intervals';
+import { useTimeoutRegistry } from '../useTimeoutRegistry';
 
 interface IntervalTrainerScreenProps {
   audioEngine: AudioEngine;
@@ -48,6 +49,7 @@ export function IntervalTrainerScreen({
   onBack,
   preset,
 }: IntervalTrainerScreenProps) {
+  const { setTrackedTimeout, clearAllTimeouts } = useTimeoutRegistry();
   const [difficulty, setDifficulty] = useState<IntervalDifficulty>((preset?.difficulty as IntervalDifficulty) || 'easy');
   const [questionIndex, setQuestionIndex] = useState(0);
   const [score, setScore] = useState(0);
@@ -64,6 +66,8 @@ export function IntervalTrainerScreen({
   const accuracy = useMemo(() => (questionIndex === 0 ? 0 : (score / questionIndex) * 100), [questionIndex, score]);
 
   useEffect(() => {
+    clearAllTimeouts();
+    audioEngine.allNotesOff();
     setCurrentQuestion(buildQuestion(difficulty));
     setQuestionIndex(0);
     setScore(0);
@@ -72,15 +76,21 @@ export function IntervalTrainerScreen({
     setHistory([]);
     setSessionActive(false);
     savedSessionRef.current = false;
-  }, [difficulty]);
+  }, [audioEngine, clearAllTimeouts, difficulty]);
+
+  useEffect(() => {
+    return () => {
+      audioEngine.allNotesOff();
+    };
+  }, [audioEngine]);
 
   const playInterval = async (question: TrainerQuestion) => {
     await audioEngine.init();
     await audioEngine.noteOn(question.baseMidi, 0.75);
-    window.setTimeout(() => {
+    setTrackedTimeout(() => {
       audioEngine.noteOff(question.baseMidi);
       void audioEngine.noteOn(question.baseMidi + question.semitones, 0.8);
-      window.setTimeout(() => {
+      setTrackedTimeout(() => {
         audioEngine.noteOff(question.baseMidi + question.semitones);
       }, 400);
     }, 400);
@@ -137,7 +147,7 @@ export function IntervalTrainerScreen({
     setQuestionIndex((current) => current + 1);
 
     if (questionIndex + 1 < totalQuestions) {
-      window.setTimeout(() => {
+      setTrackedTimeout(() => {
         setCurrentQuestion(buildQuestion(difficulty));
       }, 500);
     }

@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AudioEngine } from '../../lib/audio/audioEngine';
 import { CHORD_TEMPLATES, detectChord, PITCH_CLASS_NAMES } from '../../lib/theory/chords';
 import { ALL_INTERVALS } from '../../lib/theory/intervals';
 import { buildScale, SCALE_DEFINITIONS } from '../../lib/theory/scales';
+import { useTimeoutRegistry } from '../useTimeoutRegistry';
 
 interface TheoryQuizScreenProps {
   audioEngine: AudioEngine;
@@ -82,6 +83,8 @@ function shuffle<T>(items: T[]): T[] {
 }
 
 export function TheoryQuizScreen({ audioEngine, onAchievementsUnlocked, onSessionComplete, onBack, preset }: TheoryQuizScreenProps) {
+  const { setTrackedTimeout, clearAllTimeouts } = useTimeoutRegistry();
+  const savedQuizRef = useRef(false);
   const [quizType, setQuizType] = useState<QuizType>((preset?.quizType as QuizType) || 'chord');
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -104,7 +107,7 @@ export function TheoryQuizScreen({ audioEngine, onAchievementsUnlocked, onSessio
         if (midi !== undefined) {
           void audioEngine.init().then(async () => {
             await audioEngine.noteOn(midi, 0.8);
-            window.setTimeout(() => audioEngine.noteOff(midi), 600);
+            setTrackedTimeout(() => audioEngine.noteOff(midi), 600);
           });
         }
       },
@@ -135,10 +138,10 @@ export function TheoryQuizScreen({ audioEngine, onAchievementsUnlocked, onSessio
         play: () => {
           void audioEngine.init().then(async () => {
             await audioEngine.noteOn(baseMidi, 0.8);
-            window.setTimeout(() => {
+            setTrackedTimeout(() => {
               audioEngine.noteOff(baseMidi);
               void audioEngine.noteOn(baseMidi + interval.semitones, 0.8);
-              window.setTimeout(() => audioEngine.noteOff(baseMidi + interval.semitones), 350);
+              setTrackedTimeout(() => audioEngine.noteOff(baseMidi + interval.semitones), 350);
             }, 350);
           });
         },
@@ -159,9 +162,9 @@ export function TheoryQuizScreen({ audioEngine, onAchievementsUnlocked, onSessio
         play: () => {
           void audioEngine.init().then(() => {
             scale.midiNotes.slice(0, -1).forEach((midi, index) => {
-              window.setTimeout(() => {
+              setTrackedTimeout(() => {
                 void audioEngine.noteOn(midi, 0.75);
-                window.setTimeout(() => audioEngine.noteOff(midi), 220);
+                setTrackedTimeout(() => audioEngine.noteOff(midi), 220);
               }, index * 250);
             });
           });
@@ -187,21 +190,30 @@ export function TheoryQuizScreen({ audioEngine, onAchievementsUnlocked, onSessio
       play: () => {
         void audioEngine.init().then(() => {
           notes.forEach((midi) => void audioEngine.noteOn(midi, 0.75));
-          window.setTimeout(() => notes.forEach((midi) => audioEngine.noteOff(midi)), 650);
+          setTrackedTimeout(() => notes.forEach((midi) => audioEngine.noteOff(midi)), 650);
         });
       },
     };
   };
 
   const startQuiz = (type: QuizType) => {
+    clearAllTimeouts();
+    audioEngine.allNotesOff();
     const nextQuestions = Array.from({ length: 10 }, () => buildQuestion(type));
     setQuizType(type);
     setQuestions(nextQuestions);
     setCurrentIndex(0);
     setAnswers([]);
     setIsComplete(false);
+    savedQuizRef.current = false;
     nextQuestions[0]?.play();
   };
+
+  useEffect(() => {
+    return () => {
+      audioEngine.allNotesOff();
+    };
+  }, [audioEngine]);
 
   useEffect(() => {
     if (preset?.quizType) {
@@ -219,10 +231,11 @@ export function TheoryQuizScreen({ audioEngine, onAchievementsUnlocked, onSessio
   );
 
   useEffect(() => {
-    if (!isComplete || questions.length === 0) {
+    if (!isComplete || questions.length === 0 || savedQuizRef.current) {
       return;
     }
 
+    savedQuizRef.current = true;
     onSessionComplete?.({
       accuracy,
       score,
@@ -304,7 +317,7 @@ export function TheoryQuizScreen({ audioEngine, onAchievementsUnlocked, onSessio
                     return;
                   }
                   setCurrentIndex((current) => current + 1);
-                  window.setTimeout(() => questions[currentIndex + 1]?.play(), 300);
+                  setTrackedTimeout(() => questions[currentIndex + 1]?.play(), 300);
                 }}
               >
                 {choice}
