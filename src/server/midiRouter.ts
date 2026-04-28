@@ -1,8 +1,14 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { Hono } from 'hono';
-import { importSongFromBuffer } from '../shared/importSong';
+import { createSongId, importSongFromBuffer } from '../shared/importSong';
 import type { ServerDependencies } from './types';
+
+const MAX_MIDI_UPLOAD_BYTES = 10 * 1024 * 1024;
+
+function isMidiFilename(name: string): boolean {
+  return /\.(mid|midi)$/i.test(name);
+}
 
 export function createMidiRouter({ db, midiFilesDir }: ServerDependencies) {
   const router = new Hono();
@@ -30,6 +36,11 @@ export function createMidiRouter({ db, midiFilesDir }: ServerDependencies) {
       const files = formData.getAll('files');
       const songs = [];
       const errors = [];
+      let skipped = 0;
+
+      if (files.length === 0) {
+        return c.json({ error: 'No files were uploaded.' }, 400);
+      }
 
       for (const entry of files) {
         if (!(entry instanceof File)) {
@@ -37,9 +48,28 @@ export function createMidiRouter({ db, midiFilesDir }: ServerDependencies) {
         }
 
         const title = entry.name.replace(/\.(mid|midi)$/i, '') || 'Untitled';
+        if (!isMidiFilename(entry.name)) {
+          errors.push({ filename: entry.name || title, message: 'Only .mid and .midi files can be uploaded.' });
+          continue;
+        }
+        if (entry.size <= 0) {
+          errors.push({ filename: title, message: 'The file is empty.' });
+          continue;
+        }
+        if (entry.size > MAX_MIDI_UPLOAD_BYTES) {
+          errors.push({ filename: title, message: 'The file is larger than the 10 MB upload limit.' });
+          continue;
+        }
+
         try {
+          const bytes = new Uint8Array(await entry.arrayBuffer());
+          const songId = await createSongId(bytes);
+          if (db.getSong(songId)) {
+            skipped += 1;
+            continue;
+          }
           songs.push(
-            await importSongFromBuffer(new Uint8Array(await entry.arrayBuffer()), title, {
+            await importSongFromBuffer(bytes, title, {
               db,
               midiFilesDir,
             }),
@@ -49,7 +79,7 @@ export function createMidiRouter({ db, midiFilesDir }: ServerDependencies) {
         }
       }
 
-      return c.json({ songs, errors });
+      return c.json({ songs, errors, skipped });
     } catch (error) {
       return c.json({ error: (error as Error).message }, 500);
     }

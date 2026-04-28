@@ -55,25 +55,28 @@ export function TagChips({
     <div className="tag-chips-shell">
       <div className="tag-chip-row">
         {tags.map((tag) => (
-          <button
+          <span
             key={tag}
-            type="button"
             className={`tag-chip ${onTagClick ? 'clickable' : ''}`}
-            onClick={() => onTagClick?.(tag)}
           >
-            <span>{tag}</span>
+            {onTagClick ? (
+              <button type="button" className="tag-chip-label" onClick={() => onTagClick(tag)}>
+                {tag}
+              </button>
+            ) : (
+              <span>{tag}</span>
+            )}
             {removable && (
-              <strong
+              <button
+                type="button"
+                className="tag-chip-remove"
                 aria-label={`Remove ${tag}`}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  removeTag(tag);
-                }}
+                onClick={() => removeTag(tag)}
               >
                 ×
-              </strong>
+              </button>
             )}
-          </button>
+          </span>
         ))}
       </div>
 

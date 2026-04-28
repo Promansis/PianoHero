@@ -8,6 +8,7 @@ interface BulkActionBarProps {
   onDelete: () => void;
   onMoveToFolder: (folderId: string | null) => void;
   onAddTag: (tag: string) => void;
+  onRemoveTag: (tag: string) => void;
   onAddToPlaylist: (playlistId: string) => void;
 }
 
@@ -19,6 +20,7 @@ export function BulkActionBar({
   onDelete,
   onMoveToFolder,
   onAddTag,
+  onRemoveTag,
   onAddToPlaylist,
 }: BulkActionBarProps) {
   return (
@@ -55,6 +57,18 @@ export function BulkActionBar({
             onKeyDown={(event) => {
               if (event.key === 'Enter') {
                 onAddTag(event.currentTarget.value);
+                event.currentTarget.value = '';
+              }
+            }}
+          />
+        </label>
+        <label>
+          <span>Remove Tag</span>
+          <input
+            placeholder="Tag name"
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                onRemoveTag(event.currentTarget.value);
                 event.currentTarget.value = '';
               }
             }}

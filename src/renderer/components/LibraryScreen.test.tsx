@@ -103,6 +103,29 @@ describe('LibraryScreen', () => {
     });
   });
 
+  it('clears loading and reports refresh failures', async () => {
+    window.appBridge = {
+      getAllSongs: vi.fn().mockRejectedValue(new Error('database unavailable')),
+      getAllFolders: vi.fn().mockResolvedValue([]),
+      getAllPlaylists: vi.fn().mockResolvedValue([]),
+      getRecommendations: vi.fn().mockResolvedValue(null),
+      getUserStats: vi.fn().mockResolvedValue(null),
+      getSetting: vi.fn().mockResolvedValue(null),
+    } as unknown as typeof window.appBridge;
+
+    render(
+      <LibraryScreen
+        audioEngine={createAudioEngineStub() as unknown as import('../../lib/audio/audioEngine').AudioEngine}
+        onStartSession={vi.fn()}
+        onStartPlaylistQueue={vi.fn()}
+        onStartTheoryPractice={vi.fn()}
+      />,
+    );
+
+    await screen.findByText(/Unable to load library: database unavailable/);
+    expect(screen.queryByText('Loading library')).not.toBeInTheDocument();
+  });
+
   it('uploads selected files even after the input value is cleared', async () => {
     const fetchMock = vi.mocked(fetch);
     fetchMock.mockResolvedValue({
@@ -205,6 +228,58 @@ describe('LibraryScreen', () => {
       expect(screen.queryByText('Metadata Review')).not.toBeInTheDocument();
       expect(screen.getByText('Deleted 1 song from the library.')).toBeInTheDocument();
     });
+  });
+
+  it('removes a tag from selected songs through bulk actions', async () => {
+    const bulkRemoveTag = vi.fn().mockResolvedValue(undefined);
+    const song = {
+      id: 'song-1',
+      title: 'Etude',
+      artist: 'Composer',
+      genre: 'Classical',
+      difficulty: 4,
+      durationSec: 120,
+      bpm: 120,
+      noteCount: 240,
+      filePath: '/tmp/etude.mid',
+      dateAdded: '2026-04-18T00:00:00.000Z',
+      lastPlayed: null,
+      timesPlayed: 0,
+      isFavorite: false,
+      folderId: null,
+      tags: ['warmup'],
+      trackAssignments: {},
+    };
+
+    window.appBridge = {
+      getAllSongs: vi.fn().mockResolvedValue([song]),
+      getAllFolders: vi.fn().mockResolvedValue([]),
+      getAllPlaylists: vi.fn().mockResolvedValue([]),
+      getRecommendations: vi.fn().mockResolvedValue(null),
+      getUserStats: vi.fn().mockResolvedValue(null),
+      getSetting: vi.fn().mockResolvedValue(null),
+      bulkRemoveTag,
+    } as unknown as typeof window.appBridge;
+
+    render(
+      <LibraryScreen
+        audioEngine={createAudioEngineStub() as unknown as import('../../lib/audio/audioEngine').AudioEngine}
+        onStartSession={vi.fn()}
+        onStartPlaylistQueue={vi.fn()}
+        onStartTheoryPractice={vi.fn()}
+      />,
+    );
+
+    await screen.findByText('1 song ready to play.');
+    fireEvent.click(screen.getByRole('checkbox'));
+    const tagInputs = screen.getAllByPlaceholderText('Tag name');
+    fireEvent.change(tagInputs[1], { target: { value: 'warmup' } });
+    fireEvent.keyDown(tagInputs[1], { key: 'Enter' });
+
+    await waitFor(() => {
+      expect(bulkRemoveTag).toHaveBeenCalledWith(['song-1'], 'warmup');
+    });
+    expect(await screen.findByText(/Removed "warmup" from 1 song/)).toBeInTheDocument();
   });
 
   it('defaults to list mode with closed mobile disclosures on compact layouts', async () => {

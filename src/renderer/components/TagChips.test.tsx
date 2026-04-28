@@ -28,6 +28,7 @@ describe('TagChips', () => {
     fireEvent.click(screen.getByLabelText('Remove classical'));
 
     expect(onChange).toHaveBeenCalledWith([]);
+    expect(screen.getByRole('button', { name: 'Remove classical' })).toBeInTheDocument();
   });
 
   it('emits tag clicks for filtering', () => {

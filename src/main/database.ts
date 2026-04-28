@@ -14,7 +14,9 @@ import type {
   GameResultRow,
   GlobalTroubleSpot,
   LibraryBackup,
+  LibraryBackupV1,
   LibraryImportResult,
+  LibrarySnapshot,
   MeasureAccuracyHistoryRow,
   PlaylistRow,
   PracticeDayRow,
@@ -385,6 +387,9 @@ export class AppDatabase {
   }
 
   moveSongToFolder(songId: string, folderId: string | null): void {
+    if (folderId && !this.getFolder(folderId)) {
+      throw new Error(`Unknown folder: ${folderId}`);
+    }
     this.db.prepare('UPDATE songs SET folder_id = ? WHERE id = ?').run(folderId, songId);
   }
 
@@ -392,6 +397,9 @@ export class AppDatabase {
     const ids = dedupeIds(songIds);
     if (ids.length === 0) {
       return;
+    }
+    if (folderId && !this.getFolder(folderId)) {
+      throw new Error(`Unknown folder: ${folderId}`);
     }
 
     const moveMany = this.db.transaction((nextIds: string[]) => {
@@ -537,6 +545,12 @@ export class AppDatabase {
   }
 
   addSongToPlaylist(playlistId: string, songId: string): void {
+    if (!this.getPlaylist(playlistId)) {
+      throw new Error(`Unknown playlist: ${playlistId}`);
+    }
+    if (!this.getSong(songId)) {
+      throw new Error(`Unknown song: ${songId}`);
+    }
     const addSong = this.db.transaction((nextPlaylistId: string, nextSongId: string) => {
       const current = this.db
         .prepare('SELECT 1 FROM playlist_songs WHERE playlist_id = ? AND song_id = ?')
@@ -557,6 +571,9 @@ export class AppDatabase {
     const ids = dedupeIds(songIds);
     if (ids.length === 0) {
       return;
+    }
+    if (!this.getPlaylist(playlistId)) {
+      throw new Error(`Unknown playlist: ${playlistId}`);
     }
 
     const addMany = this.db.transaction((nextIds: string[], nextPlaylistId: string) => {
@@ -1174,6 +1191,28 @@ export class AppDatabase {
     }));
   }
 
+  getLibrarySnapshot(): LibrarySnapshot {
+    const songs = this.getAllSongs();
+    const statsBySongId = Object.fromEntries(
+      songs.map((song) => [song.id, this.getUserStats(song.id)] as const),
+    );
+    const songGoals = Object.fromEntries(
+      songs.map((song) => {
+        const value = this.getSetting('song-goal', song.id);
+        return [song.id, value ? Number(value) : 0] as const;
+      }),
+    );
+
+    return {
+      songs,
+      folders: this.getAllFolders(),
+      playlists: this.getAllPlaylists(),
+      recommendations: this.getRecommendations(),
+      statsBySongId,
+      songGoals,
+    };
+  }
+
   private recordPracticeDayEntry(durationSec: number, songsPlayed: number, theorySessions: number): void {
     const practiceDate = formatLocalDate(new Date());
 
@@ -1370,7 +1409,7 @@ export class AppDatabase {
     })();
   }
 
-  exportLibraryData(): LibraryBackup {
+  exportLibraryData(): LibraryBackupV1 {
     const playlists = this.getAllPlaylists().map((playlist) => ({
       ...playlist,
       songIds: (
@@ -1520,6 +1559,8 @@ export class AppDatabase {
         songsImported: nextBackup.songs.length,
         foldersImported,
         playlistsImported,
+        midiFilesRestored: 0,
+        missingMidiFiles: [],
       };
     });
 

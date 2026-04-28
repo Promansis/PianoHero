@@ -5,6 +5,7 @@ import { extname, join, normalize, resolve } from 'node:path';
 import { Hono } from 'hono';
 import { AppDatabase } from '../main/database';
 import { createBridgeRouter } from './bridgeRouter';
+import { createLibraryRouter } from './libraryRouter';
 import { createMidiRouter } from './midiRouter';
 
 const port = Number(process.env.PORT ?? 3100);
@@ -27,6 +28,7 @@ app.use('*', async (c, next) => {
 });
 
 app.route('/api/bridge', createBridgeRouter({ db, midiFilesDir }));
+app.route('/api/library', createLibraryRouter({ db, midiFilesDir }));
 app.route('/api/midi', createMidiRouter({ db, midiFilesDir }));
 
 const CONTENT_TYPES: Record<string, string> = {

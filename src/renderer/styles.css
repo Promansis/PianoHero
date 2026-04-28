@@ -1935,7 +1935,21 @@ select:focus {
   cursor: pointer;
 }
 
-.tag-chip strong {
+.tag-chip-label,
+.tag-chip-remove {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.tag-chip-label {
+  cursor: pointer;
+}
+
+.tag-chip-remove {
+  cursor: pointer;
   font-size: 0.92rem;
 }
 

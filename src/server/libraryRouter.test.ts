@@ -1,0 +1,64 @@
+// @vitest-environment node
+
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { Hono } from 'hono';
+import { afterEach, describe, expect, it } from 'vitest';
+import { AppDatabase } from '../main/database';
+import { createLibraryRouter } from './libraryRouter';
+
+const tempDirs: string[] = [];
+
+async function makeServer() {
+  const dir = await mkdtemp(join(tmpdir(), 'pianohero-library-router-'));
+  tempDirs.push(dir);
+  const midiFilesDir = join(dir, 'midi-files');
+  await mkdir(midiFilesDir, { recursive: true });
+  const db = new AppDatabase(join(dir, 'test.db'));
+  const app = new Hono();
+  app.route('/api/library', createLibraryRouter({ db, midiFilesDir }));
+  return { app, db, midiFilesDir };
+}
+
+describe('libraryRouter', () => {
+  afterEach(async () => {
+    await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
+  });
+
+  it('exports and imports self-contained library JSON', async () => {
+    const { app, db, midiFilesDir } = await makeServer();
+    const songId = 'song-a';
+    const midiPath = join(midiFilesDir, `${songId}.mid`);
+    await writeFile(midiPath, new Uint8Array([77, 84, 104, 100]));
+    db.addSong({
+      id: songId,
+      title: 'Song A',
+      artist: '',
+      genre: '',
+      filePath: midiPath,
+      difficulty: 1,
+      durationSec: 1,
+      bpm: 120,
+      noteCount: 1,
+      tags: [],
+      trackAssignments: {},
+    });
+
+    const exportResponse = await app.request('/api/library/export');
+    const exportPayload = await exportResponse.json() as { backup: unknown; result: { midiFilesIncluded: number } };
+    expect(exportPayload.result.midiFilesIncluded).toBe(1);
+
+    db.resetUserData();
+    const importResponse = await app.request('/api/library/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(exportPayload.backup),
+    });
+    const importPayload = await importResponse.json() as { result: { songsImported: number; midiFilesRestored: number } };
+    db.close();
+
+    expect(importPayload.result.songsImported).toBe(1);
+    expect(importPayload.result.midiFilesRestored).toBe(1);
+  });
+});

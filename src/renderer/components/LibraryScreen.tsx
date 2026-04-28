@@ -4,7 +4,7 @@ import { AudioEngine } from '../../lib/audio/audioEngine';
 import type { SessionMode } from '../../lib/game/types';
 import { parseMidiFile } from '../../lib/midi/midiFileParser';
 import type { ImportResult } from '../../shared/ipc';
-import type { FolderRow, PlaylistRow, RecommendationResult, SongRow, UserStatsRow } from '../../shared/dbTypes';
+import type { FolderRow, LibrarySnapshot, PlaylistRow, RecommendationResult, SongRow, UserStatsRow } from '../../shared/dbTypes';
 import { AdvancedFilters, type LibraryAdvancedFilters } from './AdvancedFilters';
 import { BulkActionBar } from './BulkActionBar';
 import { LibrarySidebar, type LibraryActiveView } from './LibrarySidebar';
@@ -179,6 +179,7 @@ export function LibraryScreen({
   const [previewSongId, setPreviewSongId] = useState<string | null>(null);
   const [expandedSongActionsId, setExpandedSongActionsId] = useState<string | null>(null);
   const previewTimeoutsRef = useRef<number[]>([]);
+  const refreshRequestRef = useRef(0);
   const [userPresets, setUserPresets] = useState<FilterPreset[]>(() => {
     try {
       const raw = localStorage.getItem('pianohero-filter-presets');
@@ -189,7 +190,9 @@ export function LibraryScreen({
   });
   const [newPresetName, setNewPresetName] = useState('');
 
-  const refreshLibrary = async () => {
+  const refreshLibrary = async (options: { preserveStatus?: boolean } = {}) => {
+    const requestId = refreshRequestRef.current + 1;
+    refreshRequestRef.current = requestId;
     if (!window.appBridge) {
       setStatusMessage('The app bridge is unavailable.');
       setIsLoading(false);
@@ -198,35 +201,64 @@ export function LibraryScreen({
 
     setIsLoading(true);
     setIsRecommendationsLoading(true);
-    const [nextSongs, nextFolders, nextPlaylists, nextRecommendations] = await Promise.all([
-      window.appBridge.getAllSongs(),
-      window.appBridge.getAllFolders(),
-      window.appBridge.getAllPlaylists(),
-      window.appBridge.getRecommendations().catch(() => null),
-    ]);
-    const statsEntries = await Promise.all(
-      nextSongs.map(async (song) => [song.id, await window.appBridge!.getUserStats(song.id)] as const),
-    );
-    const goalEntries = await Promise.all(
-      nextSongs.map(async (song) => {
-        const val = await window.appBridge!.getSetting('song-goal', song.id);
-        return [song.id, val ? Number(val) : 0] as const;
-      }),
-    );
+    try {
+      const bridge = window.appBridge;
+      let snapshot: LibrarySnapshot;
+      if (typeof bridge.getLibrarySnapshot === 'function') {
+        snapshot = await bridge.getLibrarySnapshot();
+      } else {
+        const [nextSongs, nextFolders, nextPlaylists, nextRecommendations] = await Promise.all([
+          bridge.getAllSongs(),
+          bridge.getAllFolders(),
+          bridge.getAllPlaylists(),
+          bridge.getRecommendations().catch(() => null),
+        ]);
+        const statsEntries = await Promise.all(
+          nextSongs.map(async (song) => [song.id, await bridge.getUserStats(song.id)] as const),
+        );
+        const goalEntries = await Promise.all(
+          nextSongs.map(async (song) => {
+            const val = await bridge.getSetting('song-goal', song.id);
+            return [song.id, val ? Number(val) : 0] as const;
+          }),
+        );
+        snapshot = {
+          songs: nextSongs,
+          folders: nextFolders,
+          playlists: nextPlaylists,
+          recommendations: nextRecommendations,
+          statsBySongId: Object.fromEntries(statsEntries),
+          songGoals: Object.fromEntries(goalEntries),
+        };
+      }
 
-    setSongs(nextSongs);
-    setFolders(nextFolders);
-    setPlaylists(nextPlaylists);
-    setStatsBySongId(Object.fromEntries(statsEntries));
-    setSongGoals(Object.fromEntries(goalEntries));
-    setRecommendations(nextRecommendations);
-    setIsLoading(false);
-    setIsRecommendationsLoading(false);
+      if (requestId !== refreshRequestRef.current) {
+        return;
+      }
 
-    if (nextSongs.length === 0) {
-      setStatusMessage('Build your library by importing MIDI files.');
-    } else {
-      setStatusMessage(`${nextSongs.length} song${nextSongs.length === 1 ? '' : 's'} ready to play.`);
+      setSongs(snapshot.songs);
+      setFolders(snapshot.folders);
+      setPlaylists(snapshot.playlists);
+      setStatsBySongId(snapshot.statsBySongId);
+      setSongGoals(snapshot.songGoals);
+      setRecommendations(snapshot.recommendations);
+
+      if (!options.preserveStatus) {
+        if (snapshot.songs.length === 0) {
+          setStatusMessage('Build your library by importing MIDI files.');
+        } else {
+          setStatusMessage(`${snapshot.songs.length} song${snapshot.songs.length === 1 ? '' : 's'} ready to play.`);
+        }
+      }
+    } catch (error) {
+      if (requestId === refreshRequestRef.current) {
+        setStatusMessage(`Unable to load library: ${(error as Error).message}`);
+      }
+    } finally {
+      if (requestId === refreshRequestRef.current) {
+        setIsLoading(false);
+        setIsRecommendationsLoading(false);
+      }
     }
   };
 
@@ -278,16 +310,29 @@ export function LibraryScreen({
   }, [isMobileLayout]);
 
   useEffect(() => {
+    let ignore = false;
     const loadPlaylistSongs = async () => {
       if (!window.appBridge || activeView.type !== 'playlist') {
         setPlaylistSongs([]);
         return;
       }
-      const nextPlaylistSongs = await window.appBridge.getPlaylistSongs(activeView.id);
-      setPlaylistSongs(nextPlaylistSongs);
+      try {
+        const nextPlaylistSongs = await window.appBridge.getPlaylistSongs(activeView.id);
+        if (!ignore) {
+          setPlaylistSongs(nextPlaylistSongs);
+        }
+      } catch (error) {
+        if (!ignore) {
+          setStatusMessage(`Unable to load playlist: ${(error as Error).message}`);
+          setPlaylistSongs([]);
+        }
+      }
     };
 
     void loadPlaylistSongs();
+    return () => {
+      ignore = true;
+    };
   }, [activeView]);
 
   const selectedSong = useMemo(
@@ -323,16 +368,17 @@ export function LibraryScreen({
     const unsubscribe = window.appBridge.onImportProgress((ev) => setImportProgress(ev));
     try {
       const result = await window.appBridge.importMidiFiles();
-      const { songs, errors } = result;
-      if (songs.length === 0 && errors.length === 0) {
+      const { songs, errors, skipped } = result;
+      if (songs.length === 0 && errors.length === 0 && skipped === 0) {
         setStatusMessage('Import canceled.');
       } else {
         const parts: string[] = [];
         if (songs.length > 0) parts.push(`Imported ${songs.length} song${songs.length === 1 ? '' : 's'}`);
+        if (skipped > 0) parts.push(`${skipped} already in library`);
         if (errors.length > 0) parts.push(`${errors.length} failed (${errors.map((e) => `${e.filename}: ${e.message}`).join('; ')})`);
         setStatusMessage(parts.join('. ') + '. Review the metadata before playing.');
         if (songs.length > 0) {
-          await refreshLibrary();
+          await refreshLibrary({ preserveStatus: true });
           setEditingSongId(songs[0].songId);
         }
       }
@@ -358,6 +404,7 @@ export function LibraryScreen({
     const total = fileArray.length;
     const songs: Array<{ songId: string }> = [];
     const errors: Array<{ filename: string; message: string }> = [];
+    let skipped = 0;
 
     try {
       for (let i = 0; i < fileArray.length; i++) {
@@ -377,20 +424,22 @@ export function LibraryScreen({
           const batch = await response.json() as ImportResult;
           songs.push(...batch.songs);
           errors.push(...batch.errors);
+          skipped += batch.skipped ?? 0;
         } catch (err) {
           errors.push({ filename, message: (err as Error).message });
         }
       }
 
-      if (songs.length === 0 && errors.length === 0) {
+      if (songs.length === 0 && errors.length === 0 && skipped === 0) {
         setStatusMessage('No files imported.');
       } else {
         const parts: string[] = [];
         if (songs.length > 0) parts.push(`Imported ${songs.length} song${songs.length === 1 ? '' : 's'}`);
+        if (skipped > 0) parts.push(`${skipped} already in library`);
         if (errors.length > 0) parts.push(`${errors.length} failed (${errors.map((e) => `${e.filename}: ${e.message}`).join('; ')})`);
         setStatusMessage(parts.join('. ') + '. Review the metadata before playing.');
         if (songs.length > 0) {
-          await refreshLibrary();
+          await refreshLibrary({ preserveStatus: true });
           setEditingSongId(songs[0].songId);
         }
       }
@@ -423,7 +472,7 @@ export function LibraryScreen({
         if (result.errors.length > 0) parts.push(`${result.errors.length} failed (${result.errors.map((e) => `${e.filename}: ${e.message}`).join('; ')})`);
         setStatusMessage(parts.join(', ') + '.');
         if (result.imported.length > 0) {
-          await refreshLibrary();
+          await refreshLibrary({ preserveStatus: true });
         }
       }
     } catch (error) {
@@ -440,8 +489,12 @@ export function LibraryScreen({
       return;
     }
 
-    await window.appBridge.toggleFavorite(songId);
-    await refreshLibrary();
+    try {
+      await window.appBridge.toggleFavorite(songId);
+      await refreshLibrary({ preserveStatus: true });
+    } catch (error) {
+      setStatusMessage(`Unable to update favorite: ${(error as Error).message}`);
+    }
   };
 
   const handleExportLibrary = async () => {
@@ -449,9 +502,16 @@ export function LibraryScreen({
       return;
     }
 
-    const filePath = await window.appBridge.exportLibrary();
-    if (filePath) {
-      setStatusMessage(`Library exported to ${filePath}.`);
+    try {
+      const result = await window.appBridge.exportLibrary();
+      if (result) {
+        const missing = result.missingMidiFiles.length > 0
+          ? ` ${result.missingMidiFiles.length} MIDI file${result.missingMidiFiles.length === 1 ? '' : 's'} could not be included.`
+          : '';
+        setStatusMessage(`Exported ${result.songsExported} song${result.songsExported === 1 ? '' : 's'} to ${result.location ?? result.filename}.${missing}`);
+      }
+    } catch (error) {
+      setStatusMessage(`Export failed: ${(error as Error).message}`);
     }
   };
 
@@ -460,15 +520,22 @@ export function LibraryScreen({
       return;
     }
 
-    const result = await window.appBridge.importLibrary();
-    if (!result) {
-      return;
-    }
+    try {
+      const result = await window.appBridge.importLibrary();
+      if (!result) {
+        return;
+      }
 
-    await refreshLibrary();
-    setStatusMessage(
-      `Imported ${result.songsImported} songs, ${result.foldersImported} folders, and ${result.playlistsImported} playlists.`,
-    );
+      await refreshLibrary({ preserveStatus: true });
+      const missing = result.missingMidiFiles.length > 0
+        ? ` ${result.missingMidiFiles.length} song${result.missingMidiFiles.length === 1 ? '' : 's'} may need MIDI files reattached.`
+        : '';
+      setStatusMessage(
+        `Imported ${result.songsImported} songs, ${result.foldersImported} folders, ${result.playlistsImported} playlists, and ${result.midiFilesRestored} MIDI files.${missing}`,
+      );
+    } catch (error) {
+      setStatusMessage(`Import failed: ${(error as Error).message}`);
+    }
   };
 
   const handleRecomputeDifficulties = async () => {
@@ -487,7 +554,7 @@ export function LibraryScreen({
       }
       setStatusMessage(parts.join('. ') + '.');
       if (result.updated > 0) {
-        await refreshLibrary();
+        await refreshLibrary({ preserveStatus: true });
       }
     } catch (error) {
       setStatusMessage(`Difficulty recompute failed: ${(error as Error).message}`);
@@ -501,15 +568,19 @@ export function LibraryScreen({
       return;
     }
 
-    await window.appBridge.updateSong(selectedSong.id, {
-      title: draft.title.trim() || selectedSong.title,
-      artist: draft.artist.trim(),
-      genre: draft.genre.trim(),
-      difficulty: Math.max(1, Math.min(10, Math.round(draft.difficulty))),
-      tags: draft.tags,
-    });
-    setStatusMessage(`Saved metadata for ${draft.title.trim() || selectedSong.title}.`);
-    await refreshLibrary();
+    try {
+      await window.appBridge.updateSong(selectedSong.id, {
+        title: draft.title.trim() || selectedSong.title,
+        artist: draft.artist.trim(),
+        genre: draft.genre.trim(),
+        difficulty: Math.max(1, Math.min(10, Math.round(draft.difficulty))),
+        tags: draft.tags,
+      });
+      setStatusMessage(`Saved metadata for ${draft.title.trim() || selectedSong.title}.`);
+      await refreshLibrary({ preserveStatus: true });
+    } catch (error) {
+      setStatusMessage(`Unable to save metadata: ${(error as Error).message}`);
+    }
   };
 
   const handleDeleteSongs = async (songIds: string[]) => {
@@ -517,19 +588,23 @@ export function LibraryScreen({
       return;
     }
 
-    await window.appBridge.bulkDeleteSongs(songIds);
-    setSelectedSongIds((current) => {
-      const next = new Set(current);
-      for (const songId of songIds) {
-        next.delete(songId);
+    try {
+      await window.appBridge.bulkDeleteSongs(songIds);
+      setSelectedSongIds((current) => {
+        const next = new Set(current);
+        for (const songId of songIds) {
+          next.delete(songId);
+        }
+        return next;
+      });
+      if (editingSongId && songIds.includes(editingSongId)) {
+        setEditingSongId(null);
       }
-      return next;
-    });
-    if (editingSongId && songIds.includes(editingSongId)) {
-      setEditingSongId(null);
+      await refreshLibrary({ preserveStatus: true });
+      setStatusMessage(`Deleted ${songIds.length} song${songIds.length === 1 ? '' : 's'} from the library.`);
+    } catch (error) {
+      setStatusMessage(`Delete failed: ${(error as Error).message}`);
     }
-    await refreshLibrary();
-    setStatusMessage(`Deleted ${songIds.length} song${songIds.length === 1 ? '' : 's'} from the library.`);
   };
 
   const handleAddTagFilter = (tag: string) => {
@@ -540,55 +615,85 @@ export function LibraryScreen({
     if (!window.appBridge || !name.trim()) {
       return;
     }
-    await window.appBridge.createFolder(name.trim());
-    await refreshLibrary();
+    try {
+      await window.appBridge.createFolder(name.trim());
+      await refreshLibrary({ preserveStatus: true });
+      setStatusMessage(`Created folder "${name.trim()}".`);
+    } catch (error) {
+      setStatusMessage(`Unable to create folder: ${(error as Error).message}`);
+    }
   };
 
   const handleRenameFolder = async (folderId: string, name: string) => {
     if (!window.appBridge || !name.trim()) {
       return;
     }
-    await window.appBridge.renameFolder(folderId, name.trim());
-    await refreshLibrary();
+    try {
+      await window.appBridge.renameFolder(folderId, name.trim());
+      await refreshLibrary({ preserveStatus: true });
+      setStatusMessage(`Renamed folder to "${name.trim()}".`);
+    } catch (error) {
+      setStatusMessage(`Unable to rename folder: ${(error as Error).message}`);
+    }
   };
 
   const handleDeleteFolder = async (folderId: string) => {
     if (!window.appBridge) {
       return;
     }
-    await window.appBridge.deleteFolder(folderId);
-    if (activeView.type === 'folder' && activeView.id === folderId) {
-      setActiveView({ type: 'all' });
+    try {
+      await window.appBridge.deleteFolder(folderId);
+      if (activeView.type === 'folder' && activeView.id === folderId) {
+        setActiveView({ type: 'all' });
+      }
+      await refreshLibrary({ preserveStatus: true });
+      setStatusMessage('Deleted folder.');
+    } catch (error) {
+      setStatusMessage(`Unable to delete folder: ${(error as Error).message}`);
     }
-    await refreshLibrary();
   };
 
   const handleCreatePlaylist = async (name: string) => {
     if (!window.appBridge || !name.trim()) {
       return;
     }
-    const playlist = await window.appBridge.createPlaylist(name.trim());
-    await refreshLibrary();
-    setActiveView({ type: 'playlist', id: playlist.id });
+    try {
+      const playlist = await window.appBridge.createPlaylist(name.trim());
+      await refreshLibrary({ preserveStatus: true });
+      setActiveView({ type: 'playlist', id: playlist.id });
+      setStatusMessage(`Created playlist "${name.trim()}".`);
+    } catch (error) {
+      setStatusMessage(`Unable to create playlist: ${(error as Error).message}`);
+    }
   };
 
   const handleRenamePlaylist = async (playlistId: string, name: string) => {
     if (!window.appBridge || !name.trim()) {
       return;
     }
-    await window.appBridge.updatePlaylist(playlistId, { name: name.trim() });
-    await refreshLibrary();
+    try {
+      await window.appBridge.updatePlaylist(playlistId, { name: name.trim() });
+      await refreshLibrary({ preserveStatus: true });
+      setStatusMessage(`Renamed playlist to "${name.trim()}".`);
+    } catch (error) {
+      setStatusMessage(`Unable to rename playlist: ${(error as Error).message}`);
+    }
   };
 
   const handleDeletePlaylist = async (playlistId: string) => {
     if (!window.appBridge) {
       return;
     }
-    await window.appBridge.deletePlaylist(playlistId);
-    if (activeView.type === 'playlist' && activeView.id === playlistId) {
-      setActiveView({ type: 'all' });
+    try {
+      await window.appBridge.deletePlaylist(playlistId);
+      if (activeView.type === 'playlist' && activeView.id === playlistId) {
+        setActiveView({ type: 'all' });
+      }
+      await refreshLibrary({ preserveStatus: true });
+      setStatusMessage('Deleted playlist.');
+    } catch (error) {
+      setStatusMessage(`Unable to delete playlist: ${(error as Error).message}`);
     }
-    await refreshLibrary();
   };
 
   const handleSavePreset = () => {
@@ -655,6 +760,10 @@ export function LibraryScreen({
       setPreviewSongId(null);
     }
   };
+
+  useEffect(() => () => {
+    stopPreview();
+  }, []);
 
   const normalizedQuery = searchQuery.trim().toLowerCase();
   const playlistFiltersActive = Boolean(normalizedQuery) || difficultyFilter !== 'all' || selectedTagFilters.length > 0 || hasAdvancedFilters(advancedFilters);
@@ -844,10 +953,14 @@ export function LibraryScreen({
               onChange={async (event) => {
                 const val = Number(event.target.value);
                 setSongGoals((prev) => ({ ...prev, [song.id]: val }));
-                if (val > 0) {
-                  await window.appBridge?.setSetting('song-goal', song.id, String(val));
-                } else {
-                  await window.appBridge?.setSetting('song-goal', song.id, '0');
+                try {
+                  if (val > 0) {
+                    await window.appBridge?.setSetting('song-goal', song.id, String(val));
+                  } else {
+                    await window.appBridge?.setSetting('song-goal', song.id, '0');
+                  }
+                } catch (error) {
+                  setStatusMessage(`Unable to save song goal: ${(error as Error).message}`);
                 }
               }}
             >
@@ -962,16 +1075,12 @@ export function LibraryScreen({
           />
         ) : null}
         <div className="transport-buttons">
-          {!IS_WEB ? (
-            <button className="secondary-button" onClick={() => void handleExportLibrary()}>
-              Export Library
-            </button>
-          ) : null}
-          {!IS_WEB ? (
-            <button className="secondary-button" onClick={() => void handleImportLibrary()}>
-              Import Library
-            </button>
-          ) : null}
+          <button className="secondary-button" onClick={() => void handleExportLibrary()}>
+            Export Library
+          </button>
+          <button className="secondary-button" onClick={() => void handleImportLibrary()}>
+            Import Library
+          </button>
           <button className="secondary-button" onClick={() => void refreshLibrary()} disabled={isLoading}>
             Refresh
           </button>
@@ -1332,10 +1441,16 @@ export function LibraryScreen({
                   if (!window.appBridge) {
                     return;
                   }
-                  const normalizedFolderId = folderId === '__NONE__' ? null : folderId;
-                  await window.appBridge.bulkMoveSongsToFolder([...selectedSongIds], normalizedFolderId);
-                  setSelectedSongIds(new Set());
-                  await refreshLibrary();
+                  try {
+                    const normalizedFolderId = folderId === '__NONE__' ? null : folderId;
+                    await window.appBridge.bulkMoveSongsToFolder([...selectedSongIds], normalizedFolderId);
+                    const movedCount = selectedSongIds.size;
+                    setSelectedSongIds(new Set());
+                    await refreshLibrary({ preserveStatus: true });
+                    setStatusMessage(`Moved ${movedCount} song${movedCount === 1 ? '' : 's'}.`);
+                  } catch (error) {
+                    setStatusMessage(`Move failed: ${(error as Error).message}`);
+                  }
                 })()
               }
               onAddTag={(tag) =>
@@ -1343,8 +1458,29 @@ export function LibraryScreen({
                   if (!window.appBridge || !tag.trim()) {
                     return;
                   }
-                  await window.appBridge.bulkAddTag([...selectedSongIds], tag.trim());
-                  await refreshLibrary();
+                  try {
+                    await window.appBridge.bulkAddTag([...selectedSongIds], tag.trim());
+                    const updatedCount = selectedSongIds.size;
+                    await refreshLibrary({ preserveStatus: true });
+                    setStatusMessage(`Added "${tag.trim()}" to ${updatedCount} song${updatedCount === 1 ? '' : 's'}.`);
+                  } catch (error) {
+                    setStatusMessage(`Add tag failed: ${(error as Error).message}`);
+                  }
+                })()
+              }
+              onRemoveTag={(tag) =>
+                void (async () => {
+                  if (!window.appBridge || !tag.trim()) {
+                    return;
+                  }
+                  try {
+                    await window.appBridge.bulkRemoveTag([...selectedSongIds], tag.trim());
+                    const updatedCount = selectedSongIds.size;
+                    await refreshLibrary({ preserveStatus: true });
+                    setStatusMessage(`Removed "${tag.trim()}" from ${updatedCount} song${updatedCount === 1 ? '' : 's'}.`);
+                  } catch (error) {
+                    setStatusMessage(`Remove tag failed: ${(error as Error).message}`);
+                  }
                 })()
               }
               onAddToPlaylist={(playlistId) =>
@@ -1352,8 +1488,15 @@ export function LibraryScreen({
                   if (!window.appBridge) {
                     return;
                   }
-                  await window.appBridge.bulkAddToPlaylist([...selectedSongIds], playlistId);
-                  await refreshLibrary();
+                  try {
+                    await window.appBridge.bulkAddToPlaylist([...selectedSongIds], playlistId);
+                    const addedCount = selectedSongIds.size;
+                    setSelectedSongIds(new Set());
+                    await refreshLibrary({ preserveStatus: true });
+                    setStatusMessage(`Added ${addedCount} song${addedCount === 1 ? '' : 's'} to playlist.`);
+                  } catch (error) {
+                    setStatusMessage(`Add to playlist failed: ${(error as Error).message}`);
+                  }
                 })()
               }
             />
@@ -1453,10 +1596,15 @@ export function LibraryScreen({
                   if (!window.appBridge || activeView.type !== 'playlist') {
                     return;
                   }
-                  await window.appBridge.removeSongFromPlaylist(activeView.id, songId);
-                  const nextPlaylistSongs = await window.appBridge.getPlaylistSongs(activeView.id);
-                  setPlaylistSongs(nextPlaylistSongs);
-                  await refreshLibrary();
+                  try {
+                    await window.appBridge.removeSongFromPlaylist(activeView.id, songId);
+                    const nextPlaylistSongs = await window.appBridge.getPlaylistSongs(activeView.id);
+                    setPlaylistSongs(nextPlaylistSongs);
+                    await refreshLibrary({ preserveStatus: true });
+                    setStatusMessage('Removed song from playlist.');
+                  } catch (error) {
+                    setStatusMessage(`Unable to update playlist: ${(error as Error).message}`);
+                  }
                 })()
               }
               onReorderSong={(songId, newOrder) =>
@@ -1464,10 +1612,14 @@ export function LibraryScreen({
                   if (!window.appBridge || activeView.type !== 'playlist') {
                     return;
                   }
-                  await window.appBridge.reorderPlaylistSong(activeView.id, songId, newOrder);
-                  const nextPlaylistSongs = await window.appBridge.getPlaylistSongs(activeView.id);
-                  setPlaylistSongs(nextPlaylistSongs);
-                  await refreshLibrary();
+                  try {
+                    await window.appBridge.reorderPlaylistSong(activeView.id, songId, newOrder);
+                    const nextPlaylistSongs = await window.appBridge.getPlaylistSongs(activeView.id);
+                    setPlaylistSongs(nextPlaylistSongs);
+                    await refreshLibrary({ preserveStatus: true });
+                  } catch (error) {
+                    setStatusMessage(`Unable to reorder playlist: ${(error as Error).message}`);
+                  }
                 })()
               }
               onTagClick={handleAddTagFilter}

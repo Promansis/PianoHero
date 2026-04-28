@@ -26,6 +26,7 @@ export const RPC_BRIDGE_METHODS = [
   'getProgressStats',
   'getProgressTopSongs',
   'getAllUnresolvedTroubleSpots',
+  'getLibrarySnapshot',
   'getCustomFingerings',
   'saveCustomFingering',
   'clearCustomFingerings',

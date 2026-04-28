@@ -5,7 +5,9 @@ import type {
   FolderRow,
   GameResultRow,
   GlobalTroubleSpot,
+  LibraryExportResult,
   LibraryImportResult,
+  LibrarySnapshot,
   MeasureAccuracyHistoryRow,
   PlaylistRow,
   PracticeDayRow,
@@ -48,6 +50,7 @@ export interface ImportError {
 export interface ImportResult {
   songs: ImportedSong[];
   errors: ImportError[];
+  skipped: number;
 }
 
 export interface RecomputeDifficultiesResult {
@@ -145,6 +148,7 @@ export interface AppBridge {
   getProgressStats: (fromDate: string, toDate: string) => Promise<ProgressStatsResult>;
   getProgressTopSongs: () => Promise<TopSongStat[]>;
   getAllUnresolvedTroubleSpots: () => Promise<GlobalTroubleSpot[]>;
+  getLibrarySnapshot: () => Promise<LibrarySnapshot>;
 
   getCustomFingerings: (songId: string) => Promise<FingeringRow[]>;
   saveCustomFingering: (
@@ -183,7 +187,7 @@ export interface AppBridge {
   setSetting: (category: string, key: string, value: string) => Promise<void>;
   resetLearningProgress: () => Promise<void>;
   resetUserData: () => Promise<void>;
-  exportLibrary: () => Promise<string | null>;
+  exportLibrary: () => Promise<LibraryExportResult | null>;
   importLibrary: () => Promise<LibraryImportResult | null>;
 
   loadMidiFileData: (songId: string) => Promise<Uint8Array>;

@@ -11,6 +11,7 @@ import type {
   InstrumentSamplePackManifest,
   ResolvedInstrumentSampleSource,
 } from '../shared/ipc';
+import type { LibraryBackup, LibraryExportResult, LibraryImportResult } from '../shared/dbTypes';
 
 const WEB_PACK_DB_NAME = 'pianohero-instrument-sample-packs';
 const WEB_PACK_DB_VERSION = 1;
@@ -60,6 +61,34 @@ async function callRpc(method: string, args: unknown[]): Promise<unknown> {
     body: JSON.stringify({ args }),
   });
   return parseRpcResponse(response);
+}
+
+function downloadJson(filename: string, value: unknown): void {
+  const blob = new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.style.display = 'none';
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
+function pickJsonFile(): Promise<File | null> {
+  return new Promise((resolve) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/json,.json';
+    input.style.display = 'none';
+    input.onchange = () => {
+      resolve(input.files?.[0] ?? null);
+      input.remove();
+    };
+    document.body.append(input);
+    input.click();
+  });
 }
 
 function revokeObjectUrls(instrumentId: string): void {
@@ -231,8 +260,6 @@ async function resolveStoredWebInstrumentPack(
 const desktopStubNames = new Set<keyof AppBridge>([
   'pickMidiFile',
   'importMidiFolder',
-  'exportLibrary',
-  'importLibrary',
   'saveMidiFile',
   'saveWavFile',
   'pickAudioFile',
@@ -266,7 +293,43 @@ export const webBridge = new Proxy({} as AppBridge, {
     }
 
     if (property === 'importMidiFiles') {
-      return async (): Promise<ImportResult> => ({ songs: [], errors: [] });
+      return async (): Promise<ImportResult> => ({ songs: [], errors: [], skipped: 0 });
+    }
+
+    if (property === 'exportLibrary') {
+      return async (): Promise<LibraryExportResult> => {
+        const response = await fetch('/api/library/export');
+        if (!response.ok) {
+          let message = `Export failed with status ${response.status}`;
+          try {
+            const body = await response.json() as { error?: string };
+            message = body.error ?? message;
+          } catch {
+            // Fall back to the HTTP status message.
+          }
+          throw new Error(message);
+        }
+        const payload = await response.json() as { backup: LibraryBackup; result: LibraryExportResult };
+        downloadJson(payload.result.filename, payload.backup);
+        return payload.result;
+      };
+    }
+
+    if (property === 'importLibrary') {
+      return async (): Promise<LibraryImportResult | null> => {
+        const file = await pickJsonFile();
+        if (!file) {
+          return null;
+        }
+
+        const backup = JSON.parse(await file.text()) as unknown;
+        const response = await fetch('/api/library/import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(backup),
+        });
+        return parseRpcResponse<LibraryImportResult>(response);
+      };
     }
 
     if (property === 'onImportProgress') {

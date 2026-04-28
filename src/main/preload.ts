@@ -42,6 +42,7 @@ const appBridge: AppBridge = {
   getProgressStats: (fromDate, toDate) => ipcRenderer.invoke('progress:get-stats', fromDate, toDate),
   getProgressTopSongs: () => ipcRenderer.invoke('progress:get-top-songs'),
   getAllUnresolvedTroubleSpots: () => ipcRenderer.invoke('trouble-spots:get-all-unresolved'),
+  getLibrarySnapshot: () => ipcRenderer.invoke('library:get-snapshot'),
 
   getCustomFingerings: (songId) => ipcRenderer.invoke('fingerings:get', songId),
   saveCustomFingering: (songId, noteIndex, finger, hand) =>

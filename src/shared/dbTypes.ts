@@ -47,7 +47,14 @@ export interface SettingRow {
   value: string;
 }
 
-export interface LibraryBackup {
+export interface LibraryBackupMidiFile {
+  songId: string;
+  filename: string;
+  dataBase64: string;
+  byteLength: number;
+}
+
+export interface LibraryBackupV1 {
   version: 1;
   exportedAt: string;
   songs: SongRow[];
@@ -57,10 +64,37 @@ export interface LibraryBackup {
   settings: SettingRow[];
 }
 
+export interface LibraryBackupV2 extends Omit<LibraryBackupV1, 'version'> {
+  version: 2;
+  midiFiles: LibraryBackupMidiFile[];
+}
+
+export type LibraryBackup = LibraryBackupV1 | LibraryBackupV2;
+
 export interface LibraryImportResult {
   songsImported: number;
   foldersImported: number;
   playlistsImported: number;
+  midiFilesRestored: number;
+  missingMidiFiles: string[];
+}
+
+export interface LibraryExportResult {
+  filename: string;
+  target: 'file' | 'download';
+  location?: string;
+  songsExported: number;
+  midiFilesIncluded: number;
+  missingMidiFiles: string[];
+}
+
+export interface LibrarySnapshot {
+  songs: SongRow[];
+  folders: FolderRow[];
+  playlists: PlaylistRow[];
+  recommendations: RecommendationResult | null;
+  statsBySongId: Record<string, UserStatsRow | null>;
+  songGoals: Record<string, number>;
 }
 
 export interface UserStatsRow {

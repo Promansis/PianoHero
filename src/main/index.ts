@@ -7,13 +7,13 @@ import { join } from 'node:path';
 import type {
   AddSongPayload,
   FingeringRow,
-  LibraryBackup,
   SaveGameResultPayload,
   SaveTheoryResultPayload,
   TroubleSpotRow,
   TheoryResultRow,
 } from '../shared/dbTypes';
 import { createSongId, importSongFromBuffer, recomputeAllSongDifficulties } from '../shared/importSong';
+import { buildLibraryBackup, importLibraryBackup, isLibraryBackup } from '../shared/libraryBackup';
 import { getInstrumentSamplePackDefinition } from '../lib/audio/instrumentSamplePacks';
 import { AppDatabase } from './database';
 import {
@@ -43,22 +43,6 @@ function collectMidiFiles(dir: string): string[] {
     }
   }
   return results;
-}
-
-function isLibraryBackup(value: unknown): value is LibraryBackup {
-  if (!value || typeof value !== 'object') {
-    return false;
-  }
-
-  const backup = value as Partial<LibraryBackup>;
-  return (
-    backup.version === 1 &&
-    Array.isArray(backup.songs) &&
-    Array.isArray(backup.folders) &&
-    Array.isArray(backup.playlists) &&
-    Array.isArray(backup.fingerings) &&
-    Array.isArray(backup.settings)
-  );
 }
 
 async function createMainWindow(): Promise<void> {
@@ -136,11 +120,12 @@ app.whenReady().then(async () => {
       : await dialog.showOpenDialog(options);
 
     if (result.canceled || result.filePaths.length === 0) {
-      return { songs: [], errors: [] };
+      return { songs: [], errors: [], skipped: 0 };
     }
 
     const songs = [];
     const errors = [];
+    let skipped = 0;
     const total = result.filePaths.length;
 
     for (let i = 0; i < total; i++) {
@@ -149,13 +134,18 @@ app.whenReady().then(async () => {
       event.sender.send('import:progress', { current: i + 1, total, filename: title });
       try {
         const buffer = await readFile(selectedPath);
+        const songId = await createSongId(buffer);
+        if (db.getSong(songId)) {
+          skipped++;
+          continue;
+        }
         songs.push(await importSongFromBuffer(buffer, title, { db, midiFilesDir }));
       } catch (err) {
         errors.push({ filename: title, message: (err as Error).message });
       }
     }
 
-    return { songs, errors };
+    return { songs, errors, skipped };
   });
 
   ipcMain.handle('songs:import-folder', async (event) => {
@@ -228,6 +218,7 @@ app.whenReady().then(async () => {
   ipcMain.handle('measure-accuracy:get-history', (_event, songId: string) => db.getMeasureAccuracyHistory(songId));
 
   ipcMain.handle('recommendations:get', () => db.getRecommendations());
+  ipcMain.handle('library:get-snapshot', () => db.getLibrarySnapshot());
   ipcMain.handle('progress:get-stats', (_event, fromDate: string, toDate: string) =>
     db.getProgressStats(fromDate, toDate),
   );
@@ -307,9 +298,14 @@ app.whenReady().then(async () => {
       return null;
     }
 
-    const backup = db.exportLibraryData();
+    const { backup, exportResult } = await buildLibraryBackup(db, midiFilesDir);
     writeFileSync(result.filePath, JSON.stringify(backup, null, 2), 'utf8');
-    return result.filePath;
+    return {
+      ...exportResult,
+      filename: result.filePath.split(/[\\/]/).pop() ?? 'pianohero-library.json',
+      target: 'file',
+      location: result.filePath,
+    };
   });
 
   ipcMain.handle('library:import', async () => {
@@ -330,7 +326,7 @@ app.whenReady().then(async () => {
       throw new Error('Invalid library backup file.');
     }
 
-    return db.importLibraryData(raw);
+    return importLibraryBackup(db, raw, midiFilesDir);
   });
 
   ipcMain.handle('file:load-midi', async (_event, songId: string) => {
@@ -339,7 +335,7 @@ app.whenReady().then(async () => {
       throw new Error(`Song not found: ${songId}`);
     }
 
-    const data = await readFile(song.filePath);
+    const data = await readFile(song.filePath).catch(() => readFile(join(midiFilesDir, `${songId}.mid`)));
     return new Uint8Array(data);
   });
 
