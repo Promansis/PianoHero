@@ -42,6 +42,18 @@ describe('midiRouter', () => {
     expect(payload.errors[0].message).toMatch(/Only \.mid and \.midi/);
   });
 
+  it('returns 400 when upload contains no files', async () => {
+    const { app, db } = await makeServer();
+    const formData = new FormData();
+
+    const response = await app.request('/api/midi/upload', { method: 'POST', body: formData });
+    const payload = await response.json() as { error: string };
+    db.close();
+
+    expect(response.status).toBe(400);
+    expect(payload.error).toMatch(/No files/);
+  });
+
   it('reports duplicate uploads as skipped', async () => {
     const { app, db, midiFilesDir } = await makeServer();
     const midiBytes = new Uint8Array([77, 84, 104, 100]);

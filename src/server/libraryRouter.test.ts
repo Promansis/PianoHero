@@ -61,4 +61,19 @@ describe('libraryRouter', () => {
     expect(importPayload.result.songsImported).toBe(1);
     expect(importPayload.result.midiFilesRestored).toBe(1);
   });
+
+  it('rejects invalid library imports', async () => {
+    const { app, db } = await makeServer();
+
+    const response = await app.request('/api/library/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ version: 999 }),
+    });
+    const payload = await response.json() as { error: string };
+    db.close();
+
+    expect(response.status).toBe(400);
+    expect(payload.error).toMatch(/Invalid library backup/);
+  });
 });

@@ -1,7 +1,7 @@
 import { mkdirSync, rmSync } from 'node:fs';
 import { Hono } from 'hono';
 import { recomputeAllSongDifficulties } from '../shared/importSong';
-import { RPC_BRIDGE_METHOD_SET } from '../shared/bridgeMethods';
+import { RPC_BRIDGE_METHODS, RPC_BRIDGE_METHOD_SET, type RpcBridgeMethod } from '../shared/bridgeMethods';
 import type { ServerDependencies } from './types';
 
 type JsonBody = {
@@ -24,69 +24,271 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
-function validatePhaseTwoArgs(method: string, args: unknown[], db: ServerDependencies['db']): string | null {
-  switch (method) {
-    case 'getLibrarySnapshot':
-    case 'getAllFolders':
-    case 'getAllPlaylists':
-    case 'getRecommendations':
-      return args.length === 0 ? null : `${method} does not accept arguments.`;
-    case 'getSong':
-    case 'deleteSong':
-    case 'toggleFavorite':
-    case 'getUserStats':
-      return isString(args[0]) ? null : `${method} requires a non-empty string id.`;
-    case 'getSetting':
-      return isString(args[0]) && isString(args[1]) ? null : 'getSetting requires category and key.';
-    case 'setSetting':
-      return isString(args[0]) && isString(args[1]) && typeof args[2] === 'string'
-        ? null
-        : 'setSetting requires category, key, and value.';
-    case 'createFolder':
-    case 'createPlaylist':
-      return isString(args[0]) ? null : `${method} requires a non-empty name.`;
-    case 'renameFolder':
-      return isString(args[0]) && isString(args[1]) ? null : 'renameFolder requires a folder id and name.';
-    case 'deleteFolder':
-      return isString(args[0]) ? null : 'deleteFolder requires a folder id.';
-    case 'moveSongToFolder':
-      if (!isString(args[0]) || !isNullableString(args[1])) {
-        return 'moveSongToFolder requires a song id and nullable folder id.';
-      }
-      if (args[1] !== null && !db.getAllFolders().some((folder) => folder.id === args[1])) {
-        return `Unknown folder: ${args[1]}`;
-      }
-      return null;
-    case 'updatePlaylist':
-      return isString(args[0]) && isRecord(args[1]) ? null : 'updatePlaylist requires a playlist id and update object.';
-    case 'deletePlaylist':
-    case 'getPlaylistSongs':
-      return isString(args[0]) ? null : `${method} requires a playlist id.`;
-    case 'addSongToPlaylist':
-    case 'removeSongFromPlaylist':
-      return isString(args[0]) && isString(args[1]) ? null : `${method} requires playlist and song ids.`;
-    case 'reorderPlaylistSong':
-      return isString(args[0]) && isString(args[1]) && Number.isInteger(args[2])
-        ? null
-        : 'reorderPlaylistSong requires playlist id, song id, and integer order.';
-    case 'bulkDeleteSongs':
-      return isStringArray(args[0]) ? null : 'bulkDeleteSongs requires a song id array.';
-    case 'bulkMoveSongsToFolder':
-      if (!isStringArray(args[0]) || !isNullableString(args[1])) {
-        return 'bulkMoveSongsToFolder requires song ids and nullable folder id.';
-      }
-      if (args[1] !== null && !db.getAllFolders().some((folder) => folder.id === args[1])) {
-        return `Unknown folder: ${args[1]}`;
-      }
-      return null;
-    case 'bulkAddTag':
-    case 'bulkRemoveTag':
-      return isStringArray(args[0]) && isString(args[1]) ? null : `${method} requires song ids and tag.`;
-    case 'bulkAddToPlaylist':
-      return isStringArray(args[0]) && isString(args[1]) ? null : 'bulkAddToPlaylist requires song ids and playlist id.';
-    default:
-      return null;
+function isNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+function isNonNegativeInteger(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0;
+}
+
+function isInteger(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value);
+}
+
+function isBoolean(value: unknown): value is boolean {
+  return typeof value === 'boolean';
+}
+
+function isHand(value: unknown): value is 'left' | 'right' {
+  return value === 'left' || value === 'right';
+}
+
+function isSessionMode(value: unknown): boolean {
+  return value === 'piano-hero' || value === 'learning' || value === 'performance';
+}
+
+function isTheoryType(value: unknown): boolean {
+  return value === 'quiz' || value === 'interval-trainer' || value === 'scale-practice';
+}
+
+function isTrackAssignmentRecord(value: unknown): boolean {
+  if (!isRecord(value)) {
+    return false;
   }
+  return Object.values(value).every((assignment) => assignment === 'left' || assignment === 'right' || assignment === 'both' || assignment === 'ignore');
+}
+
+function hasOnlyKeys(value: Record<string, unknown>, allowedKeys: string[]): boolean {
+  const allowed = new Set(allowedKeys);
+  return Object.keys(value).every((key) => allowed.has(key));
+}
+
+function isSongPayload(value: unknown): boolean {
+  return isRecord(value) &&
+    isString(value.id) &&
+    isString(value.title) &&
+    typeof value.artist === 'string' &&
+    typeof value.genre === 'string' &&
+    typeof value.filePath === 'string' &&
+    isNumber(value.difficulty) &&
+    isNumber(value.durationSec) &&
+    isNumber(value.bpm) &&
+    isNumber(value.noteCount) &&
+    isStringArray(value.tags) &&
+    (value.folderId === undefined || isNullableString(value.folderId)) &&
+    isTrackAssignmentRecord(value.trackAssignments);
+}
+
+function isSongUpdate(value: unknown): boolean {
+  if (!isRecord(value)) {
+    return false;
+  }
+  if (!hasOnlyKeys(value, [
+    'title',
+    'artist',
+    'genre',
+    'filePath',
+    'difficulty',
+    'durationSec',
+    'bpm',
+    'noteCount',
+    'timesPlayed',
+    'tags',
+    'isFavorite',
+    'folderId',
+    'trackAssignments',
+  ])) {
+    return false;
+  }
+  return (value.title === undefined || typeof value.title === 'string') &&
+    (value.artist === undefined || typeof value.artist === 'string') &&
+    (value.genre === undefined || typeof value.genre === 'string') &&
+    (value.filePath === undefined || typeof value.filePath === 'string') &&
+    (value.difficulty === undefined || isNumber(value.difficulty)) &&
+    (value.durationSec === undefined || isNumber(value.durationSec)) &&
+    (value.bpm === undefined || isNumber(value.bpm)) &&
+    (value.noteCount === undefined || isNumber(value.noteCount)) &&
+    (value.timesPlayed === undefined || isNumber(value.timesPlayed)) &&
+    (value.tags === undefined || isStringArray(value.tags)) &&
+    (value.isFavorite === undefined || isBoolean(value.isFavorite)) &&
+    (value.folderId === undefined || isNullableString(value.folderId)) &&
+    (value.trackAssignments === undefined || isTrackAssignmentRecord(value.trackAssignments));
+}
+
+function isMeasureAccuracyArray(value: unknown): boolean {
+  return Array.isArray(value) &&
+    value.every((entry) => isRecord(entry) && isNonNegativeInteger(entry.measure) && isNumber(entry.accuracy));
+}
+
+function isSaveGameResultPayload(value: unknown): boolean {
+  return isRecord(value) &&
+    isString(value.songId) &&
+    isNumber(value.score) &&
+    isNumber(value.accuracy) &&
+    isNumber(value.maxCombo) &&
+    isNumber(value.perfectHits) &&
+    isNumber(value.goodHits) &&
+    isNumber(value.okHits) &&
+    isNumber(value.misses) &&
+    isNumber(value.tempo) &&
+    isSessionMode(value.mode) &&
+    isNumber(value.durationSec) &&
+    isMeasureAccuracyArray(value.measureAccuracy);
+}
+
+function isSaveTheoryResultPayload(value: unknown): boolean {
+  return isRecord(value) &&
+    isTheoryType(value.type) &&
+    isNumber(value.score) &&
+    isNumber(value.totalQuestions) &&
+    isNumber(value.accuracy) &&
+    (value.details === undefined || isRecord(value.details));
+}
+
+function isTroubleSpotUpdate(value: unknown): boolean {
+  if (!isRecord(value)) {
+    return false;
+  }
+  if (!hasOnlyKeys(value, ['measureStart', 'measureEnd', 'firstDetected', 'lastPracticed', 'resolutionCount', 'isResolved'])) {
+    return false;
+  }
+  return (value.measureStart === undefined || isNonNegativeInteger(value.measureStart)) &&
+    (value.measureEnd === undefined || isNonNegativeInteger(value.measureEnd)) &&
+    (value.firstDetected === undefined || isString(value.firstDetected)) &&
+    (value.lastPracticed === undefined || value.lastPracticed === null || isString(value.lastPracticed)) &&
+    (value.resolutionCount === undefined || isNonNegativeInteger(value.resolutionCount)) &&
+    (value.isResolved === undefined || isBoolean(value.isResolved));
+}
+
+function isPlaylistUpdate(value: unknown): boolean {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return hasOnlyKeys(value, ['name', 'description']) &&
+    (value.name === undefined || isString(value.name)) &&
+    (value.description === undefined || typeof value.description === 'string');
+}
+
+type ArgsValidator = (args: unknown[], db: ServerDependencies['db']) => string | null;
+
+const noArgs = (method: string): ArgsValidator => (args) =>
+  args.length === 0 ? null : `${method} does not accept arguments.`;
+
+const stringArg = (method: string, label = 'id'): ArgsValidator => (args) =>
+  args.length === 1 && isString(args[0]) ? null : `${method} requires a non-empty string ${label}.`;
+
+const bridgeArgValidators = {
+  getAllSongs: noArgs('getAllSongs'),
+  getSong: stringArg('getSong'),
+  addSong: (args) => args.length === 1 && isSongPayload(args[0]) ? null : 'addSong requires a valid song payload.',
+  updateSong: (args) =>
+    args.length === 2 && isString(args[0]) && isSongUpdate(args[1])
+      ? null
+      : 'updateSong requires a song id and valid update object.',
+  deleteSong: stringArg('deleteSong'),
+  toggleFavorite: stringArg('toggleFavorite'),
+  recomputeAllSongDifficulties: noArgs('recomputeAllSongDifficulties'),
+  saveGameResult: (args) =>
+    args.length === 1 && isSaveGameResultPayload(args[0]) ? null : 'saveGameResult requires a valid result payload.',
+  getGameResults: stringArg('getGameResults'),
+  getUserStats: stringArg('getUserStats'),
+  saveTheoryResult: (args) =>
+    args.length === 1 && isSaveTheoryResultPayload(args[0]) ? null : 'saveTheoryResult requires a valid result payload.',
+  getTheoryResults: (args) =>
+    args.length <= 2 &&
+    (args[0] === undefined || args[0] === null || isTheoryType(args[0])) &&
+    (args[1] === undefined || args[1] === null || isNonNegativeInteger(args[1]))
+      ? null
+      : 'getTheoryResults requires an optional theory type and optional limit.',
+  getTheoryStats: (args) =>
+    args.length === 1 && isTheoryType(args[0]) ? null : 'getTheoryStats requires a theory result type.',
+  getPracticeDays: (args) =>
+    args.length === 2 && isString(args[0]) && isString(args[1]) ? null : 'getPracticeDays requires from and to dates.',
+  recordPracticeTime: (args) =>
+    args.length === 3 && args.every(isNumber)
+      ? null
+      : 'recordPracticeTime requires duration, songs played, and theory session counts.',
+  getPracticeStreak: noArgs('getPracticeStreak'),
+  getAllAchievements: noArgs('getAllAchievements'),
+  unlockAchievement: stringArg('unlockAchievement', 'achievement id'),
+  getTroubleSpots: stringArg('getTroubleSpots', 'song id'),
+  updateTroubleSpot: (args) =>
+    args.length === 2 && isString(args[0]) && isTroubleSpotUpdate(args[1])
+      ? null
+      : 'updateTroubleSpot requires a trouble spot id and valid update object.',
+  getMeasureAccuracyHistory: stringArg('getMeasureAccuracyHistory', 'song id'),
+  getRecommendations: noArgs('getRecommendations'),
+  getProgressStats: (args) =>
+    args.length === 2 && isString(args[0]) && isString(args[1]) ? null : 'getProgressStats requires from and to dates.',
+  getProgressTopSongs: noArgs('getProgressTopSongs'),
+  getAllUnresolvedTroubleSpots: noArgs('getAllUnresolvedTroubleSpots'),
+  getLibrarySnapshot: noArgs('getLibrarySnapshot'),
+  getCustomFingerings: stringArg('getCustomFingerings', 'song id'),
+  saveCustomFingering: (args) =>
+    args.length === 4 && isString(args[0]) && isNonNegativeInteger(args[1]) && isInteger(args[2]) && args[2] >= 1 && args[2] <= 5 && isHand(args[3])
+      ? null
+      : 'saveCustomFingering requires song id, note index, finger, and hand.',
+  clearCustomFingerings: stringArg('clearCustomFingerings', 'song id'),
+  getAllFolders: noArgs('getAllFolders'),
+  createFolder: stringArg('createFolder', 'name'),
+  renameFolder: (args) =>
+    args.length === 2 && isString(args[0]) && isString(args[1]) ? null : 'renameFolder requires a folder id and name.',
+  deleteFolder: stringArg('deleteFolder', 'folder id'),
+  moveSongToFolder: (args, db) => {
+    if (args.length !== 2 || !isString(args[0]) || !isNullableString(args[1])) {
+      return 'moveSongToFolder requires a song id and nullable folder id.';
+    }
+    if (args[1] !== null && !db.getAllFolders().some((folder) => folder.id === args[1])) {
+      return `Unknown folder: ${args[1]}`;
+    }
+    return null;
+  },
+  getAllPlaylists: noArgs('getAllPlaylists'),
+  createPlaylist: stringArg('createPlaylist', 'name'),
+  updatePlaylist: (args) =>
+    args.length === 2 && isString(args[0]) && isPlaylistUpdate(args[1])
+      ? null
+      : 'updatePlaylist requires a playlist id and valid update object.',
+  deletePlaylist: stringArg('deletePlaylist', 'playlist id'),
+  getPlaylistSongs: stringArg('getPlaylistSongs', 'playlist id'),
+  addSongToPlaylist: (args) =>
+    args.length === 2 && isString(args[0]) && isString(args[1]) ? null : 'addSongToPlaylist requires playlist and song ids.',
+  removeSongFromPlaylist: (args) =>
+    args.length === 2 && isString(args[0]) && isString(args[1]) ? null : 'removeSongFromPlaylist requires playlist and song ids.',
+  reorderPlaylistSong: (args) =>
+    args.length === 3 && isString(args[0]) && isString(args[1]) && Number.isInteger(args[2])
+      ? null
+      : 'reorderPlaylistSong requires playlist id, song id, and integer order.',
+  bulkDeleteSongs: (args) =>
+    args.length === 1 && isStringArray(args[0]) ? null : 'bulkDeleteSongs requires a song id array.',
+  bulkMoveSongsToFolder: (args, db) => {
+    if (args.length !== 2 || !isStringArray(args[0]) || !isNullableString(args[1])) {
+      return 'bulkMoveSongsToFolder requires song ids and nullable folder id.';
+    }
+    if (args[1] !== null && !db.getAllFolders().some((folder) => folder.id === args[1])) {
+      return `Unknown folder: ${args[1]}`;
+    }
+    return null;
+  },
+  bulkAddTag: (args) =>
+    args.length === 2 && isStringArray(args[0]) && isString(args[1]) ? null : 'bulkAddTag requires song ids and tag.',
+  bulkRemoveTag: (args) =>
+    args.length === 2 && isStringArray(args[0]) && isString(args[1]) ? null : 'bulkRemoveTag requires song ids and tag.',
+  bulkAddToPlaylist: (args) =>
+    args.length === 2 && isStringArray(args[0]) && isString(args[1]) ? null : 'bulkAddToPlaylist requires song ids and playlist id.',
+  getSetting: (args) =>
+    args.length === 2 && isString(args[0]) && isString(args[1]) ? null : 'getSetting requires category and key.',
+  setSetting: (args) =>
+    args.length === 3 && isString(args[0]) && isString(args[1]) && typeof args[2] === 'string'
+      ? null
+      : 'setSetting requires category, key, and value.',
+  resetLearningProgress: noArgs('resetLearningProgress'),
+  resetUserData: noArgs('resetUserData'),
+} satisfies Record<RpcBridgeMethod, ArgsValidator>;
+
+function validateRpcArgs(method: RpcBridgeMethod, args: unknown[], db: ServerDependencies['db']): string | null {
+  return bridgeArgValidators[method](args, db);
 }
 
 export function createBridgeRouter({ db, midiFilesDir }: ServerDependencies) {
@@ -99,8 +301,12 @@ export function createBridgeRouter({ db, midiFilesDir }: ServerDependencies) {
     }
 
     const body = await c.req.json<JsonBody>().catch(() => null);
-    const args = Array.isArray(body?.args) ? body.args : [];
-    const validationError = validatePhaseTwoArgs(method, args, db);
+    if (!body || !Array.isArray(body.args)) {
+      return c.json({ error: 'Bridge request body must be JSON with an args array.' }, 400);
+    }
+
+    const args = body.args;
+    const validationError = validateRpcArgs(method as RpcBridgeMethod, args, db);
     if (validationError) {
       return c.json({ error: validationError }, 400);
     }
@@ -131,4 +337,8 @@ export function createBridgeRouter({ db, midiFilesDir }: ServerDependencies) {
   });
 
   return router;
+}
+
+export function getValidatedRpcBridgeMethods(): readonly RpcBridgeMethod[] {
+  return RPC_BRIDGE_METHODS;
 }
