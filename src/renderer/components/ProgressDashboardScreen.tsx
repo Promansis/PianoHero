@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ACHIEVEMENTS } from '../../lib/achievements/achievementDefinitions';
+import type { LoopRange } from '../../lib/game/types';
 import { isRewardUnlocked } from '../../lib/rewards/rewardCatalog';
 import type { AchievementRow, GlobalTroubleSpot, PracticeStreak, ProgressStatsResult, TopSongStat } from '../../shared/dbTypes';
 import { BarChart } from './charts/BarChart';
@@ -33,11 +34,15 @@ function sumSeries<T>(entries: T[], getValue: (entry: T) => number): number {
 interface ProgressDashboardScreenProps {
   unlockedRewardIds?: Set<string>;
   onOpenLibrary: () => void;
+  onStartTopSong?: (songId: string) => void;
+  onPracticeTroubleSpot?: (songId: string, loopRange: LoopRange) => void;
 }
 
 export function ProgressDashboardScreen({
   unlockedRewardIds = new Set(),
   onOpenLibrary,
+  onStartTopSong,
+  onPracticeTroubleSpot,
 }: ProgressDashboardScreenProps) {
   const [stats, setStats] = useState<ProgressStatsResult | null>(null);
   const [streak, setStreak] = useState<PracticeStreak | null>(null);
@@ -50,10 +55,13 @@ export function ProgressDashboardScreen({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    let ignore = false;
     const load = async () => {
       if (!window.appBridge) {
-        setErrorMessage('The app bridge is unavailable.');
-        setIsLoading(false);
+        if (!ignore) {
+          setErrorMessage('The app bridge is unavailable.');
+          setIsLoading(false);
+        }
         return;
       }
 
@@ -69,6 +77,10 @@ export function ProgressDashboardScreen({
             window.appBridge.getProgressTopSongs(),
             window.appBridge.getAllUnresolvedTroubleSpots(),
           ]);
+
+        if (ignore) {
+          return;
+        }
 
         setStats(nextStats);
         setStreak(nextStreak);
@@ -88,13 +100,20 @@ export function ProgressDashboardScreen({
         setTodayMinutes(todayEntry?.minutes ?? 0);
         setErrorMessage(null);
       } catch (error) {
-        setErrorMessage((error as Error).message);
+        if (!ignore) {
+          setErrorMessage((error as Error).message);
+        }
       } finally {
-        setIsLoading(false);
+        if (!ignore) {
+          setIsLoading(false);
+        }
       }
     };
 
     void load();
+    return () => {
+      ignore = true;
+    };
   }, []);
 
   const unlockedAchievements = useMemo(
@@ -300,9 +319,15 @@ export function ProgressDashboardScreen({
               {topSongs.map((song, index) => (
                 <li key={song.songId} className="top-songs-item">
                   <span className="top-songs-rank">{index + 1}</span>
-                  <span className="top-songs-title" title={song.title}>
+                  <button
+                    className="top-songs-title"
+                    title={song.title}
+                    type="button"
+                    onClick={() => onStartTopSong?.(song.songId)}
+                    disabled={!onStartTopSong}
+                  >
                     {song.title}
-                  </span>
+                  </button>
                   <span className="top-songs-plays">{song.playCount}×</span>
                   <span className="top-songs-accuracy">{Math.round(song.bestAccuracy)}%</span>
                 </li>
@@ -339,6 +364,19 @@ export function ProgressDashboardScreen({
                     {spot.struggleCount > 0 ? (
                       <span className="trouble-spots-global-struggles">×{spot.struggleCount}</span>
                     ) : null}
+                    <button
+                      className="secondary-button"
+                      type="button"
+                      onClick={() =>
+                        onPracticeTroubleSpot?.(spot.songId, {
+                          startMeasure: spot.measureStart,
+                          endMeasure: spot.measureEnd,
+                        })
+                      }
+                      disabled={!onPracticeTroubleSpot}
+                    >
+                      Practice
+                    </button>
                   </div>
                 </li>
               ))}

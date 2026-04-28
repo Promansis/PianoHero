@@ -1499,6 +1499,20 @@ export function App() {
         <ProgressDashboardScreen
           unlockedRewardIds={unlockedRewardIds}
           onOpenLibrary={() => setCurrentScreen({ screen: 'library' })}
+          onStartTopSong={(songId) => {
+            void window.appBridge?.getSong(songId).then((song) => {
+              if (song) {
+                startSongSession(song, 'piano-hero');
+              }
+            });
+          }}
+          onPracticeTroubleSpot={(songId, loopRange) => {
+            void window.appBridge?.getSong(songId).then((song) => {
+              if (song) {
+                startSongSession(song, 'learning', loopRange);
+              }
+            });
+          }}
         />
       );
       break;

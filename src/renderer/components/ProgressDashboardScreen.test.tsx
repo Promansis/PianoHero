@@ -74,6 +74,8 @@ describe('ProgressDashboardScreen', () => {
   });
 
   it('renders the populated dashboard without falling back to the empty state', async () => {
+    const onStartTopSong = vi.fn();
+    const onPracticeTroubleSpot = vi.fn();
     window.appBridge = {
       getProgressStats: vi.fn().mockResolvedValue(
         createStats({
@@ -113,7 +115,13 @@ describe('ProgressDashboardScreen', () => {
       ]),
     } as unknown as typeof window.appBridge;
 
-    render(<ProgressDashboardScreen onOpenLibrary={vi.fn()} />);
+    render(
+      <ProgressDashboardScreen
+        onOpenLibrary={vi.fn()}
+        onStartTopSong={onStartTopSong}
+        onPracticeTroubleSpot={onPracticeTroubleSpot}
+      />,
+    );
 
     await waitFor(() => {
       expect(screen.getByText('Current streak')).toBeInTheDocument();
@@ -123,5 +131,11 @@ describe('ProgressDashboardScreen', () => {
     expect(screen.getAllByText('Etude').length).toBeGreaterThan(0);
     expect(screen.getByText(ACHIEVEMENTS[0].name)).toBeInTheDocument();
     expect(screen.getByText('Measures 8–10')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Etude' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Practice' }));
+
+    expect(onStartTopSong).toHaveBeenCalledWith('song-1');
+    expect(onPracticeTroubleSpot).toHaveBeenCalledWith('song-1', { startMeasure: 8, endMeasure: 10 });
   });
 });
