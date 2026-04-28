@@ -7,6 +7,7 @@ import { MidiInputService } from '../../lib/midi/midiInputService';
 import type { MidiInputDevice } from '../../lib/midi/types';
 import { getRewardDefinition, isRewardUnlocked, REWARD_CATALOG } from '../../lib/rewards/rewardCatalog';
 import { detectChord } from '../../lib/theory/chords';
+import { ImmersiveHud, type ImmersiveHudDestination, type ImmersiveHudNavigationItem } from './ImmersiveHud';
 import { ImmersiveInstrumentControl } from './ImmersiveInstrumentControl';
 import type { InstrumentSamplePackStatus } from '../../shared/ipc';
 import { PianoKeyboard } from './PianoKeyboard';
@@ -47,6 +48,8 @@ interface FreePlayScreenProps {
   onInstrumentChange: (instrumentId: string) => void;
   onOpenKeyboardSetup: () => void;
   unlockedRewardIds?: Set<string>;
+  hudNavigationItems?: ImmersiveHudNavigationItem[];
+  hudCurrentDestination?: ImmersiveHudDestination;
 }
 
 const VISUAL_NOTE_LIFETIME_MS = 4200;
@@ -109,6 +112,8 @@ export function FreePlayScreen({
   onInstrumentChange,
   onOpenKeyboardSetup,
   unlockedRewardIds,
+  hudNavigationItems = [],
+  hudCurrentDestination = 'free-play',
 }: FreePlayScreenProps) {
   const [devices, setDevices] = useState<MidiInputDevice[]>([]);
   const [showPostureReminder, setShowPostureReminder] = useState(false);
@@ -703,10 +708,22 @@ export function FreePlayScreen({
     clearVisualCanvas();
     setVisualMode(nextMode);
   };
+  const resolvedHudNavigationItems = hudNavigationItems.map((item) => ({
+    ...item,
+    onSelect: () => {
+      closeOverlay(false);
+      closeVisualControls(false);
+      item.onSelect();
+    },
+  }));
 
   return (
     <main className="app-shell app-shell-immersive free-play-immersive-shell" onPointerDownCapture={() => void ensureAudioReady()}>
-      <div className="immersive-hud free-play-hud">
+      <ImmersiveHud
+        className="free-play-hud"
+        currentDestination={hudCurrentDestination}
+        navigationItems={resolvedHudNavigationItems}
+        stats={
         <div className="immersive-hud-stats">
           <div className="immersive-hud-item">
             <span>Mode</span>
@@ -721,6 +738,8 @@ export function FreePlayScreen({
             <strong>{sessionDetail}</strong>
           </div>
         </div>
+        }
+        actions={
         <div className="free-play-hud-actions">
           <ImmersiveInstrumentControl
             instrumentId={instrumentId}
@@ -827,7 +846,8 @@ export function FreePlayScreen({
             Menu
           </button>
         </div>
-      </div>
+        }
+      />
 
       <div className="immersive-canvas-area free-play-stage-area">
         <FreePlayVisualizer

@@ -30,6 +30,7 @@ import type { InstrumentSamplePackStatus } from '../../shared/ipc';
 import { ControlBar } from './ControlBar';
 import { FingeringEditor } from './FingeringEditor';
 import { FallingNotesCanvas } from './FallingNotesCanvas';
+import { ImmersiveHud, type ImmersiveHudDestination, type ImmersiveHudNavigationItem } from './ImmersiveHud';
 import { ImmersiveInstrumentControl } from './ImmersiveInstrumentControl';
 import { PianoKeyboard } from './PianoKeyboard';
 import { TrackAssignmentPanel } from './TrackAssignmentPanel';
@@ -100,6 +101,8 @@ interface GameScreenProps {
   onExit: () => void;
   exitLabel?: string;
   onOpenKeyboardSetup: () => void;
+  hudNavigationItems?: ImmersiveHudNavigationItem[];
+  hudCurrentDestination?: ImmersiveHudDestination;
 }
 
 function formatTime(seconds: number): string {
@@ -351,6 +354,8 @@ export function GameScreen({
   onExit,
   exitLabel,
   onOpenKeyboardSetup,
+  hudNavigationItems = [],
+  hudCurrentDestination,
 }: GameScreenProps) {
   const initialSong = useMemo(
     () => source.kind === 'library-song'
@@ -1155,11 +1160,21 @@ export function GameScreen({
       size={keyboardOverlaySize}
     />
   );
+  const resolvedHudNavigationItems = hudNavigationItems.map((item) => ({
+    ...item,
+    onSelect: () => {
+      setOverlayVisible(false);
+      audioEngine.pauseSong();
+      item.onSelect();
+    },
+  }));
 
   return (
     <main className="app-shell app-shell-immersive" onPointerDownCapture={() => void ensureAudioReady()}>
-      {/* Minimal HUD — always visible during gameplay */}
-      <div className="immersive-hud">
+      <ImmersiveHud
+        currentDestination={hudCurrentDestination ?? (source.kind === 'lesson-drill' ? 'learn-hub' : 'library')}
+        navigationItems={resolvedHudNavigationItems}
+        stats={
         <div className="immersive-hud-stats">
           {isTemporaryLibrarySong && (
             <div className="immersive-hud-item">
@@ -1188,6 +1203,8 @@ export function GameScreen({
             </strong>
           </div>
         </div>
+        }
+        actions={
         <div className="immersive-hud-actions">
           <ImmersiveInstrumentControl
             instrumentId={instrumentId}
@@ -1199,7 +1216,8 @@ export function GameScreen({
             Menu
           </button>
         </div>
-      </div>
+        }
+      />
 
       {/* Fingering hint bar */}
       {isEditingFingering && !fingeringEditorState && canPersistCurrentSong && (

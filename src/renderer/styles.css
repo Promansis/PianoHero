@@ -229,22 +229,90 @@ select:focus {
   position: relative;
 }
 
-.immersive-hud {
+.immersive-hud-shell {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   z-index: 10;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 16px;
+  min-height: 30px;
+  overflow: visible;
+}
+
+.immersive-hud-hover-zone {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 0;
+  height: 34px;
+  pointer-events: auto;
+}
+
+.immersive-hud-tab {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  z-index: 2;
+  transform: translateX(-50%);
+  pointer-events: auto;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  padding: 3px 14px;
+  background: rgba(0, 0, 0, 0.48);
+  color: rgba(255, 255, 255, 0.76);
+  font-family: var(--font-meta);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(10px);
+  cursor: pointer;
+  transition: opacity 150ms ease, transform 150ms ease, background 150ms ease;
+}
+
+.immersive-hud-tab:hover,
+.immersive-hud-tab:focus-visible {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+.immersive-hud-shell.open .immersive-hud-tab,
+.immersive-hud-shell:focus-within .immersive-hud-tab {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-8px);
   pointer-events: none;
+}
+
+.immersive-hud {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(220px, max-content) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.34), rgba(0, 0, 0, 0.16));
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(14px);
+  opacity: 0;
+  transform: translateY(calc(-100% - 8px));
+  pointer-events: none;
+  transition: opacity 170ms ease, transform 170ms ease;
+}
+
+.immersive-hud-shell.open .immersive-hud,
+.immersive-hud-shell:focus-within .immersive-hud {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
 }
 
 .immersive-hud-stats {
   display: flex;
-  gap: 24px;
+  gap: 8px;
+  min-width: 0;
+  flex-wrap: nowrap;
 }
 
 .immersive-hud-item {
@@ -253,14 +321,15 @@ select:focus {
   align-items: center;
   gap: 1px;
   background: rgba(0, 0, 0, 0.45);
-  border-radius: 10px;
-  padding: 4px 12px;
+  border-radius: 8px;
+  padding: 3px 9px;
   backdrop-filter: blur(6px);
+  min-width: 0;
 }
 
 .immersive-hud-item span {
   font-family: var(--font-meta);
-  font-size: 10px;
+  font-size: 9px;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: rgba(255, 255, 255, 0.6);
@@ -268,7 +337,7 @@ select:focus {
 
 .immersive-hud-item strong {
   font-family: var(--font-display);
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.02em;
   color: rgba(255, 255, 255, 0.95);
@@ -296,9 +365,9 @@ select:focus {
   backdrop-filter: blur(6px);
   border: 1px solid rgba(255, 255, 255, 0.15);
   color: rgba(255, 255, 255, 0.8);
-  border-radius: 10px;
-  padding: 6px 14px;
-  font-size: 13px;
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-size: 12px;
   cursor: pointer;
   transition: background 0.15s;
 }
@@ -308,16 +377,101 @@ select:focus {
   color: #fff;
 }
 
-.immersive-hud-actions {
+.immersive-hud-actions,
+.free-play-hud-actions,
+.animal-soundboard-hud-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
+  gap: 8px;
+  flex-wrap: nowrap;
   justify-content: flex-end;
+  min-width: 0;
+}
+
+.immersive-hud-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.immersive-hud-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.immersive-hud-nav-btn {
+  flex: 0 0 auto;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  padding: 4px 9px;
+  background: rgba(0, 0, 0, 0.34);
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.immersive-hud-nav-btn:hover,
+.immersive-hud-nav-btn:focus-visible {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+.immersive-hud-nav-btn.active {
+  border-color: color-mix(in srgb, var(--color-accent-secondary) 58%, transparent);
+  background: color-mix(in srgb, var(--color-accent-secondary) 24%, rgba(0, 0, 0, 0.38));
+  color: #fff;
+  cursor: default;
 }
 
 .immersive-control-wrap {
   position: relative;
+}
+
+@media (max-width: 780px) {
+  .immersive-hud {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 7px 10px;
+  }
+
+  .immersive-hud-stats,
+  .immersive-hud-nav,
+  .immersive-hud-actions,
+  .free-play-hud-actions,
+  .animal-soundboard-hud-actions {
+    flex: 0 0 auto;
+  }
+
+  .immersive-hud-nav {
+    order: -1;
+  }
+
+  .immersive-hud-item {
+    padding: 3px 8px;
+  }
+
+  .immersive-hud-item strong {
+    font-size: 13px;
+    max-width: 18ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .immersive-instrument-toggle {
+    max-width: 112px;
+  }
+
+  .immersive-hud-nav-btn {
+    padding-inline: 8px;
+  }
 }
 
 .immersive-instrument-toggle {
@@ -628,14 +782,6 @@ select:focus {
 .animal-soundboard-hud .immersive-menu-btn {
   color: #123451;
   text-shadow: none;
-}
-
-.animal-soundboard-hud-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
 }
 
 .animal-map-toggle {
@@ -2814,20 +2960,12 @@ select:focus {
     grid-template-columns: 1fr;
   }
 
-  .animal-soundboard-hud {
-    position: relative;
-    padding-top: 20px;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 14px;
-  }
-
   .animal-soundboard-hud-actions {
-    justify-content: flex-start;
+    justify-content: flex-end;
   }
 
   .free-play-hud-actions {
-    justify-content: flex-start;
+    justify-content: flex-end;
   }
 
   .animal-soundboard-copy {
@@ -4768,20 +4906,16 @@ select:focus {
 }
 
 .free-play-hud .immersive-hud-stats {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: 8px;
 }
 
 .free-play-hud .immersive-hud-item {
   min-width: 0;
   align-items: flex-start;
-  padding: 8px 12px;
 }
 
 .free-play-hud .immersive-hud-item strong {
-  max-width: 32ch;
-  font-size: 0.95rem;
+  max-width: 24ch;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -5051,11 +5185,6 @@ select:focus {
   }
 
   .progress-empty-state-actions {
-    width: 100%;
-  }
-
-  .free-play-hud .immersive-hud-stats {
-    grid-template-columns: 1fr;
     width: 100%;
   }
 
@@ -5988,6 +6117,11 @@ select:focus {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .immersive-hud,
+  .immersive-hud-tab {
+    transition: none;
+  }
+
   .main-menu-screen,
   .main-menu-screen::before,
   .main-menu-screen::after,

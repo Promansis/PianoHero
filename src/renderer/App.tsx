@@ -45,6 +45,7 @@ import { AchievementToast } from './components/AchievementToast';
 import { ToastHost } from './components/Toast';
 import { FreePlayScreen } from './components/FreePlayScreen';
 import { GameScreen } from './components/GameScreen';
+import type { ImmersiveHudNavigationItem } from './components/ImmersiveHud';
 import { IntervalTrainerScreen } from './components/IntervalTrainerScreen';
 import { KeyboardSetupScreen } from './components/KeyboardSetupScreen';
 import { LearnHubScreen } from './components/LearnHubScreen';
@@ -1344,6 +1345,56 @@ export function App() {
   }
 
   const resultsQueue = currentScreen.screen === 'results' ? currentScreen.playlistQueue : null;
+  const buildImmersiveHudNavigation = (): ImmersiveHudNavigationItem[] => [
+    {
+      key: 'main-menu',
+      label: 'Main',
+      title: 'Go to the main menu',
+      onSelect: () => setCurrentScreen({ screen: 'main-menu' }),
+    },
+    {
+      key: 'library',
+      label: 'Play',
+      title: 'Open the song library',
+      onSelect: () => setCurrentScreen({ screen: 'library' }),
+    },
+    {
+      key: 'learn-hub',
+      label: 'Learn',
+      title: 'Open lessons',
+      onSelect: () => setCurrentScreen({ screen: 'learn-hub' }),
+    },
+    {
+      key: 'free-play',
+      label: 'Free Play',
+      title: 'Open free play',
+      onSelect: () => setCurrentScreen({ screen: 'free-play' }),
+    },
+    {
+      key: 'soundboard',
+      label: 'Soundboard',
+      title: 'Open the soundboard',
+      onSelect: () => setCurrentScreen({ screen: 'soundboard' }),
+    },
+    {
+      key: 'theory-hub',
+      label: 'Theory',
+      title: 'Open theory practice',
+      onSelect: () => setCurrentScreen({ screen: 'theory-hub' }),
+    },
+    {
+      key: 'progress-dashboard',
+      label: 'Progress',
+      title: 'Open progress dashboard',
+      onSelect: () => setCurrentScreen({ screen: 'progress-dashboard' }),
+    },
+    {
+      key: 'settings',
+      label: 'Settings',
+      title: 'Open settings',
+      onSelect: () => setCurrentScreen({ screen: 'settings' }),
+    },
+  ];
 
   let screenContent: JSX.Element;
   switch (currentScreen.screen) {
@@ -1466,6 +1517,8 @@ export function App() {
           onStagePaletteChange={persistStagePalette}
           onBackToMainMenu={() => setCurrentScreen({ screen: 'main-menu' })}
           onOpenKeyboardSetup={() => setCurrentScreen({ screen: 'keyboard-setup', returnTo: 'free-play' })}
+          hudNavigationItems={buildImmersiveHudNavigation()}
+          hudCurrentDestination="free-play"
         />
       );
       break;
@@ -1480,6 +1533,8 @@ export function App() {
           keyboardOverlaySize={keyboardOverlaySize}
           onBackToMainMenu={() => setCurrentScreen({ screen: 'main-menu' })}
           onOpenKeyboardSetup={() => setCurrentScreen({ screen: 'keyboard-setup', returnTo: 'soundboard' })}
+          hudNavigationItems={buildImmersiveHudNavigation()}
+          hudCurrentDestination="soundboard"
         />
       );
       break;
@@ -1623,6 +1678,8 @@ export function App() {
           onExit={() => setCurrentScreen({ screen: 'main-menu' })}
           onGameFinished={handleGameFinished}
           onOpenKeyboardSetup={() => setCurrentScreen({ screen: 'keyboard-setup', returnTo: 'library' })}
+          hudNavigationItems={buildImmersiveHudNavigation()}
+          hudCurrentDestination="library"
         />
       );
       break;
@@ -1661,6 +1718,8 @@ export function App() {
               returnTo: { lessonId: currentScreen.lessonId, stepIndex: currentScreen.stepIndex },
             })
           }
+          hudNavigationItems={buildImmersiveHudNavigation()}
+          hudCurrentDestination="learn-hub"
         />
       );
       break;
@@ -1700,6 +1759,8 @@ export function App() {
             setCurrentScreen({ screen: 'learn-hub' });
           }}
           onOpenKeyboardSetup={() => setCurrentScreen({ screen: 'keyboard-setup', returnTo: 'learn-hub' })}
+          hudNavigationItems={buildImmersiveHudNavigation()}
+          hudCurrentDestination="learn-hub"
         />
       );
       break;

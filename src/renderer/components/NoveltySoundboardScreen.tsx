@@ -16,6 +16,7 @@ import { MidiInputService } from '../../lib/midi/midiInputService';
 import { midiToLabel } from '../../lib/piano/pianoLayout';
 import { useTimeoutRegistry } from '../useTimeoutRegistry';
 import { AnimalSoundboardCanvas, type AnimalSoundboardBurst } from './AnimalSoundboardCanvas';
+import { ImmersiveHud, type ImmersiveHudDestination, type ImmersiveHudNavigationItem } from './ImmersiveHud';
 import { PianoKeyboard, type KeyboardKeyLabel, type KeyboardOverlayEffect } from './PianoKeyboard';
 
 interface NoveltySoundboardScreenProps {
@@ -26,6 +27,8 @@ interface NoveltySoundboardScreenProps {
   keyboardOverlaySize: 'small' | 'medium' | 'large';
   onBackToMainMenu: () => void;
   onOpenKeyboardSetup: () => void;
+  hudNavigationItems?: ImmersiveHudNavigationItem[];
+  hudCurrentDestination?: ImmersiveHudDestination;
 }
 
 interface FloatingEffect extends KeyboardOverlayEffect {}
@@ -49,6 +52,8 @@ export function NoveltySoundboardScreen({
   keyboardOverlaySize,
   onBackToMainMenu,
   onOpenKeyboardSetup,
+  hudNavigationItems = [],
+  hudCurrentDestination = 'soundboard',
 }: NoveltySoundboardScreenProps) {
   const { setTrackedTimeout, clearTrackedTimeout, clearAllTimeouts } = useTimeoutRegistry();
   const [activeNotes, setActiveNotes] = useState<number[]>([]);
@@ -255,6 +260,14 @@ export function NoveltySoundboardScreen({
       focusAfterClose(animalMapButtonRef);
     }
   };
+  const resolvedHudNavigationItems = hudNavigationItems.map((item) => ({
+    ...item,
+    onSelect: () => {
+      closeOverlay(false);
+      closeAnimalMap(false);
+      item.onSelect();
+    },
+  }));
 
   useEffect(() => {
     const heldByNote = new Map<number, Set<string>>();
@@ -327,7 +340,11 @@ export function NoveltySoundboardScreen({
       className="app-shell soundboard-screen app-shell-immersive animal-soundboard-shell"
       onPointerDownCapture={() => void audioEngine.prepareForPlayback()}
     >
-      <div className="immersive-hud animal-soundboard-hud">
+      <ImmersiveHud
+        className="animal-soundboard-hud"
+        currentDestination={hudCurrentDestination}
+        navigationItems={resolvedHudNavigationItems}
+        stats={
         <div className="immersive-hud-stats">
           <div className="immersive-hud-item">
             <span>Mode</span>
@@ -346,6 +363,8 @@ export function NoveltySoundboardScreen({
             <strong>{stageStatus}</strong>
           </div>
         </div>
+        }
+        actions={
         <div className="animal-soundboard-hud-actions">
           {isAnimalMode ? (
             <button
@@ -388,7 +407,8 @@ export function NoveltySoundboardScreen({
             Menu
           </button>
         </div>
-      </div>
+        }
+      />
 
       <div
         className="immersive-canvas-area animal-soundboard-stage"
