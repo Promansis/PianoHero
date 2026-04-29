@@ -39,6 +39,8 @@ const CONTENT_TYPES: Record<string, string> = {
   '.json': 'application/json; charset=utf-8',
   '.mjs': 'text/javascript; charset=utf-8',
   '.mp3': 'audio/mpeg',
+  '.ogg': 'audio/ogg',
+  '.wav': 'audio/wav',
   '.png': 'image/png',
   '.svg': 'image/svg+xml',
   '.txt': 'text/plain; charset=utf-8',

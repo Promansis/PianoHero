@@ -81,7 +81,7 @@ export function NoveltySoundboardScreen({
         mode.clips.map((clip) => [
           clip.midi,
           {
-            text: mode.id === 'animals' ? clip.emoji ?? clip.shortLabel : clip.shortLabel,
+            text: clip.emoji ?? clip.shortLabel,
             title: clip.label,
             ariaLabel: `${midiToLabel(clip.midi)} key: ${clip.label}`,
           } satisfies KeyboardKeyLabel,

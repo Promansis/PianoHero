@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   SOUNDBOARD_CLIPS,
@@ -19,12 +21,23 @@ describe('soundboardCatalog', () => {
     });
   });
 
-  it('keeps all classic clip sources inside the bundled soundboard directory', () => {
+  it('keeps all classic clips short, bundled, and visually labeled', () => {
+    expect(new Set(SOUNDBOARD_CLIPS.map((clip) => clip.id)).size).toBe(SOUNDBOARD_CLIPS.length);
+    expect(new Set(SOUNDBOARD_CLIPS.map((clip) => clip.src)).size).toBe(SOUNDBOARD_CLIPS.length);
+    expect(new Set(SOUNDBOARD_CLIPS.map((clip) => clip.emoji)).size).toBe(SOUNDBOARD_CLIPS.length);
+
     SOUNDBOARD_CLIPS.forEach((clip) => {
-      expect(clip.src.startsWith('/soundboard/')).toBe(true);
-      expect(clip.source).toBe('Philharmonia Orchestra Sound Samples');
+      expect(clip.src.startsWith('/soundboard/classic/')).toBe(true);
+      expect(clip.src.endsWith('.ogg')).toBe(true);
+      expect(clip.source).toBe('Mixkit Sound Effects');
+      expect(clip.emoji).toBeTruthy();
+      expect(clip.license).toBe('Mixkit Free License');
       expect(clip.shortLabel.length).toBeGreaterThan(0);
+      expect(existsSync(join(process.cwd(), 'public', clip.src.replace(/^\//, '')))).toBe(true);
     });
+    expect(new Set(SOUNDBOARD_CLIPS.map((clip) => clip.category))).toEqual(
+      new Set(['toy', 'voice', 'music', 'pet', 'impact', 'object', 'vehicle', 'alert', 'weather']),
+    );
   });
 
   it('includes enriched metadata for animal clips', () => {
@@ -44,7 +57,7 @@ describe('soundboardCatalog', () => {
     const classicClip = getSoundboardClipForMidi('classic', SOUNDBOARD_MIN_MIDI);
     const animalClip = getSoundboardClipForMidi('animals', SOUNDBOARD_MIN_MIDI);
 
-    expect(classicClip?.label).toBe('Bass Boom');
+    expect(classicClip?.label).toBe('Toy Whistle');
     expect(animalClip?.label).toBe('Dog');
   });
 });

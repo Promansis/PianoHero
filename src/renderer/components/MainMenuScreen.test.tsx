@@ -27,59 +27,69 @@ describe('MainMenuScreen', () => {
     const destinations = [
       {
         button: within(primaryDestinations).getByRole('button', {
-          name: 'Play. Open the song library and start a scored run.',
+          name: 'Play Songs',
         }),
+        description: 'Open the song library and start a scored run.',
         handler: handlers.onOpenLibrary,
       },
       {
         button: within(primaryDestinations).getByRole('button', {
-          name: 'Learn. Continue lessons with a cleaner practice flow.',
+          name: 'Guided Lessons',
         }),
+        description: 'Continue lessons with a cleaner practice flow.',
         handler: handlers.onOpenLearn,
       },
       {
         button: within(primaryDestinations).getByRole('button', {
-          name: 'Free Play. Jam, record ideas, and explore without scoring.',
+          name: 'Free Play',
         }),
+        description: 'Jam, record ideas, and explore without scoring.',
         handler: handlers.onOpenFreePlay,
       },
       {
-        button: within(moreDestinations).getByRole('button', {
-          name: 'Soundboard. Trigger quick hits and playful one-shots.',
+        button: within(primaryDestinations).getByRole('button', {
+          name: 'Soundboard',
         }),
+        description: 'Trigger quick hits and playful one-shots.',
         handler: handlers.onOpenSoundboard,
       },
       {
         button: within(moreDestinations).getByRole('button', {
-          name: 'Theory. Train scales, intervals, and fast recall.',
+          name: 'Theory Trainer',
         }),
+        description: 'Train scales, intervals, and fast recall.',
         handler: handlers.onOpenTheory,
       },
       {
         button: within(moreDestinations).getByRole('button', {
-          name: 'Progress. Review streaks, goals, and accuracy trends.',
+          name: 'Progress',
         }),
+        description: 'Review streaks, goals, and accuracy trends.',
         handler: handlers.onOpenProgress,
       },
       {
         button: within(moreDestinations).getByRole('button', {
-          name: 'Settings. Tune audio, visuals, input, and accessibility.',
+          name: 'Settings',
         }),
+        description: 'Tune audio, visuals, input, and accessibility.',
         handler: handlers.onOpenSettings,
       },
       {
         button: within(moreDestinations).getByRole('button', {
-          name: 'Setup. Map keys, devices, and onboarding basics.',
+          name: 'Keyboard Setup',
         }),
+        description: 'Map keys, devices, and onboarding basics.',
         handler: handlers.onOpenSetup,
       },
     ];
 
-    expect(within(primaryDestinations).queryByRole('button', { name: /Settings\\./ })).not.toBeInTheDocument();
-    expect(within(moreDestinations).queryByRole('button', { name: /Play\\./ })).not.toBeInTheDocument();
+    expect(within(primaryDestinations).getByRole('button', { name: 'Soundboard' })).toBeInTheDocument();
+    expect(within(moreDestinations).queryByRole('button', { name: 'Soundboard' })).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Training and Setup' })).toBeInTheDocument();
 
     for (const destination of destinations) {
       expect(destination.button).toBeInTheDocument();
+      expect(destination.button).toHaveAccessibleDescription(destination.description);
       await user.click(destination.button);
       expect(destination.handler).toHaveBeenCalledOnce();
     }

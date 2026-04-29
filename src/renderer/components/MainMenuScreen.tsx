@@ -22,7 +22,6 @@ type MenuStyle = CSSProperties & {
 interface MenuCard {
   icon: ReactNode;
   title: string;
-  eyebrow: string;
   subtitle: string;
   accent: string;
   priority: 'primary' | 'secondary';
@@ -121,8 +120,7 @@ function IconSetup() {
 const MENU_CARDS: MenuCard[] = [
   {
     icon: <IconPlay />,
-    title: 'Play',
-    eyebrow: 'Main Stage',
+    title: 'Play Songs',
     subtitle: 'Open the song library and start a scored run.',
     accent: 'var(--menu-neon-gold)',
     priority: 'primary',
@@ -130,8 +128,7 @@ const MENU_CARDS: MenuCard[] = [
   },
   {
     icon: <IconLearn />,
-    title: 'Learn',
-    eyebrow: 'Guided Track',
+    title: 'Guided Lessons',
     subtitle: 'Continue lessons with a cleaner practice flow.',
     accent: 'var(--menu-neon-violet)',
     priority: 'primary',
@@ -140,7 +137,6 @@ const MENU_CARDS: MenuCard[] = [
   {
     icon: <IconFreePlay />,
     title: 'Free Play',
-    eyebrow: 'Open Keys',
     subtitle: 'Jam, record ideas, and explore without scoring.',
     accent: 'var(--menu-neon-cyan)',
     priority: 'primary',
@@ -149,16 +145,14 @@ const MENU_CARDS: MenuCard[] = [
   {
     icon: <IconSoundboard />,
     title: 'Soundboard',
-    eyebrow: 'Performance FX',
     subtitle: 'Trigger quick hits and playful one-shots.',
     accent: 'var(--menu-neon-blue)',
-    priority: 'secondary',
+    priority: 'primary',
     onSelect: (props) => props.onOpenSoundboard(),
   },
   {
     icon: <IconTheory />,
-    title: 'Theory',
-    eyebrow: 'Musicianship',
+    title: 'Theory Trainer',
     subtitle: 'Train scales, intervals, and fast recall.',
     accent: 'var(--menu-neon-magenta)',
     priority: 'secondary',
@@ -167,7 +161,6 @@ const MENU_CARDS: MenuCard[] = [
   {
     icon: <IconProgress />,
     title: 'Progress',
-    eyebrow: 'Score Room',
     subtitle: 'Review streaks, goals, and accuracy trends.',
     accent: 'var(--menu-neon-teal)',
     priority: 'secondary',
@@ -176,7 +169,6 @@ const MENU_CARDS: MenuCard[] = [
   {
     icon: <IconSettings />,
     title: 'Settings',
-    eyebrow: 'Control Desk',
     subtitle: 'Tune audio, visuals, input, and accessibility.',
     accent: 'var(--menu-neon-coral)',
     priority: 'secondary',
@@ -184,8 +176,7 @@ const MENU_CARDS: MenuCard[] = [
   },
   {
     icon: <IconSetup />,
-    title: 'Setup',
-    eyebrow: 'First Run',
+    title: 'Keyboard Setup',
     subtitle: 'Map keys, devices, and onboarding basics.',
     accent: 'var(--menu-neon-indigo)',
     priority: 'secondary',
@@ -195,8 +186,8 @@ const MENU_CARDS: MenuCard[] = [
 
 const STATUS_ITEMS = [
   ['Stage', 'Ready'],
-  ['Core Routes', String(MENU_CARDS.filter((card) => card.priority === 'primary').length)],
-  ['Bonus Modes', String(MENU_CARDS.filter((card) => card.priority === 'secondary').length)],
+  ['Main Routes', String(MENU_CARDS.filter((card) => card.priority === 'primary').length)],
+  ['Support Tools', String(MENU_CARDS.filter((card) => card.priority === 'secondary').length)],
 ] as const;
 
 function clamp(value: number, min: number, max: number): number {
@@ -349,37 +340,43 @@ export function MainMenuScreen(props: MainMenuScreenProps) {
     event.currentTarget.style.setProperty('--shine-y', '18%');
   };
 
-  const renderMenuCard = (card: MenuCard, index: number) => (
-    <button
-      key={card.title}
-      aria-label={`${card.title}. ${card.subtitle}`}
-      className={`menu-card menu-card-${card.priority}`}
-      onClick={() => card.onSelect(props)}
-      onPointerLeave={handleCardPointerLeave}
-      onPointerMove={handleCardPointerMove}
-      style={
-        {
-          '--card-color': card.accent,
-          '--entrance-delay': getCardDelay(card.priority, index),
-        } as MenuStyle
-      }
-      type="button"
-    >
-      <span className="menu-card-glow" aria-hidden="true" />
-      <span className="menu-card-sheen" aria-hidden="true" />
-      <span className="menu-card-icon" aria-hidden="true">
-        {card.icon}
-      </span>
-      <span className="menu-card-copy">
-        <span className="menu-card-eyebrow">{card.eyebrow}</span>
-        <span className="menu-card-title">{card.title}</span>
-        <span className="menu-card-subtitle">{card.subtitle}</span>
-      </span>
-      <span className="menu-card-action" aria-hidden="true">
-        Open
-      </span>
-    </button>
-  );
+  const renderMenuCard = (card: MenuCard, index: number) => {
+    const tooltipId = `main-menu-${card.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-hint`;
+
+    return (
+      <button
+        key={card.title}
+        aria-describedby={tooltipId}
+        aria-label={card.title}
+        className={`menu-card menu-card-${card.priority}`}
+        onClick={() => card.onSelect(props)}
+        onPointerLeave={handleCardPointerLeave}
+        onPointerMove={handleCardPointerMove}
+        style={
+          {
+            '--card-color': card.accent,
+            '--entrance-delay': getCardDelay(card.priority, index),
+          } as MenuStyle
+        }
+        type="button"
+      >
+        <span className="menu-card-glow" aria-hidden="true" />
+        <span className="menu-card-sheen" aria-hidden="true" />
+        <span className="menu-card-icon" aria-hidden="true">
+          {card.icon}
+        </span>
+        <span className="menu-card-copy">
+          <span className="menu-card-title">{card.title}</span>
+        </span>
+        <span className="menu-card-popover" id={tooltipId} role="tooltip">
+          {card.subtitle}
+        </span>
+        <span className="menu-card-action" aria-hidden="true">
+          Open
+        </span>
+      </button>
+    );
+  };
 
   return (
     <main
@@ -400,10 +397,9 @@ export function MainMenuScreen(props: MainMenuScreenProps) {
       <section className="main-menu-hero">
         <div className="main-menu-hero-copy entrance-animate" style={{ '--entrance-delay': '0ms' } as MenuStyle}>
           <h1>Piano Hero</h1>
-          <p className="song-title">Step into a polished practice stage built for cleaner runs, faster learning, and one more take.</p>
         </div>
         <div className="main-menu-hero-status" aria-hidden="true">
-          <span className="main-menu-status-kicker">Session Board</span>
+          <span className="main-menu-status-kicker">Neon Deck</span>
           {STATUS_ITEMS.map(([label, value], index) => (
             <span className="main-menu-status-row" key={label}>
               <span>{label}</span>
@@ -424,11 +420,7 @@ export function MainMenuScreen(props: MainMenuScreenProps) {
 
       <section className="main-menu-secondary-shell entrance-animate" style={{ '--entrance-delay': '820ms' } as MenuStyle}>
         <div className="main-menu-secondary-heading">
-          <div>
-            <p className="eyebrow">Backstage</p>
-            <h2>More ways to practice</h2>
-          </div>
-          <p className="panel-copy">Training rooms, progress checks, and setup controls stay close without competing with the main performance routes.</p>
+          <h2>Training and Setup</h2>
         </div>
         <section aria-label="More destinations" className="main-menu-secondary-grid">
           {secondaryCards.map((card, index) => renderMenuCard(card, index))}

@@ -103,6 +103,7 @@ describe('NoveltySoundboardScreen', () => {
     expect(screen.queryByText('Soundboard Modes')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Animals$/i })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Menu/i })).toBeInTheDocument();
+    expect(screen.getByText('🪈', { selector: '.key-caption.custom' })).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(screen.getByText('Soundboard Modes')).toBeInTheDocument();
@@ -167,12 +168,13 @@ describe('NoveltySoundboardScreen', () => {
     expect(popout).toHaveAttribute('aria-hidden', 'true');
 
     fireEvent.click(screen.getByRole('button', { name: /Menu/i }));
-    fireEvent.click(screen.getByRole('button', { name: /Classic Percussion toys/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Classic Recorded cartoon/i }));
     fireEvent.click(screen.getByRole('button', { name: /Resume/i }));
     expect(screen.queryByTestId('animal-key-map-popout')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Show animal key map/i })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Menu/i })).toBeInTheDocument();
-    expect(screen.queryByText('Bass Boom')).not.toBeInTheDocument();
+    expect(screen.getByText('🪈', { selector: '.key-caption.custom' })).toBeInTheDocument();
+    expect(screen.queryByText('Toy Whistle')).not.toBeInTheDocument();
   });
 
   it('keeps visual effects live while suppressing overlapping animal audio', async () => {
