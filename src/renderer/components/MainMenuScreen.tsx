@@ -190,6 +190,12 @@ const STATUS_ITEMS = [
   ['Support Tools', String(MENU_CARDS.filter((card) => card.priority === 'secondary').length)],
 ] as const;
 
+const PRIMARY_CARD_ENTRANCE_START_MS = 220;
+const PRIMARY_CARD_ENTRANCE_STEP_MS = 70;
+const SECONDARY_SHELL_ENTRANCE_DELAY_MS = 450;
+const SECONDARY_CARD_ENTRANCE_START_MS = 500;
+const SECONDARY_CARD_ENTRANCE_STEP_MS = 60;
+
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
@@ -226,7 +232,10 @@ function cancelFrame(frameId: number | null): void {
 }
 
 function getCardDelay(priority: MenuCard['priority'], index: number): string {
-  return priority === 'primary' ? `${520 + index * 110}ms` : `${900 + index * 70}ms`;
+  const start = priority === 'primary' ? PRIMARY_CARD_ENTRANCE_START_MS : SECONDARY_CARD_ENTRANCE_START_MS;
+  const step = priority === 'primary' ? PRIMARY_CARD_ENTRANCE_STEP_MS : SECONDARY_CARD_ENTRANCE_STEP_MS;
+
+  return `${start + index * step}ms`;
 }
 
 export function MainMenuScreen(props: MainMenuScreenProps) {
@@ -418,7 +427,10 @@ export function MainMenuScreen(props: MainMenuScreenProps) {
         {primaryCards.map((card, index) => renderMenuCard(card, index))}
       </section>
 
-      <section className="main-menu-secondary-shell entrance-animate" style={{ '--entrance-delay': '820ms' } as MenuStyle}>
+      <section
+        className="main-menu-secondary-shell entrance-animate"
+        style={{ '--entrance-delay': `${SECONDARY_SHELL_ENTRANCE_DELAY_MS}ms` } as MenuStyle}
+      >
         <div className="main-menu-secondary-heading">
           <h2>Training and Setup</h2>
         </div>

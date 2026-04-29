@@ -86,6 +86,18 @@ describe('MainMenuScreen', () => {
     expect(within(primaryDestinations).getByRole('button', { name: 'Soundboard' })).toBeInTheDocument();
     expect(within(moreDestinations).queryByRole('button', { name: 'Soundboard' })).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Training and Setup' })).toBeInTheDocument();
+    expect(within(primaryDestinations).getByRole('button', { name: 'Play Songs' })).toHaveStyle({
+      '--entrance-delay': '220ms',
+    });
+    expect(within(primaryDestinations).getByRole('button', { name: 'Soundboard' })).toHaveStyle({
+      '--entrance-delay': '430ms',
+    });
+    expect(within(moreDestinations).getByRole('button', { name: 'Theory Trainer' })).toHaveStyle({
+      '--entrance-delay': '500ms',
+    });
+    expect(screen.getByRole('heading', { name: 'Training and Setup' }).closest('section')).toHaveStyle({
+      '--entrance-delay': '450ms',
+    });
 
     for (const destination of destinations) {
       expect(destination.button).toBeInTheDocument();
