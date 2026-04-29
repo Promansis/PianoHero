@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import {
   DEFAULT_INSTRUMENT_ID,
   getInstrumentDefinition,
@@ -76,6 +76,264 @@ const TAB_LABELS: Record<SettingsTab, string> = {
   practice: 'Practice',
 };
 
+const TAB_META: Record<SettingsTab, { accent: string; kicker: string }> = {
+  audio: { accent: '#ffd36f', kicker: 'Signal' },
+  visual: { accent: '#f45cff', kicker: 'Optics' },
+  gameplay: { accent: '#ff7a8a', kicker: 'Timing' },
+  input: { accent: '#18ddff', kicker: 'MIDI' },
+  practice: { accent: '#00f6d2', kicker: 'Routine' },
+};
+
+const SETTINGS_TABS = Object.keys(TAB_LABELS) as SettingsTab[];
+
+type SettingsStyle = CSSProperties & {
+  '--settings-active-accent'?: string;
+  '--settings-tab-accent'?: string;
+  '--entrance-delay'?: string;
+};
+
+type SettingsActionIcon =
+  | 'calibrate'
+  | 'check'
+  | 'clear'
+  | 'keyboard'
+  | 'pack'
+  | 'retry'
+  | 'trash'
+  | 'unlock'
+  | 'upload'
+  | 'x';
+
+function SettingsActionIcon({ icon }: { icon: SettingsActionIcon }) {
+  const common = {
+    className: 'settings-button-icon',
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 1.9,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+    'aria-hidden': true,
+    focusable: false,
+  };
+
+  switch (icon) {
+    case 'calibrate':
+      return (
+        <svg {...common}>
+          <path d="M12 3v4" />
+          <path d="M12 17v4" />
+          <path d="M3 12h4" />
+          <path d="M17 12h4" />
+          <circle cx="12" cy="12" r="4" />
+        </svg>
+      );
+    case 'check':
+      return (
+        <svg {...common}>
+          <path d="M20 6 9 17l-5-5" />
+        </svg>
+      );
+    case 'clear':
+      return (
+        <svg {...common}>
+          <path d="M4 7h16" />
+          <path d="M10 11v6" />
+          <path d="M14 11v6" />
+          <path d="M6 7l1 13h10l1-13" />
+          <path d="M9 7V4h6v3" />
+        </svg>
+      );
+    case 'keyboard':
+      return (
+        <svg {...common}>
+          <rect x="3" y="6" width="18" height="12" rx="2" />
+          <path d="M7 6v12M11 6v12M15 6v12" />
+          <path d="M5 14h14" />
+        </svg>
+      );
+    case 'pack':
+      return (
+        <svg {...common}>
+          <path d="M5 8h14l-1 11H6z" />
+          <path d="M8 8V5h8v3" />
+          <path d="M9 13h6" />
+          <path d="M9 16h4" />
+        </svg>
+      );
+    case 'retry':
+      return (
+        <svg {...common}>
+          <path d="M20 11a8 8 0 0 0-14.5-4.6L4 8" />
+          <path d="M4 4v4h4" />
+          <path d="M4 13a8 8 0 0 0 14.5 4.6L20 16" />
+          <path d="M20 20v-4h-4" />
+        </svg>
+      );
+    case 'trash':
+      return (
+        <svg {...common}>
+          <path d="M4 7h16" />
+          <path d="M9 7V4h6v3" />
+          <path d="M7 7l1 13h8l1-13" />
+        </svg>
+      );
+    case 'unlock':
+      return (
+        <svg {...common}>
+          <rect x="5" y="10" width="14" height="10" rx="2" />
+          <path d="M8 10V7a4 4 0 0 1 7.6-1.7" />
+          <path d="M12 14v2" />
+        </svg>
+      );
+    case 'upload':
+      return (
+        <svg {...common}>
+          <path d="M12 16V4" />
+          <path d="m7 9 5-5 5 5" />
+          <path d="M5 20h14" />
+        </svg>
+      );
+    case 'x':
+      return (
+        <svg {...common}>
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
+        </svg>
+      );
+  }
+}
+
+function SettingsTabIcon({ tab }: { tab: SettingsTab }) {
+  const common = {
+    className: 'settings-tab-icon',
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 1.8,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+    'aria-hidden': true,
+    focusable: false,
+  };
+
+  switch (tab) {
+    case 'audio':
+      return (
+        <svg {...common}>
+          <path d="M4 14h3l5 4V6l-5 4H4z" />
+          <path d="M16 9.5c1.2 1.4 1.2 3.6 0 5" />
+          <path d="M19 7c2.4 2.8 2.4 7.2 0 10" />
+        </svg>
+      );
+    case 'visual':
+      return (
+        <svg {...common}>
+          <path d="M4 12l5-8 5 16 6-10" />
+          <path d="M4 20h16" />
+          <circle cx="9" cy="4" r="1.6" fill="currentColor" stroke="none" />
+        </svg>
+      );
+    case 'gameplay':
+      return (
+        <svg {...common}>
+          <path d="M12 3v4" />
+          <path d="M12 17v4" />
+          <path d="M3 12h4" />
+          <path d="M17 12h4" />
+          <circle cx="12" cy="12" r="5" />
+          <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" />
+        </svg>
+      );
+    case 'input':
+      return (
+        <svg {...common}>
+          <rect x="4" y="5" width="16" height="14" rx="3" />
+          <path d="M8 9h.01M12 9h.01M16 9h.01" />
+          <path d="M8 14h8" />
+        </svg>
+      );
+    case 'practice':
+      return (
+        <svg {...common}>
+          <path d="M7 4v16" />
+          <path d="M17 4v16" />
+          <path d="M4 8h16" />
+          <path d="M4 16h16" />
+          <path d="M10 8v8M14 8v8" />
+        </svg>
+      );
+  }
+}
+
+function SettingsNeonBackdrop() {
+  return (
+    <div className="settings-neon-backdrop" aria-hidden="true">
+      <span className="settings-light settings-light-a" />
+      <span className="settings-light settings-light-b" />
+      <span className="settings-facet settings-facet-a" />
+      <span className="settings-facet settings-facet-b" />
+      <span className="settings-facet settings-facet-c" />
+      <span className="settings-facet settings-facet-d" />
+      <span className="settings-score-lines" />
+      <svg className="settings-circuit" viewBox="0 0 620 220" fill="none">
+        <path d="M18 168C90 88 156 134 224 82C306 18 372 68 430 52C498 33 548 54 604 18" />
+        <path d="M42 198H168L210 156H306L356 106H494L578 22" />
+        <path d="M58 68H134L180 112H260L302 72H398" />
+        <circle cx="224" cy="82" r="6" />
+        <circle cx="356" cy="106" r="6" />
+        <circle cx="494" cy="106" r="6" />
+      </svg>
+      <svg className="settings-sine-wave" viewBox="0 0 520 120" fill="none">
+        <path d="M10 60c44-72 88-72 132 0s88 72 132 0 88-72 132 0 70 72 104 22" />
+        <path d="M10 86h500" />
+      </svg>
+      <svg className="settings-midi-plug" viewBox="0 0 120 120" fill="none">
+        <circle cx="60" cy="58" r="42" />
+        <circle cx="42" cy="48" r="4" />
+        <circle cx="60" cy="40" r="4" />
+        <circle cx="78" cy="48" r="4" />
+        <circle cx="48" cy="72" r="4" />
+        <circle cx="72" cy="72" r="4" />
+        <path d="M42 100h36" />
+      </svg>
+      <svg className="settings-timer-pulse" viewBox="0 0 160 160" fill="none">
+        <circle cx="80" cy="86" r="46" />
+        <path d="M64 22h32" />
+        <path d="M80 22v18" />
+        <path d="M80 86l22-18" />
+        <path d="M18 86h18M124 86h18" />
+      </svg>
+    </div>
+  );
+}
+
+function SettingsHeroGraphic() {
+  return (
+    <div className="settings-hero-graphic" aria-hidden="true">
+      <svg className="settings-hero-prism" viewBox="0 0 180 120" fill="none">
+        <path d="M24 96L78 14l78 88-86-14z" />
+        <path d="M78 14l-8 74" />
+        <path d="M70 88l86 14" />
+        <path d="M24 96l46-8" />
+      </svg>
+      <svg className="settings-hero-wave" viewBox="0 0 220 42" fill="none">
+        <path d="M2 22c19-28 38-28 57 0s38 28 57 0 38-28 57 0 32 28 45 8" />
+      </svg>
+      <div className="settings-eq-bars">
+        {Array.from({ length: 14 }, (_, index) => (
+          <span key={index} style={{ '--entrance-delay': `${index * 70}ms` } as SettingsStyle} />
+        ))}
+      </div>
+      <div className="settings-mini-keyboard">
+        {Array.from({ length: 12 }, (_, index) => (
+          <span key={index} className={index === 1 || index === 3 || index === 6 || index === 8 || index === 10 ? 'is-black' : ''} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const DEFAULT_SETTINGS: SettingsValues = {
   'audio.instrumentId': DEFAULT_INSTRUMENT_ID,
   'audio.masterVolume': '80',
@@ -146,13 +404,20 @@ function ConfirmActionModal({
     <div className="settings-modal-backdrop" role="presentation">
       <section className="panel settings-modal" role="dialog" aria-modal="true" aria-label="Confirm reset">
         <p className="eyebrow">Confirm Reset</p>
+        <svg className="settings-warning-icon settings-modal-warning-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+          <path d="M12 3 22 20H2z" />
+          <path d="M12 9v5" />
+          <path d="M12 17h.01" />
+        </svg>
         <h2>{title}</h2>
         <p className="panel-copy">{description}</p>
         <div className="settings-modal-actions">
           <button className="danger-button" disabled={busy} onClick={onConfirm}>
+            <SettingsActionIcon icon="trash" />
             {busy ? 'Resetting...' : confirmLabel}
           </button>
           <button className="secondary-button" onClick={onCancel}>
+            <SettingsActionIcon icon="x" />
             Cancel
           </button>
         </div>
@@ -461,32 +726,50 @@ export function SettingsScreen({
   }
 
   return (
-    <main className="app-shell settings-screen">
-      <section className="panel library-header">
-        <div>
+    <main
+      className="app-shell settings-screen"
+      data-settings-tab={activeTab}
+      style={{ '--settings-active-accent': TAB_META[activeTab].accent } as SettingsStyle}
+    >
+      <SettingsNeonBackdrop />
+
+      <section className="panel library-header settings-hero">
+        <div className="settings-hero-copy">
           <p className="eyebrow">Settings</p>
           <h1>Practice defaults and accessibility</h1>
           <p className="song-title">{statusMessage}</p>
         </div>
+        <SettingsHeroGraphic />
       </section>
 
-      <section className="settings-tab-row" role="tablist" aria-label="Settings sections">
-        {(Object.keys(TAB_LABELS) as SettingsTab[]).map((tab) => (
-          <button
-            key={tab}
-            id={`settings-tab-${tab}`}
-            role="tab"
-            aria-selected={activeTab === tab}
-            aria-controls={`settings-panel-${tab}`}
-            className={activeTab === tab ? 'primary-button' : 'secondary-button'}
-            onClick={() => setActiveTab(tab)}
-          >
-            {TAB_LABELS[tab]}
-          </button>
-        ))}
-      </section>
+      <div className="settings-layout-shell">
+        <section className="settings-tab-row" role="tablist" aria-label="Settings sections">
+          {SETTINGS_TABS.map((tab, index) => (
+            <button
+              key={tab}
+              id={`settings-tab-${tab}`}
+              role="tab"
+              aria-label={TAB_LABELS[tab]}
+              aria-selected={activeTab === tab}
+              aria-controls={`settings-panel-${tab}`}
+              className={`settings-tab-button${activeTab === tab ? ' settings-tab-button-active' : ''}`}
+              onClick={() => setActiveTab(tab)}
+              style={{
+                '--settings-tab-accent': TAB_META[tab].accent,
+                '--entrance-delay': `${80 + index * 55}ms`,
+              } as SettingsStyle}
+              type="button"
+            >
+              <SettingsTabIcon tab={tab} />
+              <span className="settings-tab-copy">
+                <span className="settings-tab-kicker">{TAB_META[tab].kicker}</span>
+                <span>{TAB_LABELS[tab]}</span>
+              </span>
+            </button>
+          ))}
+        </section>
 
-      <section className="panel settings-panel">
+        <section className="panel settings-panel">
         {activeTab === 'audio' && (
           <div
             className="settings-content-grid"
@@ -652,6 +935,7 @@ export function SettingsScreen({
                     className="secondary-button latency-calibrate-btn"
                     onClick={() => setShowLatencyWizard(true)}
                   >
+                    <SettingsActionIcon icon="calibrate" />
                     Calibrate…
                   </button>
                 </div>
@@ -677,6 +961,7 @@ export function SettingsScreen({
                           disabled={activePackActionInstrumentId === selectedInstrument.id}
                           onClick={() => void installSelectedInstrumentPack()}
                         >
+                          <SettingsActionIcon icon={selectedInstrumentPackStatus.installMode === 'manual' ? 'upload' : 'pack'} />
                           {activePackActionInstrumentId === selectedInstrument.id
                             ? 'Working...'
                             : selectedInstrumentPackStatus.installMode === 'manual'
@@ -690,6 +975,7 @@ export function SettingsScreen({
                           disabled={activePackActionInstrumentId === selectedInstrument.id}
                           onClick={() => void removeSelectedInstrumentPack()}
                         >
+                          <SettingsActionIcon icon="clear" />
                           Remove Pack
                         </button>
                       ) : null}
@@ -712,10 +998,12 @@ export function SettingsScreen({
                     )}
                     <div className="settings-sample-pack-buttons">
                       <button className="secondary-button" onClick={() => void browseSamplePack()}>
+                        <SettingsActionIcon icon="upload" />
                         Browse…
                       </button>
                       {samplePackPath ? (
                         <button className="secondary-button" onClick={() => void clearSamplePack()}>
+                          <SettingsActionIcon icon="clear" />
                           Clear
                         </button>
                       ) : null}
@@ -855,6 +1143,7 @@ export function SettingsScreen({
                       className="secondary-button"
                       onClick={() => void persistSetting('visual', 'leftHandColor', '')}
                     >
+                      <SettingsActionIcon icon="clear" />
                       Reset
                     </button>
                   ) : null}
@@ -871,6 +1160,7 @@ export function SettingsScreen({
                       className="secondary-button"
                       onClick={() => void persistSetting('visual', 'rightHandColor', '')}
                     >
+                      <SettingsActionIcon icon="clear" />
                       Reset
                     </button>
                   ) : null}
@@ -981,6 +1271,7 @@ export function SettingsScreen({
                     <span>MIDI Status</span>
                     <strong>Permission denied or unavailable</strong>
                     <button className="secondary-button" onClick={onRetryMidi} style={{ marginTop: '0.5rem' }}>
+                      <SettingsActionIcon icon="retry" />
                       Retry MIDI Access
                     </button>
                   </article>
@@ -996,6 +1287,7 @@ export function SettingsScreen({
             <SettingsGroupCard title="Keyboard Mapping" footer="Open the keyboard setup screen to remap computer-keyboard notes.">
               <div className="settings-grid settings-grid-single">
                 <button className="secondary-button" onClick={onOpenKeyboardSetup}>
+                  <SettingsActionIcon icon="keyboard" />
                   Open Keyboard Mapping
                 </button>
               </div>
@@ -1061,20 +1353,37 @@ export function SettingsScreen({
             >
               <div className="settings-danger-actions">
                 <article className="settings-note-card settings-danger-card">
+                  <svg className="settings-warning-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+                    <path d="M12 3 22 20H2z" />
+                    <path d="M12 9v5" />
+                    <path d="M12 17h.01" />
+                  </svg>
                   <span>Reset Learning Progress</span>
                   <strong>Keeps your library, playlists, folders, and settings, but clears achievements and practice history.</strong>
                   <button className="danger-button" disabled={isResettingProgress} onClick={() => setResetTarget('progress')}>
+                    <SettingsActionIcon icon="trash" />
                     Reset Learning Progress
                   </button>
                 </article>
                 <article className="settings-note-card settings-danger-card">
+                  <svg className="settings-warning-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+                    <path d="M12 3 22 20H2z" />
+                    <path d="M12 9v5" />
+                    <path d="M12 17h.01" />
+                  </svg>
                   <span>Reset User Data</span>
                   <strong>Clears songs, playlists, folders, results, achievements, and saved settings.</strong>
                   <button className="danger-button" disabled={isResetting} onClick={() => setResetTarget('data')}>
+                    <SettingsActionIcon icon="trash" />
                     Reset User Data
                   </button>
                 </article>
                 <article className="settings-note-card settings-danger-card">
+                  <svg className="settings-warning-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+                    <path d="M12 3 22 20H2z" />
+                    <path d="M12 9v5" />
+                    <path d="M12 17h.01" />
+                  </svg>
                   <span>Developer Tools</span>
                   <strong>Unlock all achievements, rewards, lessons, and capstones for testing. Reset learning progress to restore the normal locked state.</strong>
                   <button
@@ -1082,6 +1391,7 @@ export function SettingsScreen({
                     disabled={isUnlockingDeveloperContent}
                     onClick={() => setResetTarget('developer-unlock')}
                   >
+                    <SettingsActionIcon icon="unlock" />
                     Unlock All Developer Content
                   </button>
                 </article>
@@ -1089,7 +1399,8 @@ export function SettingsScreen({
             </SettingsGroupCard>
           </div>
         )}
-      </section>
+        </section>
+      </div>
       {resetTarget === 'progress' && (
         <ConfirmActionModal
           busy={isResettingProgress}

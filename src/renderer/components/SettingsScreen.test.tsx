@@ -68,6 +68,43 @@ describe('SettingsScreen', () => {
     });
   });
 
+  it('keeps tab and action button accessible names after adding decorative icons', async () => {
+    render(
+      <SettingsScreen
+        audioEngine={{ playMetronomeClick: vi.fn().mockResolvedValue(undefined), prepareForPlayback: vi.fn().mockResolvedValue(undefined) } as unknown as import('../../lib/audio/audioEngine').AudioEngine}
+        inputMode="both"
+        midiDevices={[]}
+        midiError={false}
+        instrumentSamplePackStatuses={{}}
+        pitchBendEnabled
+        onInstallInstrumentSamplePack={vi.fn().mockResolvedValue(undefined)}
+        onRemoveInstrumentSamplePack={vi.fn().mockResolvedValue(undefined)}
+        onDeveloperUnlockAll={developerUnlockAll}
+        onLearningProgressReset={onLearningProgressReset}
+        onSettingChange={vi.fn()}
+        onInputModeChange={vi.fn()}
+        onRetryMidi={vi.fn()}
+        onUserDataReset={onUserDataReset}
+        onOpenKeyboardSetup={vi.fn()}
+      />,
+    );
+
+    for (const tabName of ['Audio', 'Visual', 'Gameplay', 'Input', 'Practice']) {
+      expect(await screen.findByRole('tab', { name: tabName })).toBeInTheDocument();
+    }
+
+    expect(screen.getByRole('button', { name: 'Calibrate…' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Input' }));
+    expect(screen.getByRole('button', { name: 'Open Keyboard Mapping' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Practice' }));
+    expect(screen.getByRole('button', { name: 'Reset Learning Progress' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Reset Learning Progress' }));
+    expect(screen.getByRole('button', { name: 'Yes, Reset Progress' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
+  });
+
   it('resets learning progress when modal confirmation is confirmed', async () => {
     render(
       <SettingsScreen
