@@ -240,40 +240,40 @@ select:focus {
 
 .app-topbar {
   position: fixed;
-  top: 16px;
-  left: 24px;
-  right: 24px;
+  top: 0;
+  left: 0;
+  right: 0;
   z-index: 30;
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: minmax(128px, max-content) minmax(0, 1fr) auto;
+  grid-template-areas: "brand nav actions";
   align-items: center;
-  gap: 16px;
-  padding: 14px 18px;
-  border-radius: 18px;
-  border: 1px solid var(--color-border);
-  background: var(--color-topbar-bg);
-  box-shadow: var(--color-panel-shadow);
-  backdrop-filter: blur(18px);
-}
-
-.app-topbar-brand,
-.app-topbar-title {
-  font-family: var(--font-meta);
-  font-weight: 800;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  gap: 10px;
+  padding: 7px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.34), rgba(0, 0, 0, 0.16));
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(14px);
 }
 
 .app-topbar-brand {
-  color: var(--color-accent-secondary);
+  grid-area: brand;
+  justify-self: start;
 }
 
-.app-topbar-title {
-  justify-self: center;
-  color: var(--color-text);
+.app-topbar-brand strong {
+  max-width: 16ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-topbar-nav {
+  grid-area: nav;
 }
 
 .app-topbar-actions {
+  grid-area: actions;
   justify-self: end;
 }
 
@@ -286,126 +286,22 @@ select:focus {
   min-width: 96px;
 }
 
-.app-shell {
-  padding-top: 104px;
-}
-
-.app-topbar {
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  grid-template-areas: "home breadcrumbs actions";
-  gap: 12px;
-  padding: 12px 16px;
-}
-
-.app-topbar-home {
-  grid-area: home;
-  justify-self: start;
-  border: 0;
-  background: none;
-  padding: 0;
-  font-family: var(--font-meta);
-  font-size: 0.84rem;
-  font-weight: 800;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--color-accent-secondary);
-  cursor: pointer;
-}
-
-.app-breadcrumbs {
-  grid-area: breadcrumbs;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.app-breadcrumbs::-webkit-scrollbar {
-  display: none;
-}
-
-.app-breadcrumb-entry {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  white-space: nowrap;
-}
-
-.app-breadcrumb {
-  font-family: var(--font-meta);
-  font-size: 0.78rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--color-text-muted);
-}
-
-.app-breadcrumb.current {
-  color: var(--color-text);
-}
-
-.app-breadcrumb-separator {
-  color: var(--color-text-muted);
-  opacity: 0.7;
-}
-
-.app-topbar-actions {
-  grid-area: actions;
-}
-
 @media (max-width: 780px) {
   .app-shell {
-      padding: 16px;
+      padding: 116px 16px 16px;
     }
 
   .app-topbar {
-      top: 12px;
-      left: 16px;
-      right: 16px;
-      grid-template-columns: 1fr;
-      justify-items: start;
-    }
-
-  .app-topbar-title {
-      justify-self: start;
-    }
-
-  .app-topbar-actions {
-      justify-self: start;
-    }
-
-  .app-shell {
-      padding: 132px 16px 16px;
-    }
-
-  .app-shell-without-chrome {
-      padding-top: 16px;
-    }
-
-  .app-shell {
-      padding: 96px 16px 16px;
-    }
-
-  .app-topbar {
-      top: 10px;
-      left: 12px;
-      right: 12px;
       grid-template-columns: minmax(0, 1fr) auto;
       grid-template-areas:
-        "home actions"
-        "breadcrumbs breadcrumbs";
+        "brand actions"
+        "nav nav";
       align-items: flex-start;
       gap: 8px 12px;
-      padding: 10px 12px 12px;
+      padding: 7px 10px;
     }
 
-  .app-topbar-home {
-      font-size: 0.76rem;
-    }
-
-  .app-breadcrumbs {
+  .app-topbar-nav {
       justify-content: flex-start;
     }
 }
@@ -1696,30 +1592,6 @@ select:focus {
   syntax: "<angle>";
   inherits: false;
   initial-value: 0deg;
-}
-
-.app-frame:has(.main-menu-screen) .app-topbar {
-  border-color: rgba(255, 255, 255, 0.13);
-  background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.06), transparent 48%, rgba(255, 255, 255, 0.05)),
-    rgba(5, 6, 12, 0.76);
-  box-shadow:
-    0 20px 70px rgba(0, 0, 0, 0.34),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(22px);
-}
-
-.app-frame:has(.main-menu-screen) .app-topbar-home,
-.app-frame:has(.main-menu-screen) .app-breadcrumb {
-  color: #f9f4ff;
-}
-
-.app-frame:has(.main-menu-screen) .app-topbar-home {
-  text-shadow: 0 0 20px color-mix(in srgb, var(--color-accent-secondary) 46%, transparent);
-}
-
-.app-frame:has(.main-menu-screen) .app-breadcrumb.current {
-  color: rgba(249, 244, 255, 0.92);
 }
 
 .main-menu-screen {

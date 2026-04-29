@@ -45,7 +45,7 @@ import { AchievementToast } from './components/AchievementToast';
 import { ToastHost } from './components/Toast';
 import { FreePlayScreen } from './components/FreePlayScreen';
 import { GameScreen } from './components/GameScreen';
-import type { ImmersiveHudNavigationItem } from './components/ImmersiveHud';
+import type { ImmersiveHudDestination, ImmersiveHudNavigationItem } from './components/ImmersiveHud';
 import { IntervalTrainerScreen } from './components/IntervalTrainerScreen';
 import { KeyboardSetupScreen } from './components/KeyboardSetupScreen';
 import { LearnHubScreen } from './components/LearnHubScreen';
@@ -250,51 +250,6 @@ function getKeyboardSetupReturnTrail(returnTo: KeyboardSetupReturnTarget): strin
       return ['Main Menu', 'Free Play'];
     case 'soundboard':
       return ['Main Menu', 'Soundboard'];
-  }
-}
-
-function getScreenBreadcrumbs(currentScreen: AppScreen): string[] {
-  switch (currentScreen.screen) {
-    case 'setup':
-      return ['Setup'];
-    case 'main-menu':
-      return ['Main Menu'];
-    case 'library':
-      return ['Main Menu', 'Library'];
-    case 'learn-hub':
-      return ['Main Menu', 'Learn'];
-    case 'lesson':
-      return ['Main Menu', 'Learn', 'Lesson'];
-    case 'free-play':
-      return ['Main Menu', 'Free Play'];
-    case 'soundboard':
-      return ['Main Menu', 'Soundboard'];
-    case 'theory-hub':
-      return ['Main Menu', 'Theory'];
-    case 'progress-dashboard':
-      return ['Main Menu', 'Progress'];
-    case 'settings':
-      return ['Main Menu', 'Settings'];
-    case 'scale-practice':
-      return currentScreen.returnTo
-        ? ['Main Menu', 'Learn', 'Lesson', 'Scale Practice']
-        : ['Main Menu', 'Theory', 'Scale Practice'];
-    case 'interval-trainer':
-      return currentScreen.returnTo
-        ? ['Main Menu', 'Learn', 'Lesson', 'Interval Trainer']
-        : ['Main Menu', 'Theory', 'Interval Trainer'];
-    case 'theory-quiz':
-      return currentScreen.returnTo ? ['Main Menu', 'Learn', 'Lesson', 'Quiz'] : ['Main Menu', 'Theory', 'Quiz'];
-    case 'keyboard-setup':
-      return [...getKeyboardSetupReturnTrail(currentScreen.returnTo), 'Keyboard Setup'];
-    case 'game':
-      return ['Main Menu', 'In Game'];
-    case 'lesson-drill':
-      return ['Main Menu', 'Learn', 'Lesson Drill'];
-    case 'capstone':
-      return ['Main Menu', 'Learn', 'Tier Capstone'];
-    case 'results':
-      return ['Main Menu', 'Results'];
   }
 }
 
@@ -1395,6 +1350,36 @@ export function App() {
       onSelect: () => setCurrentScreen({ screen: 'settings' }),
     },
   ];
+  const getCurrentHudDestination = (): ImmersiveHudDestination | undefined => {
+    switch (currentScreen.screen) {
+      case 'main-menu':
+      case 'library':
+      case 'learn-hub':
+      case 'free-play':
+      case 'soundboard':
+      case 'theory-hub':
+      case 'progress-dashboard':
+      case 'settings':
+        return currentScreen.screen;
+      case 'lesson':
+      case 'lesson-drill':
+      case 'capstone':
+        return 'learn-hub';
+      case 'scale-practice':
+      case 'interval-trainer':
+      case 'theory-quiz':
+        return currentScreen.returnTo ? 'learn-hub' : 'theory-hub';
+      case 'keyboard-setup':
+        return typeof currentScreen.returnTo === 'string' && currentScreen.returnTo !== 'setup'
+          ? currentScreen.returnTo
+          : undefined;
+      case 'game':
+      case 'results':
+        return 'library';
+      case 'setup':
+        return undefined;
+    }
+  };
 
   let screenContent: JSX.Element;
   switch (currentScreen.screen) {
@@ -1803,37 +1788,43 @@ export function App() {
     currentScreen.screen !== 'lesson-drill' &&
     currentScreen.screen !== 'capstone';
   const canNavigateBack = currentScreen.screen !== 'setup' && currentScreen.screen !== 'main-menu';
-  const breadcrumbLabels = getScreenBreadcrumbs(currentScreen);
   const backLabel = getContextualBackLabel(currentScreen);
+  const topbarNavigationItems = buildImmersiveHudNavigation();
+  const currentHudDestination = getCurrentHudDestination();
 
   return (
     <>
       {showAppChrome ? (
         <div className="app-frame">
-          <header className="app-topbar">
-            <button
-              className="app-topbar-home"
-              onClick={() => setCurrentScreen({ screen: 'main-menu' })}
-              title="Go to Main Menu"
-              type="button"
-            >
-              PIANO HERO
-            </button>
-            <nav className="app-breadcrumbs" aria-label="Breadcrumb">
-              {breadcrumbLabels.map((label, index) => (
-                <span className="app-breadcrumb-entry" key={`${label}-${index}`}>
-                  <span className={`app-breadcrumb${index === breadcrumbLabels.length - 1 ? ' current' : ''}`}>{label}</span>
-                  {index < breadcrumbLabels.length - 1 ? (
-                    <span aria-hidden="true" className="app-breadcrumb-separator">
-                      /
-                    </span>
-                  ) : null}
-                </span>
-              ))}
+          <header className="app-topbar" aria-label="Application navigation">
+            <div className="app-topbar-brand immersive-hud-item" aria-label="Piano Hero">
+              <span>App</span>
+              <strong>Piano Hero</strong>
+            </div>
+            <nav className="app-topbar-nav immersive-hud-nav" aria-label="Application navigation">
+              {topbarNavigationItems.map((item) => {
+                const isCurrent = item.key === currentHudDestination;
+                return (
+                  <button
+                    key={item.key}
+                    className={`immersive-hud-nav-btn${isCurrent ? ' active' : ''}`}
+                    type="button"
+                    title={item.title}
+                    aria-current={isCurrent ? 'page' : undefined}
+                    onClick={() => {
+                      if (!isCurrent) {
+                        item.onSelect();
+                      }
+                    }}
+                  >
+                    {item.label}
+                  </button>
+                );
+              })}
             </nav>
-            <div className="app-topbar-actions">
+            <div className="app-topbar-actions immersive-hud-actions">
               {canNavigateBack ? (
-                <button className="secondary-button chrome-back-button" onClick={handleBackNavigation}>
+                <button className="immersive-hud-nav-btn chrome-back-button" onClick={handleBackNavigation}>
                   {backLabel}
                 </button>
               ) : (

@@ -306,7 +306,7 @@ describe('App', () => {
     expect(screen.queryByText('Keyboard Setup')).not.toBeInTheDocument();
   });
 
-  it('renders breadcrumbs on standard screens and the home button returns to the main menu', async () => {
+  it('renders persistent HUD navigation on standard screens and can return to the main menu', async () => {
     render(<App />);
 
     expect(document.querySelector('.app-topbar')).toBeNull();
@@ -314,11 +314,13 @@ describe('App', () => {
     fireEvent.click(await screen.findByText('Open Library'));
 
     expect(screen.getByText('Library', { selector: 'div' })).toBeInTheDocument();
-    expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toHaveTextContent('Main Menu');
-    expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toHaveTextContent('Library');
+    const topbarNavigation = screen.getByRole('navigation', { name: 'Application navigation' });
+    expect(topbarNavigation).toHaveTextContent('Main');
+    expect(topbarNavigation).toHaveTextContent('Play');
+    expect(screen.getByRole('button', { name: 'Play' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('button', { name: 'Back to Main Menu' })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'PIANO HERO' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Main' }));
 
     expect(screen.getByText('Open Library')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Back to Main Menu' })).not.toBeInTheDocument();
