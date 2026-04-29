@@ -9,4 +9,12 @@ describe('renderer index.html', () => {
     expect(html).toContain('<link rel="icon" type="image/svg+xml" href="./favicon.svg" />');
     expect(html).toContain('<link rel="icon" type="image/x-icon" href="./favicon.ico" sizes="any" />');
   });
+
+  it('preloads the compressed main menu background image', () => {
+    const html = readFileSync(resolve(process.cwd(), 'src/renderer/index.html'), 'utf8');
+
+    expect(html).toContain('href="/assets/main-menu/mainmenu-neonbackground.webp"');
+    expect(html).toContain('type="image/webp"');
+    expect(html).toContain('fetchpriority="high"');
+  });
 });

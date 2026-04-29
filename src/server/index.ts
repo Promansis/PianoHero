@@ -43,6 +43,7 @@ const CONTENT_TYPES: Record<string, string> = {
   '.wav': 'audio/wav',
   '.png': 'image/png',
   '.svg': 'image/svg+xml',
+  '.webp': 'image/webp',
   '.txt': 'text/plain; charset=utf-8',
   '.woff': 'font/woff',
   '.woff2': 'font/woff2',

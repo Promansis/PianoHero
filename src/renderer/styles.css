@@ -5263,7 +5263,10 @@ select:focus {
   padding: 76px clamp(18px, 4vw, 64px) 24px;
   color: #fbf8ff;
   background:
-  url('/assets/main-menu/mainmenu-neonbackground.png') center / cover no-repeat,
+    image-set(
+      url('/assets/main-menu/mainmenu-neonbackground.webp') type('image/webp'),
+      url('/assets/main-menu/mainmenu-neonbackground.png') type('image/png')
+    ) center / cover no-repeat,
     linear-gradient(180deg, rgba(1, 6, 20, 0.18) 0%, rgba(1, 6, 20, 0.44) 52%, rgba(1, 4, 13, 0.9) 100%),
     linear-gradient(90deg, rgba(0, 8, 25, 0.9) 0%, rgba(0, 8, 25, 0.68) 39%, rgba(0, 8, 25, 0.22) 68%, rgba(0, 8, 25, 0.5) 100%),    
     #010819;
@@ -6010,7 +6013,10 @@ select:focus {
     background:
       linear-gradient(180deg, rgba(1, 6, 20, 0.42) 0%, rgba(1, 6, 20, 0.7) 48%, rgba(1, 4, 13, 0.96) 100%),
       linear-gradient(90deg, rgba(0, 8, 25, 0.94) 0%, rgba(0, 8, 25, 0.8) 62%, rgba(0, 8, 25, 0.48) 100%),
-      url('/assets/main-menu/mainmenu-neonbackground.png') 32% center / cover no-repeat,
+      image-set(
+        url('/assets/main-menu/mainmenu-neonbackground.webp') type('image/webp'),
+        url('/assets/main-menu/mainmenu-neonbackground.png') type('image/png')
+      ) 32% center / cover no-repeat,
       #010819;
   }
 
