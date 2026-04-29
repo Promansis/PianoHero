@@ -69,7 +69,7 @@ function buildFeedback(result: GameResult): string {
   if (result.measureAccuracy.some((entry) => entry.accuracy < 70)) {
     return 'The difficult measures are localized. Loop them in learning mode and isolate one hand if needed.';
   }
-  return 'This run is stable. Raise the tempo or switch back to full Piano Hero mode for a harder pass.';
+  return 'This run is stable. Raise the tempo or switch back to full LumaKeys mode for a harder pass.';
 }
 
 export function ResultsScreen({
@@ -339,7 +339,7 @@ export function ResultsScreen({
           </div>
           <div className="result-stat">
             <span>Mode</span>
-            <strong>{result.mode === 'piano-hero' ? 'Piano Hero' : 'Learning'}</strong>
+            <strong>{result.mode === 'piano-hero' ? 'LumaKeys' : 'Learning'}</strong>
           </div>
         </article>
       </section>

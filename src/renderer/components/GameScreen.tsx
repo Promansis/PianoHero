@@ -223,7 +223,7 @@ function SessionToolbar({
           className={sessionConfig.mode === 'piano-hero' ? 'primary-button' : 'secondary-button'}
           onClick={() => onRebuild({ ...sessionConfig, mode: 'piano-hero', waitForInput: false })}
         >
-          Piano Hero
+          LumaKeys
         </button>
         <button
           className={sessionConfig.mode === 'learning' ? 'primary-button' : 'secondary-button'}
@@ -1316,8 +1316,8 @@ export function GameScreen({
               <div className="status-card">
                 <span>Mode</span>
                 <strong>
-                  {sessionConfig.mode === 'piano-hero'
-                    ? 'Piano Hero'
+                  {sessionConfig.mode === 'luma-keys'
+                    ? 'LumaKeys'
                     : sessionConfig.mode === 'performance'
                       ? 'Performance'
                       : 'Learning'}

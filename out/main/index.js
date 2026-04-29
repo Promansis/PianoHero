@@ -1,7 +1,7 @@
 import { app, ipcMain, dialog, BrowserWindow } from "electron";
 import { existsSync, readFileSync, renameSync, rmSync, mkdirSync, copyFileSync, readdirSync, writeFileSync } from "node:fs";
-import { writeFile, readFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { writeFile, readFile, mkdir } from "node:fs/promises";
+import { join, basename, resolve } from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import * as MidiPackage from "@tonejs/midi";
 import Database from "better-sqlite3";
@@ -171,7 +171,7 @@ function computeSongMetadata(buffer, title, existingTrackAssignments = {}) {
     }
   };
 }
-function resolveStoredMidiPath(song, midiFilesDir) {
+function resolveStoredMidiPath$1(song, midiFilesDir) {
   return song.filePath?.trim() ? song.filePath : join(midiFilesDir, `${song.id}.mid`);
 }
 async function importSongFromBuffer(buffer, title, { db: db2, midiFilesDir }) {
@@ -226,7 +226,7 @@ async function recomputeAllSongDifficulties({ db: db2, midiFilesDir }) {
   let updated = 0;
   for (const song of songs) {
     try {
-      const buffer = await readFile(resolveStoredMidiPath(song, midiFilesDir));
+      const buffer = await readFile(resolveStoredMidiPath$1(song, midiFilesDir));
       const metadata = computeSongMetadata(buffer, song.title, song.trackAssignments);
       db2.updateSong(song.id, {
         bpm: metadata.bpm,
@@ -244,6 +244,107 @@ async function recomputeAllSongDifficulties({ db: db2, midiFilesDir }) {
     }
   }
   return { updated, errors };
+}
+function isRecord(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+function isString(value) {
+  return typeof value === "string";
+}
+function isLibraryBackupMidiFile(value) {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return isString(value.songId) && isString(value.filename) && isString(value.dataBase64) && typeof value.byteLength === "number";
+}
+function isLibraryBackup(value) {
+  if (!isRecord(value)) {
+    return false;
+  }
+  const version = value.version;
+  const hasBaseShape = Array.isArray(value.songs) && Array.isArray(value.folders) && Array.isArray(value.playlists) && Array.isArray(value.fingerings) && Array.isArray(value.settings);
+  if (version === 1) {
+    return hasBaseShape;
+  }
+  if (version === 2) {
+    return hasBaseShape && Array.isArray(value.midiFiles) && value.midiFiles.every(isLibraryBackupMidiFile);
+  }
+  return false;
+}
+function resolveStoredMidiPath(song, midiFilesDir) {
+  return song.filePath?.trim() ? song.filePath : join(midiFilesDir, `${song.id}.mid`);
+}
+function toStoredMidiPath(songId, midiFilesDir) {
+  return join(midiFilesDir, `${songId}.mid`);
+}
+async function buildLibraryBackup(db2, midiFilesDir) {
+  const baseBackup = db2.exportLibraryData();
+  const midiFiles = [];
+  const missingMidiFiles = [];
+  for (const song of baseBackup.songs) {
+    try {
+      const bytes = await readFile(resolveStoredMidiPath(song, midiFilesDir));
+      midiFiles.push({
+        songId: song.id,
+        filename: `${song.id}.mid`,
+        dataBase64: bytes.toString("base64"),
+        byteLength: bytes.byteLength
+      });
+    } catch {
+      missingMidiFiles.push(song.title || song.id);
+    }
+  }
+  return {
+    backup: {
+      ...baseBackup,
+      version: 2,
+      midiFiles
+    },
+    exportResult: {
+      songsExported: baseBackup.songs.length,
+      midiFilesIncluded: midiFiles.length,
+      missingMidiFiles
+    }
+  };
+}
+function normalizeImportedBackup(backup, restoredSongIds, midiFilesDir) {
+  return {
+    ...backup,
+    version: 1,
+    songs: backup.songs.map((song) => ({
+      ...song,
+      filePath: restoredSongIds.has(song.id) ? toStoredMidiPath(song.id, midiFilesDir) : song.filePath
+    }))
+  };
+}
+async function importLibraryBackup(db2, backup, midiFilesDir) {
+  await mkdir(midiFilesDir, { recursive: true });
+  const restoredSongIds = /* @__PURE__ */ new Set();
+  const missingMidiFiles = [];
+  if (backup.version === 2) {
+    const midiFilesBySongId = new Map(backup.midiFiles.map((file) => [file.songId, file]));
+    for (const song of backup.songs) {
+      const midiFile = midiFilesBySongId.get(song.id);
+      if (!midiFile) {
+        missingMidiFiles.push(song.title || song.id);
+        continue;
+      }
+      const bytes = Buffer.from(midiFile.dataBase64, "base64");
+      if (bytes.byteLength !== midiFile.byteLength) {
+        throw new Error(`Invalid MIDI backup data for ${song.title || song.id}.`);
+      }
+      await writeFile(toStoredMidiPath(song.id, midiFilesDir), bytes);
+      restoredSongIds.add(song.id);
+    }
+  } else {
+    missingMidiFiles.push(...backup.songs.map((song) => song.title || basename(song.filePath) || song.id));
+  }
+  const result = db2.importLibraryData(normalizeImportedBackup(backup, restoredSongIds, midiFilesDir));
+  return {
+    ...result,
+    midiFilesRestored: restoredSongIds.size,
+    missingMidiFiles
+  };
 }
 const INSTALLED_INSTRUMENT_SAMPLE_PACKS_SETTING_KEY = "installedInstrumentSamplePacks";
 const INSTRUMENT_SAMPLE_PACK_DEFINITIONS = {
@@ -909,12 +1010,18 @@ class AppDatabase {
     this.db.prepare("UPDATE songs SET is_favorite = 1 - is_favorite WHERE id = ?").run(id);
   }
   moveSongToFolder(songId, folderId) {
+    if (folderId && !this.getFolder(folderId)) {
+      throw new Error(`Unknown folder: ${folderId}`);
+    }
     this.db.prepare("UPDATE songs SET folder_id = ? WHERE id = ?").run(folderId, songId);
   }
   bulkMoveSongsToFolder(songIds, folderId) {
     const ids = dedupeIds(songIds);
     if (ids.length === 0) {
       return;
+    }
+    if (folderId && !this.getFolder(folderId)) {
+      throw new Error(`Unknown folder: ${folderId}`);
     }
     const moveMany = this.db.transaction((nextIds) => {
       const stmt = this.db.prepare("UPDATE songs SET folder_id = ? WHERE id = ?");
@@ -1032,6 +1139,12 @@ class AppDatabase {
     return rows.map(rowToSong);
   }
   addSongToPlaylist(playlistId, songId) {
+    if (!this.getPlaylist(playlistId)) {
+      throw new Error(`Unknown playlist: ${playlistId}`);
+    }
+    if (!this.getSong(songId)) {
+      throw new Error(`Unknown song: ${songId}`);
+    }
     const addSong = this.db.transaction((nextPlaylistId, nextSongId) => {
       const current = this.db.prepare("SELECT 1 FROM playlist_songs WHERE playlist_id = ? AND song_id = ?").get(nextPlaylistId, nextSongId);
       if (current) {
@@ -1046,6 +1159,9 @@ class AppDatabase {
     const ids = dedupeIds(songIds);
     if (ids.length === 0) {
       return;
+    }
+    if (!this.getPlaylist(playlistId)) {
+      throw new Error(`Unknown playlist: ${playlistId}`);
     }
     const addMany = this.db.transaction((nextIds, nextPlaylistId) => {
       for (const songId of nextIds) {
@@ -1541,6 +1657,26 @@ class AppDatabase {
       latestAccuracy: row.latest_accuracy ?? null
     }));
   }
+  getLibrarySnapshot() {
+    const songs = this.getAllSongs();
+    const statsBySongId = Object.fromEntries(
+      songs.map((song) => [song.id, this.getUserStats(song.id)])
+    );
+    const songGoals = Object.fromEntries(
+      songs.map((song) => {
+        const value = this.getSetting("song-goal", song.id);
+        return [song.id, value ? Number(value) : 0];
+      })
+    );
+    return {
+      songs,
+      folders: this.getAllFolders(),
+      playlists: this.getAllPlaylists(),
+      recommendations: this.getRecommendations(),
+      statsBySongId,
+      songGoals
+    };
+  }
   recordPracticeDayEntry(durationSec, songsPlayed, theorySessions) {
     const practiceDate = formatLocalDate(/* @__PURE__ */ new Date());
     this.db.prepare(`
@@ -1816,7 +1952,9 @@ class AppDatabase {
       return {
         songsImported: nextBackup.songs.length,
         foldersImported,
-        playlistsImported
+        playlistsImported,
+        midiFilesRestored: 0,
+        missingMidiFiles: []
       };
     });
     return importTransaction(backup);
@@ -2294,13 +2432,6 @@ function collectMidiFiles(dir) {
   }
   return results;
 }
-function isLibraryBackup(value) {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-  const backup = value;
-  return backup.version === 1 && Array.isArray(backup.songs) && Array.isArray(backup.folders) && Array.isArray(backup.playlists) && Array.isArray(backup.fingerings) && Array.isArray(backup.settings);
-}
 async function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1480,
@@ -2360,10 +2491,11 @@ app.whenReady().then(async () => {
     };
     const result = mainWindow ? await dialog.showOpenDialog(mainWindow, options) : await dialog.showOpenDialog(options);
     if (result.canceled || result.filePaths.length === 0) {
-      return { songs: [], errors: [] };
+      return { songs: [], errors: [], skipped: 0 };
     }
     const songs = [];
     const errors = [];
+    let skipped = 0;
     const total = result.filePaths.length;
     for (let i = 0; i < total; i++) {
       const selectedPath = result.filePaths[i];
@@ -2371,12 +2503,17 @@ app.whenReady().then(async () => {
       event.sender.send("import:progress", { current: i + 1, total, filename: title });
       try {
         const buffer = await readFile(selectedPath);
+        const songId = await createSongId(buffer);
+        if (db.getSong(songId)) {
+          skipped++;
+          continue;
+        }
         songs.push(await importSongFromBuffer(buffer, title, { db, midiFilesDir }));
       } catch (err) {
         errors.push({ filename: title, message: err.message });
       }
     }
-    return { songs, errors };
+    return { songs, errors, skipped };
   });
   ipcMain.handle("songs:import-folder", async (event) => {
     const options = {
@@ -2440,6 +2577,7 @@ app.whenReady().then(async () => {
   );
   ipcMain.handle("measure-accuracy:get-history", (_event, songId) => db.getMeasureAccuracyHistory(songId));
   ipcMain.handle("recommendations:get", () => db.getRecommendations());
+  ipcMain.handle("library:get-snapshot", () => db.getLibrarySnapshot());
   ipcMain.handle(
     "progress:get-stats",
     (_event, fromDate, toDate) => db.getProgressStats(fromDate, toDate)
@@ -2516,9 +2654,14 @@ app.whenReady().then(async () => {
     if (result.canceled || !result.filePath) {
       return null;
     }
-    const backup = db.exportLibraryData();
+    const { backup, exportResult } = await buildLibraryBackup(db, midiFilesDir);
     writeFileSync(result.filePath, JSON.stringify(backup, null, 2), "utf8");
-    return result.filePath;
+    return {
+      ...exportResult,
+      filename: result.filePath.split(/[\\/]/).pop() ?? "pianohero-library.json",
+      target: "file",
+      location: result.filePath
+    };
   });
   ipcMain.handle("library:import", async () => {
     const options = {
@@ -2533,14 +2676,14 @@ app.whenReady().then(async () => {
     if (!isLibraryBackup(raw)) {
       throw new Error("Invalid library backup file.");
     }
-    return db.importLibraryData(raw);
+    return importLibraryBackup(db, raw, midiFilesDir);
   });
   ipcMain.handle("file:load-midi", async (_event, songId) => {
     const song = db.getSong(songId);
     if (!song) {
       throw new Error(`Song not found: ${songId}`);
     }
-    const data = await readFile(song.filePath);
+    const data = await readFile(song.filePath).catch(() => readFile(join(midiFilesDir, `${songId}.mid`)));
     return new Uint8Array(data);
   });
   ipcMain.handle("file:load-curriculum-midi", async (_event, filename) => {

@@ -1,8 +1,8 @@
 {
-  "name": "piano-hero",
+  "name": "luma-keys",
   "version": "0.1.0",
   "private": true,
-  "description": "Piano Hero desktop piano learning app built with Electron, React, and TypeScript.",
+  "description": "LumaKeys desktop piano learning app built with Electron, React, and TypeScript.",
   "main": "out/main/index.js",
   "type": "module",
   "scripts": {

@@ -1047,7 +1047,7 @@ export function LibraryScreen({
     <main className="app-shell library-screen">
       <section className="panel library-header">
         <div>
-          <p className="eyebrow">Piano Hero</p>
+          <p className="eyebrow">LumaKeys</p>
           <h1>Your Library</h1>
           <p className="song-title">{statusMessage}</p>
           {importProgress && (
@@ -1297,7 +1297,7 @@ export function LibraryScreen({
                       ))}
                     </div>
                   ) : recommendationGroups.every((group) => group.items.length === 0) ? (
-                    <p className="empty-state">Play a few scored sessions so Piano Hero can suggest what to tackle next.</p>
+                    <p className="empty-state">Play a few scored sessions so LumaKeys can suggest what to tackle next.</p>
                   ) : (
                     <div className="recommendation-groups">
                       {recommendationGroups.map((group) => (

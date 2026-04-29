@@ -20,8 +20,8 @@ export function ControlBar(props: ControlBarProps) {
     <section className="control-bar panel">
       <div className="control-row">
         <div>
-          <p className="eyebrow">Piano Hero</p>
-          <h1>{props.songTitle !== 'No song loaded' ? props.songTitle : 'Piano Hero'}</h1>
+          <p className="eyebrow">LumaKeys</p>
+          <h1>{props.songTitle !== 'No song loaded' ? props.songTitle : 'LumaKeys'}</h1>
         </div>
         <div className="transport-buttons">
           {props.onBackToLibrary ? (

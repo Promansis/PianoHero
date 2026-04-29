@@ -19,7 +19,7 @@ describe('MainMenuScreen', () => {
 
     render(<MainMenuScreen {...handlers} />);
 
-    expect(screen.getByRole('heading', { name: 'Piano Hero' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'LumaKeys' })).toBeInTheDocument();
 
     const primaryDestinations = screen.getByRole('region', { name: 'Primary destinations' });
     const moreDestinations = screen.getByRole('region', { name: 'More destinations' });

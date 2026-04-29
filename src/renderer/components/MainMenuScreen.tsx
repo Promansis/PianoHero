@@ -380,9 +380,6 @@ export function MainMenuScreen(props: MainMenuScreenProps) {
         <span className="menu-card-popover" id={tooltipId} role="tooltip">
           {card.subtitle}
         </span>
-        <span className="menu-card-action" aria-hidden="true">
-          Open
-        </span>
       </button>
     );
   };
@@ -405,21 +402,7 @@ export function MainMenuScreen(props: MainMenuScreenProps) {
 
       <section className="main-menu-hero">
         <div className="main-menu-hero-copy entrance-animate" style={{ '--entrance-delay': '0ms' } as MenuStyle}>
-          <h1>Piano Hero</h1>
-        </div>
-        <div className="main-menu-hero-status" aria-hidden="true">
-          <span className="main-menu-status-kicker">Neon Deck</span>
-          {STATUS_ITEMS.map(([label, value], index) => (
-            <span className="main-menu-status-row" key={label}>
-              <span>{label}</span>
-              <strong>{value}</strong>
-              <span className="main-menu-status-meter">
-                <i style={{ '--entrance-delay': `${index * 90}ms` } as MenuStyle} />
-                <i style={{ '--entrance-delay': `${index * 90 + 80}ms` } as MenuStyle} />
-                <i style={{ '--entrance-delay': `${index * 90 + 160}ms` } as MenuStyle} />
-              </span>
-            </span>
-          ))}
+          <h1>LumaKeys</h1>
         </div>
       </section>
 

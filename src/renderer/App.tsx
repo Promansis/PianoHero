@@ -1291,7 +1291,7 @@ export function App() {
     return (
       <main className="app-shell">
         <section className="control-bar panel">
-          <p className="eyebrow">Piano Hero</p>
+          <p className="eyebrow">LumaKeys</p>
           <h1>Loading services...</h1>
           <p className="song-title">Preparing MIDI, keyboard, audio, and practice settings.</p>
         </section>
@@ -1797,9 +1797,9 @@ export function App() {
       {showAppChrome ? (
         <div className="app-frame">
           <header className="app-topbar" aria-label="Application navigation">
-            <div className="app-topbar-brand immersive-hud-item" aria-label="Piano Hero">
+            <div className="app-topbar-brand immersive-hud-item" aria-label="LumaKeys">
               <span>App</span>
-              <strong>Piano Hero</strong>
+              <strong>LumaKeys</strong>
             </div>
             <nav className="app-topbar-nav immersive-hud-nav" aria-label="Application navigation">
               {topbarNavigationItems.map((item) => {
