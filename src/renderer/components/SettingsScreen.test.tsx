@@ -69,7 +69,7 @@ describe('SettingsScreen', () => {
   });
 
   it('keeps tab and action button accessible names after adding decorative icons', async () => {
-    render(
+    const { container } = render(
       <SettingsScreen
         audioEngine={{ playMetronomeClick: vi.fn().mockResolvedValue(undefined), prepareForPlayback: vi.fn().mockResolvedValue(undefined) } as unknown as import('../../lib/audio/audioEngine').AudioEngine}
         inputMode="both"
@@ -93,6 +93,8 @@ describe('SettingsScreen', () => {
       expect(await screen.findByRole('tab', { name: tabName })).toBeInTheDocument();
     }
 
+    expect(container.querySelector('.settings-panel')).toContainElement(screen.getByRole('tablist', { name: 'Settings sections' }));
+    expect(container.querySelector('#settings-panel-audio')).toHaveClass('settings-content-grid-audio');
     expect(screen.getByRole('button', { name: 'Calibrate…' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('tab', { name: 'Input' }));
@@ -175,6 +177,37 @@ describe('SettingsScreen', () => {
         'instrumentReverbPresets',
         JSON.stringify({ 'acoustic-piano': 'hall' }),
       );
+    });
+  });
+
+  it('persists audio controls through the bridge after the layout simplification', async () => {
+    const onSettingChange = vi.fn();
+
+    render(
+      <SettingsScreen
+        audioEngine={{ playMetronomeClick: vi.fn().mockResolvedValue(undefined), prepareForPlayback: vi.fn().mockResolvedValue(undefined) } as unknown as import('../../lib/audio/audioEngine').AudioEngine}
+        inputMode="both"
+        midiDevices={[]}
+        midiError={false}
+        instrumentSamplePackStatuses={{}}
+        pitchBendEnabled
+        onInstallInstrumentSamplePack={vi.fn().mockResolvedValue(undefined)}
+        onRemoveInstrumentSamplePack={vi.fn().mockResolvedValue(undefined)}
+        onDeveloperUnlockAll={developerUnlockAll}
+        onLearningProgressReset={onLearningProgressReset}
+        onSettingChange={onSettingChange}
+        onInputModeChange={vi.fn()}
+        onRetryMidi={vi.fn()}
+        onUserDataReset={onUserDataReset}
+        onOpenKeyboardSetup={vi.fn()}
+      />,
+    );
+
+    fireEvent.change(await screen.findByRole('slider', { name: 'Master Volume' }), { target: { value: '55' } });
+
+    await waitFor(() => {
+      expect(onSettingChange).toHaveBeenCalledWith('audio', 'masterVolume', '55');
+      expect(window.appBridge?.setSetting).toHaveBeenCalledWith('audio', 'masterVolume', '55');
     });
   });
 

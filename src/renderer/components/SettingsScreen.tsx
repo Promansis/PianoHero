@@ -308,32 +308,6 @@ function SettingsNeonBackdrop() {
   );
 }
 
-function SettingsHeroGraphic() {
-  return (
-    <div className="settings-hero-graphic" aria-hidden="true">
-      <svg className="settings-hero-prism" viewBox="0 0 180 120" fill="none">
-        <path d="M24 96L78 14l78 88-86-14z" />
-        <path d="M78 14l-8 74" />
-        <path d="M70 88l86 14" />
-        <path d="M24 96l46-8" />
-      </svg>
-      <svg className="settings-hero-wave" viewBox="0 0 220 42" fill="none">
-        <path d="M2 22c19-28 38-28 57 0s38 28 57 0 38-28 57 0 32 28 45 8" />
-      </svg>
-      <div className="settings-eq-bars">
-        {Array.from({ length: 14 }, (_, index) => (
-          <span key={index} style={{ '--entrance-delay': `${index * 70}ms` } as SettingsStyle} />
-        ))}
-      </div>
-      <div className="settings-mini-keyboard">
-        {Array.from({ length: 12 }, (_, index) => (
-          <span key={index} className={index === 1 || index === 3 || index === 6 || index === 8 || index === 10 ? 'is-black' : ''} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
 const DEFAULT_SETTINGS: SettingsValues = {
   'audio.instrumentId': DEFAULT_INSTRUMENT_ID,
   'audio.masterVolume': '80',
@@ -731,48 +705,47 @@ export function SettingsScreen({
       data-settings-tab={activeTab}
       style={{ '--settings-active-accent': TAB_META[activeTab].accent } as SettingsStyle}
     >
-      <SettingsNeonBackdrop />
-
-      <section className="panel library-header settings-hero">
-        <div className="settings-hero-copy">
-          <p className="eyebrow">Settings</p>
-          <h1>Practice defaults and accessibility</h1>
-          <p className="song-title">{statusMessage}</p>
-        </div>
-        <SettingsHeroGraphic />
-      </section>
-
       <div className="settings-layout-shell">
-        <section className="settings-tab-row" role="tablist" aria-label="Settings sections">
-          {SETTINGS_TABS.map((tab, index) => (
-            <button
-              key={tab}
-              id={`settings-tab-${tab}`}
-              role="tab"
-              aria-label={TAB_LABELS[tab]}
-              aria-selected={activeTab === tab}
-              aria-controls={`settings-panel-${tab}`}
-              className={`settings-tab-button${activeTab === tab ? ' settings-tab-button-active' : ''}`}
-              onClick={() => setActiveTab(tab)}
-              style={{
-                '--settings-tab-accent': TAB_META[tab].accent,
-                '--entrance-delay': `${80 + index * 55}ms`,
-              } as SettingsStyle}
-              type="button"
-            >
-              <SettingsTabIcon tab={tab} />
-              <span className="settings-tab-copy">
-                <span className="settings-tab-kicker">{TAB_META[tab].kicker}</span>
-                <span>{TAB_LABELS[tab]}</span>
-              </span>
-            </button>
-          ))}
-        </section>
-
         <section className="panel settings-panel">
+          <SettingsNeonBackdrop />
+
+          <div className="settings-panel-status" aria-live="polite">
+            <div>
+              <p className="eyebrow">Settings</p>
+              <h1>{TAB_LABELS[activeTab]}</h1>
+            </div>
+            <p>{statusMessage}</p>
+          </div>
+
+          <section className="settings-tab-row" role="tablist" aria-label="Settings sections">
+            {SETTINGS_TABS.map((tab, index) => (
+              <button
+                key={tab}
+                id={`settings-tab-${tab}`}
+                role="tab"
+                aria-label={TAB_LABELS[tab]}
+                aria-selected={activeTab === tab}
+                aria-controls={`settings-panel-${tab}`}
+                className={`settings-tab-button${activeTab === tab ? ' settings-tab-button-active' : ''}`}
+                onClick={() => setActiveTab(tab)}
+                style={{
+                  '--settings-tab-accent': TAB_META[tab].accent,
+                  '--entrance-delay': `${80 + index * 55}ms`,
+                } as SettingsStyle}
+                type="button"
+              >
+                <SettingsTabIcon tab={tab} />
+                <span className="settings-tab-copy">
+                  <span className="settings-tab-kicker">{TAB_META[tab].kicker}</span>
+                  <span>{TAB_LABELS[tab]}</span>
+                </span>
+              </button>
+            ))}
+          </section>
+
         {activeTab === 'audio' && (
           <div
-            className="settings-content-grid"
+            className="settings-content-grid settings-content-grid-audio"
             role="tabpanel"
             id="settings-panel-audio"
             aria-labelledby="settings-tab-audio"
@@ -1023,7 +996,7 @@ export function SettingsScreen({
 
         {activeTab === 'visual' && (
           <div
-            className="settings-content-grid"
+            className="settings-content-grid settings-content-grid-visual"
             role="tabpanel"
             id="settings-panel-visual"
             aria-labelledby="settings-tab-visual"
@@ -1172,7 +1145,7 @@ export function SettingsScreen({
 
         {activeTab === 'gameplay' && (
           <div
-            className="settings-content-grid"
+            className="settings-content-grid settings-content-grid-gameplay"
             role="tabpanel"
             id="settings-panel-gameplay"
             aria-labelledby="settings-tab-gameplay"
@@ -1230,7 +1203,7 @@ export function SettingsScreen({
 
         {activeTab === 'input' && (
           <div
-            className="settings-content-grid"
+            className="settings-content-grid settings-content-grid-input"
             role="tabpanel"
             id="settings-panel-input"
             aria-labelledby="settings-tab-input"
@@ -1297,7 +1270,7 @@ export function SettingsScreen({
 
         {activeTab === 'practice' && (
           <div
-            className="settings-content-grid"
+            className="settings-content-grid settings-content-grid-practice"
             role="tabpanel"
             id="settings-panel-practice"
             aria-labelledby="settings-tab-practice"

@@ -5173,19 +5173,22 @@ select:focus {
   --settings-neon-magenta: #f45cff;
   --settings-neon-gold: #ffd36f;
   --settings-neon-coral: #ff7a8a;
-  --settings-deck-bg: rgba(2, 10, 28, 0.76);
+  --settings-deck-bg: rgba(2, 10, 28, 0.30);
   --settings-panel-line: rgba(24, 221, 255, 0.2);
   --settings-active-accent: var(--settings-neon-cyan);
   position: relative;
   isolation: isolate;
+  height: 100vh;
+  min-height: 100vh;
   overflow: hidden;
-  align-content: start;
-  gap: clamp(14px, 1.8vw, 22px);
-  padding: 76px clamp(18px, 4vw, 64px) 28px;
+  align-content: stretch;
+  grid-template-rows: minmax(0, 1fr);
+  gap: 10px;
+  padding: 66px clamp(18px, 3vw, 32px) 18px;
   color: #fbf8ff;
   background:
-    linear-gradient(180deg, rgba(1, 6, 20, 0.22) 0%, rgba(1, 6, 20, 0.62) 50%, rgba(1, 4, 13, 0.96) 100%),
-    linear-gradient(90deg, rgba(0, 8, 25, 0.96) 0%, rgba(0, 8, 25, 0.72) 44%, rgba(0, 8, 25, 0.38) 72%, rgba(0, 8, 25, 0.72) 100%),
+    linear-gradient(180deg, rgba(1, 6, 20, 0.22) 0%, rgba(1, 6, 20, 0.349) 50%, rgba(1, 4, 13, 0.96) 100%),
+    linear-gradient(90deg, rgba(0, 8, 25, 0.384) 0%, rgba(0, 8, 25, 0.137) 44%, rgba(0, 8, 25, 0.38) 72%, rgba(0, 8, 25, 0.377) 100%),
     image-set(
       url('/assets/main-menu/mainmenu-neonbackground.webp') type('image/webp'),
       url('/assets/main-menu/mainmenu-neonbackground.png') type('image/png')
@@ -5288,9 +5291,10 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 .settings-neon-backdrop {
   position: absolute;
   inset: 0;
-  z-index: -1;
+  z-index: 0;
   overflow: hidden;
   pointer-events: none;
+  opacity: 1;
 }
 
 .settings-light,
@@ -5303,94 +5307,96 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 }
 
 .settings-light {
-  top: -20vh;
-  width: 34vw;
-  height: 112vh;
-  filter: blur(22px);
+  top: -28%;
+  width: 36%;
+  height: 130%;
+  filter: blur(20px);
   mix-blend-mode: screen;
-  opacity: 0.2;
+  opacity: 0.26;
 }
 
 .settings-light-a {
-  left: 52vw;
+  left: 50%;
   background: linear-gradient(102deg, transparent 0 20%, rgba(24, 221, 255, 0.78) 48%, transparent 76%);
   transform: rotate(-18deg);
 }
 
 .settings-light-b {
-  right: -8vw;
+  right: -6%;
   background: linear-gradient(72deg, transparent 0 24%, rgba(255, 211, 111, 0.72) 54%, transparent 78%);
   transform: rotate(17deg);
 }
 
 .settings-facet {
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: linear-gradient(135deg, rgba(24, 221, 255, 0.12), transparent 58%);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: linear-gradient(135deg, rgba(24, 221, 255, 0.16), transparent 58%);
   clip-path: polygon(50% 0, 100% 36%, 80% 100%, 12% 82%, 0 22%);
   filter: blur(0.2px);
-  opacity: 0.13;
+  opacity: 0.5;
 }
 
 .settings-facet-a {
-  right: 9vw;
-  top: 12vh;
-  width: 190px;
-  height: 226px;
+  right: 4%;
+  top: 13%;
+  width: 150px;
+  height: 184px;
   transform: rotate(18deg);
 }
 
 .settings-facet-b {
-  left: 42vw;
-  bottom: 7vh;
-  width: 260px;
-  height: 168px;
+  left: 37%;
+  bottom: 2%;
+  width: 226px;
+  height: 144px;
   transform: rotate(-14deg);
 }
 
 .settings-facet-c {
-  left: 12vw;
-  top: 28vh;
+  left: 8%;
+  top: 23%;
   width: 118px;
   height: 92px;
   background: linear-gradient(135deg, rgba(74, 134, 255, 0.14), transparent 62%);
-  opacity: 0.16;
+  opacity: 0.4;
   transform: rotate(31deg);
 }
 
 .settings-facet-d {
-  right: 27vw;
-  bottom: 18vh;
-  width: 92px;
-  height: 132px;
+  right: 27%;
+  bottom: 10%;
+  width: 96px;
+  height: 136px;
   background: linear-gradient(135deg, rgba(244, 92, 255, 0.16), transparent 60%);
-  opacity: 0.14;
+  opacity: 0.48;
   transform: rotate(-28deg);
 }
 
 .settings-score-lines {
-  left: -8vw;
-  right: -8vw;
-  bottom: 8vh;
-  height: 128px;
+  left: -10%;
+  right: -10%;
+  bottom: 0;
+  height: 118px;
   background:
     repeating-linear-gradient(
       180deg,
       transparent 0 17px,
-      rgba(24, 221, 255, 0.14) 17px 19px,
+      rgba(24, 221, 255, 0.2) 17px 19px,
       transparent 19px 28px
-    );
+  );
   mask-image: linear-gradient(90deg, transparent, black 16%, black 74%, transparent);
-  opacity: 0.14;
+  opacity: 0.42;
   transform: rotate(-4deg);
 }
 
 .settings-circuit {
-  right: clamp(-180px, -9vw, -80px);
-  bottom: 12vh;
-  width: min(46vw, 620px);
+  right: 2%;
+  bottom: 2%;
+  width: min(44%, 620px);
   color: var(--settings-active-accent);
-  opacity: 0.22;
-  filter: drop-shadow(0 0 24px color-mix(in srgb, var(--settings-active-accent) 34%, transparent));
+  opacity: 0.68;
+  filter:
+    drop-shadow(0 0 10px color-mix(in srgb, var(--settings-active-accent) 70%, transparent))
+    drop-shadow(0 0 28px color-mix(in srgb, var(--settings-active-accent) 42%, transparent));
 }
 
 .settings-sine-wave,
@@ -5400,8 +5406,10 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   display: block;
   pointer-events: none;
   color: var(--settings-neon-blue);
-  opacity: 0.18;
-  filter: drop-shadow(0 0 20px color-mix(in srgb, var(--settings-neon-blue) 30%, transparent));
+  opacity: 0.68;
+  filter:
+    drop-shadow(0 0 8px color-mix(in srgb, currentColor 72%, transparent))
+    drop-shadow(0 0 24px color-mix(in srgb, currentColor 44%, transparent));
 }
 
 .settings-circuit path,
@@ -5412,234 +5420,75 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 .settings-timer-pulse path,
 .settings-timer-pulse circle {
   stroke: currentColor;
-  stroke-width: 2;
+  stroke-width: 3.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
 }
 
-.settings-circuit circle,
-.settings-midi-plug circle {
+.settings-circuit circle {
   fill: currentColor;
+  stroke-width: 0;
+}
+
+.settings-midi-plug circle:first-of-type,
+.settings-timer-pulse circle {
+  fill: color-mix(in srgb, currentColor 8%, transparent);
+}
+
+.settings-midi-plug circle:not(:first-of-type) {
+  fill: currentColor;
+  stroke-width: 0;
 }
 
 .settings-sine-wave {
-  left: clamp(20px, 7vw, 112px);
-  top: 20vh;
-  width: min(42vw, 520px);
+  left: 2%;
+  top: 12%;
+  width: min(38%, 520px);
   color: var(--settings-neon-teal);
 }
 
 .settings-midi-plug {
-  right: clamp(20px, 11vw, 140px);
-  top: 45vh;
-  width: 120px;
+  right: 7%;
+  top: 36%;
+  width: 116px;
+  color: var(--settings-neon-blue);
 }
 
 .settings-timer-pulse {
-  left: clamp(24px, 15vw, 220px);
-  bottom: 4vh;
-  width: 160px;
+  left: 15%;
+  bottom: 3%;
+  width: 168px;
   color: var(--settings-neon-gold);
 }
 
-.settings-screen > .settings-hero,
 .settings-screen > .settings-layout-shell {
   position: relative;
   z-index: 1;
-  width: min(100%, 1180px);
-  margin: 0 auto 0 0;
+  width: min(100%, 1320px);
+  height: 100%;
+  min-height: 0;
+  margin: 0 auto;
 }
 
-.settings-hero {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
-  align-items: center;
-  gap: 18px;
-  overflow: hidden;
-  min-height: 172px;
-  border: 1px solid rgba(24, 221, 255, 0.2);
-  border-radius: 8px;
-  padding: clamp(18px, 2.6vw, 32px);
-  background:
-    linear-gradient(145deg, color-mix(in srgb, var(--settings-active-accent) 14%, transparent), transparent 46%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(24, 221, 255, 0.04)),
-    color-mix(in srgb, var(--settings-deck-bg) 94%, transparent);
-  box-shadow:
-    0 28px 92px rgba(0, 0, 0, 0.36),
-    0 0 44px color-mix(in srgb, var(--settings-active-accent) 12%, transparent),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(22px);
-  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
-}
-
-.settings-hero::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: conic-gradient(
-    from var(--glow-angle),
-    transparent 0deg,
-    color-mix(in srgb, var(--settings-active-accent) 82%, #ffffff) 78deg,
-    rgba(255, 255, 255, 0.32) 118deg,
-    transparent 174deg,
-    transparent 360deg
-  );
-  opacity: 0.58;
-  pointer-events: none;
-  mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  mask-composite: exclude;
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  animation: menuGlowSpin 8s linear infinite;
-}
-
-.settings-hero-copy {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  align-content: end;
-  min-width: 0;
-}
-
-.settings-hero .eyebrow,
 .settings-group-card .eyebrow {
   color: color-mix(in srgb, var(--settings-active-accent) 76%, #fff6dc);
   text-shadow: 0 0 22px color-mix(in srgb, var(--settings-active-accent) 36%, transparent);
 }
 
-.settings-hero h1 {
-  max-width: 720px;
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: clamp(2.2rem, 4.8vw, 4.8rem);
-  font-weight: 800;
-  line-height: 0.92;
-  letter-spacing: 0;
-  color: #fff8ec;
-  background: linear-gradient(
-    135deg,
-    #f8fdff 0%,
-    color-mix(in srgb, var(--settings-neon-cyan) 58%, #ffffff) 32%,
-    color-mix(in srgb, var(--settings-neon-violet) 50%, #ffffff) 66%,
-    color-mix(in srgb, var(--settings-neon-gold) 62%, #fff8e6) 100%
-  );
-  background-size: 200% 200%;
-  background-clip: text;
-  filter: drop-shadow(0 18px 42px rgba(0, 0, 0, 0.42));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: heroTitleShimmer 5s ease-in-out infinite;
-}
-
-.settings-hero .song-title {
-  max-width: 58ch;
-  margin-top: 12px;
-  color: rgba(251, 248, 255, 0.8);
-  text-shadow: 0 12px 28px rgba(0, 0, 0, 0.58);
-}
-
-.settings-hero-graphic {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  grid-template-rows: 76px 32px auto auto;
-  gap: 12px;
-  min-height: 0;
-  padding: 14px;
-  border: 1px solid color-mix(in srgb, var(--settings-active-accent) 28%, rgba(255, 255, 255, 0.12));
-  border-radius: 8px;
-  background:
-    linear-gradient(145deg, color-mix(in srgb, var(--settings-active-accent) 18%, transparent), transparent 58%),
-    color-mix(in srgb, var(--settings-deck-bg) 70%, transparent);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    0 0 34px color-mix(in srgb, var(--settings-active-accent) 12%, transparent);
-  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
-}
-
-.settings-hero-prism {
-  width: 100%;
-  height: 76px;
-  color: var(--settings-active-accent);
-  filter: drop-shadow(0 0 18px color-mix(in srgb, var(--settings-active-accent) 44%, transparent));
-}
-
-.settings-hero-wave {
-  width: 100%;
-  height: 32px;
-  color: var(--settings-neon-teal);
-  filter: drop-shadow(0 0 14px color-mix(in srgb, var(--settings-neon-teal) 36%, transparent));
-}
-
-.settings-hero-wave path {
-  stroke: currentColor;
-  stroke-width: 2;
-  vector-effect: non-scaling-stroke;
-}
-
-.settings-hero-prism path {
-  stroke: currentColor;
-  stroke-width: 2;
-  vector-effect: non-scaling-stroke;
-}
-
-.settings-eq-bars {
-  display: grid;
-  grid-template-columns: repeat(14, minmax(3px, 1fr));
-  align-items: end;
-  gap: 5px;
-  height: 38px;
-}
-
-.settings-eq-bars span {
-  display: block;
-  height: 10px;
-  border-radius: 2px 2px 0 0;
-  background: linear-gradient(180deg, var(--settings-neon-gold), var(--settings-active-accent));
-  box-shadow: 0 0 14px color-mix(in srgb, var(--settings-active-accent) 44%, transparent);
-  animation: settingsEqPulse 1.9s ease-in-out infinite;
-  animation-delay: var(--entrance-delay, 0ms);
-}
-
-.settings-mini-keyboard {
-  position: relative;
-  display: grid;
-  grid-template-columns: repeat(12, 1fr);
-  gap: 2px;
-  height: 28px;
-}
-
-.settings-mini-keyboard span {
-  display: block;
-  border-radius: 2px;
-  background: rgba(248, 253, 255, 0.72);
-  box-shadow: inset 0 -6px 10px rgba(24, 221, 255, 0.18);
-}
-
-.settings-mini-keyboard .is-black {
-  height: 60%;
-  background: #050a18;
-  box-shadow: 0 0 10px rgba(24, 221, 255, 0.28);
-}
-
 .settings-layout-shell {
   display: grid;
-  grid-template-columns: minmax(190px, 230px) minmax(0, 1fr);
-  gap: 16px;
-  align-items: start;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 0;
+  align-items: stretch;
 }
 
 .settings-tab-row {
-  position: sticky;
-  top: 78px;
   display: grid;
-  gap: 10px;
-  max-height: calc(100vh - 104px);
-  overflow: auto;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  min-height: 0;
+  overflow: visible;
   padding: 0;
   scrollbar-width: none;
 }
@@ -5652,14 +5501,14 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   --settings-tab-accent: var(--settings-neon-cyan);
   position: relative;
   display: grid;
-  grid-template-columns: 42px minmax(0, 1fr);
+  grid-template-columns: 32px minmax(0, 1fr);
   align-items: center;
-  gap: 12px;
-  min-height: 66px;
+  gap: 8px;
+  min-height: 52px;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--settings-tab-accent) 26%, rgba(255, 255, 255, 0.12));
   border-radius: 8px;
-  padding: 10px;
+  padding: 8px;
   background:
     linear-gradient(135deg, color-mix(in srgb, var(--settings-tab-accent) 10%, transparent), transparent 54%),
     color-mix(in srgb, var(--settings-deck-bg) 84%, transparent);
@@ -5726,9 +5575,9 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 .settings-tab-icon {
   position: relative;
   z-index: 1;
-  width: 42px;
-  height: 42px;
-  padding: 9px;
+  width: 32px;
+  height: 32px;
+  padding: 7px;
   border: 1px solid color-mix(in srgb, var(--settings-tab-accent) 34%, rgba(255, 255, 255, 0.16));
   border-radius: 8px;
   background:
@@ -5748,9 +5597,9 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 
 .settings-tab-kicker {
   font-family: var(--font-meta);
-  font-size: 0.68rem;
+  font-size: 0.6rem;
   font-weight: 800;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: color-mix(in srgb, var(--settings-tab-accent) 72%, #fff6dc);
 }
@@ -5758,7 +5607,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 .settings-tab-copy span:last-child {
   overflow: hidden;
   font-family: var(--font-display);
-  font-size: 1.1rem;
+  font-size: 0.95rem;
   font-weight: 800;
   line-height: 1;
   text-overflow: ellipsis;
@@ -5766,45 +5615,121 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 }
 
 .settings-panel {
+  position: relative;
   display: grid;
-  gap: 16px;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 10px;
+  height: 100%;
+  min-height: 0;
   min-width: 0;
   overflow: hidden;
   border: 1px solid var(--settings-panel-line);
   border-radius: 8px;
-  padding: clamp(14px, 2vw, 22px);
+  padding: 14px;
   background:
     linear-gradient(145deg, color-mix(in srgb, var(--settings-active-accent) 10%, transparent), transparent 46%),
     color-mix(in srgb, var(--settings-deck-bg) 94%, transparent);
   box-shadow:
     0 28px 88px rgba(0, 0, 0, 0.34),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(22px);
   clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+}
+
+.settings-panel > :not(.settings-neon-backdrop) {
+  position: relative;
+  z-index: 1;
+}
+
+.settings-panel-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--settings-active-accent) 18%, rgba(255, 255, 255, 0.08));
+  padding-bottom: 8px;
+}
+
+.settings-panel-status .eyebrow {
+  margin-bottom: 2px;
+  color: color-mix(in srgb, var(--settings-active-accent) 76%, #fff6dc);
+}
+
+.settings-panel-status h1 {
+  margin: 0;
+  color: #fff8ec;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.settings-panel-status > p {
+  max-width: 54ch;
+  margin: 0;
+  color: rgba(251, 248, 255, 0.7);
+  font-size: 0.86rem;
+  line-height: 1.25;
+  text-align: right;
 }
 
 .settings-content-grid {
   display: grid;
-  gap: 14px;
+  min-height: 0;
+  overflow: hidden;
+  gap: 10px;
+  align-content: start;
+}
+
+.settings-content-grid-audio {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.settings-content-grid-audio > .settings-group-card:nth-child(1),
+.settings-content-grid-audio > .settings-group-card:nth-child(2) {
+  grid-column: span 3;
+}
+
+.settings-content-grid-audio > .settings-group-card:nth-child(3),
+.settings-content-grid-audio > .settings-group-card:nth-child(4),
+.settings-content-grid-audio > .settings-group-card:nth-child(5) {
+  grid-column: span 2;
+}
+
+.settings-content-grid-visual {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.settings-content-grid-gameplay,
+.settings-content-grid-input {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.settings-content-grid-practice {
+  grid-template-columns: minmax(0, 1.25fr) minmax(220px, 0.75fr);
+}
+
+.settings-content-grid-practice .settings-danger-zone {
+  grid-column: 1 / -1;
 }
 
 .settings-group-card {
   position: relative;
   display: grid;
-  gap: 16px;
+  gap: 9px;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--settings-active-accent) 24%, rgba(255, 255, 255, 0.1));
   border-radius: 8px;
-  padding: clamp(16px, 2vw, 22px);
+  padding: 12px;
   background:
-    linear-gradient(145deg, color-mix(in srgb, var(--settings-active-accent) 12%, transparent), transparent 42%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(24, 221, 255, 0.03)),
-    color-mix(in srgb, var(--settings-deck-bg) 82%, transparent);
+    linear-gradient(145deg, color-mix(in srgb, var(--settings-active-accent) 10%, transparent), transparent 42%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(24, 221, 255, 0.018)),
+    color-mix(in srgb, var(--settings-deck-bg) 62%, transparent);
   box-shadow:
     0 18px 64px rgba(0, 0, 0, 0.22),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
   animation: heroEntrance 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
-  backdrop-filter: blur(16px);
+  backdrop-filter: blur(8px);
   clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
 }
 
@@ -5843,7 +5768,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   background:
     linear-gradient(90deg, var(--settings-active-accent), transparent 10px),
     radial-gradient(circle at top right, color-mix(in srgb, var(--settings-active-accent) 18%, transparent), transparent 44%);
-  opacity: 0.58;
+  opacity: 0.38;
 }
 
 .settings-group-card > * {
@@ -5870,14 +5795,14 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
+  gap: 8px;
 }
 
 .settings-group-header h2 {
   margin: 0;
   color: color-mix(in srgb, var(--settings-active-accent) 32%, #fff8ec);
   font-family: var(--font-display);
-  font-size: clamp(1.35rem, 2vw, 1.78rem);
+  font-size: 1.08rem;
   font-weight: 800;
   letter-spacing: 0;
   line-height: 1;
@@ -5885,6 +5810,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 }
 
 .settings-group-header .panel-copy {
+  display: none;
   max-width: 36ch;
   margin: 0;
   color: rgba(251, 248, 255, 0.7);
@@ -5892,22 +5818,22 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 
 .settings-group-body {
   display: grid;
-  gap: 16px;
+  gap: 8px;
 }
 
 .settings-group-footer {
   margin: 0;
   border-top: 1px solid color-mix(in srgb, var(--settings-active-accent) 16%, rgba(255, 255, 255, 0.08));
-  padding-top: 12px;
+  padding-top: 7px;
   color: rgba(251, 248, 255, 0.66);
-  font-size: 0.88rem;
-  line-height: 1.5;
+  font-size: 0.76rem;
+  line-height: 1.28;
 }
 
 .settings-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  gap: 8px;
 }
 
 .settings-grid-single {
@@ -5916,7 +5842,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 
 .settings-grid label {
   display: grid;
-  gap: 8px;
+  gap: 5px;
   min-width: 0;
 }
 
@@ -5924,9 +5850,9 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 .settings-note-card span {
   display: block;
   font-family: var(--font-meta);
-  font-size: 0.76rem;
+  font-size: 0.63rem;
   font-weight: 800;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: rgba(251, 248, 255, 0.58);
 }
@@ -5934,12 +5860,12 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 .settings-screen input,
 .settings-screen select {
   width: 100%;
-  min-height: 44px;
+  min-height: 36px;
   border: 1px solid color-mix(in srgb, var(--settings-active-accent) 24%, rgba(255, 255, 255, 0.12));
   border-radius: 8px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(24, 221, 255, 0.025)),
-    rgba(0, 8, 20, 0.82);
+    rgba(0, 8, 20, 0.68);
   color: #fbf8ff;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.1),
@@ -5980,7 +5906,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 }
 
 .settings-screen input[type="range"] {
-  min-height: 44px;
+  min-height: 36px;
   padding: 0;
   border: 0;
   background: transparent;
@@ -6062,12 +5988,12 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 .settings-note-card {
   display: grid;
   align-content: center;
-  gap: 10px;
+  gap: 5px;
   min-width: 0;
   border: 1px solid color-mix(in srgb, var(--settings-active-accent) 20%, rgba(255, 255, 255, 0.1));
   border-left-color: color-mix(in srgb, var(--settings-active-accent) 52%, rgba(255, 255, 255, 0.14));
   border-radius: 6px;
-  padding: 16px;
+  padding: 9px;
   background:
     linear-gradient(145deg, color-mix(in srgb, var(--settings-active-accent) 10%, transparent), transparent 58%),
     rgba(0, 8, 20, 0.5);
@@ -6079,16 +6005,20 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   margin-top: 0;
   color: #fff8ec;
   font-family: var(--font-display);
-  font-size: 1.02rem;
+  font-size: 0.86rem;
   font-weight: 700;
-  line-height: 1.25;
+  line-height: 1.16;
   overflow-wrap: anywhere;
 }
 
 .settings-note-card em {
   color: rgba(251, 248, 255, 0.6);
-  font-size: 0.86rem;
-  line-height: 1.45;
+  font-size: 0.74rem;
+  line-height: 1.25;
+}
+
+.settings-content-grid-audio .settings-note-card em {
+  display: none;
 }
 
 .settings-sample-pack-buttons,
@@ -6098,7 +6028,8 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 }
 
 .settings-sample-pack-buttons {
-  grid-template-columns: repeat(auto-fit, minmax(150px, max-content));
+  grid-template-columns: 1fr;
+  gap: 6px;
 }
 
 .settings-screen .primary-button,
@@ -6106,9 +6037,11 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 .settings-screen .danger-button {
   border-radius: 8px;
   font-family: var(--font-meta);
-  font-size: 0.82rem;
+  min-height: 34px;
+  padding: 6px 9px;
+  font-size: 0.68rem;
   font-weight: 800;
-  letter-spacing: 0.11em;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
   display: inline-flex;
   align-items: center;
@@ -6190,7 +6123,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   display: grid;
   grid-template-columns: minmax(0, 1fr) max-content;
   align-items: end;
-  gap: 12px;
+  gap: 8px;
   grid-column: 1 / -1;
 }
 
@@ -6371,22 +6304,8 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   align-self: flex-start;
 }
 
-@keyframes settingsEqPulse {
-  0%,
-  100% {
-    height: 8px;
-    opacity: 0.6;
-  }
-
-  45% {
-    height: 34px;
-    opacity: 1;
-  }
-}
-
 @media (max-width: 1180px) {
-  .settings-screen > .settings-hero,
-    .settings-screen > .settings-layout-shell {
+  .settings-screen > .settings-layout-shell {
       width: min(100%, 940px);
       margin-right: auto;
       margin-left: auto;
@@ -6412,14 +6331,6 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 }
 
 @media (max-width: 900px) {
-  .settings-hero {
-      grid-template-columns: 1fr;
-    }
-
-  .settings-hero-graphic {
-      min-height: 0;
-    }
-
   .settings-grid,
     .settings-danger-actions {
       grid-template-columns: 1fr;
@@ -6462,15 +6373,6 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
     .settings-midi-plug,
     .settings-timer-pulse {
       display: none;
-    }
-
-  .settings-hero {
-      min-height: 0;
-      padding: 18px;
-    }
-
-  .settings-hero h1 {
-      font-size: clamp(2rem, 11vw, 3.25rem);
     }
 
   .settings-tab-button {

@@ -1316,7 +1316,7 @@ export function GameScreen({
               <div className="status-card">
                 <span>Mode</span>
                 <strong>
-                  {sessionConfig.mode === 'luma-keys'
+                  {sessionConfig.mode === 'piano-hero'
                     ? 'LumaKeys'
                     : sessionConfig.mode === 'performance'
                       ? 'Performance'

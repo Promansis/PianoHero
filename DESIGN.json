@@ -1,0 +1,296 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-05-05T10:38:15+08:00",
+  "title": "Design System: LumaKeys",
+  "extensions": {
+    "colorMeta": {
+      "stage-black-blue": {
+        "role": "primary",
+        "displayName": "Stage Black Blue",
+        "canonical": "#010819",
+        "source": "src/renderer/styles.css .main-menu-screen background",
+        "tonalRamp": ["#00030a", "#010819", "#04122f", "#09205a", "#12368b", "#3c62b5", "#8ca8e8", "#dce7ff"]
+      },
+      "accent-violet": {
+        "role": "primary",
+        "displayName": "Accent Violet",
+        "canonical": "#7c6aff",
+        "source": "src/renderer/styles.css [data-theme=dark] --color-accent",
+        "tonalRamp": ["#130d3b", "#241477", "#3c25b5", "#5a46e0", "#7c6aff", "#a599ff", "#cfcbff", "#f0efff"]
+      },
+      "accent-rose": {
+        "role": "secondary",
+        "displayName": "Accent Rose",
+        "canonical": "#ff6b9d",
+        "source": "src/renderer/styles.css [data-theme=dark] --color-accent-secondary",
+        "tonalRamp": ["#3b0718", "#761233", "#b32153", "#df4478", "#ff6b9d", "#ffa0bd", "#ffd0de", "#fff1f5"]
+      },
+      "neon-cyan": {
+        "role": "secondary",
+        "displayName": "Neon Cyan",
+        "canonical": "#18ddff",
+        "source": "src/renderer/styles.css --menu-neon-cyan",
+        "tonalRamp": ["#002f38", "#005f72", "#008ea9", "#00bddf", "#18ddff", "#6cebff", "#b7f6ff", "#ecfdff"]
+      },
+      "neon-gold": {
+        "role": "secondary",
+        "displayName": "Neon Gold",
+        "canonical": "#ffd36f",
+        "source": "src/renderer/styles.css --menu-neon-gold",
+        "tonalRamp": ["#3f2600", "#7d4d00", "#b97800", "#e7a936", "#ffd36f", "#ffe4a3", "#fff2d0", "#fffaf0"]
+      },
+      "success": {
+        "role": "tertiary",
+        "displayName": "Success Green",
+        "canonical": "#40b56a",
+        "source": "src/renderer/styles.css --color-good",
+        "tonalRamp": ["#0c2816", "#18522e", "#267a45", "#33a25d", "#40b56a", "#78cf95", "#b9e8c8", "#eefaf2"]
+      },
+      "miss": {
+        "role": "tertiary",
+        "displayName": "Miss Red",
+        "canonical": "#bf5b44",
+        "source": "src/renderer/styles.css --color-miss",
+        "tonalRamp": ["#34100a", "#652015", "#93331f", "#bf5b44", "#d98570", "#edb4a8", "#f8ded8", "#fff4f1"]
+      },
+      "warm-surface": {
+        "role": "neutral",
+        "displayName": "Warm Surface",
+        "canonical": "#fffaf2",
+        "source": "src/renderer/styles.css --panel-bg-solid approximation",
+        "tonalRamp": ["#2a241c", "#514638", "#786b5a", "#a49582", "#cec1ad", "#efe3d1", "#fff4e4", "#fffaf2"]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Stage Display",
+        "purpose": "Route identity, main menu title, celebratory states, and major immersive headings."
+      },
+      "headline": {
+        "displayName": "Panel Headline",
+        "purpose": "Route sections, large panels, progress hero copy, and secondary menu headings."
+      },
+      "title": {
+        "displayName": "Control Title",
+        "purpose": "Cards, tabs, settings group headers, stat cards, and compact surfaces."
+      },
+      "body": {
+        "displayName": "Practice Body",
+        "purpose": "Readable descriptions and supporting copy for users focused on playing."
+      },
+      "label": {
+        "displayName": "Telemetry Label",
+        "purpose": "Eyebrows, HUD labels, compact tabs, stats, chips, and status metadata."
+      }
+    },
+    "shadows": [
+      {
+        "name": "panel-shadow-dark",
+        "value": "0 22px 52px rgba(0, 0, 0, 0.38)",
+        "purpose": "Default dark-theme panel separation."
+      },
+      {
+        "name": "hero-shadow-dark",
+        "value": "0 34px 84px rgba(0, 0, 0, 0.42)",
+        "purpose": "Large route blocks and hero containers."
+      },
+      {
+        "name": "topbar-shadow",
+        "value": "0 18px 44px rgba(0, 0, 0, 0.24)",
+        "purpose": "Fixed topbar and immersive HUD depth."
+      },
+      {
+        "name": "menu-card-hover-glow",
+        "value": "0 32px 120px rgba(0, 0, 0, 0.42), 0 0 46px color-mix(in srgb, var(--card-color) 34%, transparent)",
+        "purpose": "Hover treatment for main-menu cards only."
+      },
+      {
+        "name": "settings-deck-glow",
+        "value": "0 28px 88px rgba(0, 0, 0, 0.34), accent glow",
+        "purpose": "Settings deck panels and active tab surfaces."
+      }
+    ],
+    "motion": [
+      {
+        "name": "fade-in",
+        "value": "fadeIn 0.28s ease-out",
+        "purpose": "Default app-shell entry."
+      },
+      {
+        "name": "hero-entrance",
+        "value": "heroEntrance 720ms cubic-bezier(0.22, 1, 0.36, 1)",
+        "purpose": "Main-menu and settings deck entry animation."
+      },
+      {
+        "name": "hover-lift-fast",
+        "value": "transform 140ms ease to 180ms ease",
+        "purpose": "Clickable cards and buttons lift 1 to 8px depending on surface."
+      },
+      {
+        "name": "hud-reveal",
+        "value": "opacity 170ms ease, transform 170ms ease",
+        "purpose": "Immersive HUD slides down without blocking the stage by default."
+      },
+      {
+        "name": "combo-pop",
+        "value": "comboPop 250ms ease-out both",
+        "purpose": "Short score feedback in the HUD."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "@media (prefers-reduced-motion: reduce) disables nonessential animation",
+        "purpose": "Keep practice usable for motion-sensitive users."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "mobile",
+        "value": "780px",
+        "purpose": "Collapse app chrome, HUD, library, settings, and menu layouts."
+      },
+      {
+        "name": "tablet",
+        "value": "980px",
+        "purpose": "Adjust main-menu grids and intermediate layout density."
+      },
+      {
+        "name": "wide-adjust",
+        "value": "1180px",
+        "purpose": "Reflow status cards, dashboard regions, and multi-column panels."
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The default next-action button for standard app screens.",
+      "html": "<button class=\"ds-button-primary\">Play</button>",
+      "css": ".ds-button-primary { border: 0; border-radius: 999px; padding: 12px 18px; background: linear-gradient(135deg, var(--color-accent, #7c6aff) 0%, color-mix(in srgb, var(--color-accent, #7c6aff) 62%, white) 100%); color: #fff8f1; box-shadow: 0 10px 30px color-mix(in srgb, var(--color-accent, #7c6aff) 28%, transparent); font: inherit; cursor: pointer; transition: transform 140ms ease, opacity 140ms ease, box-shadow 140ms ease; } .ds-button-primary:hover { transform: translateY(-1px); box-shadow: 0 0 20px var(--color-accent-glow, rgba(124, 106, 255, 0.42)); } .ds-button-primary:focus-visible { outline: 3px solid var(--color-accent-glow, rgba(124, 106, 255, 0.42)); outline-offset: 3px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "The supporting action button for navigation, filters, and alternate controls.",
+      "html": "<button class=\"ds-button-secondary\">Restart</button>",
+      "css": ".ds-button-secondary { border: 1px solid var(--color-border, rgba(150, 158, 214, 0.34)); border-radius: 999px; padding: 12px 18px; background: var(--color-surface-hover, rgba(124, 106, 255, 0.12)); color: var(--color-text, #f4f6ff); font: inherit; cursor: pointer; transition: transform 140ms ease, background 140ms ease; } .ds-button-secondary:hover { transform: translateY(-1px); background: color-mix(in srgb, var(--color-surface-hover, rgba(124, 106, 255, 0.12)) 82%, white 18%); } .ds-button-secondary:focus-visible { outline: 3px solid var(--color-accent-glow, rgba(124, 106, 255, 0.42)); outline-offset: 3px; }"
+    },
+    {
+      "name": "Settings Deck Button",
+      "kind": "button",
+      "refersTo": "settings-button-primary",
+      "description": "Compact clipped-corner action style used inside the neon settings deck.",
+      "html": "<button class=\"ds-settings-button\"><span>Calibrate</span></button>",
+      "css": ".ds-settings-button { min-height: 34px; border: 1px solid color-mix(in srgb, var(--settings-active-accent, #18ddff) 70%, #ffffff); border-radius: 8px; padding: 6px 9px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: linear-gradient(135deg, var(--settings-active-accent, #18ddff), color-mix(in srgb, var(--settings-active-accent, #18ddff) 58%, #ffffff)); color: #06101c; font-family: 'Barlow Semi Condensed', 'Sora Variable', system-ui, sans-serif; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px)); box-shadow: 0 0 26px color-mix(in srgb, var(--settings-active-accent, #18ddff) 36%, transparent); cursor: pointer; transition: transform 150ms ease, box-shadow 150ms ease; } .ds-settings-button:hover { transform: translateY(-2px); box-shadow: 0 0 30px color-mix(in srgb, var(--settings-active-accent, #18ddff) 26%, transparent); } .ds-settings-button:focus-visible { outline: 3px solid color-mix(in srgb, var(--settings-active-accent, #18ddff) 78%, #ffffff); outline-offset: 4px; }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input-default",
+      "description": "Default form field for light and warm panels.",
+      "html": "<label class=\"ds-field\"><span>Search</span><input placeholder=\"Find a song\" /></label>",
+      "css": ".ds-field { display: grid; gap: 8px; color: var(--color-text, #241f1a); font-family: 'Sora Variable', system-ui, sans-serif; } .ds-field span { font-family: 'Barlow Semi Condensed', 'Sora Variable', system-ui, sans-serif; font-size: 0.78rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-text-secondary, rgba(36, 31, 26, 0.56)); } .ds-field input { border: 1px solid var(--color-border, rgba(36, 31, 26, 0.12)); border-radius: 12px; padding: 10px 12px; background: var(--color-input-bg, #fffaf4); color: var(--color-text, #241f1a); font: inherit; } .ds-field input:focus { outline: 2px solid var(--color-accent-glow, rgba(31, 61, 122, 0.4)); border-color: transparent; }"
+    },
+    {
+      "name": "Panel Card",
+      "kind": "card",
+      "refersTo": "panel-default",
+      "description": "Standard lifted app panel for library, progress, lessons, and charts.",
+      "html": "<section class=\"ds-panel-card\"><p class=\"ds-eyebrow\">Progress</p><h2>Current streak</h2><p>Keep your charts moving.</p></section>",
+      "css": ".ds-panel-card { border: 1px solid var(--color-border, rgba(36, 31, 26, 0.12)); border-radius: 24px; padding: 24px; background: var(--panel-bg, rgba(255, 250, 242, 0.82)); color: var(--color-text, #241f1a); box-shadow: var(--color-panel-shadow, 0 18px 40px rgba(78, 51, 34, 0.08)); backdrop-filter: blur(14px); font-family: 'Sora Variable', system-ui, sans-serif; } .ds-panel-card h2 { margin: 0; font-family: 'Oxanium Variable', 'Sora Variable', system-ui, sans-serif; font-weight: 800; letter-spacing: 0; } .ds-panel-card p { margin: 6px 0 0; color: var(--color-text-muted, rgba(36, 31, 26, 0.7)); line-height: 1.6; } .ds-eyebrow { font-family: 'Barlow Semi Condensed', 'Sora Variable', system-ui, sans-serif; letter-spacing: 0.16em; text-transform: uppercase; color: var(--color-accent-secondary, #9a4c33); font-size: 0.78rem; font-weight: 700; }"
+    },
+    {
+      "name": "Immersive HUD Item",
+      "kind": "custom",
+      "refersTo": "immersive-hud-item",
+      "description": "Compact performance telemetry for play and free-play stages.",
+      "html": "<div class=\"ds-hud-item\"><span>Combo</span><strong>128</strong></div>",
+      "css": ".ds-hud-item { display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 0; border-radius: 8px; padding: 3px 9px; background: rgba(0, 0, 0, 0.45); color: rgba(255, 255, 255, 0.95); backdrop-filter: blur(6px); } .ds-hud-item span { font-family: 'Barlow Semi Condensed', 'Sora Variable', system-ui, sans-serif; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(255, 255, 255, 0.6); } .ds-hud-item strong { font-family: 'Oxanium Variable', 'Sora Variable', system-ui, sans-serif; font-size: 14px; font-weight: 700; letter-spacing: 0.02em; color: rgba(255, 255, 255, 0.95); text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6); }"
+    },
+    {
+      "name": "Immersive Nav Pill",
+      "kind": "nav",
+      "refersTo": "immersive-hud-nav-btn",
+      "description": "Scrollable HUD navigation for immersive play screens.",
+      "html": "<nav class=\"ds-hud-nav\"><button>Library</button><button class=\"active\">Free Play</button><button>Settings</button></nav>",
+      "css": ".ds-hud-nav { display: flex; align-items: center; gap: 5px; overflow-x: auto; scrollbar-width: none; } .ds-hud-nav button { flex: 0 0 auto; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 999px; padding: 4px 9px; background: rgba(0, 0, 0, 0.34); color: rgba(255, 255, 255, 0.76); font-size: 11px; font-weight: 700; cursor: pointer; transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease; } .ds-hud-nav button:hover, .ds-hud-nav button:focus-visible { background: rgba(255, 255, 255, 0.14); color: #fff8ec; } .ds-hud-nav button.active { border-color: color-mix(in srgb, var(--color-accent-secondary, #ff6b9d) 58%, transparent); background: color-mix(in srgb, var(--color-accent-secondary, #ff6b9d) 24%, rgba(0, 0, 0, 0.38)); color: #fff8ec; cursor: default; }"
+    },
+    {
+      "name": "Main Menu Card",
+      "kind": "card",
+      "refersTo": "menu-card-primary",
+      "description": "Expressive neon route card for the launch stage.",
+      "html": "<button class=\"ds-menu-card\" style=\"--card-color:#18ddff\"><span class=\"ds-menu-icon\">▶</span><span class=\"ds-menu-title\">Free Play</span><span class=\"ds-menu-action\">Open</span></button>",
+      "css": ".ds-menu-card { --card-color: #18ddff; position: relative; display: grid; grid-template-rows: auto 1fr auto; gap: 16px; min-height: 178px; overflow: hidden; padding: 22px; border: 1px solid rgba(24, 221, 255, 0.13); border-left: 1px solid color-mix(in srgb, var(--card-color) 42%, rgba(255, 255, 255, 0.12)); border-radius: 18px; background: linear-gradient(145deg, color-mix(in srgb, var(--card-color) 19%, rgba(255, 255, 255, 0.06)), transparent 44%), linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(24, 221, 255, 0.035)), rgba(2, 10, 28, 0.7); color: #fbf8ff; text-align: left; cursor: pointer; box-shadow: 0 24px 90px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.1); backdrop-filter: blur(20px); transition: transform 180ms ease, box-shadow 220ms ease, border-color 220ms ease; } .ds-menu-card:hover { transform: translateY(-8px) scale(1.018); border-color: color-mix(in srgb, var(--card-color) 52%, rgba(255, 255, 255, 0.2)); box-shadow: 0 32px 120px rgba(0, 0, 0, 0.42), 0 0 46px color-mix(in srgb, var(--card-color) 34%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.16); } .ds-menu-icon { display: inline-grid; width: 64px; height: 64px; place-items: center; border: 1px solid color-mix(in srgb, var(--card-color) 32%, rgba(255, 255, 255, 0.16)); border-radius: 18px; background: color-mix(in srgb, var(--card-color) 22%, rgba(255, 255, 255, 0.08)); color: color-mix(in srgb, var(--card-color) 82%, #ffffff); box-shadow: 0 16px 34px rgba(0, 0, 0, 0.26), 0 0 26px color-mix(in srgb, var(--card-color) 25%, transparent); } .ds-menu-title { align-self: end; color: color-mix(in srgb, var(--card-color) 34%, #fff8ec); font-family: 'Oxanium Variable', 'Sora Variable', system-ui, sans-serif; font-size: 1.65rem; font-weight: 800; line-height: 1; } .ds-menu-action { justify-self: start; padding: 7px 11px; border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 999px; color: rgba(251, 248, 255, 0.78); background: rgba(255, 255, 255, 0.07); font-family: 'Barlow Semi Condensed', 'Sora Variable', system-ui, sans-serif; font-size: 0.74rem; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Playable Practice Stage",
+    "overview": "LumaKeys is the visible app identity for the PianoHero product brief: a focused practice stage where beginners and intermediate players can import songs, follow lessons, drill theory, and play freely without feeling like they are inside a school portal. The interface should feel like an instrument surface first and a software dashboard second. Musical action, feedback, timing, and progress sit closest to the user.\n\nThe system is dark-first for performance and free play, with light and warm themes available for calmer practice contexts. It earns its spectacle through musical feedback: falling notes, piano keys, HUD stats, menu cards, audio controls, and reward moments. Dense controls are allowed, but they must feel like a cockpit for practice, not an administrative form.",
+    "keyCharacteristics": [
+      "Dark stage shells with illuminated controls, not ordinary web sections.",
+      "A restrained core UI vocabulary with vivid accents reserved for state, hand color, route identity, and rewards.",
+      "Rounded, tactile controls for regular app flow; clipped neon deck controls only where the screen is intentionally immersive.",
+      "Always-readable status text for users whose hands are busy at the keyboard.",
+      "Progressive complexity: start with play, reveal setup and tuning when needed."
+    ],
+    "rules": [
+      {
+        "name": "The Stage First Rule",
+        "body": "Gameplay, free play, soundboard, and menu surfaces must read as immersive environments before they read as pages.",
+        "section": "colors"
+      },
+      {
+        "name": "The Earned Neon Rule",
+        "body": "Saturated neon belongs to state, route identity, reward, or musical feedback. Inactive surfaces stay muted.",
+        "section": "colors"
+      },
+      {
+        "name": "The Hand Color Rule",
+        "body": "Left and right hand colors are functional identifiers. Never reuse the same pair for unrelated decorative accents on the same screen.",
+        "section": "colors"
+      },
+      {
+        "name": "The Hands-Busy Rule",
+        "body": "Text near performance controls must be short, high contrast, and scannable from a playing posture.",
+        "section": "typography"
+      },
+      {
+        "name": "The Display Reserve Rule",
+        "body": "Oxanium display scale is for stage identity and major state. Do not use hero-sized type inside settings cards, table rows, or compact controls.",
+        "section": "typography"
+      },
+      {
+        "name": "The Overlay Blur Rule",
+        "body": "Backdrop blur belongs to HUDs, popouts, topbars, and stage overlays. Do not apply blur to every card by default.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Lift Means Action Rule",
+        "body": "Translate and glow on hover only for clickable cards or controls. Static information panels should not jump.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do preserve the focused practice stage: musical action, score feedback, HUD stats, and keyboard state should stay visually closest to the learner.",
+      "Do use dark immersive surfaces for play, free play, soundboard, and main menu contexts.",
+      "Do keep setup and settings dense but controlled: group related controls, keep labels short, and reveal advanced options progressively.",
+      "Do keep exact functional colors consistent: success for completion, warning or gold for perfect and reward states, miss red for failure or danger.",
+      "Do respect the 780px mobile breakpoint by reducing columns, shrinking HUD items, and preventing text overlap.",
+      "Do support reduced motion by removing entrance animations and hover choreography where the stylesheet already provides a reduced-motion path."
+    ],
+    "donts": [
+      "Don't make PianoHero feel like a generic website.",
+      "Don't make it feel like a school portal, worksheet app, or classroom software.",
+      "Don't make dense screens feel like an enterprise dashboard or administrative form.",
+      "Don't bury the player in configuration before they can play.",
+      "Don't use marketing-section composition for product screens. No landing-page card stacks, hero metrics, or decorative feature grids inside the app shell.",
+      "Don't use border-left or border-right greater than 1px as a colored side stripe on cards, alerts, or lists.",
+      "Don't add gradient text outside the existing main-menu title treatment. New text emphasis should use weight, size, or a single solid color.",
+      "Don't apply glassmorphism as a default card style. Blur must mean overlay, HUD, popout, or stage depth.",
+      "Don't use decorative motion that does not communicate hover, focus, selection, loading, reveal, timing, or musical feedback."
+    ]
+  }
+}
