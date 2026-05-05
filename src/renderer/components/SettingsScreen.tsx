@@ -77,11 +77,11 @@ const TAB_LABELS: Record<SettingsTab, string> = {
 };
 
 const TAB_META: Record<SettingsTab, { accent: string; kicker: string }> = {
-  audio: { accent: '#ffd36f', kicker: 'Signal' },
-  visual: { accent: '#f45cff', kicker: 'Optics' },
-  gameplay: { accent: '#ff7a8a', kicker: 'Timing' },
-  input: { accent: '#18ddff', kicker: 'MIDI' },
-  practice: { accent: '#00f6d2', kicker: 'Routine' },
+  audio: { accent: 'oklch(83% 0.18 76)', kicker: 'Signal' },
+  visual: { accent: 'oklch(73% 0.25 331)', kicker: 'Optics' },
+  gameplay: { accent: 'oklch(73% 0.2 29)', kicker: 'Timing' },
+  input: { accent: 'oklch(82% 0.17 214)', kicker: 'MIDI' },
+  practice: { accent: 'oklch(78% 0.17 168)', kicker: 'Routine' },
 };
 
 const SETTINGS_TABS = Object.keys(TAB_LABELS) as SettingsTab[];
@@ -221,17 +221,23 @@ function SettingsTabIcon({ tab }: { tab: SettingsTab }) {
     case 'audio':
       return (
         <svg {...common}>
-          <path d="M4 14h3l5 4V6l-5 4H4z" />
-          <path d="M16 9.5c1.2 1.4 1.2 3.6 0 5" />
-          <path d="M19 7c2.4 2.8 2.4 7.2 0 10" />
+          <path className="settings-tab-wave" d="M3 13c2.2-5.6 4.4-5.6 6.6 0s4.4 5.6 6.6 0 3.7-5.6 4.8-1.8" />
+          <path d="M4 17h16" />
+          <path d="M7 6v4" />
+          <path d="M12 4v6" />
+          <path d="M17 6v4" />
         </svg>
       );
     case 'visual':
       return (
         <svg {...common}>
-          <path d="M4 12l5-8 5 16 6-10" />
-          <path d="M4 20h16" />
-          <circle cx="9" cy="4" r="1.6" fill="currentColor" stroke="none" />
+          <path d="M4 6h16" />
+          <path d="M4 12h16" />
+          <path d="M4 18h16" />
+          <rect className="settings-tab-note" x="7" y="4.5" width="3.5" height="4" rx="1" fill="currentColor" stroke="none" />
+          <rect className="settings-tab-note" x="13.5" y="10.5" width="4.5" height="4" rx="1" fill="currentColor" stroke="none" />
+          <path d="M8.8 8v10" />
+          <path d="M15.8 14v4" />
         </svg>
       );
     case 'gameplay':
@@ -239,28 +245,33 @@ function SettingsTabIcon({ tab }: { tab: SettingsTab }) {
         <svg {...common}>
           <path d="M12 3v4" />
           <path d="M12 17v4" />
-          <path d="M3 12h4" />
-          <path d="M17 12h4" />
-          <circle cx="12" cy="12" r="5" />
-          <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" />
+          <path d="M4 12h4" />
+          <path d="M16 12h4" />
+          <circle className="settings-tab-pulse" cx="12" cy="12" r="5" />
+          <rect x="8" y="5" width="2.8" height="5.2" rx="0.8" fill="currentColor" stroke="none" />
+          <rect x="13.2" y="14" width="2.8" height="5" rx="0.8" fill="currentColor" stroke="none" />
         </svg>
       );
     case 'input':
       return (
         <svg {...common}>
-          <rect x="4" y="5" width="16" height="14" rx="3" />
-          <path d="M8 9h.01M12 9h.01M16 9h.01" />
-          <path d="M8 14h8" />
+          <path d="M12 4a8 8 0 0 1 8 8v2.5a3.5 3.5 0 0 1-3.5 3.5h-9A3.5 3.5 0 0 1 4 14.5V12a8 8 0 0 1 8-8Z" />
+          <circle cx="8.5" cy="12" r="1" fill="currentColor" stroke="none" />
+          <circle cx="12" cy="9" r="1" fill="currentColor" stroke="none" />
+          <circle cx="15.5" cy="12" r="1" fill="currentColor" stroke="none" />
+          <path className="settings-tab-wave" d="M8 18c1.8 2.2 6.2 2.2 8 0" />
         </svg>
       );
     case 'practice':
       return (
         <svg {...common}>
-          <path d="M7 4v16" />
-          <path d="M17 4v16" />
-          <path d="M4 8h16" />
-          <path d="M4 16h16" />
-          <path d="M10 8v8M14 8v8" />
+          <path d="M7 5v14" />
+          <path d="M17 5v14" />
+          <path d="M7 7h10" />
+          <path d="M7 17h10" />
+          <path className="settings-tab-pulse" d="M12 8v5l3 2" />
+          <path d="M5 12c0-3.8 3.2-7 7-7" />
+          <path d="M19 12c0 3.8-3.2 7-7 7" />
         </svg>
       );
   }
@@ -271,23 +282,18 @@ function SettingsNeonBackdrop() {
     <div className="settings-neon-backdrop" aria-hidden="true">
       <span className="settings-light settings-light-a" />
       <span className="settings-light settings-light-b" />
+      <span className="settings-light settings-light-c" />
       <span className="settings-facet settings-facet-a" />
       <span className="settings-facet settings-facet-b" />
       <span className="settings-facet settings-facet-c" />
       <span className="settings-facet settings-facet-d" />
-      <span className="settings-score-lines" />
-      <svg className="settings-circuit" viewBox="0 0 620 220" fill="none">
-        <path d="M18 168C90 88 156 134 224 82C306 18 372 68 430 52C498 33 548 54 604 18" />
-        <path d="M42 198H168L210 156H306L356 106H494L578 22" />
-        <path d="M58 68H134L180 112H260L302 72H398" />
-        <circle cx="224" cy="82" r="6" />
-        <circle cx="356" cy="106" r="6" />
-        <circle cx="494" cy="106" r="6" />
-      </svg>
-      <svg className="settings-sine-wave" viewBox="0 0 520 120" fill="none">
-        <path d="M10 60c44-72 88-72 132 0s88 72 132 0 88-72 132 0 70 72 104 22" />
-        <path d="M10 86h500" />
-      </svg>
+      <span className="settings-score-lines">
+        {['♪', '♫', '♬', '♩', '♪', '♬', '♫', '♪'].map((note, index) => (
+          <span key={`${note}-${index}`} className={`settings-score-note settings-score-note-${index + 1}`}>
+            {note}
+          </span>
+        ))}
+      </span>
       <svg className="settings-midi-plug" viewBox="0 0 120 120" fill="none">
         <circle cx="60" cy="58" r="42" />
         <circle cx="42" cy="48" r="4" />
@@ -296,13 +302,6 @@ function SettingsNeonBackdrop() {
         <circle cx="48" cy="72" r="4" />
         <circle cx="72" cy="72" r="4" />
         <path d="M42 100h36" />
-      </svg>
-      <svg className="settings-timer-pulse" viewBox="0 0 160 160" fill="none">
-        <circle cx="80" cy="86" r="46" />
-        <path d="M64 22h32" />
-        <path d="M80 22v18" />
-        <path d="M80 86l22-18" />
-        <path d="M18 86h18M124 86h18" />
       </svg>
     </div>
   );

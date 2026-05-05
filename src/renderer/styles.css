@@ -5165,16 +5165,32 @@ select:focus {
    ========================================================================== */
 
 .settings-screen {
-  --settings-base: #010819;
-  --settings-neon-cyan: #18ddff;
-  --settings-neon-teal: #00f6d2;
-  --settings-neon-blue: #4a86ff;
-  --settings-neon-violet: #9b5cff;
-  --settings-neon-magenta: #f45cff;
-  --settings-neon-gold: #ffd36f;
-  --settings-neon-coral: #ff7a8a;
-  --settings-deck-bg: rgba(2, 10, 28, 0.30);
-  --settings-panel-line: rgba(24, 221, 255, 0.2);
+  --settings-gap-xs: 6px;
+  --settings-gap-sm: 8px;
+  --settings-gap-md: 12px;
+  --settings-gap-lg: 16px;
+  --settings-gap-xl: 22px;
+  --settings-type-kicker: 0.68rem;
+  --settings-type-label: 0.72rem;
+  --settings-type-caption: 0.78rem;
+  --settings-type-control: 0.88rem;
+  --settings-type-body: 0.94rem;
+  --settings-type-title: 1.14rem;
+  --settings-type-route: 1.55rem;
+  --settings-base: oklch(12% 0.045 263);
+  --settings-void: oklch(8% 0.032 268);
+  --settings-neon-cyan: oklch(82% 0.17 214);
+  --settings-neon-teal: oklch(78% 0.17 168);
+  --settings-neon-blue: oklch(67% 0.22 260);
+  --settings-neon-violet: oklch(70% 0.24 295);
+  --settings-neon-magenta: oklch(73% 0.25 331);
+  --settings-neon-hot-pink: oklch(76% 0.23 351);
+  --settings-neon-gold: oklch(83% 0.18 76);
+  --settings-neon-orange: oklch(76% 0.2 48);
+  --settings-neon-coral: oklch(73% 0.2 29);
+  --settings-electric-blue: oklch(72% 0.2 247);
+  --settings-deck-bg: color-mix(in oklch, var(--settings-void) 70%, transparent);
+  --settings-panel-line: color-mix(in oklch, var(--settings-neon-cyan) 26%, transparent);
   --settings-active-accent: var(--settings-neon-cyan);
   position: relative;
   isolation: isolate;
@@ -5186,7 +5202,12 @@ select:focus {
   gap: 10px;
   padding: 66px clamp(18px, 3vw, 32px) 18px;
   color: #fbf8ff;
+  font-family: var(--font-body);
+  font-kerning: normal;
+  text-rendering: optimizeLegibility;
   background:
+    radial-gradient(circle at 18% 12%, color-mix(in oklch, var(--settings-neon-magenta) 22%, transparent), transparent 28%),
+    radial-gradient(circle at 82% 16%, color-mix(in oklch, var(--settings-neon-orange) 20%, transparent), transparent 26%),
     linear-gradient(180deg, rgba(1, 6, 20, 0.22) 0%, rgba(1, 6, 20, 0.349) 50%, rgba(1, 4, 13, 0.96) 100%),
     linear-gradient(90deg, rgba(0, 8, 25, 0.384) 0%, rgba(0, 8, 25, 0.137) 44%, rgba(0, 8, 25, 0.38) 72%, rgba(0, 8, 25, 0.377) 100%),
     image-set(
@@ -5299,8 +5320,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 
 .settings-light,
 .settings-facet,
-.settings-score-lines,
-.settings-circuit {
+.settings-score-lines {
   position: absolute;
   display: block;
   pointer-events: none;
@@ -5312,27 +5332,34 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   height: 130%;
   filter: blur(20px);
   mix-blend-mode: screen;
-  opacity: 0.26;
+  opacity: 0.14;
 }
 
 .settings-light-a {
   left: 50%;
-  background: linear-gradient(102deg, transparent 0 20%, rgba(24, 221, 255, 0.78) 48%, transparent 76%);
+  background: linear-gradient(102deg, transparent 0 20%, rgba(24, 221, 255, 0.52) 48%, transparent 76%);
   transform: rotate(-18deg);
 }
 
 .settings-light-b {
   right: -6%;
-  background: linear-gradient(72deg, transparent 0 24%, rgba(255, 211, 111, 0.72) 54%, transparent 78%);
+  background: linear-gradient(72deg, transparent 0 24%, color-mix(in oklch, var(--settings-neon-gold) 42%, transparent) 54%, transparent 78%);
   transform: rotate(17deg);
+}
+
+.settings-light-c {
+  left: -8%;
+  top: -18%;
+  background: linear-gradient(76deg, transparent 0 26%, color-mix(in oklch, var(--settings-neon-orange) 46%, transparent) 52%, transparent 78%);
+  transform: rotate(24deg);
 }
 
 .settings-facet {
   border: 1px solid rgba(255, 255, 255, 0.22);
-  background: linear-gradient(135deg, rgba(24, 221, 255, 0.16), transparent 58%);
+  background: linear-gradient(135deg, color-mix(in oklch, var(--settings-neon-cyan) 18%, transparent), transparent 58%);
   clip-path: polygon(50% 0, 100% 36%, 80% 100%, 12% 82%, 0 22%);
   filter: blur(0.2px);
-  opacity: 0.5;
+  opacity: 0.22;
 }
 
 .settings-facet-a {
@@ -5356,7 +5383,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   top: 23%;
   width: 118px;
   height: 92px;
-  background: linear-gradient(135deg, rgba(74, 134, 255, 0.14), transparent 62%);
+  background: linear-gradient(135deg, color-mix(in oklch, var(--settings-electric-blue) 18%, transparent), transparent 62%);
   opacity: 0.4;
   transform: rotate(31deg);
 }
@@ -5366,7 +5393,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   bottom: 10%;
   width: 96px;
   height: 136px;
-  background: linear-gradient(135deg, rgba(244, 92, 255, 0.16), transparent 60%);
+  background: linear-gradient(135deg, color-mix(in oklch, var(--settings-neon-hot-pink) 18%, transparent), transparent 60%);
   opacity: 0.48;
   transform: rotate(-28deg);
 }
@@ -5376,49 +5403,137 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   right: -10%;
   bottom: 0;
   height: 118px;
+  overflow: hidden;
   background:
     repeating-linear-gradient(
       180deg,
       transparent 0 17px,
-      rgba(24, 221, 255, 0.2) 17px 19px,
+      color-mix(in oklch, var(--settings-neon-cyan) 24%, transparent) 17px 19px,
       transparent 19px 28px
   );
   mask-image: linear-gradient(90deg, transparent, black 16%, black 74%, transparent);
-  opacity: 0.42;
+  opacity: 0.2;
   transform: rotate(-4deg);
+  animation: settingsStaffDrift 12s linear infinite;
 }
 
-.settings-circuit {
-  right: 2%;
-  bottom: 2%;
-  width: min(44%, 620px);
-  color: var(--settings-active-accent);
-  opacity: 0.68;
-  filter:
-    drop-shadow(0 0 10px color-mix(in srgb, var(--settings-active-accent) 70%, transparent))
-    drop-shadow(0 0 28px color-mix(in srgb, var(--settings-active-accent) 42%, transparent));
+.settings-score-lines::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, transparent, color-mix(in oklch, var(--settings-neon-magenta) 18%, transparent), transparent 34%),
+    linear-gradient(90deg, transparent 28%, color-mix(in oklch, var(--settings-neon-orange) 16%, transparent), transparent 62%),
+    linear-gradient(90deg, transparent 58%, color-mix(in oklch, var(--settings-neon-cyan) 18%, transparent), transparent);
+  opacity: 0.72;
+  animation: settingsScoreGlowSweep 12s linear infinite;
 }
 
-.settings-sine-wave,
-.settings-midi-plug,
-.settings-timer-pulse {
+.settings-score-note {
+  position: absolute;
+  top: var(--note-lane);
+  left: var(--note-left);
+  color: var(--note-color);
+  font-family: var(--font-display);
+  font-size: var(--note-size);
+  font-weight: 800;
+  line-height: 1;
+  text-shadow:
+    0 0 8px color-mix(in oklch, var(--note-color) 78%, transparent),
+    0 0 22px color-mix(in oklch, var(--note-color) 42%, transparent),
+    0 0 42px color-mix(in oklch, var(--note-color) 20%, transparent);
+  opacity: 0;
+  animation:
+    settingsScoreNoteScroll 12s linear infinite,
+    settingsScoreNotePulse 1.5s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+  animation-delay: var(--note-delay), var(--note-pulse-delay);
+}
+
+.settings-score-note-1 {
+  --note-lane: 17px;
+  --note-left: 13%;
+  --note-size: 2.35rem;
+  --note-color: var(--settings-neon-magenta);
+  --note-delay: -10.8s;
+  --note-pulse-delay: 0ms;
+}
+
+.settings-score-note-2 {
+  --note-lane: 45px;
+  --note-left: 25%;
+  --note-size: 1.7rem;
+  --note-color: var(--settings-neon-orange);
+  --note-delay: -9.2s;
+  --note-pulse-delay: 160ms;
+}
+
+.settings-score-note-3 {
+  --note-lane: 73px;
+  --note-left: 38%;
+  --note-size: 2.05rem;
+  --note-color: var(--settings-neon-cyan);
+  --note-delay: -7.6s;
+  --note-pulse-delay: 320ms;
+}
+
+.settings-score-note-4 {
+  --note-lane: 17px;
+  --note-left: 49%;
+  --note-size: 1.5rem;
+  --note-color: var(--settings-neon-gold);
+  --note-delay: -6.1s;
+  --note-pulse-delay: 480ms;
+}
+
+.settings-score-note-5 {
+  --note-lane: 73px;
+  --note-left: 61%;
+  --note-size: 2.4rem;
+  --note-color: var(--settings-neon-hot-pink);
+  --note-delay: -4.7s;
+  --note-pulse-delay: 640ms;
+}
+
+.settings-score-note-6 {
+  --note-lane: 45px;
+  --note-left: 72%;
+  --note-size: 1.85rem;
+  --note-color: var(--settings-electric-blue);
+  --note-delay: -3.2s;
+  --note-pulse-delay: 800ms;
+}
+
+.settings-score-note-7 {
+  --note-lane: 17px;
+  --note-left: 82%;
+  --note-size: 1.65rem;
+  --note-color: var(--settings-neon-teal);
+  --note-delay: -1.7s;
+  --note-pulse-delay: 960ms;
+}
+
+.settings-score-note-8 {
+  --note-lane: 73px;
+  --note-left: 91%;
+  --note-size: 2.15rem;
+  --note-color: var(--settings-neon-coral);
+  --note-delay: -0.4s;
+  --note-pulse-delay: 1120ms;
+}
+
+.settings-midi-plug {
   position: absolute;
   display: block;
   pointer-events: none;
   color: var(--settings-neon-blue);
-  opacity: 0.68;
+  opacity: 0.26;
   filter:
-    drop-shadow(0 0 8px color-mix(in srgb, currentColor 72%, transparent))
-    drop-shadow(0 0 24px color-mix(in srgb, currentColor 44%, transparent));
+    drop-shadow(0 0 7px color-mix(in oklch, currentColor 52%, transparent))
+    drop-shadow(0 0 16px color-mix(in oklch, currentColor 24%, transparent));
 }
 
-.settings-circuit path,
-.settings-circuit circle,
-.settings-sine-wave path,
 .settings-midi-plug path,
-.settings-midi-plug circle,
-.settings-timer-pulse path,
-.settings-timer-pulse circle {
+.settings-midi-plug circle {
   stroke: currentColor;
   stroke-width: 3.2;
   stroke-linecap: round;
@@ -5426,46 +5541,26 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   vector-effect: non-scaling-stroke;
 }
 
-.settings-circuit circle {
-  fill: currentColor;
-  stroke-width: 0;
-}
-
-.settings-midi-plug circle:first-of-type,
-.settings-timer-pulse circle {
-  fill: color-mix(in srgb, currentColor 8%, transparent);
-}
-
 .settings-midi-plug circle:not(:first-of-type) {
   fill: currentColor;
   stroke-width: 0;
 }
 
-.settings-sine-wave {
-  left: 2%;
-  top: 12%;
-  width: min(38%, 520px);
-  color: var(--settings-neon-teal);
+.settings-midi-plug circle:first-of-type {
+  fill: color-mix(in oklch, currentColor 8%, transparent);
 }
 
 .settings-midi-plug {
   right: 7%;
   top: 36%;
   width: 116px;
-  color: var(--settings-neon-blue);
-}
-
-.settings-timer-pulse {
-  left: 15%;
-  bottom: 3%;
-  width: 168px;
-  color: var(--settings-neon-gold);
+  color: var(--settings-electric-blue);
 }
 
 .settings-screen > .settings-layout-shell {
   position: relative;
   z-index: 1;
-  width: min(100%, 1320px);
+  width: min(100%, 1360px);
   height: 100%;
   min-height: 0;
   margin: 0 auto;
@@ -5486,7 +5581,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 .settings-tab-row {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 8px;
+  gap: var(--settings-gap-sm);
   min-height: 0;
   overflow: visible;
   padding: 0;
@@ -5501,14 +5596,14 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   --settings-tab-accent: var(--settings-neon-cyan);
   position: relative;
   display: grid;
-  grid-template-columns: 32px minmax(0, 1fr);
+  grid-template-columns: 34px minmax(0, 1fr);
   align-items: center;
-  gap: 8px;
-  min-height: 52px;
+  gap: var(--settings-gap-sm);
+  min-height: 56px;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--settings-tab-accent) 26%, rgba(255, 255, 255, 0.12));
   border-radius: 8px;
-  padding: 8px;
+  padding: 9px;
   background:
     linear-gradient(135deg, color-mix(in srgb, var(--settings-tab-accent) 10%, transparent), transparent 54%),
     color-mix(in srgb, var(--settings-deck-bg) 84%, transparent);
@@ -5534,18 +5629,20 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 }
 
 .settings-tab-button::before {
-  width: 3px;
+  width: 1px;
   background: var(--settings-tab-accent);
-  box-shadow: 0 0 22px color-mix(in srgb, var(--settings-tab-accent) 70%, transparent);
-  opacity: 0.46;
+  box-shadow: 0 0 16px color-mix(in srgb, var(--settings-tab-accent) 42%, transparent);
+  opacity: 0.5;
 }
 
 .settings-tab-button::after {
   background:
     linear-gradient(115deg, transparent 0 32%, rgba(255, 255, 255, 0.12) 46%, transparent 60%),
-    repeating-linear-gradient(180deg, transparent 0 5px, color-mix(in srgb, var(--settings-tab-accent) 16%, transparent) 5px 6px);
+    repeating-linear-gradient(90deg, transparent 0 12px, color-mix(in oklch, var(--settings-tab-accent) 24%, transparent) 12px 15px),
+    repeating-linear-gradient(180deg, transparent 0 5px, color-mix(in oklch, var(--settings-tab-accent) 16%, transparent) 5px 6px);
   opacity: 0;
-  transition: opacity 160ms ease;
+  background-size: 160% 100%, 38px 100%, auto;
+  transition: opacity 160ms cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .settings-tab-button:hover,
@@ -5565,6 +5662,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 .settings-tab-button:hover::after,
 .settings-tab-button-active::after {
   opacity: 0.72;
+  animation: settingsTabScan 2.8s linear infinite;
 }
 
 .settings-tab-button:focus-visible {
@@ -5587,6 +5685,22 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   box-shadow: 0 0 22px color-mix(in srgb, var(--settings-tab-accent) 22%, transparent);
 }
 
+.settings-tab-wave {
+  stroke-dasharray: 42;
+  animation: settingsIconTrace 2.6s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+.settings-tab-note {
+  filter: drop-shadow(0 0 6px color-mix(in oklch, currentColor 68%, transparent));
+  animation: settingsIconBlink 1.8s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+.settings-tab-pulse {
+  filter: drop-shadow(0 0 6px color-mix(in oklch, currentColor 54%, transparent));
+  animation: settingsIconPulse 1.6s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+  transform-origin: center;
+}
+
 .settings-tab-copy {
   position: relative;
   z-index: 1;
@@ -5597,9 +5711,9 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 
 .settings-tab-kicker {
   font-family: var(--font-meta);
-  font-size: 0.6rem;
+  font-size: var(--settings-type-kicker);
   font-weight: 800;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
   color: color-mix(in srgb, var(--settings-tab-accent) 72%, #fff6dc);
 }
@@ -5607,9 +5721,9 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 .settings-tab-copy span:last-child {
   overflow: hidden;
   font-family: var(--font-display);
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 800;
-  line-height: 1;
+  line-height: 1.05;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -5618,14 +5732,14 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   position: relative;
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
-  gap: 10px;
+  gap: var(--settings-gap-md);
   height: 100%;
   min-height: 0;
   min-width: 0;
   overflow: hidden;
   border: 1px solid var(--settings-panel-line);
   border-radius: 8px;
-  padding: 14px;
+  padding: 16px;
   background:
     linear-gradient(145deg, color-mix(in srgb, var(--settings-active-accent) 10%, transparent), transparent 46%),
     color-mix(in srgb, var(--settings-deck-bg) 94%, transparent);
@@ -5641,13 +5755,14 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 }
 
 .settings-panel-status {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, max-content) minmax(24ch, 54ch);
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: var(--settings-gap-xl);
   min-width: 0;
   border-bottom: 1px solid color-mix(in srgb, var(--settings-active-accent) 18%, rgba(255, 255, 255, 0.08));
-  padding-bottom: 8px;
+  padding-bottom: var(--settings-gap-sm);
 }
 
 .settings-panel-status .eyebrow {
@@ -5659,41 +5774,66 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   margin: 0;
   color: #fff8ec;
   font-family: var(--font-display);
-  font-size: 1.35rem;
+  font-size: var(--settings-type-route);
   font-weight: 800;
-  line-height: 1;
+  line-height: 1.04;
 }
 
 .settings-panel-status > p {
   max-width: 54ch;
   margin: 0;
   color: rgba(251, 248, 255, 0.7);
-  font-size: 0.86rem;
-  line-height: 1.25;
+  font-size: var(--settings-type-caption);
+  font-weight: 500;
+  line-height: 1.4;
   text-align: right;
 }
 
 .settings-content-grid {
   display: grid;
   min-height: 0;
-  overflow: hidden;
-  gap: 10px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  gap: var(--settings-gap-md);
   align-content: start;
+  grid-auto-rows: min-content;
+  padding: 2px 4px 6px 2px;
+  scrollbar-color: color-mix(in srgb, var(--settings-active-accent) 48%, rgba(255, 255, 255, 0.18)) transparent;
+  scrollbar-width: thin;
+}
+
+.settings-content-grid::-webkit-scrollbar {
+  width: 8px;
+}
+
+.settings-content-grid::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.settings-content-grid::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--settings-active-accent) 38%, rgba(255, 255, 255, 0.16));
 }
 
 .settings-content-grid-audio {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(12, minmax(0, 1fr));
 }
 
-.settings-content-grid-audio > .settings-group-card:nth-child(1),
+.settings-content-grid-audio > .settings-group-card:nth-child(1) {
+  grid-column: span 5;
+}
+
 .settings-content-grid-audio > .settings-group-card:nth-child(2) {
-  grid-column: span 3;
+  grid-column: span 7;
 }
 
 .settings-content-grid-audio > .settings-group-card:nth-child(3),
-.settings-content-grid-audio > .settings-group-card:nth-child(4),
+.settings-content-grid-audio > .settings-group-card:nth-child(4) {
+  grid-column: span 4;
+}
+
 .settings-content-grid-audio > .settings-group-card:nth-child(5) {
-  grid-column: span 2;
+  grid-column: span 4;
 }
 
 .settings-content-grid-visual {
@@ -5706,7 +5846,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 }
 
 .settings-content-grid-practice {
-  grid-template-columns: minmax(0, 1.25fr) minmax(220px, 0.75fr);
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 0.45fr);
 }
 
 .settings-content-grid-practice .settings-danger-zone {
@@ -5716,20 +5856,21 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 .settings-group-card {
   position: relative;
   display: grid;
-  gap: 9px;
+  gap: var(--settings-gap-sm);
+  align-content: start;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--settings-active-accent) 24%, rgba(255, 255, 255, 0.1));
   border-radius: 8px;
-  padding: 12px;
+  padding: var(--settings-gap-md);
   background:
-    linear-gradient(145deg, color-mix(in srgb, var(--settings-active-accent) 10%, transparent), transparent 42%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(24, 221, 255, 0.018)),
-    color-mix(in srgb, var(--settings-deck-bg) 62%, transparent);
+    linear-gradient(145deg, color-mix(in srgb, var(--settings-active-accent) 6%, transparent), transparent 44%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.048), rgba(24, 221, 255, 0.012)),
+    color-mix(in srgb, var(--settings-deck-bg) 76%, transparent);
   box-shadow:
-    0 18px 64px rgba(0, 0, 0, 0.22),
+    0 18px 46px rgba(0, 0, 0, 0.18),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  animation: heroEntrance 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
-  backdrop-filter: blur(8px);
+  animation: heroEntrance 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  backdrop-filter: blur(5px);
   clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
 }
 
@@ -5752,7 +5893,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
     transparent 174deg,
     transparent 360deg
   );
-  opacity: 0.46;
+  opacity: 0.16;
   mask:
     linear-gradient(#000 0 0) content-box,
     linear-gradient(#000 0 0);
@@ -5761,14 +5902,14 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
     linear-gradient(#000 0 0) content-box,
     linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
-  animation: menuGlowSpin 8.5s linear infinite;
+  animation: none;
 }
 
 .settings-group-card::after {
   background:
-    linear-gradient(90deg, var(--settings-active-accent), transparent 10px),
-    radial-gradient(circle at top right, color-mix(in srgb, var(--settings-active-accent) 18%, transparent), transparent 44%);
-  opacity: 0.38;
+    linear-gradient(90deg, color-mix(in srgb, var(--settings-active-accent) 44%, transparent), transparent 18px),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--settings-active-accent) 10%, transparent), transparent 46%);
+  opacity: 0.2;
 }
 
 .settings-group-card > * {
@@ -5777,11 +5918,10 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 }
 
 .settings-group-card:hover {
-  transform: translateY(-3px);
-  border-color: color-mix(in srgb, var(--settings-active-accent) 42%, rgba(255, 255, 255, 0.16));
+  border-color: color-mix(in srgb, var(--settings-active-accent) 32%, rgba(255, 255, 255, 0.16));
   box-shadow:
-    0 24px 76px rgba(0, 0, 0, 0.32),
-    0 0 34px color-mix(in srgb, var(--settings-active-accent) 14%, transparent),
+    0 20px 54px rgba(0, 0, 0, 0.24),
+    0 0 24px color-mix(in srgb, var(--settings-active-accent) 8%, transparent),
     inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
@@ -5792,33 +5932,36 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 .settings-content-grid > .settings-group-card:nth-child(5) { animation-delay: 360ms; }
 
 .settings-group-header {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
+  gap: var(--settings-gap-xs);
+  min-width: 0;
 }
 
 .settings-group-header h2 {
   margin: 0;
   color: color-mix(in srgb, var(--settings-active-accent) 32%, #fff8ec);
   font-family: var(--font-display);
-  font-size: 1.08rem;
+  font-size: var(--settings-type-title);
   font-weight: 800;
   letter-spacing: 0;
-  line-height: 1;
+  line-height: 1.08;
   text-shadow: 0 14px 34px rgba(0, 0, 0, 0.42);
 }
 
 .settings-group-header .panel-copy {
   display: none;
-  max-width: 36ch;
+  max-width: 58ch;
   margin: 0;
   color: rgba(251, 248, 255, 0.7);
+  font-size: var(--settings-type-body);
+  line-height: 1.5;
 }
 
 .settings-group-body {
   display: grid;
-  gap: 8px;
+  gap: var(--settings-gap-sm);
 }
 
 .settings-group-footer {
@@ -5826,14 +5969,15 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   border-top: 1px solid color-mix(in srgb, var(--settings-active-accent) 16%, rgba(255, 255, 255, 0.08));
   padding-top: 7px;
   color: rgba(251, 248, 255, 0.66);
-  font-size: 0.76rem;
-  line-height: 1.28;
+  font-size: var(--settings-type-caption);
+  font-weight: 500;
+  line-height: 1.42;
 }
 
 .settings-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: var(--settings-gap-sm) var(--settings-gap-md);
 }
 
 .settings-grid-single {
@@ -5850,25 +5994,31 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 .settings-note-card span {
   display: block;
   font-family: var(--font-meta);
-  font-size: 0.63rem;
+  font-size: var(--settings-type-label);
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.075em;
+  line-height: 1.05;
   text-transform: uppercase;
-  color: rgba(251, 248, 255, 0.58);
+  color: rgba(251, 248, 255, 0.64);
 }
 
 .settings-screen input,
 .settings-screen select {
   width: 100%;
   min-height: 36px;
+  padding: 0 11px;
   border: 1px solid color-mix(in srgb, var(--settings-active-accent) 24%, rgba(255, 255, 255, 0.12));
   border-radius: 8px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(24, 221, 255, 0.025)),
-    rgba(0, 8, 20, 0.68);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(24, 221, 255, 0.014)),
+    rgba(0, 8, 20, 0.74);
   color: #fbf8ff;
+  font-family: var(--font-body);
+  font-size: var(--settings-type-control);
+  font-weight: 500;
+  line-height: 1.25;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
     0 0 0 transparent;
 }
 
@@ -5878,7 +6028,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   background-image:
     linear-gradient(45deg, transparent 50%, var(--settings-active-accent) 50%),
     linear-gradient(135deg, var(--settings-active-accent) 50%, transparent 50%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(24, 221, 255, 0.025));
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(24, 221, 255, 0.014));
   background-position:
     calc(100% - 18px) 50%,
     calc(100% - 12px) 50%,
@@ -5919,9 +6069,9 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   border: 1px solid color-mix(in srgb, var(--settings-active-accent) 28%, rgba(255, 255, 255, 0.1));
   border-radius: 999px;
   background:
-    linear-gradient(90deg, color-mix(in srgb, var(--settings-active-accent) 38%, transparent), transparent),
+    linear-gradient(90deg, color-mix(in srgb, var(--settings-active-accent) 26%, transparent), transparent),
     rgba(0, 8, 20, 0.82);
-  box-shadow: 0 0 18px color-mix(in srgb, var(--settings-active-accent) 16%, transparent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--settings-active-accent) 10%, transparent);
 }
 
 .settings-screen input[type="range"]::-webkit-slider-thumb {
@@ -5931,8 +6081,8 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   margin-top: -7px;
   border: 1px solid color-mix(in srgb, var(--settings-active-accent) 72%, #ffffff);
   border-radius: 6px;
-  background: linear-gradient(180deg, #fff8ec, var(--settings-active-accent));
-  box-shadow: 0 0 22px color-mix(in srgb, var(--settings-active-accent) 62%, transparent);
+  background: linear-gradient(180deg, #fff8ec, color-mix(in srgb, var(--settings-active-accent) 78%, #fff8ec));
+  box-shadow: 0 0 14px color-mix(in srgb, var(--settings-active-accent) 38%, transparent);
 }
 
 .settings-screen input[type="range"]::-moz-range-track {
@@ -5947,8 +6097,8 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   height: 20px;
   border: 1px solid color-mix(in srgb, var(--settings-active-accent) 72%, #ffffff);
   border-radius: 6px;
-  background: linear-gradient(180deg, #fff8ec, var(--settings-active-accent));
-  box-shadow: 0 0 22px color-mix(in srgb, var(--settings-active-accent) 62%, transparent);
+  background: linear-gradient(180deg, #fff8ec, color-mix(in srgb, var(--settings-active-accent) 78%, #fff8ec));
+  box-shadow: 0 0 14px color-mix(in srgb, var(--settings-active-accent) 38%, transparent);
 }
 
 .settings-screen input[type="color"] {
@@ -5988,15 +6138,14 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 .settings-note-card {
   display: grid;
   align-content: center;
-  gap: 5px;
+  gap: var(--settings-gap-xs);
   min-width: 0;
   border: 1px solid color-mix(in srgb, var(--settings-active-accent) 20%, rgba(255, 255, 255, 0.1));
-  border-left-color: color-mix(in srgb, var(--settings-active-accent) 52%, rgba(255, 255, 255, 0.14));
   border-radius: 6px;
-  padding: 9px;
+  padding: 10px;
   background:
-    linear-gradient(145deg, color-mix(in srgb, var(--settings-active-accent) 10%, transparent), transparent 58%),
-    rgba(0, 8, 20, 0.5);
+    linear-gradient(145deg, color-mix(in srgb, var(--settings-active-accent) 5%, transparent), transparent 60%),
+    rgba(0, 8, 20, 0.58);
   clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
 }
 
@@ -6004,17 +6153,17 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   display: block;
   margin-top: 0;
   color: #fff8ec;
-  font-family: var(--font-display);
-  font-size: 0.86rem;
-  font-weight: 700;
-  line-height: 1.16;
+  font-family: var(--font-body);
+  font-size: var(--settings-type-body);
+  font-weight: 650;
+  line-height: 1.36;
   overflow-wrap: anywhere;
 }
 
 .settings-note-card em {
   color: rgba(251, 248, 255, 0.6);
-  font-size: 0.74rem;
-  line-height: 1.25;
+  font-size: var(--settings-type-caption);
+  line-height: 1.38;
 }
 
 .settings-content-grid-audio .settings-note-card em {
@@ -6039,9 +6188,10 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   font-family: var(--font-meta);
   min-height: 34px;
   padding: 6px 9px;
-  font-size: 0.68rem;
+  font-size: var(--settings-type-label);
   font-weight: 800;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.065em;
+  line-height: 1.05;
   text-transform: uppercase;
   display: inline-flex;
   align-items: center;
@@ -6056,7 +6206,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   width: 1.05em;
   height: 1.05em;
   color: currentColor;
-  filter: drop-shadow(0 0 10px currentColor);
+  filter: drop-shadow(0 0 6px color-mix(in srgb, currentColor 56%, transparent));
 }
 
 .settings-screen .secondary-button {
@@ -6246,26 +6396,27 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 
 .settings-danger-zone {
   --settings-active-accent: var(--settings-neon-coral);
-  border-color: rgba(255, 122, 138, 0.42);
+  border-color: rgba(255, 122, 138, 0.32);
   background:
-    linear-gradient(145deg, rgba(255, 122, 138, 0.18), rgba(244, 92, 255, 0.08) 58%, transparent),
-    rgba(24, 4, 20, 0.72);
+    linear-gradient(145deg, rgba(255, 122, 138, 0.12), rgba(244, 92, 255, 0.045) 58%, transparent),
+    rgba(24, 4, 20, 0.76);
 }
 
 .settings-danger-card {
   position: relative;
   gap: 14px;
-  border-color: rgba(255, 122, 138, 0.28);
+  border-color: color-mix(in oklch, var(--settings-neon-orange) 30%, var(--settings-neon-coral));
   background:
-    linear-gradient(145deg, rgba(255, 122, 138, 0.13), transparent 58%),
-    rgba(24, 4, 20, 0.5);
+    radial-gradient(circle at 88% 12%, color-mix(in oklch, var(--settings-neon-orange) 14%, transparent), transparent 38%),
+    linear-gradient(145deg, rgba(255, 122, 138, 0.08), transparent 58%),
+    rgba(24, 4, 20, 0.58);
 }
 
 .settings-warning-icon {
   width: 28px;
   height: 28px;
   color: var(--settings-neon-coral);
-  filter: drop-shadow(0 0 14px rgba(255, 122, 138, 0.38));
+  filter: drop-shadow(0 0 10px rgba(255, 122, 138, 0.28));
 }
 
 .settings-modal-warning-icon {
@@ -6304,6 +6455,108 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   align-self: flex-start;
 }
 
+@keyframes settingsStaffDrift {
+  from {
+    background-position: 0 0;
+  }
+
+  to {
+    background-position: 0 -112px;
+  }
+}
+
+@keyframes settingsScoreGlowSweep {
+  from {
+    transform: translateX(-18%);
+  }
+
+  to {
+    transform: translateX(18%);
+  }
+}
+
+@keyframes settingsScoreNoteScroll {
+  0% {
+    opacity: 0;
+    transform: translateY(112px) scale(0.9) rotate(-3deg);
+  }
+
+  12% {
+    opacity: 0.88;
+  }
+
+  72% {
+    opacity: 0.9;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-112px) scale(1.02) rotate(3deg);
+  }
+}
+
+@keyframes settingsScoreNotePulse {
+  0%,
+  100% {
+    filter: brightness(0.9) saturate(1.1);
+  }
+
+  50% {
+    filter: brightness(1.35) saturate(1.45);
+  }
+}
+
+@keyframes settingsTabScan {
+  from {
+    background-position: -80% 0, 0 0, 0 0;
+  }
+
+  to {
+    background-position: 140% 0, 38px 0, 0 0;
+  }
+}
+
+@keyframes settingsIconTrace {
+  0% {
+    stroke-dashoffset: 42;
+    opacity: 0.6;
+  }
+
+  55% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+
+  100% {
+    stroke-dashoffset: -42;
+    opacity: 0.62;
+  }
+}
+
+@keyframes settingsIconBlink {
+  0%,
+  100% {
+    opacity: 0.62;
+  }
+
+  48% {
+    opacity: 1;
+  }
+}
+
+@keyframes settingsIconPulse {
+  0%,
+  100% {
+    opacity: 0.68;
+    transform: scale(0.96);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+}
+
 @media (max-width: 1180px) {
   .settings-screen > .settings-layout-shell {
       width: min(100%, 940px);
@@ -6326,7 +6579,11 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
     }
 
   .settings-tab-button {
-      flex: 0 0 190px;
+      flex: 0 0 170px;
+    }
+
+  .settings-content-grid-audio > .settings-group-card:nth-child(3) .settings-grid {
+      grid-template-columns: 1fr;
     }
 }
 
@@ -6364,14 +6621,11 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
       opacity: 0.12;
     }
 
-  .settings-facet-a,
+    .settings-facet-a,
     .settings-facet-b,
     .settings-facet-c,
     .settings-facet-d,
-    .settings-circuit,
-    .settings-sine-wave,
-    .settings-midi-plug,
-    .settings-timer-pulse {
+    .settings-midi-plug {
       display: none;
     }
 
@@ -6433,6 +6687,14 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
     .settings-screen *::after {
       animation: none !important;
       transition-duration: 0.01ms !important;
+    }
+
+  .settings-score-note,
+    .settings-tab-wave,
+    .settings-tab-note,
+    .settings-tab-pulse {
+      opacity: 0.7;
+      transform: none !important;
     }
 }
 
