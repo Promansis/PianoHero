@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import {
   DEFAULT_INSTRUMENT_ID,
   getInstrumentDefinition,
@@ -462,6 +462,16 @@ export function SettingsScreen({
   const [showLatencyWizard, setShowLatencyWizard] = useState(false);
   const [samplePackFileCount, setSamplePackFileCount] = useState(0);
   const [activePackActionInstrumentId, setActivePackActionInstrumentId] = useState<string | null>(null);
+  const [settingsSavePulse, setSettingsSavePulse] = useState(0);
+  const savePulseTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (savePulseTimerRef.current !== null) {
+        window.clearTimeout(savePulseTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const load = async () => {
@@ -562,6 +572,14 @@ export function SettingsScreen({
     await window.appBridge?.setSetting(category, key, value);
     setIsSaving(false);
     setStatusMessage('Settings saved.');
+    setSettingsSavePulse((current) => current + 1);
+    if (savePulseTimerRef.current !== null) {
+      window.clearTimeout(savePulseTimerRef.current);
+    }
+    savePulseTimerRef.current = window.setTimeout(() => {
+      setSettingsSavePulse(0);
+      savePulseTimerRef.current = null;
+    }, 360);
   };
 
   const browseSamplePack = async () => {
@@ -713,7 +731,12 @@ export function SettingsScreen({
               <p className="eyebrow">Settings</p>
               <h1>{TAB_LABELS[activeTab]}</h1>
             </div>
-            <p>{statusMessage}</p>
+            <p
+              key={statusMessage}
+              className={`settings-status-message${isSaving ? ' settings-status-message-saving' : ''}`}
+            >
+              {statusMessage}
+            </p>
           </div>
 
           <section className="settings-tab-row" role="tablist" aria-label="Settings sections">
@@ -744,6 +767,7 @@ export function SettingsScreen({
 
         {activeTab === 'audio' && (
           <div
+            key="settings-tabpanel-audio"
             className="settings-content-grid settings-content-grid-audio"
             role="tabpanel"
             id="settings-panel-audio"
@@ -995,6 +1019,7 @@ export function SettingsScreen({
 
         {activeTab === 'visual' && (
           <div
+            key="settings-tabpanel-visual"
             className="settings-content-grid settings-content-grid-visual"
             role="tabpanel"
             id="settings-panel-visual"
@@ -1144,6 +1169,7 @@ export function SettingsScreen({
 
         {activeTab === 'gameplay' && (
           <div
+            key="settings-tabpanel-gameplay"
             className="settings-content-grid settings-content-grid-gameplay"
             role="tabpanel"
             id="settings-panel-gameplay"
@@ -1202,6 +1228,7 @@ export function SettingsScreen({
 
         {activeTab === 'input' && (
           <div
+            key="settings-tabpanel-input"
             className="settings-content-grid settings-content-grid-input"
             role="tabpanel"
             id="settings-panel-input"
@@ -1269,6 +1296,7 @@ export function SettingsScreen({
 
         {activeTab === 'practice' && (
           <div
+            key="settings-tabpanel-practice"
             className="settings-content-grid settings-content-grid-practice"
             role="tabpanel"
             id="settings-panel-practice"
@@ -1311,7 +1339,10 @@ export function SettingsScreen({
 
             <SettingsGroupCard title="Save Status">
               <div className="settings-grid settings-grid-single">
-                <article className="settings-note-card">
+                <article
+                  key={settingsSavePulse}
+                  className={`settings-note-card settings-save-status-card${isSaving ? ' settings-save-status-card-saving' : ''}${settingsSavePulse > 0 ? ' settings-save-status-card-saved' : ''}`}
+                >
                   <span>Save Status</span>
                   <strong>{isSaving ? 'Saving...' : 'All changes saved'}</strong>
                 </article>

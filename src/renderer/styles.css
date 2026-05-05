@@ -5192,6 +5192,9 @@ select:focus {
   --settings-deck-bg: color-mix(in oklch, var(--settings-void) 70%, transparent);
   --settings-panel-line: color-mix(in oklch, var(--settings-neon-cyan) 26%, transparent);
   --settings-active-accent: var(--settings-neon-cyan);
+  --settings-ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --settings-ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+  --settings-ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
   isolation: isolate;
   height: 100vh;
@@ -5615,8 +5618,12 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(18px);
   clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
-  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
-  animation: heroEntrance 620ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition:
+    transform 160ms var(--settings-ease-out-quart),
+    border-color 160ms var(--settings-ease-out-quart),
+    box-shadow 160ms var(--settings-ease-out-quart),
+    background 160ms var(--settings-ease-out-quart);
+  animation: settingsTabReveal 360ms var(--settings-ease-out-quint) both;
   animation-delay: var(--entrance-delay, 0ms);
 }
 
@@ -5657,6 +5664,11 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
     0 18px 58px rgba(0, 0, 0, 0.34),
     0 0 32px color-mix(in srgb, var(--settings-tab-accent) 22%, transparent),
     inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+.settings-tab-button:active {
+  transform: translateY(0) scale(0.985);
+  transition-duration: 90ms;
 }
 
 .settings-tab-button:hover::after,
@@ -5789,6 +5801,14 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   text-align: right;
 }
 
+.settings-status-message {
+  animation: settingsStatusUpdate 220ms var(--settings-ease-out-quart) both;
+}
+
+.settings-status-message-saving {
+  color: color-mix(in srgb, var(--settings-active-accent) 68%, #fff8ec);
+}
+
 .settings-content-grid {
   display: grid;
   min-height: 0;
@@ -5800,6 +5820,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   padding: 2px 4px 6px 2px;
   scrollbar-color: color-mix(in srgb, var(--settings-active-accent) 48%, rgba(255, 255, 255, 0.18)) transparent;
   scrollbar-width: thin;
+  animation: settingsPanelSwitch 210ms var(--settings-ease-out-quint) both;
 }
 
 .settings-content-grid::-webkit-scrollbar {
@@ -5869,9 +5890,14 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   box-shadow:
     0 18px 46px rgba(0, 0, 0, 0.18),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  animation: heroEntrance 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: settingsGroupReveal 280ms var(--settings-ease-out-quint) both;
   backdrop-filter: blur(5px);
   clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  transition:
+    transform 160ms var(--settings-ease-out-quart),
+    border-color 160ms var(--settings-ease-out-quart),
+    box-shadow 160ms var(--settings-ease-out-quart),
+    background 160ms var(--settings-ease-out-quart);
 }
 
 .settings-group-card::before,
@@ -5918,6 +5944,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 }
 
 .settings-group-card:hover {
+  transform: translateY(-1px);
   border-color: color-mix(in srgb, var(--settings-active-accent) 32%, rgba(255, 255, 255, 0.16));
   box-shadow:
     0 20px 54px rgba(0, 0, 0, 0.24),
@@ -5925,11 +5952,11 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
     inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
-.settings-content-grid > .settings-group-card:nth-child(1) { animation-delay: 120ms; }
-.settings-content-grid > .settings-group-card:nth-child(2) { animation-delay: 180ms; }
-.settings-content-grid > .settings-group-card:nth-child(3) { animation-delay: 240ms; }
-.settings-content-grid > .settings-group-card:nth-child(4) { animation-delay: 300ms; }
-.settings-content-grid > .settings-group-card:nth-child(5) { animation-delay: 360ms; }
+.settings-content-grid > .settings-group-card:nth-child(1) { animation-delay: 30ms; }
+.settings-content-grid > .settings-group-card:nth-child(2) { animation-delay: 60ms; }
+.settings-content-grid > .settings-group-card:nth-child(3) { animation-delay: 90ms; }
+.settings-content-grid > .settings-group-card:nth-child(4) { animation-delay: 120ms; }
+.settings-content-grid > .settings-group-card:nth-child(5) { animation-delay: 150ms; }
 
 .settings-group-header {
   display: grid;
@@ -6020,6 +6047,12 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
     0 0 0 transparent;
+  transition:
+    transform 140ms var(--settings-ease-out-quart),
+    border-color 140ms var(--settings-ease-out-quart),
+    box-shadow 140ms var(--settings-ease-out-quart),
+    background-color 140ms var(--settings-ease-out-quart),
+    opacity 140ms var(--settings-ease-out-quart);
 }
 
 .settings-screen select {
@@ -6045,6 +6078,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   outline: 3px solid color-mix(in srgb, var(--settings-active-accent) 34%, transparent);
   outline-offset: 2px;
   border-color: color-mix(in srgb, var(--settings-active-accent) 72%, #ffffff);
+  transform: translateY(-1px);
   box-shadow:
     0 0 22px color-mix(in srgb, var(--settings-active-accent) 24%, transparent),
     inset 0 1px 0 rgba(255, 255, 255, 0.16);
@@ -6083,6 +6117,15 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   border-radius: 6px;
   background: linear-gradient(180deg, #fff8ec, color-mix(in srgb, var(--settings-active-accent) 78%, #fff8ec));
   box-shadow: 0 0 14px color-mix(in srgb, var(--settings-active-accent) 38%, transparent);
+  transition:
+    transform 140ms var(--settings-ease-out-quart),
+    box-shadow 140ms var(--settings-ease-out-quart),
+    border-color 140ms var(--settings-ease-out-quart);
+}
+
+.settings-screen input[type="range"]:focus::-webkit-slider-thumb {
+  transform: scale(1.12);
+  box-shadow: 0 0 24px color-mix(in srgb, var(--settings-active-accent) 48%, transparent);
 }
 
 .settings-screen input[type="range"]::-moz-range-track {
@@ -6147,6 +6190,26 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
     linear-gradient(145deg, color-mix(in srgb, var(--settings-active-accent) 5%, transparent), transparent 60%),
     rgba(0, 8, 20, 0.58);
   clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+  transition:
+    transform 160ms var(--settings-ease-out-quart),
+    border-color 160ms var(--settings-ease-out-quart),
+    box-shadow 160ms var(--settings-ease-out-quart),
+    background 160ms var(--settings-ease-out-quart);
+}
+
+.settings-note-card:has(button:hover),
+.settings-note-card:has(button:focus-visible) {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--settings-active-accent) 34%, rgba(255, 255, 255, 0.14));
+  box-shadow: 0 0 20px color-mix(in srgb, var(--settings-active-accent) 10%, transparent);
+}
+
+.settings-save-status-card-saving {
+  border-color: color-mix(in srgb, var(--settings-active-accent) 44%, rgba(255, 255, 255, 0.16));
+}
+
+.settings-save-status-card-saved {
+  animation: settingsSavedPulse 340ms var(--settings-ease-out-expo) both;
 }
 
 .settings-note-card strong {
@@ -6198,7 +6261,19 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   justify-content: center;
   gap: 8px;
   clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
-  transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease, background 150ms ease, opacity 150ms ease;
+  transition:
+    transform 150ms var(--settings-ease-out-quart),
+    border-color 150ms var(--settings-ease-out-quart),
+    box-shadow 150ms var(--settings-ease-out-quart),
+    background 150ms var(--settings-ease-out-quart),
+    opacity 150ms var(--settings-ease-out-quart);
+}
+
+.settings-screen .primary-button:not(:disabled):active,
+.settings-screen .secondary-button:not(:disabled):active,
+.settings-screen .danger-button:not(:disabled):active {
+  transform: translateY(0) scale(0.975);
+  transition-duration: 80ms;
 }
 
 .settings-button-icon {
@@ -6295,6 +6370,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
     radial-gradient(circle at 50% 24%, color-mix(in srgb, var(--settings-active-accent, #18ddff) 18%, transparent), transparent 34%),
     rgba(0, 0, 0, 0.68);
   backdrop-filter: blur(8px);
+  animation: settingsOverlayIn 170ms var(--settings-ease-out-quart) both;
 }
 
 .latency-wizard-panel,
@@ -6310,6 +6386,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
     0 28px 88px rgba(0, 0, 0, 0.5),
     0 0 44px color-mix(in srgb, var(--settings-active-accent, #18ddff) 18%, transparent);
   clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  animation: settingsModalIn 210ms var(--settings-ease-out-quint) both;
 }
 
 .latency-wizard-body {
@@ -6341,6 +6418,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   background: var(--settings-active-accent, #18ddff);
   border-color: var(--settings-active-accent, #18ddff);
   box-shadow: 0 0 18px color-mix(in srgb, var(--settings-active-accent, #18ddff) 42%, transparent);
+  animation: settingsDotFill 180ms var(--settings-ease-out-expo) both;
 }
 
 .latency-tap-btn {
@@ -6462,6 +6540,106 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 
   to {
     background-position: 0 -112px;
+  }
+}
+
+@keyframes settingsTabReveal {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes settingsPanelSwitch {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes settingsGroupReveal {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes settingsStatusUpdate {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes settingsSavedPulse {
+  0% {
+    transform: scale(0.992);
+    border-color: color-mix(in srgb, var(--settings-active-accent) 28%, rgba(255, 255, 255, 0.12));
+    box-shadow: 0 0 0 color-mix(in srgb, var(--settings-active-accent) 0%, transparent);
+  }
+
+  45% {
+    transform: scale(1.01);
+    border-color: color-mix(in srgb, var(--settings-neon-teal) 64%, #ffffff);
+    box-shadow: 0 0 28px color-mix(in srgb, var(--settings-neon-teal) 24%, transparent);
+  }
+
+  100% {
+    transform: scale(1);
+    border-color: color-mix(in srgb, var(--settings-active-accent) 20%, rgba(255, 255, 255, 0.1));
+    box-shadow: 0 0 0 color-mix(in srgb, var(--settings-active-accent) 0%, transparent);
+  }
+}
+
+@keyframes settingsOverlayIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes settingsModalIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes settingsDotFill {
+  from {
+    transform: scale(0.8);
+  }
+
+  to {
+    transform: scale(1);
   }
 }
 
