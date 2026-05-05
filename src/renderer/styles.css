@@ -5333,8 +5333,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 }
 
 .settings-light,
-.settings-facet,
-.settings-score-lines {
+.settings-facet {
   position: absolute;
   display: block;
   pointer-events: none;
@@ -5410,165 +5409,6 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   background: linear-gradient(135deg, color-mix(in oklch, var(--settings-neon-hot-pink) 18%, transparent), transparent 60%);
   opacity: 0.48;
   transform: rotate(-28deg);
-}
-
-.settings-score-lines {
-  left: -10%;
-  right: -10%;
-  bottom: 0;
-  height: 118px;
-  overflow: hidden;
-  background:
-    repeating-linear-gradient(
-      180deg,
-      transparent 0 17px,
-      color-mix(in oklch, var(--settings-neon-cyan) 24%, transparent) 17px 19px,
-      transparent 19px 28px
-  );
-  mask-image: linear-gradient(90deg, transparent, black 16%, black 74%, transparent);
-  opacity: 0.2;
-  transform: rotate(-4deg);
-  animation: settingsStaffDrift 12s linear infinite;
-}
-
-.settings-score-lines::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(90deg, transparent, color-mix(in oklch, var(--settings-neon-magenta) 18%, transparent), transparent 34%),
-    linear-gradient(90deg, transparent 28%, color-mix(in oklch, var(--settings-neon-orange) 16%, transparent), transparent 62%),
-    linear-gradient(90deg, transparent 58%, color-mix(in oklch, var(--settings-neon-cyan) 18%, transparent), transparent);
-  opacity: 0.72;
-  animation: settingsScoreGlowSweep 12s linear infinite;
-}
-
-.settings-score-note {
-  position: absolute;
-  top: var(--note-lane);
-  left: var(--note-left);
-  color: var(--note-color);
-  font-family: var(--font-display);
-  font-size: var(--note-size);
-  font-weight: 800;
-  line-height: 1;
-  text-shadow:
-    0 0 8px color-mix(in oklch, var(--note-color) 78%, transparent),
-    0 0 22px color-mix(in oklch, var(--note-color) 42%, transparent),
-    0 0 42px color-mix(in oklch, var(--note-color) 20%, transparent);
-  opacity: 0;
-  animation:
-    settingsScoreNoteScroll 12s linear infinite,
-    settingsScoreNotePulse 1.5s cubic-bezier(0.65, 0, 0.35, 1) infinite;
-  animation-delay: var(--note-delay), var(--note-pulse-delay);
-}
-
-.settings-score-note-1 {
-  --note-lane: 17px;
-  --note-left: 13%;
-  --note-size: 2.35rem;
-  --note-color: var(--settings-neon-magenta);
-  --note-delay: -10.8s;
-  --note-pulse-delay: 0ms;
-}
-
-.settings-score-note-2 {
-  --note-lane: 45px;
-  --note-left: 25%;
-  --note-size: 1.7rem;
-  --note-color: var(--settings-neon-orange);
-  --note-delay: -9.2s;
-  --note-pulse-delay: 160ms;
-}
-
-.settings-score-note-3 {
-  --note-lane: 73px;
-  --note-left: 38%;
-  --note-size: 2.05rem;
-  --note-color: var(--settings-neon-cyan);
-  --note-delay: -7.6s;
-  --note-pulse-delay: 320ms;
-}
-
-.settings-score-note-4 {
-  --note-lane: 17px;
-  --note-left: 49%;
-  --note-size: 1.5rem;
-  --note-color: var(--settings-neon-gold);
-  --note-delay: -6.1s;
-  --note-pulse-delay: 480ms;
-}
-
-.settings-score-note-5 {
-  --note-lane: 73px;
-  --note-left: 61%;
-  --note-size: 2.4rem;
-  --note-color: var(--settings-neon-hot-pink);
-  --note-delay: -4.7s;
-  --note-pulse-delay: 640ms;
-}
-
-.settings-score-note-6 {
-  --note-lane: 45px;
-  --note-left: 72%;
-  --note-size: 1.85rem;
-  --note-color: var(--settings-electric-blue);
-  --note-delay: -3.2s;
-  --note-pulse-delay: 800ms;
-}
-
-.settings-score-note-7 {
-  --note-lane: 17px;
-  --note-left: 82%;
-  --note-size: 1.65rem;
-  --note-color: var(--settings-neon-teal);
-  --note-delay: -1.7s;
-  --note-pulse-delay: 960ms;
-}
-
-.settings-score-note-8 {
-  --note-lane: 73px;
-  --note-left: 91%;
-  --note-size: 2.15rem;
-  --note-color: var(--settings-neon-coral);
-  --note-delay: -0.4s;
-  --note-pulse-delay: 1120ms;
-}
-
-.settings-midi-plug {
-  position: absolute;
-  display: block;
-  pointer-events: none;
-  color: var(--settings-neon-blue);
-  opacity: 0.26;
-  filter:
-    drop-shadow(0 0 7px color-mix(in oklch, currentColor 52%, transparent))
-    drop-shadow(0 0 16px color-mix(in oklch, currentColor 24%, transparent));
-}
-
-.settings-midi-plug path,
-.settings-midi-plug circle {
-  stroke: currentColor;
-  stroke-width: 3.2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  vector-effect: non-scaling-stroke;
-}
-
-.settings-midi-plug circle:not(:first-of-type) {
-  fill: currentColor;
-  stroke-width: 0;
-}
-
-.settings-midi-plug circle:first-of-type {
-  fill: color-mix(in oklch, currentColor 8%, transparent);
-}
-
-.settings-midi-plug {
-  right: 7%;
-  top: 36%;
-  width: 116px;
-  color: var(--settings-electric-blue);
 }
 
 .settings-screen > .settings-layout-shell {
@@ -6605,16 +6445,6 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   align-self: flex-start;
 }
 
-@keyframes settingsStaffDrift {
-  from {
-    background-position: 0 0;
-  }
-
-  to {
-    background-position: 0 -112px;
-  }
-}
-
 @keyframes settingsTabReveal {
   from {
     opacity: 0;
@@ -6712,47 +6542,6 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 
   to {
     transform: scale(1);
-  }
-}
-
-@keyframes settingsScoreGlowSweep {
-  from {
-    transform: translateX(-18%);
-  }
-
-  to {
-    transform: translateX(18%);
-  }
-}
-
-@keyframes settingsScoreNoteScroll {
-  0% {
-    opacity: 0;
-    transform: translateY(112px) scale(0.9) rotate(-3deg);
-  }
-
-  12% {
-    opacity: 0.88;
-  }
-
-  72% {
-    opacity: 0.9;
-  }
-
-  100% {
-    opacity: 0;
-    transform: translateY(-112px) scale(1.02) rotate(3deg);
-  }
-}
-
-@keyframes settingsScoreNotePulse {
-  0%,
-  100% {
-    filter: brightness(0.9) saturate(1.1);
-  }
-
-  50% {
-    filter: brightness(1.35) saturate(1.45);
   }
 }
 
@@ -6874,8 +6663,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
     .settings-facet-a,
     .settings-facet-b,
     .settings-facet-c,
-    .settings-facet-d,
-    .settings-midi-plug {
+    .settings-facet-d {
       display: none;
     }
 
@@ -6939,8 +6727,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
       transition-duration: 0.01ms !important;
     }
 
-  .settings-score-note,
-    .settings-tab-wave,
+  .settings-tab-wave,
     .settings-tab-note,
     .settings-tab-pulse {
       opacity: 0.7;

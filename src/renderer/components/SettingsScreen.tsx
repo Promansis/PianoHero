@@ -288,22 +288,6 @@ function SettingsNeonBackdrop() {
       <span className="settings-facet settings-facet-b" />
       <span className="settings-facet settings-facet-c" />
       <span className="settings-facet settings-facet-d" />
-      <span className="settings-score-lines">
-        {['♪', '♫', '♬', '♩', '♪', '♬', '♫', '♪'].map((note, index) => (
-          <span key={`${note}-${index}`} className={`settings-score-note settings-score-note-${index + 1}`}>
-            {note}
-          </span>
-        ))}
-      </span>
-      <svg className="settings-midi-plug" viewBox="0 0 120 120" fill="none">
-        <circle cx="60" cy="58" r="42" />
-        <circle cx="42" cy="48" r="4" />
-        <circle cx="60" cy="40" r="4" />
-        <circle cx="78" cy="48" r="4" />
-        <circle cx="48" cy="72" r="4" />
-        <circle cx="72" cy="72" r="4" />
-        <path d="M42 100h36" />
-      </svg>
     </div>
   );
 }
