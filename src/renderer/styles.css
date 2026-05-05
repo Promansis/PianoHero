@@ -5189,6 +5189,17 @@ select:focus {
   --settings-neon-orange: oklch(76% 0.2 48);
   --settings-neon-coral: oklch(73% 0.2 29);
   --settings-electric-blue: oklch(72% 0.2 247);
+  --settings-ink: oklch(97% 0.012 88);
+  --settings-muted-ink: oklch(86% 0.025 267 / 0.72);
+  --settings-quiet-ink: oklch(78% 0.026 267 / 0.62);
+  --settings-success: oklch(75% 0.16 154);
+  --settings-danger: oklch(73% 0.2 29);
+  --settings-warning: oklch(83% 0.18 76);
+  --settings-info: oklch(82% 0.17 214);
+  --settings-card-accent: var(--settings-active-accent);
+  --settings-note-accent: var(--settings-card-accent);
+  --settings-surface-wash: color-mix(in oklch, var(--settings-card-accent) 8%, transparent);
+  --settings-surface-line: color-mix(in oklch, var(--settings-card-accent) 28%, oklch(94% 0.018 88 / 0.12));
   --settings-deck-bg: color-mix(in oklch, var(--settings-void) 70%, transparent);
   --settings-panel-line: color-mix(in oklch, var(--settings-neon-cyan) 26%, transparent);
   --settings-active-accent: var(--settings-neon-cyan);
@@ -5204,7 +5215,7 @@ select:focus {
   grid-template-rows: minmax(0, 1fr);
   gap: 10px;
   padding: 66px clamp(18px, 3vw, 32px) 18px;
-  color: #fbf8ff;
+  color: var(--settings-ink);
   font-family: var(--font-body);
   font-kerning: normal;
   text-rendering: optimizeLegibility;
@@ -5246,11 +5257,11 @@ body:has(.settings-screen) .app-topbar-brand.immersive-hud-item {
 }
 
 body:has(.settings-screen) .app-topbar-brand span {
-  color: rgba(255, 211, 111, 0.74);
+  color: color-mix(in oklch, var(--settings-neon-gold) 74%, var(--settings-ink));
 }
 
 body:has(.settings-screen) .app-topbar-brand strong {
-  color: #fff8ec;
+  color: var(--settings-ink);
 }
 
 body:has(.settings-screen) .immersive-hud-nav-btn {
@@ -5259,7 +5270,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn {
   background:
     linear-gradient(135deg, rgba(24, 221, 255, 0.08), transparent 58%),
     color-mix(in srgb, var(--settings-deck-bg) 90%, transparent);
-  color: rgba(251, 248, 255, 0.8);
+  color: color-mix(in oklch, var(--settings-ink) 80%, transparent);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
   clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
 }
@@ -5276,12 +5287,12 @@ body:has(.settings-screen) .immersive-hud-nav-btn:focus-visible {
 }
 
 body:has(.settings-screen) .immersive-hud-nav-btn.active {
-  border-color: rgba(255, 122, 138, 0.56);
+  border-color: color-mix(in oklch, var(--settings-danger) 58%, oklch(94% 0.018 88 / 0.16));
   background:
-    linear-gradient(135deg, rgba(255, 122, 138, 0.24), rgba(244, 92, 255, 0.14)),
-    color-mix(in srgb, var(--settings-deck-bg) 96%, rgba(255, 122, 138, 0.06));
+    linear-gradient(135deg, color-mix(in oklch, var(--settings-danger) 24%, transparent), color-mix(in oklch, var(--settings-neon-magenta) 14%, transparent)),
+    color-mix(in oklch, var(--settings-deck-bg) 96%, color-mix(in oklch, var(--settings-danger) 6%, transparent));
   box-shadow:
-    0 0 22px rgba(255, 122, 138, 0.16),
+    0 0 22px color-mix(in oklch, var(--settings-danger) 18%, transparent),
     inset 0 1px 0 rgba(255, 255, 255, 0.14);
 }
 
@@ -5570,8 +5581,44 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 }
 
 .settings-group-card .eyebrow {
-  color: color-mix(in srgb, var(--settings-active-accent) 76%, #fff6dc);
-  text-shadow: 0 0 22px color-mix(in srgb, var(--settings-active-accent) 36%, transparent);
+  color: color-mix(in oklch, var(--settings-card-accent) 72%, var(--settings-ink));
+  text-shadow: 0 0 22px color-mix(in oklch, var(--settings-card-accent) 34%, transparent);
+}
+
+.settings-accent-audio {
+  --settings-card-accent: var(--settings-neon-gold);
+}
+
+.settings-accent-visual {
+  --settings-card-accent: var(--settings-neon-magenta);
+}
+
+.settings-accent-gameplay {
+  --settings-card-accent: var(--settings-neon-coral);
+}
+
+.settings-accent-input {
+  --settings-card-accent: var(--settings-info);
+}
+
+.settings-accent-practice {
+  --settings-card-accent: var(--settings-success);
+}
+
+.settings-accent-danger {
+  --settings-card-accent: var(--settings-danger);
+}
+
+.settings-accent-info {
+  --settings-card-accent: var(--settings-info);
+}
+
+.settings-accent-success {
+  --settings-card-accent: var(--settings-success);
+}
+
+.settings-accent-warning {
+  --settings-card-accent: var(--settings-warning);
 }
 
 .settings-layout-shell {
@@ -5659,7 +5706,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   background:
     linear-gradient(135deg, color-mix(in srgb, var(--settings-tab-accent) 19%, transparent), transparent 58%),
     var(--settings-deck-bg);
-  color: #fff8ec;
+  color: var(--settings-ink);
   box-shadow:
     0 18px 58px rgba(0, 0, 0, 0.34),
     0 0 32px color-mix(in srgb, var(--settings-tab-accent) 22%, transparent),
@@ -5678,7 +5725,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 }
 
 .settings-tab-button:focus-visible {
-  outline: 3px solid color-mix(in srgb, var(--settings-tab-accent) 78%, #ffffff);
+  outline: 3px solid color-mix(in oklch, var(--settings-tab-accent) 78%, var(--settings-ink));
   outline-offset: 3px;
 }
 
@@ -5693,7 +5740,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   background:
     radial-gradient(circle at 35% 24%, rgba(255, 255, 255, 0.18), transparent 42%),
     color-mix(in srgb, var(--settings-tab-accent) 18%, rgba(255, 255, 255, 0.08));
-  color: color-mix(in srgb, var(--settings-tab-accent) 86%, #ffffff);
+  color: color-mix(in oklch, var(--settings-tab-accent) 84%, var(--settings-ink));
   box-shadow: 0 0 22px color-mix(in srgb, var(--settings-tab-accent) 22%, transparent);
 }
 
@@ -5727,7 +5774,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   font-weight: 800;
   letter-spacing: 0.09em;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--settings-tab-accent) 72%, #fff6dc);
+  color: color-mix(in oklch, var(--settings-tab-accent) 72%, var(--settings-ink));
 }
 
 .settings-tab-copy span:last-child {
@@ -5779,12 +5826,12 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 
 .settings-panel-status .eyebrow {
   margin-bottom: 2px;
-  color: color-mix(in srgb, var(--settings-active-accent) 76%, #fff6dc);
+  color: color-mix(in oklch, var(--settings-active-accent) 76%, var(--settings-ink));
 }
 
 .settings-panel-status h1 {
   margin: 0;
-  color: #fff8ec;
+  color: var(--settings-ink);
   font-family: var(--font-display);
   font-size: var(--settings-type-route);
   font-weight: 800;
@@ -5794,7 +5841,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 .settings-panel-status > p {
   max-width: 54ch;
   margin: 0;
-  color: rgba(251, 248, 255, 0.7);
+  color: var(--settings-muted-ink);
   font-size: var(--settings-type-caption);
   font-weight: 500;
   line-height: 1.4;
@@ -5806,7 +5853,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 }
 
 .settings-status-message-saving {
-  color: color-mix(in srgb, var(--settings-active-accent) 68%, #fff8ec);
+  color: color-mix(in oklch, var(--settings-active-accent) 68%, var(--settings-ink));
 }
 
 .settings-content-grid {
@@ -5880,12 +5927,13 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   gap: var(--settings-gap-sm);
   align-content: start;
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--settings-active-accent) 24%, rgba(255, 255, 255, 0.1));
+  border: 1px solid var(--settings-surface-line);
   border-radius: 8px;
   padding: var(--settings-gap-md);
   background:
-    linear-gradient(145deg, color-mix(in srgb, var(--settings-active-accent) 6%, transparent), transparent 44%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.048), rgba(24, 221, 255, 0.012)),
+    radial-gradient(circle at 92% 10%, color-mix(in oklch, var(--settings-card-accent) 13%, transparent), transparent 34%),
+    linear-gradient(145deg, var(--settings-surface-wash), transparent 44%),
+    linear-gradient(180deg, oklch(98% 0.01 88 / 0.05), color-mix(in oklch, var(--settings-card-accent) 2%, transparent)),
     color-mix(in srgb, var(--settings-deck-bg) 76%, transparent);
   box-shadow:
     0 18px 46px rgba(0, 0, 0, 0.18),
@@ -5914,8 +5962,8 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   background: conic-gradient(
     from var(--glow-angle),
     transparent 0deg,
-    color-mix(in srgb, var(--settings-active-accent) 80%, #ffffff) 76deg,
-    rgba(255, 255, 255, 0.28) 118deg,
+    color-mix(in oklch, var(--settings-card-accent) 78%, var(--settings-ink)) 76deg,
+    oklch(95% 0.014 88 / 0.28) 118deg,
     transparent 174deg,
     transparent 360deg
   );
@@ -5933,9 +5981,9 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 
 .settings-group-card::after {
   background:
-    linear-gradient(90deg, color-mix(in srgb, var(--settings-active-accent) 44%, transparent), transparent 18px),
-    radial-gradient(circle at top right, color-mix(in srgb, var(--settings-active-accent) 10%, transparent), transparent 46%);
-  opacity: 0.2;
+    linear-gradient(135deg, color-mix(in oklch, var(--settings-card-accent) 14%, transparent), transparent 34%),
+    radial-gradient(circle at top right, color-mix(in oklch, var(--settings-card-accent) 12%, transparent), transparent 46%);
+  opacity: 0.34;
 }
 
 .settings-group-card > * {
@@ -5945,10 +5993,10 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 
 .settings-group-card:hover {
   transform: translateY(-1px);
-  border-color: color-mix(in srgb, var(--settings-active-accent) 32%, rgba(255, 255, 255, 0.16));
+  border-color: color-mix(in oklch, var(--settings-card-accent) 38%, oklch(94% 0.018 88 / 0.18));
   box-shadow:
     0 20px 54px rgba(0, 0, 0, 0.24),
-    0 0 24px color-mix(in srgb, var(--settings-active-accent) 8%, transparent),
+    0 0 24px color-mix(in oklch, var(--settings-card-accent) 12%, transparent),
     inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
@@ -5968,7 +6016,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 
 .settings-group-header h2 {
   margin: 0;
-  color: color-mix(in srgb, var(--settings-active-accent) 32%, #fff8ec);
+  color: color-mix(in oklch, var(--settings-card-accent) 30%, var(--settings-ink));
   font-family: var(--font-display);
   font-size: var(--settings-type-title);
   font-weight: 800;
@@ -5981,7 +6029,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   display: none;
   max-width: 58ch;
   margin: 0;
-  color: rgba(251, 248, 255, 0.7);
+  color: var(--settings-muted-ink);
   font-size: var(--settings-type-body);
   line-height: 1.5;
 }
@@ -5993,9 +6041,9 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 
 .settings-group-footer {
   margin: 0;
-  border-top: 1px solid color-mix(in srgb, var(--settings-active-accent) 16%, rgba(255, 255, 255, 0.08));
+  border-top: 1px solid color-mix(in oklch, var(--settings-card-accent) 18%, oklch(94% 0.018 88 / 0.1));
   padding-top: 7px;
-  color: rgba(251, 248, 255, 0.66);
+  color: var(--settings-quiet-ink);
   font-size: var(--settings-type-caption);
   font-weight: 500;
   line-height: 1.42;
@@ -6026,7 +6074,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   letter-spacing: 0.075em;
   line-height: 1.05;
   text-transform: uppercase;
-  color: rgba(251, 248, 255, 0.64);
+  color: color-mix(in oklch, var(--settings-note-accent) 28%, var(--settings-quiet-ink));
 }
 
 .settings-screen input,
@@ -6034,12 +6082,12 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   width: 100%;
   min-height: 36px;
   padding: 0 11px;
-  border: 1px solid color-mix(in srgb, var(--settings-active-accent) 24%, rgba(255, 255, 255, 0.12));
+  border: 1px solid color-mix(in oklch, var(--settings-card-accent) 24%, oklch(94% 0.018 88 / 0.12));
   border-radius: 8px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(24, 221, 255, 0.014)),
-    rgba(0, 8, 20, 0.74);
-  color: #fbf8ff;
+    linear-gradient(180deg, oklch(98% 0.01 88 / 0.045), color-mix(in oklch, var(--settings-card-accent) 2%, transparent)),
+    oklch(13% 0.044 263 / 0.82);
+  color: var(--settings-ink);
   font-family: var(--font-body);
   font-size: var(--settings-type-control);
   font-weight: 500;
@@ -6059,9 +6107,9 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   appearance: none;
   padding-right: 36px;
   background-image:
-    linear-gradient(45deg, transparent 50%, var(--settings-active-accent) 50%),
-    linear-gradient(135deg, var(--settings-active-accent) 50%, transparent 50%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(24, 221, 255, 0.014));
+    linear-gradient(45deg, transparent 50%, var(--settings-card-accent) 50%),
+    linear-gradient(135deg, var(--settings-card-accent) 50%, transparent 50%),
+    linear-gradient(180deg, oklch(98% 0.01 88 / 0.045), color-mix(in oklch, var(--settings-card-accent) 2%, transparent));
   background-position:
     calc(100% - 18px) 50%,
     calc(100% - 12px) 50%,
@@ -6075,12 +6123,12 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 
 .settings-screen input:focus,
 .settings-screen select:focus {
-  outline: 3px solid color-mix(in srgb, var(--settings-active-accent) 34%, transparent);
+  outline: 3px solid color-mix(in oklch, var(--settings-card-accent) 34%, transparent);
   outline-offset: 2px;
-  border-color: color-mix(in srgb, var(--settings-active-accent) 72%, #ffffff);
+  border-color: color-mix(in oklch, var(--settings-card-accent) 72%, var(--settings-ink));
   transform: translateY(-1px);
   box-shadow:
-    0 0 22px color-mix(in srgb, var(--settings-active-accent) 24%, transparent),
+    0 0 22px color-mix(in oklch, var(--settings-card-accent) 24%, transparent),
     inset 0 1px 0 rgba(255, 255, 255, 0.16);
 }
 
@@ -6095,17 +6143,17 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   border: 0;
   background: transparent;
   box-shadow: none;
-  accent-color: var(--settings-active-accent);
+  accent-color: var(--settings-card-accent);
 }
 
 .settings-screen input[type="range"]::-webkit-slider-runnable-track {
   height: 8px;
-  border: 1px solid color-mix(in srgb, var(--settings-active-accent) 28%, rgba(255, 255, 255, 0.1));
+  border: 1px solid color-mix(in oklch, var(--settings-card-accent) 28%, oklch(94% 0.018 88 / 0.1));
   border-radius: 999px;
   background:
-    linear-gradient(90deg, color-mix(in srgb, var(--settings-active-accent) 26%, transparent), transparent),
-    rgba(0, 8, 20, 0.82);
-  box-shadow: 0 0 12px color-mix(in srgb, var(--settings-active-accent) 10%, transparent);
+    linear-gradient(90deg, color-mix(in oklch, var(--settings-card-accent) 32%, transparent), transparent),
+    oklch(13% 0.044 263 / 0.86);
+  box-shadow: 0 0 12px color-mix(in oklch, var(--settings-card-accent) 10%, transparent);
 }
 
 .settings-screen input[type="range"]::-webkit-slider-thumb {
@@ -6113,10 +6161,10 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   width: 20px;
   height: 20px;
   margin-top: -7px;
-  border: 1px solid color-mix(in srgb, var(--settings-active-accent) 72%, #ffffff);
+  border: 1px solid color-mix(in oklch, var(--settings-card-accent) 72%, var(--settings-ink));
   border-radius: 6px;
-  background: linear-gradient(180deg, #fff8ec, color-mix(in srgb, var(--settings-active-accent) 78%, #fff8ec));
-  box-shadow: 0 0 14px color-mix(in srgb, var(--settings-active-accent) 38%, transparent);
+  background: linear-gradient(180deg, var(--settings-ink), color-mix(in oklch, var(--settings-card-accent) 76%, var(--settings-ink)));
+  box-shadow: 0 0 14px color-mix(in oklch, var(--settings-card-accent) 38%, transparent);
   transition:
     transform 140ms var(--settings-ease-out-quart),
     box-shadow 140ms var(--settings-ease-out-quart),
@@ -6125,35 +6173,35 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 
 .settings-screen input[type="range"]:focus::-webkit-slider-thumb {
   transform: scale(1.12);
-  box-shadow: 0 0 24px color-mix(in srgb, var(--settings-active-accent) 48%, transparent);
+  box-shadow: 0 0 24px color-mix(in oklch, var(--settings-card-accent) 48%, transparent);
 }
 
 .settings-screen input[type="range"]::-moz-range-track {
   height: 8px;
-  border: 1px solid color-mix(in srgb, var(--settings-active-accent) 28%, rgba(255, 255, 255, 0.1));
+  border: 1px solid color-mix(in oklch, var(--settings-card-accent) 28%, oklch(94% 0.018 88 / 0.1));
   border-radius: 999px;
-  background: rgba(0, 8, 20, 0.82);
+  background: oklch(13% 0.044 263 / 0.86);
 }
 
 .settings-screen input[type="range"]::-moz-range-thumb {
   width: 20px;
   height: 20px;
-  border: 1px solid color-mix(in srgb, var(--settings-active-accent) 72%, #ffffff);
+  border: 1px solid color-mix(in oklch, var(--settings-card-accent) 72%, var(--settings-ink));
   border-radius: 6px;
-  background: linear-gradient(180deg, #fff8ec, color-mix(in srgb, var(--settings-active-accent) 78%, #fff8ec));
-  box-shadow: 0 0 14px color-mix(in srgb, var(--settings-active-accent) 38%, transparent);
+  background: linear-gradient(180deg, var(--settings-ink), color-mix(in oklch, var(--settings-card-accent) 76%, var(--settings-ink)));
+  box-shadow: 0 0 14px color-mix(in oklch, var(--settings-card-accent) 38%, transparent);
 }
 
 .settings-screen input[type="color"] {
   width: min(100%, 104px);
   height: 44px;
   padding: 4px;
-  border-color: color-mix(in srgb, var(--settings-active-accent) 44%, rgba(255, 255, 255, 0.14));
+  border-color: color-mix(in oklch, var(--settings-card-accent) 44%, oklch(94% 0.018 88 / 0.14));
   background:
-    linear-gradient(135deg, color-mix(in srgb, var(--settings-active-accent) 16%, transparent), transparent 58%),
+    linear-gradient(135deg, color-mix(in oklch, var(--settings-card-accent) 16%, transparent), transparent 58%),
     color-mix(in srgb, var(--settings-deck-bg) 92%, transparent);
   box-shadow:
-    0 0 20px color-mix(in srgb, var(--settings-active-accent) 16%, transparent),
+    0 0 20px color-mix(in oklch, var(--settings-card-accent) 16%, transparent),
     inset 0 1px 0 rgba(255, 255, 255, 0.12);
   cursor: pointer;
 }
@@ -6167,7 +6215,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   border-radius: 5px;
   box-shadow:
     inset 0 0 0 1px rgba(0, 0, 0, 0.34),
-    0 0 14px color-mix(in srgb, var(--settings-active-accent) 28%, transparent);
+    0 0 14px color-mix(in oklch, var(--settings-card-accent) 28%, transparent);
 }
 
 .settings-screen input[type="color"]::-moz-color-swatch {
@@ -6175,20 +6223,22 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   border-radius: 5px;
   box-shadow:
     inset 0 0 0 1px rgba(0, 0, 0, 0.34),
-    0 0 14px color-mix(in srgb, var(--settings-active-accent) 28%, transparent);
+    0 0 14px color-mix(in oklch, var(--settings-card-accent) 28%, transparent);
 }
 
 .settings-note-card {
+  --settings-note-accent: var(--settings-card-accent);
   display: grid;
   align-content: center;
   gap: var(--settings-gap-xs);
   min-width: 0;
-  border: 1px solid color-mix(in srgb, var(--settings-active-accent) 20%, rgba(255, 255, 255, 0.1));
+  border: 1px solid color-mix(in oklch, var(--settings-note-accent) 24%, oklch(94% 0.018 88 / 0.1));
   border-radius: 6px;
   padding: 10px;
   background:
-    linear-gradient(145deg, color-mix(in srgb, var(--settings-active-accent) 5%, transparent), transparent 60%),
-    rgba(0, 8, 20, 0.58);
+    radial-gradient(circle at 90% 12%, color-mix(in oklch, var(--settings-note-accent) 10%, transparent), transparent 34%),
+    linear-gradient(145deg, color-mix(in oklch, var(--settings-note-accent) 8%, transparent), transparent 60%),
+    oklch(13% 0.044 263 / 0.66);
   clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
   transition:
     transform 160ms var(--settings-ease-out-quart),
@@ -6200,12 +6250,32 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 .settings-note-card:has(button:hover),
 .settings-note-card:has(button:focus-visible) {
   transform: translateY(-1px);
-  border-color: color-mix(in srgb, var(--settings-active-accent) 34%, rgba(255, 255, 255, 0.14));
-  box-shadow: 0 0 20px color-mix(in srgb, var(--settings-active-accent) 10%, transparent);
+  border-color: color-mix(in oklch, var(--settings-note-accent) 38%, oklch(94% 0.018 88 / 0.14));
+  box-shadow: 0 0 20px color-mix(in oklch, var(--settings-note-accent) 12%, transparent);
+}
+
+.settings-note-audio {
+  --settings-note-accent: var(--settings-neon-gold);
+}
+
+.settings-note-info {
+  --settings-note-accent: var(--settings-info);
+}
+
+.settings-note-success {
+  --settings-note-accent: var(--settings-success);
+}
+
+.settings-note-danger {
+  --settings-note-accent: var(--settings-danger);
 }
 
 .settings-save-status-card-saving {
-  border-color: color-mix(in srgb, var(--settings-active-accent) 44%, rgba(255, 255, 255, 0.16));
+  border-color: color-mix(in oklch, var(--settings-warning) 50%, oklch(94% 0.018 88 / 0.16));
+  background:
+    radial-gradient(circle at 90% 12%, color-mix(in oklch, var(--settings-warning) 14%, transparent), transparent 34%),
+    linear-gradient(145deg, color-mix(in oklch, var(--settings-warning) 10%, transparent), transparent 60%),
+    oklch(13% 0.044 263 / 0.68);
 }
 
 .settings-save-status-card-saved {
@@ -6215,7 +6285,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 .settings-note-card strong {
   display: block;
   margin-top: 0;
-  color: #fff8ec;
+  color: var(--settings-ink);
   font-family: var(--font-body);
   font-size: var(--settings-type-body);
   font-weight: 650;
@@ -6224,7 +6294,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 }
 
 .settings-note-card em {
-  color: rgba(251, 248, 255, 0.6);
+  color: var(--settings-quiet-ink);
   font-size: var(--settings-type-caption);
   line-height: 1.38;
 }
@@ -6285,63 +6355,63 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 }
 
 .settings-screen .secondary-button {
-  border: 1px solid color-mix(in srgb, var(--settings-active-accent) 28%, rgba(255, 255, 255, 0.12));
+  border: 1px solid color-mix(in oklch, var(--settings-card-accent) 28%, oklch(94% 0.018 88 / 0.12));
   background:
-    linear-gradient(135deg, color-mix(in srgb, var(--settings-active-accent) 14%, transparent), transparent 60%),
+    linear-gradient(135deg, color-mix(in oklch, var(--settings-card-accent) 14%, transparent), transparent 60%),
     color-mix(in srgb, var(--settings-deck-bg) 90%, transparent);
-  color: #fbf8ff;
+  color: var(--settings-ink);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .settings-screen .primary-button {
-  border: 1px solid color-mix(in srgb, var(--settings-active-accent) 70%, #ffffff);
-  background: linear-gradient(135deg, var(--settings-active-accent), color-mix(in srgb, var(--settings-active-accent) 58%, #ffffff));
-  color: #06101c;
-  box-shadow: 0 0 26px color-mix(in srgb, var(--settings-active-accent) 36%, transparent);
+  border: 1px solid color-mix(in oklch, var(--settings-card-accent) 70%, var(--settings-ink));
+  background: linear-gradient(135deg, var(--settings-card-accent), color-mix(in oklch, var(--settings-card-accent) 58%, var(--settings-ink)));
+  color: oklch(17% 0.045 263);
+  box-shadow: 0 0 26px color-mix(in oklch, var(--settings-card-accent) 36%, transparent);
 }
 
 .settings-screen .secondary-button:not(:disabled):hover,
 .settings-screen .primary-button:not(:disabled):hover {
   transform: translateY(-2px);
-  border-color: color-mix(in srgb, var(--settings-active-accent) 62%, #ffffff);
+  border-color: color-mix(in oklch, var(--settings-card-accent) 62%, var(--settings-ink));
   box-shadow:
-    0 0 30px color-mix(in srgb, var(--settings-active-accent) 26%, transparent),
+    0 0 30px color-mix(in oklch, var(--settings-card-accent) 26%, transparent),
     inset 0 1px 0 rgba(255, 255, 255, 0.14);
 }
 
 .settings-screen .danger-button {
-  border: 1px solid color-mix(in srgb, var(--settings-neon-coral) 54%, rgba(255, 255, 255, 0.12));
+  border: 1px solid color-mix(in oklch, var(--settings-danger) 54%, oklch(94% 0.018 88 / 0.12));
   background:
-    linear-gradient(135deg, rgba(255, 122, 138, 0.22), rgba(244, 92, 255, 0.12)),
-    rgba(28, 4, 20, 0.72);
-  color: #fff8ec;
-  box-shadow: 0 0 24px rgba(255, 122, 138, 0.16);
+    linear-gradient(135deg, color-mix(in oklch, var(--settings-danger) 26%, transparent), color-mix(in oklch, var(--settings-neon-magenta) 12%, transparent)),
+    oklch(17% 0.07 351 / 0.74);
+  color: var(--settings-ink);
+  box-shadow: 0 0 24px color-mix(in oklch, var(--settings-danger) 18%, transparent);
 }
 
 .settings-screen .danger-button:not(:disabled):hover {
   transform: translateY(-2px);
-  border-color: color-mix(in srgb, var(--settings-neon-coral) 74%, #ffffff);
+  border-color: color-mix(in oklch, var(--settings-danger) 74%, var(--settings-ink));
   background:
-    linear-gradient(135deg, rgba(255, 122, 138, 0.3), rgba(244, 92, 255, 0.18)),
-    rgba(36, 4, 24, 0.82);
+    linear-gradient(135deg, color-mix(in oklch, var(--settings-danger) 34%, transparent), color-mix(in oklch, var(--settings-neon-magenta) 18%, transparent)),
+    oklch(19% 0.072 351 / 0.84);
 }
 
 .settings-screen .primary-button:focus-visible,
 .settings-screen .secondary-button:focus-visible,
 .settings-screen .danger-button:focus-visible {
-  outline: 3px solid color-mix(in srgb, var(--settings-active-accent) 78%, #ffffff);
+  outline: 3px solid color-mix(in oklch, var(--settings-card-accent) 78%, var(--settings-ink));
   outline-offset: 4px;
   box-shadow:
-    0 0 0 8px color-mix(in srgb, var(--settings-active-accent) 20%, transparent),
-    0 0 34px color-mix(in srgb, var(--settings-active-accent) 26%, transparent),
+    0 0 0 8px color-mix(in oklch, var(--settings-card-accent) 20%, transparent),
+    0 0 34px color-mix(in oklch, var(--settings-card-accent) 26%, transparent),
     inset 0 1px 0 rgba(255, 255, 255, 0.14);
 }
 
 .settings-screen .danger-button:focus-visible {
-  outline-color: color-mix(in srgb, var(--settings-neon-coral) 82%, #ffffff);
+  outline-color: color-mix(in oklch, var(--settings-danger) 82%, var(--settings-ink));
   box-shadow:
-    0 0 0 8px rgba(255, 122, 138, 0.18),
-    0 0 34px rgba(255, 122, 138, 0.3);
+    0 0 0 8px color-mix(in oklch, var(--settings-danger) 20%, transparent),
+    0 0 34px color-mix(in oklch, var(--settings-danger) 32%, transparent);
 }
 
 .latency-comp-row {
@@ -6367,8 +6437,8 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   justify-content: center;
   padding: 18px;
   background:
-    radial-gradient(circle at 50% 24%, color-mix(in srgb, var(--settings-active-accent, #18ddff) 18%, transparent), transparent 34%),
-    rgba(0, 0, 0, 0.68);
+    radial-gradient(circle at 50% 24%, color-mix(in oklch, var(--settings-active-accent, var(--settings-info)) 18%, transparent), transparent 34%),
+    oklch(6% 0.026 268 / 0.72);
   backdrop-filter: blur(8px);
   animation: settingsOverlayIn 170ms var(--settings-ease-out-quart) both;
 }
@@ -6378,13 +6448,13 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   display: grid;
   gap: 12px;
   border-radius: 8px;
-  border-color: color-mix(in srgb, var(--settings-active-accent, #18ddff) 34%, rgba(255, 255, 255, 0.12));
+  border-color: color-mix(in oklch, var(--settings-active-accent, var(--settings-info)) 34%, oklch(94% 0.018 88 / 0.12));
   background:
-    linear-gradient(145deg, color-mix(in srgb, var(--settings-active-accent, #18ddff) 12%, transparent), transparent 48%),
-    rgba(2, 10, 28, 0.92);
+    linear-gradient(145deg, color-mix(in oklch, var(--settings-active-accent, var(--settings-info)) 12%, transparent), transparent 48%),
+    oklch(13% 0.044 263 / 0.94);
   box-shadow:
     0 28px 88px rgba(0, 0, 0, 0.5),
-    0 0 44px color-mix(in srgb, var(--settings-active-accent, #18ddff) 18%, transparent);
+    0 0 44px color-mix(in oklch, var(--settings-active-accent, var(--settings-info)) 18%, transparent);
   clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
   animation: settingsModalIn 210ms var(--settings-ease-out-quint) both;
 }
@@ -6396,7 +6466,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 
 .latency-wizard-current {
   font-size: 0.9rem;
-  color: rgba(251, 248, 255, 0.7);
+  color: var(--settings-muted-ink);
 }
 
 .latency-wizard-progress {
@@ -6409,15 +6479,15 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   width: 22px;
   height: 22px;
   border-radius: 6px;
-  border: 2px solid color-mix(in srgb, var(--settings-active-accent, #18ddff) 40%, transparent);
+  border: 2px solid color-mix(in oklch, var(--settings-active-accent, var(--settings-info)) 40%, transparent);
   background: transparent;
   transition: background 0.12s ease, border-color 0.12s ease;
 }
 
 .latency-wizard-dot.filled {
-  background: var(--settings-active-accent, #18ddff);
-  border-color: var(--settings-active-accent, #18ddff);
-  box-shadow: 0 0 18px color-mix(in srgb, var(--settings-active-accent, #18ddff) 42%, transparent);
+  background: var(--settings-active-accent, var(--settings-info));
+  border-color: var(--settings-active-accent, var(--settings-info));
+  box-shadow: 0 0 18px color-mix(in oklch, var(--settings-active-accent, var(--settings-info)) 42%, transparent);
   animation: settingsDotFill 180ms var(--settings-ease-out-expo) both;
 }
 
@@ -6433,18 +6503,18 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   justify-content: space-between;
   padding: 16px 20px;
   border-radius: 8px;
-  background: rgba(0, 8, 20, 0.68);
-  border: 1px solid color-mix(in srgb, var(--settings-active-accent, #18ddff) 22%, rgba(255, 255, 255, 0.1));
+  background: oklch(13% 0.044 263 / 0.7);
+  border: 1px solid color-mix(in oklch, var(--settings-active-accent, var(--settings-info)) 24%, oklch(94% 0.018 88 / 0.1));
 }
 
 .latency-wizard-result strong {
   font-size: 1.4rem;
-  color: var(--settings-active-accent, #18ddff);
+  color: var(--settings-card-accent, var(--settings-info));
 }
 
 .latency-wizard-hint {
   font-size: 0.85rem;
-  color: rgba(251, 248, 255, 0.66);
+  color: var(--settings-quiet-ink);
 }
 
 .latency-wizard-actions,
@@ -6467,34 +6537,36 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 .keyboard-size-thumbnail {
   flex-shrink: 0;
   display: block;
-  color: var(--settings-active-accent);
-  filter: drop-shadow(0 0 12px color-mix(in srgb, var(--settings-active-accent) 34%, transparent));
+  color: var(--settings-card-accent);
+  filter: drop-shadow(0 0 12px color-mix(in oklch, var(--settings-card-accent) 34%, transparent));
   transition: height 0.15s ease;
 }
 
 .settings-danger-zone {
-  --settings-active-accent: var(--settings-neon-coral);
-  border-color: rgba(255, 122, 138, 0.32);
+  --settings-card-accent: var(--settings-danger);
+  border-color: color-mix(in oklch, var(--settings-danger) 40%, oklch(94% 0.018 88 / 0.12));
   background:
-    linear-gradient(145deg, rgba(255, 122, 138, 0.12), rgba(244, 92, 255, 0.045) 58%, transparent),
-    rgba(24, 4, 20, 0.76);
+    radial-gradient(circle at 92% 8%, color-mix(in oklch, var(--settings-warning) 10%, transparent), transparent 36%),
+    linear-gradient(145deg, color-mix(in oklch, var(--settings-danger) 15%, transparent), color-mix(in oklch, var(--settings-neon-magenta) 5%, transparent) 58%, transparent),
+    oklch(17% 0.062 351 / 0.78);
 }
 
 .settings-danger-card {
+  --settings-note-accent: var(--settings-danger);
   position: relative;
   gap: 14px;
-  border-color: color-mix(in oklch, var(--settings-neon-orange) 30%, var(--settings-neon-coral));
+  border-color: color-mix(in oklch, var(--settings-warning) 30%, var(--settings-danger));
   background:
-    radial-gradient(circle at 88% 12%, color-mix(in oklch, var(--settings-neon-orange) 14%, transparent), transparent 38%),
-    linear-gradient(145deg, rgba(255, 122, 138, 0.08), transparent 58%),
-    rgba(24, 4, 20, 0.58);
+    radial-gradient(circle at 88% 12%, color-mix(in oklch, var(--settings-warning) 14%, transparent), transparent 38%),
+    linear-gradient(145deg, color-mix(in oklch, var(--settings-danger) 10%, transparent), transparent 58%),
+    oklch(17% 0.062 351 / 0.62);
 }
 
 .settings-warning-icon {
   width: 28px;
   height: 28px;
-  color: var(--settings-neon-coral);
-  filter: drop-shadow(0 0 10px rgba(255, 122, 138, 0.28));
+  color: var(--settings-danger);
+  filter: drop-shadow(0 0 10px color-mix(in oklch, var(--settings-danger) 32%, transparent));
 }
 
 .settings-modal-warning-icon {
@@ -6519,13 +6591,13 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   gap: 10px;
   padding: 12px;
   border-radius: 8px;
-  background: rgba(255, 122, 138, 0.1);
-  border: 1px solid rgba(255, 122, 138, 0.3);
+  background: color-mix(in oklch, var(--settings-danger) 12%, transparent);
+  border: 1px solid color-mix(in oklch, var(--settings-danger) 34%, transparent);
 }
 
 .settings-confirm-row span {
   font-size: 0.85rem;
-  color: rgba(251, 248, 255, 0.68);
+  color: var(--settings-muted-ink);
 }
 
 .settings-confirm-row .danger-button,
@@ -6594,20 +6666,20 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 @keyframes settingsSavedPulse {
   0% {
     transform: scale(0.992);
-    border-color: color-mix(in srgb, var(--settings-active-accent) 28%, rgba(255, 255, 255, 0.12));
-    box-shadow: 0 0 0 color-mix(in srgb, var(--settings-active-accent) 0%, transparent);
+    border-color: color-mix(in oklch, var(--settings-success) 28%, oklch(94% 0.018 88 / 0.12));
+    box-shadow: 0 0 0 color-mix(in oklch, var(--settings-success) 0%, transparent);
   }
 
   45% {
     transform: scale(1.01);
-    border-color: color-mix(in srgb, var(--settings-neon-teal) 64%, #ffffff);
-    box-shadow: 0 0 28px color-mix(in srgb, var(--settings-neon-teal) 24%, transparent);
+    border-color: color-mix(in oklch, var(--settings-success) 64%, var(--settings-ink));
+    box-shadow: 0 0 28px color-mix(in oklch, var(--settings-success) 24%, transparent);
   }
 
   100% {
     transform: scale(1);
-    border-color: color-mix(in srgb, var(--settings-active-accent) 20%, rgba(255, 255, 255, 0.1));
-    box-shadow: 0 0 0 color-mix(in srgb, var(--settings-active-accent) 0%, transparent);
+    border-color: color-mix(in oklch, var(--settings-success) 24%, oklch(94% 0.018 88 / 0.1));
+    box-shadow: 0 0 0 color-mix(in oklch, var(--settings-success) 0%, transparent);
   }
 }
 

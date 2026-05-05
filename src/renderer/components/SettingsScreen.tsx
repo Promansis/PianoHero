@@ -65,6 +65,7 @@ interface SettingsScreenProps {
 }
 
 type SettingsTab = 'audio' | 'visual' | 'gameplay' | 'input' | 'practice';
+type SettingsAccent = SettingsTab | 'danger' | 'info' | 'success' | 'warning';
 
 type SettingsValues = Record<string, string>;
 
@@ -406,6 +407,7 @@ interface SettingsGroupCardProps {
   footer?: string;
   children: ReactNode;
   className?: string;
+  accent?: SettingsAccent;
 }
 
 function SettingsGroupCard({
@@ -415,9 +417,12 @@ function SettingsGroupCard({
   footer,
   children,
   className,
+  accent,
 }: SettingsGroupCardProps) {
+  const accentClassName = accent ? ` settings-accent-${accent}` : '';
+
   return (
-    <article className={`settings-group-card${className ? ` ${className}` : ''}`}>
+    <article className={`settings-group-card${accentClassName}${className ? ` ${className}` : ''}`}>
       <div className="settings-group-header">
         <div>
           {eyebrow ? <p className="eyebrow">{eyebrow}</p> : null}
@@ -773,7 +778,7 @@ export function SettingsScreen({
             id="settings-panel-audio"
             aria-labelledby="settings-tab-audio"
           >
-            <SettingsGroupCard eyebrow="Audio" title="Instrument" description="Choose the default voice for playback and practice.">
+            <SettingsGroupCard eyebrow="Audio" title="Instrument" description="Choose the default voice for playback and practice." accent="audio">
               <div className="settings-grid">
                 <label>
                   <span>Instrument</span>
@@ -800,7 +805,7 @@ export function SettingsScreen({
                     })}
                   </select>
                 </label>
-                <article className="settings-note-card">
+                <article className="settings-note-card settings-note-audio">
                   <span>Instrument Notes</span>
                   <strong>
                     {(() => {
@@ -822,6 +827,7 @@ export function SettingsScreen({
 
             <SettingsGroupCard
               title="Volume & Effects"
+              accent="audio"
               footer={
                 !isRewardUnlocked('audio:pitch-bend', unlockedRewardIds)
                   ? 'Unlock Music Theorist rewards to turn pitch bend on or off.'
@@ -887,7 +893,7 @@ export function SettingsScreen({
               </div>
             </SettingsGroupCard>
 
-            <SettingsGroupCard title="Metronome" footer="Set how loud the click is and which sound it uses during songs and drills.">
+            <SettingsGroupCard title="Metronome" footer="Set how loud the click is and which sound it uses during songs and drills." accent="warning">
               <div className="settings-grid">
                 <label>
                   <span>Metronome Volume</span>
@@ -914,7 +920,7 @@ export function SettingsScreen({
               </div>
             </SettingsGroupCard>
 
-            <SettingsGroupCard title="Input Delay" footer="Use calibration if notes sound early or late when you play.">
+            <SettingsGroupCard title="Input Delay" footer="Use calibration if notes sound early or late when you play." accent="input">
               <div className="settings-grid settings-grid-single">
                 <div className="latency-comp-row">
                   <label>
@@ -938,10 +944,10 @@ export function SettingsScreen({
               </div>
             </SettingsGroupCard>
 
-            <SettingsGroupCard title="Instrument Sounds" footer="Install higher quality sounds or choose a desktop sample folder.">
+            <SettingsGroupCard title="Instrument Sounds" footer="Install higher quality sounds or choose a desktop sample folder." accent="info">
               <div className="settings-grid">
                 {selectedInstrumentPackStatus ? (
-                  <article className="settings-note-card">
+                  <article className="settings-note-card settings-note-info">
                     <span>Selected Instrument</span>
                     <strong>
                       {selectedInstrumentPackStatus.isInstalled
@@ -979,13 +985,13 @@ export function SettingsScreen({
                     <em>{selectedInstrumentPackStatus.statusMessage}</em>
                   </article>
                 ) : (
-                  <article className="settings-note-card">
+                  <article className="settings-note-card settings-note-info">
                     <span>Instrument Sounds</span>
                     <strong>No extra sound controls are available for this instrument.</strong>
                   </article>
                 )}
                 {!IS_WEB ? (
-                  <article className="settings-note-card">
+                  <article className="settings-note-card settings-note-info">
                     <span>Custom Sound Folder</span>
                     {samplePackPath ? (
                       <strong>{samplePackPath} ({samplePackFileCount} file{samplePackFileCount !== 1 ? 's' : ''})</strong>
@@ -1007,7 +1013,7 @@ export function SettingsScreen({
                     <em>Files should be named by note, for example A0.mp3, C1.mp3, Ds1.mp3, or Fs1.mp3.</em>
                   </article>
                 ) : (
-                  <article className="settings-note-card">
+                  <article className="settings-note-card settings-note-info">
                     <span>Custom Sound Folder</span>
                     <strong>Custom sound folders are available in the desktop app.</strong>
                   </article>
@@ -1028,6 +1034,7 @@ export function SettingsScreen({
             <SettingsGroupCard
               eyebrow="Visual"
               title="Appearance"
+              accent="visual"
               footer={
                 isRewardUnlocked('theme:neon', unlockedRewardIds)
                   ? 'Neon theme is ready to use.'
@@ -1062,7 +1069,7 @@ export function SettingsScreen({
               </div>
             </SettingsGroupCard>
 
-            <SettingsGroupCard title="Labels & Keyboard" footer={`Falling notes appear ${values['visual.beatsVisible']} beats before you play them.`}>
+            <SettingsGroupCard title="Labels & Keyboard" footer={`Falling notes appear ${values['visual.beatsVisible']} beats before you play them.`} accent="visual">
               <div className="settings-grid">
                 <label>
                   <span>Note Labels</span>
@@ -1126,7 +1133,7 @@ export function SettingsScreen({
               </div>
             </SettingsGroupCard>
 
-            <SettingsGroupCard title="Hand Colors" footer="Clear a hand color to use the current theme color.">
+            <SettingsGroupCard title="Hand Colors" footer="Clear a hand color to use the current theme color." accent="info">
               <div className="settings-grid">
                 <label>
                   <span>Left Hand Color</span>
@@ -1175,7 +1182,7 @@ export function SettingsScreen({
             id="settings-panel-gameplay"
             aria-labelledby="settings-tab-gameplay"
           >
-            <SettingsGroupCard eyebrow="Gameplay" title="New Session Defaults" footer="These choices apply each time you start a new song.">
+            <SettingsGroupCard eyebrow="Gameplay" title="New Session Defaults" footer="These choices apply each time you start a new song." accent="gameplay">
               <div className="settings-grid">
                 <label>
                   <span>Start With Wait Mode</span>
@@ -1234,7 +1241,7 @@ export function SettingsScreen({
             id="settings-panel-input"
             aria-labelledby="settings-tab-input"
           >
-            <SettingsGroupCard eyebrow="Input" title="Keyboard Input" footer={`Currently listening for: ${inputMode === 'both' ? 'MIDI keyboard and computer keyboard' : inputMode === 'midi' ? 'MIDI keyboard only' : 'computer keyboard only'}.`}>
+            <SettingsGroupCard eyebrow="Input" title="Keyboard Input" footer={`Currently listening for: ${inputMode === 'both' ? 'MIDI keyboard and computer keyboard' : inputMode === 'midi' ? 'MIDI keyboard only' : 'computer keyboard only'}.`} accent="input">
               <div className="settings-grid">
                 <label>
                   <span>Play Notes With</span>
@@ -1266,7 +1273,7 @@ export function SettingsScreen({
                   </select>
                 </label>
                 {midiError ? (
-                  <article className="settings-note-card">
+                  <article className="settings-note-card settings-note-danger">
                     <span>MIDI Connection</span>
                     <strong>LumaKeys cannot access your MIDI keyboard. Check browser or system permission, then try again.</strong>
                     <button className="secondary-button" onClick={onRetryMidi} style={{ marginTop: '0.5rem' }}>
@@ -1275,7 +1282,7 @@ export function SettingsScreen({
                     </button>
                   </article>
                 ) : (
-                  <article className="settings-note-card">
+                  <article className="settings-note-card settings-note-success">
                     <span>Connected Keyboard</span>
                     <strong>{selectedMidiDeviceName}</strong>
                   </article>
@@ -1283,7 +1290,7 @@ export function SettingsScreen({
               </div>
             </SettingsGroupCard>
 
-            <SettingsGroupCard title="Computer Keyboard Layout" footer="Change which computer keys play each piano note.">
+            <SettingsGroupCard title="Computer Keyboard Layout" footer="Change which computer keys play each piano note." accent="input">
               <div className="settings-grid settings-grid-single">
                 <button className="secondary-button" onClick={onOpenKeyboardSetup}>
                   <SettingsActionIcon icon="keyboard" />
@@ -1302,7 +1309,7 @@ export function SettingsScreen({
             id="settings-panel-practice"
             aria-labelledby="settings-tab-practice"
           >
-            <SettingsGroupCard eyebrow="Practice" title="Goals & Reminders" footer="Set the daily goal to 0 to turn goal tracking off.">
+            <SettingsGroupCard eyebrow="Practice" title="Goals & Reminders" footer="Set the daily goal to 0 to turn goal tracking off." accent="practice">
               <div className="settings-grid">
                 <label>
                   <span>Daily Goal (minutes)</span>
@@ -1337,11 +1344,11 @@ export function SettingsScreen({
               </div>
             </SettingsGroupCard>
 
-            <SettingsGroupCard title="Save State">
+            <SettingsGroupCard title="Save State" accent="success">
               <div className="settings-grid settings-grid-single">
                 <article
                   key={settingsSavePulse}
-                  className={`settings-note-card settings-save-status-card${isSaving ? ' settings-save-status-card-saving' : ''}${settingsSavePulse > 0 ? ' settings-save-status-card-saved' : ''}`}
+                  className={`settings-note-card settings-note-success settings-save-status-card${isSaving ? ' settings-save-status-card-saving' : ''}${settingsSavePulse > 0 ? ' settings-save-status-card-saved' : ''}`}
                 >
                   <span>Changes</span>
                   <strong>{isSaving ? 'Saving...' : 'All changes saved'}</strong>
@@ -1353,6 +1360,7 @@ export function SettingsScreen({
               title="Reset Options"
               description="These actions remove progress or data. Each one asks for confirmation before it runs."
               className="settings-danger-zone"
+              accent="danger"
             >
               <div className="settings-danger-actions">
                 <article className="settings-note-card settings-danger-card">
