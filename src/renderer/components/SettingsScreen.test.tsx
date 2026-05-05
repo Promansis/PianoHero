@@ -54,9 +54,9 @@ describe('SettingsScreen', () => {
     );
 
     fireEvent.click(await screen.findByText('Practice'));
-    fireEvent.click(screen.getByRole('button', { name: 'Reset Learning Progress' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Clear Learning Progress' }));
 
-    expect(screen.getByRole('button', { name: 'Yes, Reset Progress' })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Clear Learning Progress' })).toHaveLength(2);
 
     // Click cancel — reset should NOT fire
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
@@ -98,12 +98,12 @@ describe('SettingsScreen', () => {
     expect(screen.getByRole('button', { name: 'Calibrate…' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('tab', { name: 'Input' }));
-    expect(screen.getByRole('button', { name: 'Open Keyboard Mapping' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Edit Key Layout' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('tab', { name: 'Practice' }));
-    expect(screen.getByRole('button', { name: 'Reset Learning Progress' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Reset Learning Progress' }));
-    expect(screen.getByRole('button', { name: 'Yes, Reset Progress' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Clear Learning Progress' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Clear Learning Progress' }));
+    expect(screen.getAllByRole('button', { name: 'Clear Learning Progress' })).toHaveLength(2);
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
   });
 
@@ -129,8 +129,8 @@ describe('SettingsScreen', () => {
     );
 
     fireEvent.click(await screen.findByText('Practice'));
-    fireEvent.click(screen.getByRole('button', { name: 'Reset Learning Progress' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Yes, Reset Progress' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Clear Learning Progress' }));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Clear Learning Progress' })[1]);
 
     await waitFor(() => {
       expect(resetLearningProgress).toHaveBeenCalledOnce();
@@ -259,12 +259,12 @@ describe('SettingsScreen', () => {
     );
 
     fireEvent.click(await screen.findByText('Practice'));
-    fireEvent.click(screen.getByRole('button', { name: 'Unlock All Developer Content' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Unlock Test Content' }));
 
-    expect(screen.getByRole('button', { name: 'Yes, Unlock Everything' })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Unlock Test Content' })).toHaveLength(2);
     expect(developerUnlockAll).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Yes, Unlock Everything' }));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Unlock Test Content' })[1]);
 
     await waitFor(() => {
       expect(developerUnlockAll).toHaveBeenCalledOnce();

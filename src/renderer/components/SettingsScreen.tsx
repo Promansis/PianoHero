@@ -375,8 +375,8 @@ function ConfirmActionModal({
 }: ConfirmActionModalProps) {
   return (
     <div className="settings-modal-backdrop" role="presentation">
-      <section className="panel settings-modal" role="dialog" aria-modal="true" aria-label="Confirm reset">
-        <p className="eyebrow">Confirm Reset</p>
+      <section className="panel settings-modal" role="dialog" aria-modal="true" aria-label="Confirm action">
+        <p className="eyebrow">Confirm Action</p>
         <svg className="settings-warning-icon settings-modal-warning-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
           <path d="M12 3 22 20H2z" />
           <path d="M12 9v5" />
@@ -387,7 +387,7 @@ function ConfirmActionModal({
         <div className="settings-modal-actions">
           <button className="danger-button" disabled={busy} onClick={onConfirm}>
             <SettingsActionIcon icon="trash" />
-            {busy ? 'Resetting...' : confirmLabel}
+            {busy ? 'Working...' : confirmLabel}
           </button>
           <button className="secondary-button" onClick={onCancel}>
             <SettingsActionIcon icon="x" />
@@ -508,7 +508,7 @@ export function SettingsScreen({
         setSamplePackFileCount(files.length);
       }
 
-      setStatusMessage('Settings loaded.');
+      setStatusMessage('Ready. Changes save automatically.');
       setIsLoading(false);
     };
 
@@ -568,10 +568,10 @@ export function SettingsScreen({
     setValues((current) => ({ ...current, [getSettingKey(category, key)]: value }));
     onSettingChange(category, key, value);
     setIsSaving(true);
-    setStatusMessage('Saving settings...');
+    setStatusMessage('Saving changes...');
     await window.appBridge?.setSetting(category, key, value);
     setIsSaving(false);
-    setStatusMessage('Settings saved.');
+    setStatusMessage('Changes saved.');
     setSettingsSavePulse((current) => current + 1);
     if (savePulseTimerRef.current !== null) {
       window.clearTimeout(savePulseTimerRef.current);
@@ -608,10 +608,10 @@ export function SettingsScreen({
     setSamplePackFileCount(0);
     await window.appBridge?.setSetting('audio', 'customSamplePackPath', '');
     onSettingChange('audio', 'customSamplePackPath', '');
-    setStatusMessage('Custom sample pack cleared. Using built-in instruments.');
+    setStatusMessage('Custom sample folder cleared. Built-in instruments are active.');
     toastBus.push({
       variant: 'info',
-      title: 'Sample pack cleared',
+      title: 'Sample folder cleared',
       message: 'Built-in instrument sounds are active again.',
     });
   };
@@ -622,7 +622,7 @@ export function SettingsScreen({
     }
 
     setIsResetting(true);
-    setStatusMessage('Resetting user data...');
+    setStatusMessage('Deleting songs, history, and saved settings...');
 
     try {
       await window.appBridge.resetUserData();
@@ -631,19 +631,19 @@ export function SettingsScreen({
       setSamplePackPath(null);
       setSamplePackFileCount(0);
       setResetTarget(null);
-      setStatusMessage('User data reset. The app is back to defaults.');
+      setStatusMessage('All user data was deleted. LumaKeys is back to defaults.');
       onUserDataReset();
       toastBus.push({
-        variant: 'success',
-        title: 'User data reset',
-        message: 'Songs, history, and saved settings were cleared.',
+        variant: 'info',
+        title: 'User data deleted',
+        message: 'Songs, history, and saved settings were removed.',
       });
     } catch {
-      setStatusMessage('Reset failed. Your data was not fully cleared.');
+      setStatusMessage('Delete failed. Some data may still be saved.');
       toastBus.push({
         variant: 'error',
-        title: 'Reset failed',
-        message: 'Your data was not fully cleared. Please try again.',
+        title: 'Delete failed',
+        message: 'Some data may still be saved. Try again before sharing this device.',
       });
     } finally {
       setIsResetting(false);
@@ -656,24 +656,24 @@ export function SettingsScreen({
     }
 
     setIsResettingProgress(true);
-    setStatusMessage('Resetting learning progress...');
+    setStatusMessage('Clearing lesson progress and practice history...');
 
     try {
       await window.appBridge.resetLearningProgress();
-      setStatusMessage('Learning progress reset. Your library and settings were kept.');
+      setStatusMessage('Learning progress cleared. Your songs and settings were kept.');
       setResetTarget(null);
       onLearningProgressReset();
       toastBus.push({
         variant: 'success',
-        title: 'Learning progress reset',
+        title: 'Learning progress cleared',
         message: 'Lessons, achievements, and practice history were cleared.',
       });
     } catch {
-      setStatusMessage('Progress reset failed. Your history was not fully cleared.');
+      setStatusMessage('Progress reset failed. Some history may still be saved.');
       toastBus.push({
         variant: 'error',
         title: 'Progress reset failed',
-        message: 'Your history was not fully cleared.',
+        message: 'Some lesson or practice history may still be saved. Please try again.',
       });
     } finally {
       setIsResettingProgress(false);
@@ -682,23 +682,23 @@ export function SettingsScreen({
 
   const unlockDeveloperContent = async () => {
     setIsUnlockingDeveloperContent(true);
-    setStatusMessage('Unlocking developer content...');
+    setStatusMessage('Unlocking test content...');
 
     try {
       await onDeveloperUnlockAll();
       setResetTarget(null);
-      setStatusMessage('Developer content unlocked. Reset learning progress to return to a clean locked state.');
+      setStatusMessage('Test content unlocked. Clear learning progress to lock it again.');
       toastBus.push({
         variant: 'success',
-        title: 'Developer content unlocked',
+        title: 'Test content unlocked',
         message: 'All achievements, rewards, lessons, and capstones are now open for testing.',
       });
     } catch {
-      setStatusMessage('Developer unlock failed. Locked content was not fully opened.');
+      setStatusMessage('Unlock failed. Some test content may still be locked.');
       toastBus.push({
         variant: 'error',
-        title: 'Developer unlock failed',
-        message: 'Locked content was not fully opened. Please try again.',
+        title: 'Unlock failed',
+        message: 'Some test content may still be locked. Please try again.',
       });
     } finally {
       setIsUnlockingDeveloperContent(false);
@@ -709,8 +709,8 @@ export function SettingsScreen({
     return (
       <LoadingPanel
         eyebrow="Settings"
-        title="Loading preferences"
-        message="Reading saved audio, gameplay, and practice defaults."
+        title="Loading settings"
+        message="Reading your saved sound, display, and practice choices."
         className="settings-screen"
       />
     );
@@ -793,7 +793,7 @@ export function SettingsScreen({
                           {locked
                             ? `\uD83D\uDD12 ${instrument.label}`
                             : unavailable
-                              ? `${instrument.label} (${packStatus?.requiresPackForSelection ? 'Install pack required' : 'Unavailable'})`
+                              ? `${instrument.label} (${packStatus?.requiresPackForSelection ? 'Install sounds first' : 'Unavailable'})`
                               : instrument.label}
                         </option>
                       );
@@ -811,7 +811,7 @@ export function SettingsScreen({
                       }
                       if (instr.requiredRewardId && !isRewardUnlocked(instr.requiredRewardId, unlockedRewardIds)) {
                         const reward = REWARD_CATALOG.find((r) => r.id === instr.requiredRewardId);
-                        return reward ? `Locked — ${reward.description}` : 'Locked — earn an achievement to unlock.';
+                        return reward ? `Locked: ${reward.description}` : 'Locked: earn an achievement to unlock this sound.';
                       }
                       return instr.description;
                     })()}
@@ -821,13 +821,13 @@ export function SettingsScreen({
             </SettingsGroupCard>
 
             <SettingsGroupCard
-              title="Output & FX"
+              title="Volume & Effects"
               footer={
                 !isRewardUnlocked('audio:pitch-bend', unlockedRewardIds)
-                  ? 'Unlock Music Theorist rewards to customize pitch bend.'
+                  ? 'Unlock Music Theorist rewards to turn pitch bend on or off.'
                   : !reverbCustomizationUnlocked
-                    ? 'Unlock Music Theorist rewards to customize per-instrument reverb.'
-                    : `Per-instrument reverb defaults to ${selectedInstrument.reverbPreset ?? 'medium'} unless overridden here.`
+                    ? 'Unlock Music Theorist rewards to change reverb for each instrument.'
+                    : `${selectedInstrument.label} uses ${selectedInstrument.reverbPreset ?? 'medium'} reverb unless you change it here.`
               }
             >
               <div className="settings-grid">
@@ -887,7 +887,7 @@ export function SettingsScreen({
               </div>
             </SettingsGroupCard>
 
-            <SettingsGroupCard title="Metronome" footer="Adjust the click mix and tone for song sessions and drills.">
+            <SettingsGroupCard title="Metronome" footer="Set how loud the click is and which sound it uses during songs and drills.">
               <div className="settings-grid">
                 <label>
                   <span>Metronome Volume</span>
@@ -905,20 +905,20 @@ export function SettingsScreen({
                     value={values['audio.metronomeSound']}
                     onChange={(event) => void persistSetting('audio', 'metronomeSound', event.target.value)}
                   >
-                    <option value="classic">Classic (Square)</option>
-                    <option value="wood">Wood (Triangle)</option>
-                    <option value="soft">Soft (Sine)</option>
-                    <option value="digital">Digital (Sawtooth)</option>
+                    <option value="classic">Classic Click</option>
+                    <option value="wood">Wood Block</option>
+                    <option value="soft">Soft Tap</option>
+                    <option value="digital">Bright Digital</option>
                   </select>
                 </label>
               </div>
             </SettingsGroupCard>
 
-            <SettingsGroupCard title="Latency" footer="Run calibration if playback feels early or late against your input.">
+            <SettingsGroupCard title="Input Delay" footer="Use calibration if notes sound early or late when you play.">
               <div className="settings-grid settings-grid-single">
                 <div className="latency-comp-row">
                   <label>
-                    <span>Latency Compensation (ms)</span>
+                    <span>Input Delay Fix (ms)</span>
                     <input
                       type="number"
                       min={0}
@@ -938,16 +938,16 @@ export function SettingsScreen({
               </div>
             </SettingsGroupCard>
 
-            <SettingsGroupCard title="Sample Packs" footer="Desktop installs support enhanced packs and manual sample folders.">
+            <SettingsGroupCard title="Instrument Sounds" footer="Install higher quality sounds or choose a desktop sample folder.">
               <div className="settings-grid">
                 {selectedInstrumentPackStatus ? (
                   <article className="settings-note-card">
-                    <span>Instrument Quality</span>
+                    <span>Selected Instrument</span>
                     <strong>
                       {selectedInstrumentPackStatus.isInstalled
                         ? `${selectedInstrumentPackStatus.packLabel} installed`
-                        : selectedInstrumentPackStatus.requiresPackForSelection
-                          ? 'No pack installed'
+                          : selectedInstrumentPackStatus.requiresPackForSelection
+                          ? 'Install sounds to use this instrument'
                           : 'Built-in samples active'}
                     </strong>
                     <div className="settings-sample-pack-buttons">
@@ -961,8 +961,8 @@ export function SettingsScreen({
                           {activePackActionInstrumentId === selectedInstrument.id
                             ? 'Working...'
                             : selectedInstrumentPackStatus.installMode === 'manual'
-                              ? 'Import Pack…'
-                              : 'Install Enhanced Pack'}
+                              ? 'Choose Sound Folder'
+                              : 'Install Better Sounds'}
                         </button>
                       ) : null}
                       {selectedInstrumentPackStatus.isInstalled ? (
@@ -972,7 +972,7 @@ export function SettingsScreen({
                           onClick={() => void removeSelectedInstrumentPack()}
                         >
                           <SettingsActionIcon icon="clear" />
-                          Remove Pack
+                          Use Built-in Sounds
                         </button>
                       ) : null}
                     </div>
@@ -980,36 +980,36 @@ export function SettingsScreen({
                   </article>
                 ) : (
                   <article className="settings-note-card">
-                    <span>Enhanced Packs</span>
-                    <strong>No instrument sample pack controls are available for the current selection.</strong>
+                    <span>Instrument Sounds</span>
+                    <strong>No extra sound controls are available for this instrument.</strong>
                   </article>
                 )}
                 {!IS_WEB ? (
                   <article className="settings-note-card">
-                    <span>Custom Sample Pack</span>
+                    <span>Custom Sound Folder</span>
                     {samplePackPath ? (
                       <strong>{samplePackPath} ({samplePackFileCount} file{samplePackFileCount !== 1 ? 's' : ''})</strong>
                     ) : (
-                      <strong>Not configured.</strong>
+                      <strong>No folder selected.</strong>
                     )}
                     <div className="settings-sample-pack-buttons">
                       <button className="secondary-button" onClick={() => void browseSamplePack()}>
                         <SettingsActionIcon icon="upload" />
-                        Browse…
+                        Choose Folder
                       </button>
                       {samplePackPath ? (
                         <button className="secondary-button" onClick={() => void clearSamplePack()}>
                           <SettingsActionIcon icon="clear" />
-                          Clear
+                          Use Built-in Sounds
                         </button>
                       ) : null}
                     </div>
-                    <em>Expected naming: A0.mp3, C1.mp3, Ds1.mp3, Fs1.mp3, and similar Salamander-style files.</em>
+                    <em>Files should be named by note, for example A0.mp3, C1.mp3, Ds1.mp3, or Fs1.mp3.</em>
                   </article>
                 ) : (
                   <article className="settings-note-card">
-                    <span>Custom Sample Pack</span>
-                    <strong>Custom sample folders are available in the desktop app.</strong>
+                    <span>Custom Sound Folder</span>
+                    <strong>Custom sound folders are available in the desktop app.</strong>
                   </article>
                 )}
               </div>
@@ -1030,8 +1030,8 @@ export function SettingsScreen({
               title="Appearance"
               footer={
                 isRewardUnlocked('theme:neon', unlockedRewardIds)
-                  ? 'Neon theme unlocked and ready.'
-                  : 'Unlock the Neon theme reward to enable the arcade palette.'
+                  ? 'Neon theme is ready to use.'
+                  : 'Unlock the Neon theme reward to use the arcade palette.'
               }
             >
               <div className="settings-grid">
@@ -1050,7 +1050,7 @@ export function SettingsScreen({
                   </select>
                 </label>
                 <label>
-                  <span>Color Blind Mode</span>
+                  <span>High Contrast Note Colors</span>
                   <select
                     value={values['visual.colorBlindMode']}
                     onChange={(event) => void persistSetting('visual', 'colorBlindMode', event.target.value)}
@@ -1062,7 +1062,7 @@ export function SettingsScreen({
               </div>
             </SettingsGroupCard>
 
-            <SettingsGroupCard title="Labels & Keyboard" footer={`Preview window: ${values['visual.beatsVisible']} beats ahead.`}>
+            <SettingsGroupCard title="Labels & Keyboard" footer={`Falling notes appear ${values['visual.beatsVisible']} beats before you play them.`}>
               <div className="settings-grid">
                 <label>
                   <span>Note Labels</span>
@@ -1102,7 +1102,7 @@ export function SettingsScreen({
                   </div>
                 </label>
                 <label>
-                  <span>Note Preview (beats ahead)</span>
+                  <span>Falling Note Preview</span>
                   <input
                     type="range"
                     min={4}
@@ -1113,7 +1113,7 @@ export function SettingsScreen({
                   />
                 </label>
                 <label>
-                  <span>Fingering Numbers</span>
+                  <span>Finger Numbers</span>
                   <select
                     value={values['fingering.displayMode']}
                     onChange={(event) => void persistSetting('fingering', 'displayMode', event.target.value)}
@@ -1126,7 +1126,7 @@ export function SettingsScreen({
               </div>
             </SettingsGroupCard>
 
-            <SettingsGroupCard title="Colors" footer="Reset either hand color to fall back to the active theme.">
+            <SettingsGroupCard title="Hand Colors" footer="Clear a hand color to use the current theme color.">
               <div className="settings-grid">
                 <label>
                   <span>Left Hand Color</span>
@@ -1141,7 +1141,7 @@ export function SettingsScreen({
                       onClick={() => void persistSetting('visual', 'leftHandColor', '')}
                     >
                       <SettingsActionIcon icon="clear" />
-                      Reset
+                      Clear Color
                     </button>
                   ) : null}
                 </label>
@@ -1158,7 +1158,7 @@ export function SettingsScreen({
                       onClick={() => void persistSetting('visual', 'rightHandColor', '')}
                     >
                       <SettingsActionIcon icon="clear" />
-                      Reset
+                      Clear Color
                     </button>
                   ) : null}
                 </label>
@@ -1175,10 +1175,10 @@ export function SettingsScreen({
             id="settings-panel-gameplay"
             aria-labelledby="settings-tab-gameplay"
           >
-            <SettingsGroupCard eyebrow="Gameplay" title="Session Defaults" footer="These defaults are used when a new song session starts.">
+            <SettingsGroupCard eyebrow="Gameplay" title="New Session Defaults" footer="These choices apply each time you start a new song.">
               <div className="settings-grid">
                 <label>
-                  <span>Wait Mode Default</span>
+                  <span>Start With Wait Mode</span>
                   <select
                     value={values['gameplay.waitModeDefault']}
                     onChange={(event) => void persistSetting('gameplay', 'waitModeDefault', event.target.value)}
@@ -1188,7 +1188,7 @@ export function SettingsScreen({
                   </select>
                 </label>
                 <label>
-                  <span>Metronome Default</span>
+                  <span>Start With Metronome</span>
                   <select
                     value={values['gameplay.metronomeDefault']}
                     onChange={(event) => void persistSetting('gameplay', 'metronomeDefault', event.target.value)}
@@ -1198,7 +1198,7 @@ export function SettingsScreen({
                   </select>
                 </label>
                 <label>
-                  <span>Timing Window</span>
+                  <span>Timing Leniency</span>
                   <select
                     value={values['gameplay.hitWindowMs']}
                     onChange={(event) => void persistSetting('gameplay', 'hitWindowMs', event.target.value)}
@@ -1210,7 +1210,7 @@ export function SettingsScreen({
                   </select>
                 </label>
                 <label>
-                  <span>Lead-in Beats</span>
+                  <span>Count-in Before Start</span>
                   <select
                     value={values['gameplay.leadInBeats'] ?? '2'}
                     onChange={(event) => void persistSetting('gameplay', 'leadInBeats', event.target.value)}
@@ -1234,10 +1234,10 @@ export function SettingsScreen({
             id="settings-panel-input"
             aria-labelledby="settings-tab-input"
           >
-            <SettingsGroupCard eyebrow="Input" title="MIDI" footer={`Current input mode: ${inputMode === 'both' ? 'MIDI + Keyboard' : inputMode === 'midi' ? 'MIDI Only' : 'Keyboard Only'}.`}>
+            <SettingsGroupCard eyebrow="Input" title="Keyboard Input" footer={`Currently listening for: ${inputMode === 'both' ? 'MIDI keyboard and computer keyboard' : inputMode === 'midi' ? 'MIDI keyboard only' : 'computer keyboard only'}.`}>
               <div className="settings-grid">
                 <label>
-                  <span>Input Mode</span>
+                  <span>Play Notes With</span>
                   <select
                     value={inputMode}
                     onChange={(event) => {
@@ -1246,9 +1246,9 @@ export function SettingsScreen({
                       void persistSetting('input', 'mode', nextMode);
                     }}
                   >
-                    <option value="both">MIDI + Keyboard</option>
-                    <option value="midi">MIDI Only</option>
-                    <option value="computer-keyboard">Keyboard Only</option>
+                    <option value="both">MIDI or Computer Keyboard</option>
+                    <option value="midi">MIDI Keyboard Only</option>
+                    <option value="computer-keyboard">Computer Keyboard Only</option>
                   </select>
                 </label>
                 <label>
@@ -1267,27 +1267,27 @@ export function SettingsScreen({
                 </label>
                 {midiError ? (
                   <article className="settings-note-card">
-                    <span>MIDI Status</span>
-                    <strong>Permission denied or unavailable</strong>
+                    <span>MIDI Connection</span>
+                    <strong>LumaKeys cannot access your MIDI keyboard. Check browser or system permission, then try again.</strong>
                     <button className="secondary-button" onClick={onRetryMidi} style={{ marginTop: '0.5rem' }}>
                       <SettingsActionIcon icon="retry" />
-                      Retry MIDI Access
+                      Try MIDI Again
                     </button>
                   </article>
                 ) : (
                   <article className="settings-note-card">
-                    <span>Detected Device</span>
+                    <span>Connected Keyboard</span>
                     <strong>{selectedMidiDeviceName}</strong>
                   </article>
                 )}
               </div>
             </SettingsGroupCard>
 
-            <SettingsGroupCard title="Keyboard Mapping" footer="Open the keyboard setup screen to remap computer-keyboard notes.">
+            <SettingsGroupCard title="Computer Keyboard Layout" footer="Change which computer keys play each piano note.">
               <div className="settings-grid settings-grid-single">
                 <button className="secondary-button" onClick={onOpenKeyboardSetup}>
                   <SettingsActionIcon icon="keyboard" />
-                  Open Keyboard Mapping
+                  Edit Key Layout
                 </button>
               </div>
             </SettingsGroupCard>
@@ -1302,7 +1302,7 @@ export function SettingsScreen({
             id="settings-panel-practice"
             aria-labelledby="settings-tab-practice"
           >
-            <SettingsGroupCard eyebrow="Practice" title="Goals & Reminders" footer="Set the daily target to 0 if you want the goal tracker off.">
+            <SettingsGroupCard eyebrow="Practice" title="Goals & Reminders" footer="Set the daily goal to 0 to turn goal tracking off.">
               <div className="settings-grid">
                 <label>
                   <span>Daily Goal (minutes)</span>
@@ -1337,21 +1337,21 @@ export function SettingsScreen({
               </div>
             </SettingsGroupCard>
 
-            <SettingsGroupCard title="Save Status">
+            <SettingsGroupCard title="Save State">
               <div className="settings-grid settings-grid-single">
                 <article
                   key={settingsSavePulse}
                   className={`settings-note-card settings-save-status-card${isSaving ? ' settings-save-status-card-saving' : ''}${settingsSavePulse > 0 ? ' settings-save-status-card-saved' : ''}`}
                 >
-                  <span>Save Status</span>
+                  <span>Changes</span>
                   <strong>{isSaving ? 'Saving...' : 'All changes saved'}</strong>
                 </article>
               </div>
             </SettingsGroupCard>
 
             <SettingsGroupCard
-              title="Danger Zone"
-              description="Destructive actions live together here so they stay easy to find and hard to hit by accident."
+              title="Reset Options"
+              description="These actions remove progress or data. Each one asks for confirmation before it runs."
               className="settings-danger-zone"
             >
               <div className="settings-danger-actions">
@@ -1361,11 +1361,11 @@ export function SettingsScreen({
                     <path d="M12 9v5" />
                     <path d="M12 17h.01" />
                   </svg>
-                  <span>Reset Learning Progress</span>
-                  <strong>Keeps your library, playlists, folders, and settings, but clears achievements and practice history.</strong>
+                  <span>Clear Learning Progress</span>
+                  <strong>Removes lesson progress, achievements, and practice history. Keeps songs, playlists, folders, and settings.</strong>
                   <button className="danger-button" disabled={isResettingProgress} onClick={() => setResetTarget('progress')}>
                     <SettingsActionIcon icon="trash" />
-                    Reset Learning Progress
+                    Clear Learning Progress
                   </button>
                 </article>
                 <article className="settings-note-card settings-danger-card">
@@ -1374,11 +1374,11 @@ export function SettingsScreen({
                     <path d="M12 9v5" />
                     <path d="M12 17h.01" />
                   </svg>
-                  <span>Reset User Data</span>
-                  <strong>Clears songs, playlists, folders, results, achievements, and saved settings.</strong>
+                  <span>Delete User Data</span>
+                  <strong>Removes songs, playlists, folders, results, achievements, and saved settings from this device.</strong>
                   <button className="danger-button" disabled={isResetting} onClick={() => setResetTarget('data')}>
                     <SettingsActionIcon icon="trash" />
-                    Reset User Data
+                    Delete User Data
                   </button>
                 </article>
                 <article className="settings-note-card settings-danger-card">
@@ -1387,15 +1387,15 @@ export function SettingsScreen({
                     <path d="M12 9v5" />
                     <path d="M12 17h.01" />
                   </svg>
-                  <span>Developer Tools</span>
-                  <strong>Unlock all achievements, rewards, lessons, and capstones for testing. Reset learning progress to restore the normal locked state.</strong>
+                  <span>Test Content</span>
+                  <strong>Opens all achievements, rewards, lessons, and capstones for testing. Clear learning progress to lock them again.</strong>
                   <button
                     className="secondary-button"
                     disabled={isUnlockingDeveloperContent}
                     onClick={() => setResetTarget('developer-unlock')}
                   >
                     <SettingsActionIcon icon="unlock" />
-                    Unlock All Developer Content
+                    Unlock Test Content
                   </button>
                 </article>
               </div>
@@ -1407,9 +1407,9 @@ export function SettingsScreen({
       {resetTarget === 'progress' && (
         <ConfirmActionModal
           busy={isResettingProgress}
-          confirmLabel="Yes, Reset Progress"
-          description="This clears lesson progress, achievements, and practice history. Your library and saved settings stay in place."
-          title="Reset learning progress?"
+          confirmLabel="Clear Learning Progress"
+          description="This removes lesson progress, achievements, and practice history. Your songs, playlists, folders, and settings stay in place."
+          title="Clear learning progress?"
           onCancel={() => setResetTarget(null)}
           onConfirm={() => {
             void resetLearningProgress();
@@ -1419,8 +1419,8 @@ export function SettingsScreen({
       {resetTarget === 'data' && (
         <ConfirmActionModal
           busy={isResetting}
-          confirmLabel="Yes, Delete Everything"
-          description="This removes songs, playlists, folders, results, achievements, and saved settings."
+          confirmLabel="Delete User Data"
+          description="This removes songs, playlists, folders, results, achievements, and saved settings from this device."
           title="Delete all user data?"
           onCancel={() => setResetTarget(null)}
           onConfirm={() => {
@@ -1431,9 +1431,9 @@ export function SettingsScreen({
       {resetTarget === 'developer-unlock' && (
         <ConfirmActionModal
           busy={isUnlockingDeveloperContent}
-          confirmLabel="Yes, Unlock Everything"
-          description="This unlocks every achievement reward and marks all lessons, steps, and capstones complete for developer testing. Use Reset Learning Progress to restore the normal locked state."
-          title="Unlock all developer content?"
+          confirmLabel="Unlock Test Content"
+          description="This opens every achievement reward and marks all lessons, steps, and capstones complete for testing. Clear learning progress to lock them again."
+          title="Unlock test content?"
           onCancel={() => setResetTarget(null)}
           onConfirm={() => {
             void unlockDeveloperContent();
