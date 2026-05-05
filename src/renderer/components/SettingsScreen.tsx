@@ -335,6 +335,15 @@ function getRangeFillPercent(value: string, min: number, max: number): string {
   return `${((clampedValue - min) / (max - min)) * 100}%`;
 }
 
+function clampNumericSetting(value: string, min: number, max: number): string {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) {
+    return String(min);
+  }
+
+  return String(Math.min(max, Math.max(min, Math.round(numericValue))));
+}
+
 function parseInstrumentReverbPresets(rawValue: string | null | undefined): Record<string, InstrumentReverbPreset> {
   if (!rawValue) {
     return {};
@@ -369,23 +378,68 @@ function ConfirmActionModal({
   onCancel,
   onConfirm,
 }: ConfirmActionModalProps) {
+  const cancelButtonRef = useRef<HTMLButtonElement | null>(null);
+  const titleId = `settings-confirm-title-${confirmLabel.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+  const descriptionId = `${titleId}-description`;
+
+  useEffect(() => {
+    const previousActiveElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    cancelButtonRef.current?.focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !busy) {
+        event.preventDefault();
+        onCancel();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      previousActiveElement?.focus();
+    };
+  }, [busy, onCancel]);
+
   return (
-    <div className="settings-modal-backdrop" role="presentation">
-      <section className="panel settings-modal" role="dialog" aria-modal="true" aria-label="Confirm action">
+    <div
+      className="settings-modal-backdrop"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget && !busy) {
+          onCancel();
+        }
+      }}
+    >
+      <section
+        className="panel settings-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={descriptionId}
+      >
         <p className="eyebrow">Confirm Action</p>
         <svg className="settings-warning-icon settings-modal-warning-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
           <path d="M12 3 22 20H2z" />
           <path d="M12 9v5" />
           <path d="M12 17h.01" />
         </svg>
-        <h2>{title}</h2>
-        <p className="panel-copy">{description}</p>
+        <h2 id={titleId}>{title}</h2>
+        <p id={descriptionId} className="panel-copy">{description}</p>
         <div className="settings-modal-actions">
-          <button className="danger-button" disabled={busy} onClick={onConfirm}>
+          <button
+            className="danger-button"
+            disabled={busy}
+            onClick={() => {
+              if (!busy) {
+                onConfirm();
+              }
+            }}
+          >
             <SettingsActionIcon icon="trash" />
             {busy ? 'Working...' : confirmLabel}
           </button>
-          <button className="secondary-button" onClick={onCancel}>
+          <button ref={cancelButtonRef} className="secondary-button" disabled={busy} onClick={onCancel}>
             <SettingsActionIcon icon="x" />
             Cancel
           </button>
@@ -462,10 +516,12 @@ export function SettingsScreen({
   const [showLatencyWizard, setShowLatencyWizard] = useState(false);
   const [samplePackFileCount, setSamplePackFileCount] = useState(0);
   const [activePackActionInstrumentId, setActivePackActionInstrumentId] = useState<string | null>(null);
+  const [isSamplePackActionBusy, setIsSamplePackActionBusy] = useState(false);
   const [settingsSavePulse, setSettingsSavePulse] = useState(0);
   const [lastChangedSettingKey, setLastChangedSettingKey] = useState<string | null>(null);
   const savePulseTimerRef = useRef<number | null>(null);
   const lastChangedTimerRef = useRef<number | null>(null);
+  const pendingSaveCountRef = useRef(0);
 
   useEffect(() => {
     return () => {
@@ -479,46 +535,87 @@ export function SettingsScreen({
   }, []);
 
   useEffect(() => {
+    let isActive = true;
+
     const load = async () => {
       if (!window.appBridge) {
-        setStatusMessage('The app bridge is unavailable.');
-        setIsLoading(false);
+        if (isActive) {
+          setStatusMessage('Settings are using defaults because storage is unavailable.');
+          setIsLoading(false);
+        }
         return;
       }
 
-      const nextValues: SettingsValues = { ...DEFAULT_SETTINGS };
-      const keys = Object.keys(DEFAULT_SETTINGS);
-      const resolved = await Promise.all(
-        keys.map(async (compositeKey) => {
-          const [category, key] = compositeKey.split('.');
-          const value = await window.appBridge!.getSetting(category, key);
-          return [compositeKey, value] as const;
-        }),
-      );
+      try {
+        const nextValues: SettingsValues = { ...DEFAULT_SETTINGS };
+        const keys = Object.keys(DEFAULT_SETTINGS);
+        const resolved = await Promise.all(
+          keys.map(async (compositeKey) => {
+            const [category, key] = compositeKey.split('.');
+            const value = await window.appBridge!.getSetting(category, key);
+            return [compositeKey, value] as const;
+          }),
+        );
 
-      resolved.forEach(([compositeKey, value]) => {
-        if (value !== null) {
-          nextValues[compositeKey] = value;
+        resolved.forEach(([compositeKey, value]) => {
+          if (value !== null) {
+            nextValues[compositeKey] = value;
+          }
+        });
+
+        nextValues[getSettingKey('input', 'mode')] = inputMode;
+        nextValues[getSettingKey('audio', 'pitchBendEnabled')] = pitchBendEnabled ? 'true' : 'false';
+        if (isActive) {
+          setValues(nextValues);
         }
-      });
 
-      nextValues[getSettingKey('input', 'mode')] = inputMode;
-      nextValues[getSettingKey('audio', 'pitchBendEnabled')] = pitchBendEnabled ? 'true' : 'false';
-      setValues(nextValues);
+        const savedSamplePath = await window.appBridge.getSetting('audio', 'customSamplePackPath');
+        if (!IS_WEB && savedSamplePath) {
+          try {
+            const files = await window.appBridge.listAudioFiles(savedSamplePath);
+            if (isActive) {
+              setSamplePackPath(savedSamplePath);
+              setSamplePackFileCount(files.length);
+            }
+          } catch {
+            if (isActive) {
+              setSamplePackPath(savedSamplePath);
+              setSamplePackFileCount(0);
+              setStatusMessage('Custom sound folder could not be read. Built-in sounds remain available.');
+            }
+          }
+        }
 
-      const savedSamplePath = await window.appBridge.getSetting('audio', 'customSamplePackPath');
-      if (!IS_WEB && savedSamplePath) {
-        setSamplePackPath(savedSamplePath);
-        const files = await window.appBridge.listAudioFiles(savedSamplePath);
-        setSamplePackFileCount(files.length);
+        if (isActive) {
+          setStatusMessage('Ready. Changes save automatically.');
+        }
+      } catch {
+        if (isActive) {
+          setValues((current) => ({
+            ...DEFAULT_SETTINGS,
+            [getSettingKey('input', 'mode')]: current[getSettingKey('input', 'mode')] ?? inputMode,
+            [getSettingKey('audio', 'pitchBendEnabled')]: pitchBendEnabled ? 'true' : 'false',
+          }));
+          setStatusMessage('Some saved settings could not be loaded. Defaults are active for this session.');
+          toastBus.push({
+            variant: 'error',
+            title: 'Settings load failed',
+            message: 'Defaults are active for this session. Try reopening settings if storage is available.',
+          });
+        }
+      } finally {
+        if (isActive) {
+          setIsLoading(false);
+        }
       }
-
-      setStatusMessage('Ready. Changes save automatically.');
-      setIsLoading(false);
     };
 
     void load();
-  }, [inputMode]);
+
+    return () => {
+      isActive = false;
+    };
+  }, [inputMode, pitchBendEnabled]);
 
   useEffect(() => {
     setValues((current) => ({
@@ -550,22 +647,44 @@ export function SettingsScreen({
   const saveSignalLabel = isSaving ? 'Syncing' : settingsSavePulse > 0 ? 'Saved' : 'Ready';
 
   const installSelectedInstrumentPack = async () => {
+    if (activePackActionInstrumentId !== null) {
+      return;
+    }
+
     setActivePackActionInstrumentId(selectedInstrument.id);
     setStatusMessage(`Installing ${selectedInstrumentPackStatus?.packLabel ?? 'instrument pack'}...`);
     try {
       await onInstallInstrumentSamplePack(selectedInstrument.id);
       setStatusMessage(`${selectedInstrumentPackStatus?.packLabel ?? selectedInstrument.label} ready.`);
+    } catch {
+      setStatusMessage(`${selectedInstrumentPackStatus?.packLabel ?? selectedInstrument.label} could not be installed.`);
+      toastBus.push({
+        variant: 'error',
+        title: 'Install failed',
+        message: 'The instrument sounds could not be installed. Check storage access and try again.',
+      });
     } finally {
       setActivePackActionInstrumentId(null);
     }
   };
 
   const removeSelectedInstrumentPack = async () => {
+    if (activePackActionInstrumentId !== null) {
+      return;
+    }
+
     setActivePackActionInstrumentId(selectedInstrument.id);
     setStatusMessage(`Removing ${selectedInstrumentPackStatus?.packLabel ?? 'instrument pack'}...`);
     try {
       await onRemoveInstrumentSamplePack(selectedInstrument.id);
       setStatusMessage(`${selectedInstrument.label} reverted to bundled audio.`);
+    } catch {
+      setStatusMessage(`${selectedInstrument.label} sound pack could not be removed.`);
+      toastBus.push({
+        variant: 'error',
+        title: 'Remove failed',
+        message: 'The instrument sounds could not be removed. Please try again.',
+      });
     } finally {
       setActivePackActionInstrumentId(null);
     }
@@ -576,19 +695,40 @@ export function SettingsScreen({
     setValues((current) => ({ ...current, [compositeKey]: value }));
     setLastChangedSettingKey(compositeKey);
     onSettingChange(category, key, value);
+    if (!window.appBridge) {
+      setStatusMessage('Changed for this session. Storage is unavailable.');
+      return;
+    }
+
+    pendingSaveCountRef.current += 1;
     setIsSaving(true);
     setStatusMessage('Saving changes...');
-    await window.appBridge?.setSetting(category, key, value);
-    setIsSaving(false);
-    setStatusMessage('Changes saved.');
-    setSettingsSavePulse((current) => current + 1);
-    if (savePulseTimerRef.current !== null) {
-      window.clearTimeout(savePulseTimerRef.current);
+
+    try {
+      await window.appBridge.setSetting(category, key, value);
+      setStatusMessage('Changes saved.');
+      setSettingsSavePulse((current) => current + 1);
+      if (savePulseTimerRef.current !== null) {
+        window.clearTimeout(savePulseTimerRef.current);
+      }
+      savePulseTimerRef.current = window.setTimeout(() => {
+        setSettingsSavePulse(0);
+        savePulseTimerRef.current = null;
+      }, 360);
+    } catch {
+      setStatusMessage('Save failed. The change is active for this session only.');
+      toastBus.push({
+        variant: 'error',
+        title: 'Setting not saved',
+        message: 'The change is active for this session, but could not be written to storage.',
+      });
+    } finally {
+      pendingSaveCountRef.current = Math.max(0, pendingSaveCountRef.current - 1);
+      if (pendingSaveCountRef.current === 0) {
+        setIsSaving(false);
+      }
     }
-    savePulseTimerRef.current = window.setTimeout(() => {
-      setSettingsSavePulse(0);
-      savePulseTimerRef.current = null;
-    }, 360);
+
     if (lastChangedTimerRef.current !== null) {
       window.clearTimeout(lastChangedTimerRef.current);
     }
@@ -598,42 +738,77 @@ export function SettingsScreen({
     }, 1150);
   };
 
+  const persistNumericSetting = (category: string, key: string, value: string, min: number, max: number) => {
+    void persistSetting(category, key, clampNumericSetting(value, min, max));
+  };
+
   const browseSamplePack = async () => {
-    if (!window.appBridge) {
+    if (!window.appBridge || isSamplePackActionBusy) {
       return;
     }
-    const dir = await window.appBridge.pickSampleDirectory();
-    if (!dir) {
-      return;
+
+    setIsSamplePackActionBusy(true);
+    setStatusMessage('Choosing custom sound folder...');
+    try {
+      const dir = await window.appBridge.pickSampleDirectory();
+      if (!dir) {
+        setStatusMessage('Ready. Changes save automatically.');
+        return;
+      }
+      const files = await window.appBridge.listAudioFiles(dir);
+      setSamplePackPath(dir);
+      setSamplePackFileCount(files.length);
+      await window.appBridge.setSetting('audio', 'customSamplePackPath', dir);
+      onSettingChange('audio', 'customSamplePackPath', dir);
+      setStatusMessage(`Sample pack set: ${files.length} audio file(s) found.`);
+      toastBus.push({
+        variant: 'success',
+        title: 'Sample pack updated',
+        message: `Loaded ${files.length} audio file${files.length === 1 ? '' : 's'} from the selected folder.`,
+      });
+    } catch {
+      setStatusMessage('Sample folder could not be opened. Built-in sounds are still active.');
+      toastBus.push({
+        variant: 'error',
+        title: 'Sample folder failed',
+        message: 'The selected folder could not be read. Check the folder and try again.',
+      });
+    } finally {
+      setIsSamplePackActionBusy(false);
     }
-    const files = await window.appBridge.listAudioFiles(dir);
-    setSamplePackPath(dir);
-    setSamplePackFileCount(files.length);
-    await window.appBridge.setSetting('audio', 'customSamplePackPath', dir);
-    onSettingChange('audio', 'customSamplePackPath', dir);
-    setStatusMessage(`Sample pack set: ${files.length} audio file(s) found.`);
-    toastBus.push({
-      variant: 'success',
-      title: 'Sample pack updated',
-      message: `Loaded ${files.length} audio file${files.length === 1 ? '' : 's'} from the selected folder.`,
-    });
   };
 
   const clearSamplePack = async () => {
-    setSamplePackPath(null);
-    setSamplePackFileCount(0);
-    await window.appBridge?.setSetting('audio', 'customSamplePackPath', '');
-    onSettingChange('audio', 'customSamplePackPath', '');
-    setStatusMessage('Custom sample folder cleared. Built-in instruments are active.');
-    toastBus.push({
-      variant: 'info',
-      title: 'Sample folder cleared',
-      message: 'Built-in instrument sounds are active again.',
-    });
+    if (isSamplePackActionBusy) {
+      return;
+    }
+
+    setIsSamplePackActionBusy(true);
+    try {
+      setSamplePackPath(null);
+      setSamplePackFileCount(0);
+      await window.appBridge?.setSetting('audio', 'customSamplePackPath', '');
+      onSettingChange('audio', 'customSamplePackPath', '');
+      setStatusMessage('Custom sample folder cleared. Built-in instruments are active.');
+      toastBus.push({
+        variant: 'info',
+        title: 'Sample folder cleared',
+        message: 'Built-in instrument sounds are active again.',
+      });
+    } catch {
+      setStatusMessage('Sample folder could not be cleared.');
+      toastBus.push({
+        variant: 'error',
+        title: 'Clear failed',
+        message: 'The custom sample folder setting could not be cleared. Please try again.',
+      });
+    } finally {
+      setIsSamplePackActionBusy(false);
+    }
   };
 
   const resetUserData = async () => {
-    if (!window.appBridge) {
+    if (!window.appBridge || isResetting) {
       return;
     }
 
@@ -667,7 +842,7 @@ export function SettingsScreen({
   };
 
   const resetLearningProgress = async () => {
-    if (!window.appBridge) {
+    if (!window.appBridge || isResettingProgress) {
       return;
     }
 
@@ -697,6 +872,10 @@ export function SettingsScreen({
   };
 
   const unlockDeveloperContent = async () => {
+    if (isUnlockingDeveloperContent) {
+      return;
+    }
+
     setIsUnlockingDeveloperContent(true);
     setStatusMessage('Unlocking test content...');
 
@@ -952,8 +1131,9 @@ export function SettingsScreen({
                       type="number"
                       min={0}
                       max={300}
+                      inputMode="numeric"
                       value={values['audio.latencyCompMs']}
-                      onChange={(event) => void persistSetting('audio', 'latencyCompMs', event.target.value)}
+                      onChange={(event) => persistNumericSetting('audio', 'latencyCompMs', event.target.value, 0, 300)}
                     />
                   </label>
                   <button
@@ -1022,12 +1202,20 @@ export function SettingsScreen({
                       <strong>No folder selected.</strong>
                     )}
                     <div className="settings-sample-pack-buttons">
-                      <button className="secondary-button" onClick={() => void browseSamplePack()}>
+                      <button
+                        className="secondary-button"
+                        disabled={isSamplePackActionBusy}
+                        onClick={() => void browseSamplePack()}
+                      >
                         <SettingsActionIcon icon="upload" />
-                        Choose Folder
+                        {isSamplePackActionBusy ? 'Working...' : 'Choose Folder'}
                       </button>
                       {samplePackPath ? (
-                        <button className="secondary-button" onClick={() => void clearSamplePack()}>
+                        <button
+                          className="secondary-button"
+                          disabled={isSamplePackActionBusy}
+                          onClick={() => void clearSamplePack()}
+                        >
                           <SettingsActionIcon icon="clear" />
                           Use Built-in Sounds
                         </button>
@@ -1342,8 +1530,9 @@ export function SettingsScreen({
                     type="number"
                     min={0}
                     max={600}
+                    inputMode="numeric"
                     value={values['practice.dailyGoalMinutes']}
-                    onChange={(event) => void persistSetting('practice', 'dailyGoalMinutes', event.target.value)}
+                    onChange={(event) => persistNumericSetting('practice', 'dailyGoalMinutes', event.target.value, 0, 600)}
                   />
                 </label>
                 <label>
@@ -1352,8 +1541,9 @@ export function SettingsScreen({
                     type="number"
                     min={1}
                     max={120}
+                    inputMode="numeric"
                     value={values['practice.postureReminderMinutes']}
-                    onChange={(event) => void persistSetting('practice', 'postureReminderMinutes', event.target.value)}
+                    onChange={(event) => persistNumericSetting('practice', 'postureReminderMinutes', event.target.value, 1, 120)}
                   />
                 </label>
                 <label>
@@ -1362,8 +1552,9 @@ export function SettingsScreen({
                     type="number"
                     min={1}
                     max={120}
+                    inputMode="numeric"
                     value={values['practice.breakReminderMinutes']}
-                    onChange={(event) => void persistSetting('practice', 'breakReminderMinutes', event.target.value)}
+                    onChange={(event) => persistNumericSetting('practice', 'breakReminderMinutes', event.target.value, 1, 120)}
                   />
                 </label>
               </div>
@@ -1396,7 +1587,11 @@ export function SettingsScreen({
                   </svg>
                   <span>Clear Learning Progress</span>
                   <strong>Removes lesson progress, achievements, and practice history. Keeps songs, playlists, folders, and settings.</strong>
-                  <button className="danger-button" disabled={isResettingProgress} onClick={() => setResetTarget('progress')}>
+                  <button
+                    className="danger-button"
+                    disabled={isResettingProgress || resetTarget !== null}
+                    onClick={() => setResetTarget('progress')}
+                  >
                     <SettingsActionIcon icon="trash" />
                     Clear Learning Progress
                   </button>
@@ -1409,7 +1604,11 @@ export function SettingsScreen({
                   </svg>
                   <span>Delete User Data</span>
                   <strong>Removes songs, playlists, folders, results, achievements, and saved settings from this device.</strong>
-                  <button className="danger-button" disabled={isResetting} onClick={() => setResetTarget('data')}>
+                  <button
+                    className="danger-button"
+                    disabled={isResetting || resetTarget !== null}
+                    onClick={() => setResetTarget('data')}
+                  >
                     <SettingsActionIcon icon="trash" />
                     Delete User Data
                   </button>
@@ -1424,7 +1623,7 @@ export function SettingsScreen({
                   <strong>Opens all achievements, rewards, lessons, and capstones for testing. Clear learning progress to lock them again.</strong>
                   <button
                     className="secondary-button"
-                    disabled={isUnlockingDeveloperContent}
+                    disabled={isUnlockingDeveloperContent || resetTarget !== null}
                     onClick={() => setResetTarget('developer-unlock')}
                   >
                     <SettingsActionIcon icon="unlock" />

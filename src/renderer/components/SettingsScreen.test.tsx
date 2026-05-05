@@ -8,6 +8,28 @@ describe('SettingsScreen', () => {
   const developerUnlockAll = vi.fn().mockResolvedValue(undefined);
   const onLearningProgressReset = vi.fn();
   const onUserDataReset = vi.fn();
+  const renderSettingsScreen = (
+    overrides: Partial<React.ComponentProps<typeof SettingsScreen>> = {},
+  ) => render(
+    <SettingsScreen
+      audioEngine={{ playMetronomeClick: vi.fn().mockResolvedValue(undefined), prepareForPlayback: vi.fn().mockResolvedValue(undefined) } as unknown as import('../../lib/audio/audioEngine').AudioEngine}
+      inputMode="both"
+      midiDevices={[]}
+      midiError={false}
+      instrumentSamplePackStatuses={{}}
+      pitchBendEnabled
+      onInstallInstrumentSamplePack={vi.fn().mockResolvedValue(undefined)}
+      onRemoveInstrumentSamplePack={vi.fn().mockResolvedValue(undefined)}
+      onDeveloperUnlockAll={developerUnlockAll}
+      onLearningProgressReset={onLearningProgressReset}
+      onSettingChange={vi.fn()}
+      onInputModeChange={vi.fn()}
+      onRetryMidi={vi.fn()}
+      onUserDataReset={onUserDataReset}
+      onOpenKeyboardSetup={vi.fn()}
+      {...overrides}
+    />,
+  );
 
   beforeEach(() => {
     window.appBridge = {
@@ -33,25 +55,7 @@ describe('SettingsScreen', () => {
   it('does not reset learning progress when modal confirmation is cancelled', async () => {
     localStorage.setItem('pianohero-filter-presets', '{"demo":true}');
 
-    render(
-      <SettingsScreen
-        audioEngine={{ playMetronomeClick: vi.fn().mockResolvedValue(undefined), prepareForPlayback: vi.fn().mockResolvedValue(undefined) } as unknown as import('../../lib/audio/audioEngine').AudioEngine}
-        inputMode="both"
-        midiDevices={[]}
-        midiError={false}
-        instrumentSamplePackStatuses={{}}
-        pitchBendEnabled
-        onInstallInstrumentSamplePack={vi.fn().mockResolvedValue(undefined)}
-        onRemoveInstrumentSamplePack={vi.fn().mockResolvedValue(undefined)}
-        onDeveloperUnlockAll={developerUnlockAll}
-        onLearningProgressReset={onLearningProgressReset}
-        onSettingChange={vi.fn()}
-        onInputModeChange={vi.fn()}
-        onRetryMidi={vi.fn()}
-        onUserDataReset={onUserDataReset}
-        onOpenKeyboardSetup={vi.fn()}
-      />,
-    );
+    renderSettingsScreen();
 
     fireEvent.click(await screen.findByText('Practice'));
     fireEvent.click(screen.getByRole('button', { name: 'Clear Learning Progress' }));
@@ -69,25 +73,7 @@ describe('SettingsScreen', () => {
   });
 
   it('keeps tab and action button accessible names after adding decorative icons', async () => {
-    const { container } = render(
-      <SettingsScreen
-        audioEngine={{ playMetronomeClick: vi.fn().mockResolvedValue(undefined), prepareForPlayback: vi.fn().mockResolvedValue(undefined) } as unknown as import('../../lib/audio/audioEngine').AudioEngine}
-        inputMode="both"
-        midiDevices={[]}
-        midiError={false}
-        instrumentSamplePackStatuses={{}}
-        pitchBendEnabled
-        onInstallInstrumentSamplePack={vi.fn().mockResolvedValue(undefined)}
-        onRemoveInstrumentSamplePack={vi.fn().mockResolvedValue(undefined)}
-        onDeveloperUnlockAll={developerUnlockAll}
-        onLearningProgressReset={onLearningProgressReset}
-        onSettingChange={vi.fn()}
-        onInputModeChange={vi.fn()}
-        onRetryMidi={vi.fn()}
-        onUserDataReset={onUserDataReset}
-        onOpenKeyboardSetup={vi.fn()}
-      />,
-    );
+    const { container } = renderSettingsScreen();
 
     for (const tabName of ['Audio', 'Visual', 'Gameplay', 'Input', 'Practice']) {
       expect(await screen.findByRole('tab', { name: tabName })).toBeInTheDocument();
@@ -108,25 +94,7 @@ describe('SettingsScreen', () => {
   });
 
   it('resets learning progress when modal confirmation is confirmed', async () => {
-    render(
-      <SettingsScreen
-        audioEngine={{ playMetronomeClick: vi.fn().mockResolvedValue(undefined), prepareForPlayback: vi.fn().mockResolvedValue(undefined) } as unknown as import('../../lib/audio/audioEngine').AudioEngine}
-        inputMode="both"
-        midiDevices={[]}
-        midiError={false}
-        instrumentSamplePackStatuses={{}}
-        pitchBendEnabled
-        onInstallInstrumentSamplePack={vi.fn().mockResolvedValue(undefined)}
-        onRemoveInstrumentSamplePack={vi.fn().mockResolvedValue(undefined)}
-        onDeveloperUnlockAll={developerUnlockAll}
-        onLearningProgressReset={onLearningProgressReset}
-        onSettingChange={vi.fn()}
-        onInputModeChange={vi.fn()}
-        onRetryMidi={vi.fn()}
-        onUserDataReset={onUserDataReset}
-        onOpenKeyboardSetup={vi.fn()}
-      />,
-    );
+    renderSettingsScreen();
 
     fireEvent.click(await screen.findByText('Practice'));
     fireEvent.click(screen.getByRole('button', { name: 'Clear Learning Progress' }));
@@ -148,26 +116,10 @@ describe('SettingsScreen', () => {
       return null;
     }) as typeof appBridge.getSetting;
 
-    render(
-      <SettingsScreen
-        audioEngine={{ playMetronomeClick: vi.fn().mockResolvedValue(undefined), prepareForPlayback: vi.fn().mockResolvedValue(undefined) } as unknown as import('../../lib/audio/audioEngine').AudioEngine}
-        inputMode="both"
-        midiDevices={[]}
-        midiError={false}
-        instrumentSamplePackStatuses={{}}
-        pitchBendEnabled
-        unlockedRewardIds={new Set(['audio:reverb-customization'])}
-        onInstallInstrumentSamplePack={vi.fn().mockResolvedValue(undefined)}
-        onRemoveInstrumentSamplePack={vi.fn().mockResolvedValue(undefined)}
-        onDeveloperUnlockAll={developerUnlockAll}
-        onLearningProgressReset={onLearningProgressReset}
-        onSettingChange={onSettingChange}
-        onInputModeChange={vi.fn()}
-        onRetryMidi={vi.fn()}
-        onUserDataReset={onUserDataReset}
-        onOpenKeyboardSetup={vi.fn()}
-      />,
-    );
+    renderSettingsScreen({
+      unlockedRewardIds: new Set(['audio:reverb-customization']),
+      onSettingChange,
+    });
 
     fireEvent.change(await screen.findByLabelText('Acoustic Piano Reverb'), { target: { value: 'hall' } });
 
@@ -183,25 +135,7 @@ describe('SettingsScreen', () => {
   it('persists audio controls through the bridge after the layout simplification', async () => {
     const onSettingChange = vi.fn();
 
-    render(
-      <SettingsScreen
-        audioEngine={{ playMetronomeClick: vi.fn().mockResolvedValue(undefined), prepareForPlayback: vi.fn().mockResolvedValue(undefined) } as unknown as import('../../lib/audio/audioEngine').AudioEngine}
-        inputMode="both"
-        midiDevices={[]}
-        midiError={false}
-        instrumentSamplePackStatuses={{}}
-        pitchBendEnabled
-        onInstallInstrumentSamplePack={vi.fn().mockResolvedValue(undefined)}
-        onRemoveInstrumentSamplePack={vi.fn().mockResolvedValue(undefined)}
-        onDeveloperUnlockAll={developerUnlockAll}
-        onLearningProgressReset={onLearningProgressReset}
-        onSettingChange={onSettingChange}
-        onInputModeChange={vi.fn()}
-        onRetryMidi={vi.fn()}
-        onUserDataReset={onUserDataReset}
-        onOpenKeyboardSetup={vi.fn()}
-      />,
-    );
+    renderSettingsScreen({ onSettingChange });
 
     fireEvent.change(await screen.findByRole('slider', { name: 'Master Volume' }), { target: { value: '55' } });
 
@@ -212,25 +146,7 @@ describe('SettingsScreen', () => {
   });
 
   it('shows saxophone as an available instrument option', async () => {
-    render(
-      <SettingsScreen
-        audioEngine={{ playMetronomeClick: vi.fn().mockResolvedValue(undefined), prepareForPlayback: vi.fn().mockResolvedValue(undefined) } as unknown as import('../../lib/audio/audioEngine').AudioEngine}
-        inputMode="both"
-        midiDevices={[]}
-        midiError={false}
-        instrumentSamplePackStatuses={{}}
-        pitchBendEnabled
-        onInstallInstrumentSamplePack={vi.fn().mockResolvedValue(undefined)}
-        onRemoveInstrumentSamplePack={vi.fn().mockResolvedValue(undefined)}
-        onDeveloperUnlockAll={developerUnlockAll}
-        onLearningProgressReset={onLearningProgressReset}
-        onSettingChange={vi.fn()}
-        onInputModeChange={vi.fn()}
-        onRetryMidi={vi.fn()}
-        onUserDataReset={onUserDataReset}
-        onOpenKeyboardSetup={vi.fn()}
-      />,
-    );
+    renderSettingsScreen();
 
     const instrumentSelect = await screen.findByRole('combobox', { name: 'Instrument' });
     expect(screen.getByRole('option', { name: 'Saxophone' })).toBeEnabled();
@@ -238,25 +154,7 @@ describe('SettingsScreen', () => {
   });
 
   it('unlocks developer content only after confirmation', async () => {
-    render(
-      <SettingsScreen
-        audioEngine={{ playMetronomeClick: vi.fn().mockResolvedValue(undefined), prepareForPlayback: vi.fn().mockResolvedValue(undefined) } as unknown as import('../../lib/audio/audioEngine').AudioEngine}
-        inputMode="both"
-        midiDevices={[]}
-        midiError={false}
-        instrumentSamplePackStatuses={{}}
-        pitchBendEnabled
-        onInstallInstrumentSamplePack={vi.fn().mockResolvedValue(undefined)}
-        onRemoveInstrumentSamplePack={vi.fn().mockResolvedValue(undefined)}
-        onDeveloperUnlockAll={developerUnlockAll}
-        onLearningProgressReset={onLearningProgressReset}
-        onSettingChange={vi.fn()}
-        onInputModeChange={vi.fn()}
-        onRetryMidi={vi.fn()}
-        onUserDataReset={onUserDataReset}
-        onOpenKeyboardSetup={vi.fn()}
-      />,
-    );
+    renderSettingsScreen();
 
     fireEvent.click(await screen.findByText('Practice'));
     fireEvent.click(screen.getByRole('button', { name: 'Unlock Test Content' }));
@@ -268,6 +166,69 @@ describe('SettingsScreen', () => {
 
     await waitFor(() => {
       expect(developerUnlockAll).toHaveBeenCalledOnce();
+    });
+  });
+
+  it('keeps settings usable when saved settings fail to load', async () => {
+    window.appBridge = {
+      ...window.appBridge!,
+      getSetting: vi.fn().mockRejectedValue(new Error('storage unavailable')),
+    } as typeof window.appBridge;
+
+    renderSettingsScreen();
+
+    expect(await screen.findByText('Some saved settings could not be loaded. Defaults are active for this session.')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Audio' })).toBeInTheDocument();
+  });
+
+  it('reports save failures without rolling back the active setting', async () => {
+    const onSettingChange = vi.fn();
+    window.appBridge = {
+      ...window.appBridge!,
+      setSetting: vi.fn().mockRejectedValue(new Error('write failed')),
+    } as typeof window.appBridge;
+
+    renderSettingsScreen({ onSettingChange });
+
+    fireEvent.change(await screen.findByRole('slider', { name: 'Master Volume' }), { target: { value: '44' } });
+
+    await waitFor(() => {
+      expect(onSettingChange).toHaveBeenCalledWith('audio', 'masterVolume', '44');
+      expect(screen.getByText('Save failed. The change is active for this session only.')).toBeInTheDocument();
+    });
+  });
+
+  it('clamps numeric settings before saving', async () => {
+    const onSettingChange = vi.fn();
+
+    renderSettingsScreen({ onSettingChange });
+
+    fireEvent.change(await screen.findByLabelText('Input Delay Fix (ms)'), { target: { value: '9999' } });
+
+    await waitFor(() => {
+      expect(onSettingChange).toHaveBeenCalledWith('audio', 'latencyCompMs', '300');
+      expect(window.appBridge?.setSetting).toHaveBeenCalledWith('audio', 'latencyCompMs', '300');
+    });
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Practice' }));
+    fireEvent.change(screen.getByLabelText('Posture Reminder (minutes)'), { target: { value: '-12' } });
+
+    await waitFor(() => {
+      expect(onSettingChange).toHaveBeenCalledWith('practice', 'postureReminderMinutes', '1');
+      expect(window.appBridge?.setSetting).toHaveBeenCalledWith('practice', 'postureReminderMinutes', '1');
+    });
+  });
+
+  it('cancels confirmation dialogs with Escape', async () => {
+    renderSettingsScreen();
+
+    fireEvent.click(await screen.findByText('Practice'));
+    fireEvent.click(screen.getByRole('button', { name: 'Clear Learning Progress' }));
+    fireEvent.keyDown(window, { key: 'Escape' });
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(resetLearningProgress).not.toHaveBeenCalled();
     });
   });
 });

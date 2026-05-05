@@ -5670,21 +5670,25 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 }
 
 .settings-panel-status h1 {
+  min-width: 0;
   margin: 0;
   color: var(--settings-ink);
   font-family: var(--font-display);
   font-size: var(--settings-type-route);
   font-weight: 800;
   line-height: 1.04;
+  overflow-wrap: anywhere;
 }
 
 .settings-panel-status > p {
+  min-width: 0;
   max-width: 54ch;
   margin: 0;
   color: var(--settings-muted-ink);
   font-size: var(--settings-type-caption);
   font-weight: 500;
   line-height: 1.4;
+  overflow-wrap: anywhere;
   text-align: right;
 }
 
@@ -5717,6 +5721,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   letter-spacing: 0.075em;
   line-height: 1;
   text-transform: uppercase;
+  white-space: nowrap;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.1),
     0 0 18px color-mix(in oklch, var(--settings-save-accent) 12%, transparent);
@@ -5927,6 +5932,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 }
 
 .settings-group-header h2 {
+  min-width: 0;
   margin: 0;
   color: color-mix(in oklch, var(--settings-card-accent) 30%, var(--settings-ink));
   font-family: var(--font-display);
@@ -5934,6 +5940,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   font-weight: 800;
   letter-spacing: 0;
   line-height: 1.08;
+  overflow-wrap: anywhere;
   text-shadow: 0 14px 34px rgba(0, 0, 0, 0.42);
 }
 
@@ -5952,6 +5959,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 }
 
 .settings-group-footer {
+  min-width: 0;
   margin: 0;
   border-top: 1px solid color-mix(in oklch, var(--settings-card-accent) 18%, oklch(94% 0.018 88 / 0.1));
   padding-top: 7px;
@@ -5959,6 +5967,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   font-size: var(--settings-type-caption);
   font-weight: 500;
   line-height: 1.42;
+  overflow-wrap: anywhere;
 }
 
 .settings-grid {
@@ -5980,6 +5989,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 .settings-grid label > span,
 .settings-note-card span {
   display: block;
+  min-width: 0;
   font-family: var(--font-meta);
   font-size: var(--settings-type-label);
   font-weight: 800;
@@ -5987,10 +5997,12 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   line-height: 1.05;
   text-transform: uppercase;
   color: color-mix(in oklch, var(--settings-note-accent) 28%, var(--settings-quiet-ink));
+  overflow-wrap: anywhere;
 }
 
 .settings-screen input,
 .settings-screen select {
+  min-width: 0;
   width: 100%;
   min-height: 36px;
   padding: 0 11px;
@@ -6047,6 +6059,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 .settings-screen input:disabled,
 .settings-screen select:disabled {
   opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .settings-screen input[type="range"] {
@@ -6210,6 +6223,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 
 .settings-note-card strong {
   display: block;
+  min-width: 0;
   margin-top: 0;
   color: var(--settings-ink);
   font-family: var(--font-body);
@@ -6220,9 +6234,11 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 }
 
 .settings-note-card em {
+  min-width: 0;
   color: var(--settings-quiet-ink);
   font-size: var(--settings-type-caption);
   line-height: 1.38;
+  overflow-wrap: anywhere;
 }
 
 .settings-content-grid-audio .settings-note-card em {
@@ -6243,6 +6259,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 .settings-screen .primary-button,
 .settings-screen .secondary-button,
 .settings-screen .danger-button {
+  min-width: 0;
   border-radius: 8px;
   font-family: var(--font-meta);
   min-height: 34px;
@@ -6256,6 +6273,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   align-items: center;
   justify-content: center;
   gap: 8px;
+  overflow-wrap: anywhere;
   clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
   transition:
     transform 150ms var(--settings-ease-out-quart),
@@ -6263,6 +6281,12 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
     box-shadow 150ms var(--settings-ease-out-quart),
     background 150ms var(--settings-ease-out-quart),
     opacity 150ms var(--settings-ease-out-quart);
+}
+
+.settings-screen .primary-button:disabled,
+.settings-screen .secondary-button:disabled,
+.settings-screen .danger-button:disabled {
+  cursor: not-allowed;
 }
 
 .settings-screen .primary-button:not(:disabled):active,
@@ -6371,6 +6395,9 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 
 .latency-wizard-panel,
 .settings-modal {
+  width: min(100%, 460px);
+  max-height: min(100%, 78vh);
+  overflow: auto;
   display: grid;
   gap: 12px;
   border-radius: 8px;
@@ -6383,6 +6410,12 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
     0 0 44px color-mix(in oklch, var(--settings-active-accent, var(--settings-info)) 18%, transparent);
   clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
   animation: settingsModalIn 210ms var(--settings-ease-out-quint) both;
+}
+
+.settings-modal h2,
+.settings-modal .panel-copy {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .latency-wizard-body {
