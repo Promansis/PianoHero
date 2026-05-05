@@ -5655,7 +5655,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 
 .settings-panel-status {
   display: grid;
-  grid-template-columns: minmax(0, max-content) minmax(24ch, 54ch);
+  grid-template-columns: minmax(0, max-content) minmax(24ch, 48ch) max-content;
   align-items: center;
   justify-content: space-between;
   gap: var(--settings-gap-xl);
@@ -5694,6 +5694,78 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 
 .settings-status-message-saving {
   color: color-mix(in oklch, var(--settings-active-accent) 68%, var(--settings-ink));
+}
+
+.settings-save-signal {
+  --settings-save-accent: var(--settings-active-accent);
+  position: relative;
+  display: inline-grid;
+  grid-template-columns: repeat(3, 8px) auto;
+  align-items: center;
+  gap: 5px;
+  min-height: 34px;
+  border: 1px solid color-mix(in oklch, var(--settings-save-accent) 30%, oklch(94% 0.018 88 / 0.12));
+  border-radius: 8px;
+  padding: 7px 10px;
+  background:
+    linear-gradient(135deg, color-mix(in oklch, var(--settings-save-accent) 13%, transparent), transparent 62%),
+    color-mix(in srgb, var(--settings-deck-bg) 88%, transparent);
+  color: color-mix(in oklch, var(--settings-save-accent) 55%, var(--settings-ink));
+  font-family: var(--font-meta);
+  font-size: var(--settings-type-label);
+  font-weight: 800;
+  letter-spacing: 0.075em;
+  line-height: 1;
+  text-transform: uppercase;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 0 18px color-mix(in oklch, var(--settings-save-accent) 12%, transparent);
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+  transition:
+    border-color 160ms var(--settings-ease-out-quart),
+    box-shadow 160ms var(--settings-ease-out-quart),
+    color 160ms var(--settings-ease-out-quart),
+    background 160ms var(--settings-ease-out-quart);
+}
+
+.settings-save-signal[data-save-state="saving"] {
+  --settings-save-accent: var(--settings-warning);
+  color: color-mix(in oklch, var(--settings-warning) 72%, var(--settings-ink));
+}
+
+.settings-save-signal[data-save-state="saved"] {
+  --settings-save-accent: var(--settings-success);
+  border-color: color-mix(in oklch, var(--settings-success) 56%, oklch(94% 0.018 88 / 0.16));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 0 28px color-mix(in oklch, var(--settings-success) 24%, transparent);
+}
+
+.settings-save-signal-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 3px;
+  background: color-mix(in oklch, var(--settings-save-accent) 42%, var(--settings-void));
+  box-shadow: 0 0 10px color-mix(in oklch, var(--settings-save-accent) 26%, transparent);
+  transform: scale(0.78);
+}
+
+.settings-save-signal[data-save-state="saving"] .settings-save-signal-dot {
+  animation: settingsSaveSignal 780ms var(--settings-ease-out-expo) infinite;
+}
+
+.settings-save-signal[data-save-state="saving"] .settings-save-signal-dot:nth-child(2) {
+  animation-delay: 90ms;
+}
+
+.settings-save-signal[data-save-state="saving"] .settings-save-signal-dot:nth-child(3) {
+  animation-delay: 180ms;
+}
+
+.settings-save-signal[data-save-state="saved"] .settings-save-signal-dot {
+  background: var(--settings-success);
+  box-shadow: 0 0 15px color-mix(in oklch, var(--settings-success) 46%, transparent);
+  transform: scale(1);
 }
 
 .settings-content-grid {
@@ -5978,6 +6050,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 }
 
 .settings-screen input[type="range"] {
+  --settings-range-value: 0%;
   min-height: 36px;
   padding: 0;
   border: 0;
@@ -5991,9 +6064,12 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   border: 1px solid color-mix(in oklch, var(--settings-card-accent) 28%, oklch(94% 0.018 88 / 0.1));
   border-radius: 999px;
   background:
+    linear-gradient(90deg, color-mix(in oklch, var(--settings-card-accent) 72%, var(--settings-ink)) 0 var(--settings-range-value), transparent var(--settings-range-value) 100%),
     linear-gradient(90deg, color-mix(in oklch, var(--settings-card-accent) 32%, transparent), transparent),
     oklch(13% 0.044 263 / 0.86);
-  box-shadow: 0 0 12px color-mix(in oklch, var(--settings-card-accent) 10%, transparent);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in oklch, var(--settings-void) 76%, transparent),
+    0 0 12px color-mix(in oklch, var(--settings-card-accent) 10%, transparent);
 }
 
 .settings-screen input[type="range"]::-webkit-slider-thumb {
@@ -6016,6 +6092,10 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   box-shadow: 0 0 24px color-mix(in oklch, var(--settings-card-accent) 48%, transparent);
 }
 
+.settings-screen input[type="range"][data-save-flash="true"]::-webkit-slider-runnable-track {
+  animation: settingsRangeCommit 620ms var(--settings-ease-out-expo) both;
+}
+
 .settings-screen input[type="range"]::-moz-range-track {
   height: 8px;
   border: 1px solid color-mix(in oklch, var(--settings-card-accent) 28%, oklch(94% 0.018 88 / 0.1));
@@ -6030,6 +6110,12 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   border-radius: 6px;
   background: linear-gradient(180deg, var(--settings-ink), color-mix(in oklch, var(--settings-card-accent) 76%, var(--settings-ink)));
   box-shadow: 0 0 14px color-mix(in oklch, var(--settings-card-accent) 38%, transparent);
+}
+
+.settings-screen input[type="range"]::-moz-range-progress {
+  height: 8px;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--settings-card-accent) 72%, var(--settings-ink));
 }
 
 .settings-screen input[type="color"] {
@@ -6493,6 +6579,40 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   }
 }
 
+@keyframes settingsSaveSignal {
+  0%,
+  100% {
+    opacity: 0.46;
+    transform: scale(0.72);
+  }
+
+  44% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+}
+
+@keyframes settingsRangeCommit {
+  0% {
+    box-shadow:
+      inset 0 0 0 1px color-mix(in oklch, var(--settings-void) 76%, transparent),
+      0 0 12px color-mix(in oklch, var(--settings-card-accent) 10%, transparent);
+  }
+
+  42% {
+    border-color: color-mix(in oklch, var(--settings-success) 62%, var(--settings-ink));
+    box-shadow:
+      inset 0 0 0 1px color-mix(in oklch, var(--settings-success) 34%, transparent),
+      0 0 24px color-mix(in oklch, var(--settings-success) 28%, transparent);
+  }
+
+  100% {
+    box-shadow:
+      inset 0 0 0 1px color-mix(in oklch, var(--settings-void) 76%, transparent),
+      0 0 12px color-mix(in oklch, var(--settings-card-accent) 10%, transparent);
+  }
+}
+
 @keyframes settingsSavedPulse {
   0% {
     transform: scale(0.992);
@@ -6683,6 +6803,16 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
       padding: 14px;
     }
 
+  .settings-panel-status {
+      grid-template-columns: 1fr;
+      justify-items: start;
+      gap: 8px;
+    }
+
+  .settings-panel-status > p {
+      text-align: left;
+    }
+
   .settings-group-card {
       padding: 16px;
     }
@@ -6729,7 +6859,8 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 
   .settings-tab-wave,
     .settings-tab-note,
-    .settings-tab-pulse {
+    .settings-tab-pulse,
+    .settings-save-signal-dot {
       opacity: 0.7;
       transform: none !important;
     }

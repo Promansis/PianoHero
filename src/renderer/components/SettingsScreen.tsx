@@ -91,6 +91,7 @@ type SettingsStyle = CSSProperties & {
   '--settings-active-accent'?: string;
   '--settings-tab-accent'?: string;
   '--entrance-delay'?: string;
+  '--settings-range-value'?: string;
 };
 
 type SettingsActionIcon =
@@ -324,6 +325,16 @@ function getSettingKey(category: string, key: string): string {
   return `${category}.${key}`;
 }
 
+function getRangeFillPercent(value: string, min: number, max: number): string {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue) || max <= min) {
+    return '0%';
+  }
+
+  const clampedValue = Math.min(max, Math.max(min, numericValue));
+  return `${((clampedValue - min) / (max - min)) * 100}%`;
+}
+
 function parseInstrumentReverbPresets(rawValue: string | null | undefined): Record<string, InstrumentReverbPreset> {
   if (!rawValue) {
     return {};
@@ -452,12 +463,17 @@ export function SettingsScreen({
   const [samplePackFileCount, setSamplePackFileCount] = useState(0);
   const [activePackActionInstrumentId, setActivePackActionInstrumentId] = useState<string | null>(null);
   const [settingsSavePulse, setSettingsSavePulse] = useState(0);
+  const [lastChangedSettingKey, setLastChangedSettingKey] = useState<string | null>(null);
   const savePulseTimerRef = useRef<number | null>(null);
+  const lastChangedTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     return () => {
       if (savePulseTimerRef.current !== null) {
         window.clearTimeout(savePulseTimerRef.current);
+      }
+      if (lastChangedTimerRef.current !== null) {
+        window.clearTimeout(lastChangedTimerRef.current);
       }
     };
   }, []);
@@ -530,6 +546,8 @@ export function SettingsScreen({
     instrumentReverbPresets,
   );
   const reverbCustomizationUnlocked = isRewardUnlocked('audio:reverb-customization', unlockedRewardIds);
+  const saveSignalState = isSaving ? 'saving' : settingsSavePulse > 0 ? 'saved' : 'ready';
+  const saveSignalLabel = isSaving ? 'Syncing' : settingsSavePulse > 0 ? 'Saved' : 'Ready';
 
   const installSelectedInstrumentPack = async () => {
     setActivePackActionInstrumentId(selectedInstrument.id);
@@ -554,7 +572,9 @@ export function SettingsScreen({
   };
 
   const persistSetting = async (category: string, key: string, value: string) => {
-    setValues((current) => ({ ...current, [getSettingKey(category, key)]: value }));
+    const compositeKey = getSettingKey(category, key);
+    setValues((current) => ({ ...current, [compositeKey]: value }));
+    setLastChangedSettingKey(compositeKey);
     onSettingChange(category, key, value);
     setIsSaving(true);
     setStatusMessage('Saving changes...');
@@ -569,6 +589,13 @@ export function SettingsScreen({
       setSettingsSavePulse(0);
       savePulseTimerRef.current = null;
     }, 360);
+    if (lastChangedTimerRef.current !== null) {
+      window.clearTimeout(lastChangedTimerRef.current);
+    }
+    lastChangedTimerRef.current = window.setTimeout(() => {
+      setLastChangedSettingKey(null);
+      lastChangedTimerRef.current = null;
+    }, 1150);
   };
 
   const browseSamplePack = async () => {
@@ -726,6 +753,12 @@ export function SettingsScreen({
             >
               {statusMessage}
             </p>
+            <div className="settings-save-signal" data-save-state={saveSignalState} aria-hidden="true">
+              <span className="settings-save-signal-dot" />
+              <span className="settings-save-signal-dot" />
+              <span className="settings-save-signal-dot" />
+              <span>{saveSignalLabel}</span>
+            </div>
           </div>
 
           <section className="settings-tab-row" role="tablist" aria-label="Settings sections">
@@ -828,6 +861,8 @@ export function SettingsScreen({
                     min={0}
                     max={100}
                     value={values['audio.masterVolume']}
+                    data-save-flash={lastChangedSettingKey === 'audio.masterVolume' ? 'true' : undefined}
+                    style={{ '--settings-range-value': getRangeFillPercent(values['audio.masterVolume'], 0, 100) } as SettingsStyle}
                     onChange={(event) => void persistSetting('audio', 'masterVolume', event.target.value)}
                   />
                 </label>
@@ -838,6 +873,8 @@ export function SettingsScreen({
                     min={0}
                     max={100}
                     value={values['audio.reverbLevel']}
+                    data-save-flash={lastChangedSettingKey === 'audio.reverbLevel' ? 'true' : undefined}
+                    style={{ '--settings-range-value': getRangeFillPercent(values['audio.reverbLevel'], 0, 100) } as SettingsStyle}
                     onChange={(event) => void persistSetting('audio', 'reverbLevel', event.target.value)}
                   />
                 </label>
@@ -886,6 +923,8 @@ export function SettingsScreen({
                     min={0}
                     max={100}
                     value={values['audio.metronomeVolume']}
+                    data-save-flash={lastChangedSettingKey === 'audio.metronomeVolume' ? 'true' : undefined}
+                    style={{ '--settings-range-value': getRangeFillPercent(values['audio.metronomeVolume'], 0, 100) } as SettingsStyle}
                     onChange={(event) => void persistSetting('audio', 'metronomeVolume', event.target.value)}
                   />
                 </label>
@@ -1100,6 +1139,8 @@ export function SettingsScreen({
                     max={16}
                     step={1}
                     value={values['visual.beatsVisible']}
+                    data-save-flash={lastChangedSettingKey === 'visual.beatsVisible' ? 'true' : undefined}
+                    style={{ '--settings-range-value': getRangeFillPercent(values['visual.beatsVisible'], 4, 16) } as SettingsStyle}
                     onChange={(event) => void persistSetting('visual', 'beatsVisible', event.target.value)}
                   />
                 </label>
