@@ -195,21 +195,35 @@ const PRIMARY_CARD_ENTRANCE_STEP_MS = 70;
 const SECONDARY_SHELL_ENTRANCE_DELAY_MS = 450;
 const SECONDARY_CARD_ENTRANCE_START_MS = 500;
 const SECONDARY_CARD_ENTRANCE_STEP_MS = 60;
+const REDUCE_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
+const COMPACT_VIEWPORT_QUERY = '(max-width: 780px)';
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
-function shouldReduceMotion(): boolean {
+function getMediaQueryMatches(query: string): boolean {
   return typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-    ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    ? window.matchMedia(query).matches
     : false;
 }
 
-function isCompactViewport(): boolean {
-  return typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-    ? window.matchMedia('(max-width: 780px)').matches
-    : false;
+function subscribeMediaQuery(query: string, onChange: (matches: boolean) => void): () => void {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+    return () => {};
+  }
+
+  const queryList = window.matchMedia(query);
+  const handleChange = (event: MediaQueryListEvent) => onChange(event.matches);
+  onChange(queryList.matches);
+
+  if (typeof queryList.addEventListener === 'function') {
+    queryList.addEventListener('change', handleChange);
+    return () => queryList.removeEventListener('change', handleChange);
+  }
+
+  queryList.addListener(handleChange);
+  return () => queryList.removeListener(handleChange);
 }
 
 function requestFrame(callback: FrameRequestCallback): number {
@@ -240,6 +254,8 @@ function getCardDelay(priority: MenuCard['priority'], index: number): string {
 
 export function MainMenuScreen(props: MainMenuScreenProps) {
   const mainRef = useRef<HTMLElement | null>(null);
+  const reduceMotionRef = useRef(getMediaQueryMatches(REDUCE_MOTION_QUERY));
+  const compactViewportRef = useRef(getMediaQueryMatches(COMPACT_VIEWPORT_QUERY));
   const screenFrameRef = useRef<number | null>(null);
   const screenPointerRef = useRef({ x: 0, y: 0 });
   const cardFrameRef = useRef<number | null>(null);
@@ -255,14 +271,23 @@ export function MainMenuScreen(props: MainMenuScreenProps) {
   const secondaryCards = useMemo(() => MENU_CARDS.filter((card) => card.priority === 'secondary'), []);
 
   useEffect(() => {
+    const unsubscribeReduceMotion = subscribeMediaQuery(REDUCE_MOTION_QUERY, (matches) => {
+      reduceMotionRef.current = matches;
+    });
+    const unsubscribeCompactViewport = subscribeMediaQuery(COMPACT_VIEWPORT_QUERY, (matches) => {
+      compactViewportRef.current = matches;
+    });
+
     return () => {
       cancelFrame(screenFrameRef.current);
       cancelFrame(cardFrameRef.current);
+      unsubscribeReduceMotion();
+      unsubscribeCompactViewport();
     };
   }, []);
 
   const handleScreenPointerMove = (event: ReactPointerEvent<HTMLElement>) => {
-    if (shouldReduceMotion()) {
+    if (reduceMotionRef.current) {
       return;
     }
 
@@ -300,7 +325,7 @@ export function MainMenuScreen(props: MainMenuScreenProps) {
   };
 
   const handleCardPointerMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    if (shouldReduceMotion() || isCompactViewport()) {
+    if (reduceMotionRef.current || compactViewportRef.current) {
       return;
     }
 

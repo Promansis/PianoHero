@@ -1597,6 +1597,7 @@ select:focus {
 .main-menu-screen {
   --mouse-x: 0;
   --mouse-y: 0;
+  --main-menu-rail-width: clamp(540px, 42vw, 640px);
   --menu-neon-cyan: #18ddff;
   --menu-neon-teal: #00f6d2;
   --menu-neon-blue: #4a86ff;
@@ -1611,7 +1612,7 @@ select:focus {
   align-content: start;
   gap: clamp(14px, 1.8vw, 22px);
   overflow: hidden;
-  padding: 76px clamp(18px, 4vw, 64px) 24px;
+  padding: 76px clamp(18px, 4vw, 64px) 24px clamp(28px, 4.4vw, 72px);
   color: #fbf8ff;
   background:
     image-set(
@@ -1674,8 +1675,7 @@ select:focus {
   width: 32vw;
   height: 105vh;
   top: -22vh;
-  filter: blur(20px);
-  opacity: 0.18;
+  opacity: 0.12;
   mix-blend-mode: screen;
 }
 
@@ -1757,10 +1757,9 @@ select:focus {
   );
   background-size: 200% 200%;
   background-clip: text;
-  filter: drop-shadow(0 18px 42px rgba(0, 0, 0, 0.42));
+  text-shadow: 0 18px 42px rgba(0, 0, 0, 0.42);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  animation: heroTitleShimmer 5s ease-in-out infinite;
 }
 
 .main-menu-hero .song-title {
@@ -1820,22 +1819,30 @@ select:focus {
   animation-delay: var(--entrance-delay, 0ms);
 }
 
-.main-menu-grid {
-  width: min(100%, 920px);
-  max-width: 25%;
+.main-menu-hero {
+  width: min(100%, var(--main-menu-rail-width));
+  justify-self: start;
   margin: 0 auto 0 0;
+}
+
+.main-menu-grid {
+  width: min(100%, var(--main-menu-rail-width));
+  margin: 0 auto 0 0;
+  justify-self: start;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: clamp(22px, 1.5vw, 108px);
+  gap: clamp(18px, 1.45vw, 24px);
+  contain: layout style;
   perspective: 1200px;
 }
 
 .main-menu-secondary-shell {
-  width: min(100%, 920px);
-  max-width: none;
+  width: min(100%, var(--main-menu-rail-width));
   margin: 0 auto 0 0;
+  justify-self: start;
   display: grid;
   gap: 12px;
+  contain: layout style;
   padding: 0;
   border: 0;
   border-radius: 0;
@@ -1861,8 +1868,8 @@ select:focus {
 
 .main-menu-secondary-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
   perspective: 1000px;
 }
 
@@ -1901,7 +1908,7 @@ select:focus {
     background 220ms ease;
   animation: heroEntrance 720ms cubic-bezier(0.22, 1, 0.36, 1) both;
   animation-delay: var(--entrance-delay, 0ms);
-  backdrop-filter: blur(20px);
+  contain: layout style;
 }
 
 .menu-card::before,
@@ -1932,7 +1939,6 @@ select:focus {
     linear-gradient(#000 0 0) content-box,
     linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
-  animation: menuGlowSpin 7s linear infinite;
 }
 
 .menu-card::after {
@@ -1987,7 +1993,7 @@ select:focus {
 
 .menu-card:hover::before {
   opacity: 1;
-  animation-duration: 2.4s;
+  animation: menuGlowSpin 2.4s linear infinite;
 }
 
 .menu-card:hover .menu-card-sheen {
@@ -2001,8 +2007,8 @@ select:focus {
 
 .menu-card-secondary {
   grid-template-rows: auto 1fr;
-  min-height: 124px;
-  padding: 14px;
+  min-height: 118px;
+  padding: 12px;
   border-radius: 16px;
 }
 
@@ -2044,6 +2050,7 @@ select:focus {
 
 .menu-card-title {
   display: block;
+  overflow-wrap: break-word;
   color: color-mix(in srgb, var(--card-color) 34%, #fff8ec);
   font-family: var(--font-display);
   font-size: clamp(1.45rem, 2vw, 1.85rem);
@@ -2094,7 +2101,6 @@ select:focus {
   transform: translateY(-6px) scale(0.97);
   transform-origin: top right;
   transition: opacity 160ms ease, transform 160ms ease;
-  backdrop-filter: blur(18px);
 }
 
 .menu-card-popover::after {
@@ -2117,13 +2123,13 @@ select:focus {
 }
 
 .menu-card-secondary .menu-card-title {
-  font-size: 1.08rem;
+  font-size: 1rem;
 }
 
 .menu-card-secondary .menu-card-popover {
   top: 12px;
   right: 12px;
-  left: 64px;
+  left: 12px;
   padding: 9px 11px;
   font-size: 0.78rem;
 }
@@ -2209,15 +2215,16 @@ select:focus {
 
 @media (max-width: 1180px) {
   .main-menu-screen {
+      --main-menu-rail-width: clamp(540px, 57vw, 620px);
       background-position: 54% center;
     }
 
   .main-menu-hero,
     .main-menu-grid,
     .main-menu-secondary-shell {
-      width: min(100%, 940px);
+      width: min(100%, var(--main-menu-rail-width));
       margin-right: auto;
-      margin-left: auto;
+      margin-left: 0;
     }
 
   .main-menu-hero {
@@ -2230,7 +2237,7 @@ select:focus {
     }
 
   .main-menu-secondary-grid {
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 
@@ -2270,7 +2277,7 @@ select:focus {
 
   .menu-card-secondary {
       gap: 10px;
-      min-height: 108px;
+      min-height: 98px;
       padding: 12px;
     }
 
@@ -2290,6 +2297,65 @@ select:focus {
   .main-menu-grid,
     .main-menu-secondary-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (min-width: 781px) and (max-height: 820px) {
+  .main-menu-screen {
+      gap: 8px;
+      padding-top: 58px;
+    }
+
+  .main-menu-hero {
+      min-height: 132px;
+      padding-top: 6px;
+    }
+
+  .main-menu-grid {
+      gap: 12px;
+    }
+
+  .menu-card-primary {
+      min-height: 172px;
+    }
+
+  .menu-card-secondary {
+      grid-template-columns: auto minmax(0, 1fr);
+      grid-template-rows: 1fr;
+      align-items: center;
+      gap: 10px;
+      min-height: 68px;
+      padding: 10px;
+    }
+
+  .menu-card-secondary .menu-card-copy {
+      align-self: center;
+    }
+
+  .menu-card-secondary .menu-card-popover {
+      top: 8px;
+      right: 8px;
+      bottom: 8px;
+      left: 72px;
+      display: grid;
+      align-items: center;
+      padding: 8px 10px;
+    }
+
+  .menu-card-secondary .menu-card-popover::after {
+      top: calc(50% - 5px);
+    }
+}
+
+@supports (backdrop-filter: blur(1px)) {
+  .menu-card:hover,
+    .menu-card:focus-visible {
+      backdrop-filter: blur(10px);
+    }
+
+  .menu-card:hover .menu-card-popover,
+    .menu-card:focus-visible .menu-card-popover {
+      backdrop-filter: blur(10px);
     }
 }
 
@@ -2384,6 +2450,10 @@ select:focus {
   .menu-card,
     .menu-card:hover {
       transform: none;
+    }
+
+  .menu-card::before {
+      animation: none !important;
     }
 
   .menu-card-sheen {
