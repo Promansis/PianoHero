@@ -5170,6 +5170,7 @@ select:focus {
   --settings-gap-md: 12px;
   --settings-gap-lg: 16px;
   --settings-gap-xl: 22px;
+  --settings-control-hit-size: 44px;
   --settings-panel-pad: 16px;
   --settings-card-pad: 14px;
   --settings-type-kicker: 0.68rem;
@@ -5205,6 +5206,7 @@ select:focus {
   --settings-deck-bg: color-mix(in oklch, var(--settings-void) 70%, transparent);
   --settings-panel-line: color-mix(in oklch, var(--settings-neon-cyan) 26%, transparent);
   --settings-active-accent: var(--settings-neon-cyan);
+  --settings-tab-accent: var(--settings-active-accent);
   --settings-ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
   --settings-ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
   --settings-ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
@@ -5485,7 +5487,6 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 }
 
 .settings-tab-button {
-  --settings-tab-accent: var(--settings-neon-cyan);
   position: relative;
   display: grid;
   grid-template-columns: 28px minmax(0, 1fr);
@@ -5513,6 +5514,26 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
     background 160ms var(--settings-ease-out-quart);
   animation: settingsTabReveal 360ms var(--settings-ease-out-quint) both;
   animation-delay: var(--entrance-delay, 0ms);
+}
+
+.settings-tab-button:nth-child(1) {
+  --settings-tab-accent: var(--settings-neon-gold);
+}
+
+.settings-tab-button:nth-child(2) {
+  --settings-tab-accent: var(--settings-neon-magenta);
+}
+
+.settings-tab-button:nth-child(3) {
+  --settings-tab-accent: var(--settings-neon-coral);
+}
+
+.settings-tab-button:nth-child(4) {
+  --settings-tab-accent: var(--settings-info);
+}
+
+.settings-tab-button:nth-child(5) {
+  --settings-tab-accent: var(--settings-neon-teal);
 }
 
 .settings-tab-button::before,
@@ -5828,27 +5849,26 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 }
 
 .settings-content-grid-audio {
-  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-template-columns: minmax(320px, 0.9fr) minmax(520px, 1.35fr);
 }
 
 .settings-content-grid-audio > .settings-group-card:nth-child(1) {
-  grid-column: span 5;
+  grid-column: 1;
   grid-row: 1;
 }
 
 .settings-content-grid-audio > .settings-group-card:nth-child(2) {
-  grid-column: span 7;
+  grid-column: 2;
   grid-row: 1;
 }
 
-.settings-content-grid-audio > .settings-group-card:nth-child(3),
 .settings-content-grid-audio > .settings-group-card:nth-child(4) {
-  grid-column: span 4;
-  grid-row: 2;
+  grid-column: 1 / -1;
+  grid-row: 3;
 }
 
-.settings-content-grid-audio > .settings-group-card:nth-child(5) {
-  grid-column: span 4;
+.settings-content-grid-audio > .settings-group-card:nth-child(3) {
+  grid-column: 1 / -1;
   grid-row: 2;
 }
 
@@ -5862,12 +5882,12 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 }
 
 .settings-content-grid-practice {
-  grid-template-columns: minmax(420px, 1.15fr) minmax(260px, 0.55fr);
+  grid-template-columns: minmax(420px, 0.85fr) minmax(360px, 1fr);
 }
 
 .settings-content-grid-practice .settings-danger-zone {
-  grid-column: 1 / -1;
-  grid-row: 2;
+  grid-column: 2;
+  grid-row: 1;
 }
 
 .settings-group-card {
@@ -5953,10 +5973,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 }
 
 .settings-content-grid-audio > .settings-group-card:nth-child(3),
-.settings-content-grid-audio > .settings-group-card:nth-child(4),
-.settings-content-grid-audio > .settings-group-card:nth-child(5),
-.settings-content-grid-input > .settings-group-card:nth-child(2),
-.settings-content-grid-practice > .settings-group-card:nth-child(2) {
+.settings-content-grid-input > .settings-group-card:nth-child(2) {
   background:
     radial-gradient(circle at 92% 10%, color-mix(in oklch, var(--settings-card-accent) 9%, transparent), transparent 34%),
     linear-gradient(145deg, color-mix(in oklch, var(--settings-card-accent) 5%, transparent), transparent 48%),
@@ -6029,6 +6046,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--settings-gap-md) var(--settings-gap-lg);
+  align-items: start;
 }
 
 .settings-grid-single {
@@ -6037,6 +6055,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 
 .settings-grid label {
   display: grid;
+  align-content: start;
   gap: 6px;
   min-width: 0;
 }
@@ -6092,8 +6111,8 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 .settings-screen select {
   min-width: 0;
   width: 100%;
-  min-height: 36px;
-  padding: 0 11px;
+  min-height: var(--settings-control-hit-size);
+  padding: 4px 11px;
   border: 1px solid color-mix(in oklch, var(--settings-card-accent) 24%, oklch(94% 0.018 88 / 0.12));
   border-radius: 8px;
   background:
@@ -6117,6 +6136,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 
 .settings-screen select {
   appearance: none;
+  height: var(--settings-control-hit-size);
   padding-right: 36px;
   background-image:
     linear-gradient(45deg, transparent 50%, var(--settings-card-accent) 50%),
@@ -6152,7 +6172,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 
 .settings-screen input[type="range"] {
   --settings-range-value: 0%;
-  min-height: 28px;
+  min-height: var(--settings-control-hit-size);
   padding: 0;
   border: 0;
   background: transparent;
@@ -6221,7 +6241,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
 
 .settings-screen input[type="color"] {
   width: min(100%, 104px);
-  height: 44px;
+  height: var(--settings-control-hit-size);
   padding: 4px;
   border-color: color-mix(in oklch, var(--settings-card-accent) 44%, oklch(94% 0.018 88 / 0.14));
   background:
@@ -6295,18 +6315,6 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   --settings-note-accent: var(--settings-danger);
 }
 
-.settings-save-status-card-saving {
-  border-color: color-mix(in oklch, var(--settings-warning) 50%, oklch(94% 0.018 88 / 0.16));
-  background:
-    radial-gradient(circle at 90% 12%, color-mix(in oklch, var(--settings-warning) 14%, transparent), transparent 34%),
-    linear-gradient(145deg, color-mix(in oklch, var(--settings-warning) 10%, transparent), transparent 60%),
-    oklch(13% 0.044 263 / 0.68);
-}
-
-.settings-save-status-card-saved {
-  animation: settingsSavedPulse 340ms var(--settings-ease-out-expo) both;
-}
-
 .settings-note-card strong {
   display: block;
   min-width: 0;
@@ -6336,14 +6344,6 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   margin-top: var(--settings-gap-xs);
 }
 
-.settings-save-status-card[data-save-state="queued"] {
-  border-color: color-mix(in oklch, var(--settings-info) 42%, oklch(94% 0.018 88 / 0.14));
-  background:
-    radial-gradient(circle at 90% 12%, color-mix(in oklch, var(--settings-info) 12%, transparent), transparent 34%),
-    linear-gradient(145deg, color-mix(in oklch, var(--settings-info) 8%, transparent), transparent 60%),
-    oklch(13% 0.044 263 / 0.68);
-}
-
 .settings-sample-pack-buttons,
 .settings-danger-actions {
   display: grid;
@@ -6355,14 +6355,46 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   gap: 6px;
 }
 
+.settings-advanced-audio-card .settings-group-body {
+  gap: var(--settings-gap-md);
+}
+
+.settings-advanced-audio-card > .settings-group-body > .settings-grid {
+  grid-template-columns: minmax(280px, 1fr) max-content;
+  align-items: end;
+}
+
+.settings-advanced-audio-summary {
+  min-height: var(--settings-control-hit-size);
+}
+
+.settings-advanced-toggle {
+  align-self: stretch;
+  min-width: 230px;
+}
+
+.settings-advanced-audio-panel {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(260px, 1fr));
+  gap: var(--settings-gap-md) var(--settings-gap-lg);
+  border-top: 1px solid color-mix(in oklch, var(--settings-card-accent) 18%, oklch(94% 0.018 88 / 0.1));
+  padding-top: var(--settings-gap-md);
+}
+
+.settings-advanced-audio-panel label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
 .settings-screen .primary-button,
 .settings-screen .secondary-button,
 .settings-screen .danger-button {
   min-width: 0;
   border-radius: 8px;
   font-family: var(--font-meta);
-  min-height: 34px;
-  padding: 6px 9px;
+  min-height: var(--settings-control-hit-size);
+  padding: 8px 11px;
   font-size: var(--settings-type-label);
   font-weight: 800;
   letter-spacing: 0.065em;
@@ -6380,6 +6412,15 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
     box-shadow 150ms var(--settings-ease-out-quart),
     background 150ms var(--settings-ease-out-quart),
     opacity 150ms var(--settings-ease-out-quart);
+}
+
+.settings-content-grid-audio > .settings-group-card:nth-child(3) .latency-comp-row {
+  grid-template-columns: minmax(260px, 360px) max-content;
+  justify-content: start;
+}
+
+.settings-screen .settings-advanced-toggle {
+  min-width: 230px;
 }
 
 .settings-screen .primary-button:disabled,

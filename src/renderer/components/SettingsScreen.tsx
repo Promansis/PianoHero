@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 import {
   DEFAULT_INSTRUMENT_ID,
   getInstrumentDefinition,
@@ -78,21 +78,29 @@ const TAB_LABELS: Record<SettingsTab, string> = {
 };
 
 const TAB_META: Record<SettingsTab, { accent: string; kicker: string }> = {
-  audio: { accent: 'oklch(83% 0.18 76)', kicker: 'Signal' },
-  visual: { accent: 'oklch(73% 0.25 331)', kicker: 'Optics' },
-  gameplay: { accent: 'oklch(73% 0.2 29)', kicker: 'Timing' },
-  input: { accent: 'oklch(82% 0.17 214)', kicker: 'MIDI' },
-  practice: { accent: 'oklch(78% 0.17 168)', kicker: 'Routine' },
+  audio: { accent: 'var(--settings-neon-gold)', kicker: 'Sound' },
+  visual: { accent: 'var(--settings-neon-magenta)', kicker: 'Display' },
+  gameplay: { accent: 'var(--settings-neon-coral)', kicker: 'Timing' },
+  input: { accent: 'var(--settings-info)', kicker: 'Devices' },
+  practice: { accent: 'var(--settings-neon-teal)', kicker: 'Goals' },
 };
 
 const SETTINGS_TABS = Object.keys(TAB_LABELS) as SettingsTab[];
 
 type SettingsStyle = CSSProperties & {
   '--settings-active-accent'?: string;
-  '--settings-tab-accent'?: string;
   '--entrance-delay'?: string;
   '--settings-range-value'?: string;
 };
+
+const FOCUSABLE_MODAL_SELECTOR = [
+  'button:not([disabled])',
+  'select:not([disabled])',
+  'input:not([disabled])',
+  'textarea:not([disabled])',
+  'a[href]',
+  '[tabindex]:not([tabindex="-1"])',
+].join(',');
 
 type SettingsActionIcon =
   | 'calibrate'
@@ -436,6 +444,7 @@ function ConfirmActionModal({
   onConfirm,
 }: ConfirmActionModalProps) {
   const cancelButtonRef = useRef<HTMLButtonElement | null>(null);
+  const dialogRef = useRef<HTMLElement | null>(null);
   const titleId = `settings-confirm-title-${confirmLabel.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
   const descriptionId = `${titleId}-description`;
 
@@ -443,10 +452,39 @@ function ConfirmActionModal({
     const previousActiveElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     cancelButtonRef.current?.focus();
 
-    const handleKeyDown = (event: KeyboardEvent) => {
+    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
       if (event.key === 'Escape' && !busy) {
         event.preventDefault();
         onCancel();
+        return;
+      }
+
+      if (event.key !== 'Tab' || !dialogRef.current) {
+        return;
+      }
+
+      const focusableElements = Array.from(
+        dialogRef.current.querySelectorAll<HTMLElement>(FOCUSABLE_MODAL_SELECTOR),
+      ).filter((element) => {
+        const style = window.getComputedStyle(element);
+        return style.display !== 'none' && style.visibility !== 'hidden';
+      });
+
+      if (focusableElements.length === 0) {
+        event.preventDefault();
+        dialogRef.current.focus();
+        return;
+      }
+
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+
+      if (event.shiftKey && document.activeElement === firstElement) {
+        event.preventDefault();
+        lastElement.focus();
+      } else if (!event.shiftKey && document.activeElement === lastElement) {
+        event.preventDefault();
+        firstElement.focus();
       }
     };
 
@@ -469,11 +507,13 @@ function ConfirmActionModal({
       }}
     >
       <section
+        ref={dialogRef}
         className="panel settings-modal"
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={descriptionId}
+        tabIndex={-1}
       >
         <p className="eyebrow">Confirm Action</p>
         <svg className="settings-warning-icon settings-modal-warning-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
@@ -577,6 +617,14 @@ export function SettingsScreen({
   const [settingsSavePulse, setSettingsSavePulse] = useState(0);
   const [queuedSaveCount, setQueuedSaveCount] = useState(0);
   const [lastChangedSettingKey, setLastChangedSettingKey] = useState<string | null>(null);
+  const [showAdvancedAudio, setShowAdvancedAudio] = useState(false);
+  const tabRefs = useRef<Record<SettingsTab, HTMLButtonElement | null>>({
+    audio: null,
+    visual: null,
+    gameplay: null,
+    input: null,
+    practice: null,
+  });
   const savePulseTimerRef = useRef<number | null>(null);
   const lastChangedTimerRef = useRef<number | null>(null);
   const pendingDebouncedSaveRef = useRef<Map<string, PendingSettingSave>>(new Map());
@@ -661,11 +709,6 @@ export function SettingsScreen({
             [getSettingKey('audio', 'pitchBendEnabled')]: pitchBendEnabled ? 'true' : 'false',
           }));
           setStatusMessage('Some saved settings could not be loaded. Defaults are active for this session.');
-          toastBus.push({
-            variant: 'error',
-            title: 'Settings load failed',
-            message: 'Defaults are active for this session. Try reopening settings if storage is available.',
-          });
         }
       } finally {
         if (isActive) {
@@ -870,6 +913,40 @@ export function SettingsScreen({
 
   const persistNumericSetting = (category: string, key: string, value: string, min: number, max: number) => {
     void persistSetting(category, key, clampNumericSetting(value, min, max));
+  };
+
+  const selectSettingsTab = (tab: SettingsTab, shouldFocus = false) => {
+    setActiveTab(tab);
+    if (shouldFocus) {
+      tabRefs.current[tab]?.focus();
+    }
+  };
+
+  const handleTabKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>, tab: SettingsTab) => {
+    const currentIndex = SETTINGS_TABS.indexOf(tab);
+    let nextIndex = currentIndex;
+
+    switch (event.key) {
+      case 'ArrowLeft':
+      case 'ArrowUp':
+        nextIndex = (currentIndex - 1 + SETTINGS_TABS.length) % SETTINGS_TABS.length;
+        break;
+      case 'ArrowRight':
+      case 'ArrowDown':
+        nextIndex = (currentIndex + 1) % SETTINGS_TABS.length;
+        break;
+      case 'Home':
+        nextIndex = 0;
+        break;
+      case 'End':
+        nextIndex = SETTINGS_TABS.length - 1;
+        break;
+      default:
+        return;
+    }
+
+    event.preventDefault();
+    selectSettingsTab(SETTINGS_TABS[nextIndex], true);
   };
 
   const browseSamplePack = async () => {
@@ -1079,10 +1156,14 @@ export function SettingsScreen({
                 aria-label={TAB_LABELS[tab]}
                 aria-selected={activeTab === tab}
                 aria-controls={`settings-panel-${tab}`}
+                tabIndex={activeTab === tab ? 0 : -1}
+                ref={(element) => {
+                  tabRefs.current[tab] = element;
+                }}
                 className={`settings-tab-button${activeTab === tab ? ' settings-tab-button-active' : ''}`}
-                onClick={() => setActiveTab(tab)}
+                onClick={() => selectSettingsTab(tab)}
+                onKeyDown={(event) => handleTabKeyDown(event, tab)}
                 style={{
-                  '--settings-tab-accent': TAB_META[tab].accent,
                   '--entrance-delay': `${80 + index * 55}ms`,
                 } as SettingsStyle}
                 type="button"
@@ -1151,17 +1232,7 @@ export function SettingsScreen({
               </div>
             </SettingsGroupCard>
 
-            <SettingsGroupCard
-              title="Volume & Effects"
-              accent="audio"
-              footer={
-                !isRewardUnlocked('audio:pitch-bend', unlockedRewardIds)
-                  ? 'Unlock Music Theorist rewards to turn pitch bend on or off.'
-                  : !reverbCustomizationUnlocked
-                    ? 'Unlock Music Theorist rewards to change reverb for each instrument.'
-                    : `${selectedInstrument.label} uses ${selectedInstrument.reverbPreset ?? 'medium'} reverb unless you change it here.`
-              }
-            >
+            <SettingsGroupCard title="Playback Mix" accent="audio" footer="Balance the instrument, room sound, and click before you start practicing.">
               <div className="settings-grid">
                 <SettingsRangeField
                   category="audio"
@@ -1185,44 +1256,6 @@ export function SettingsScreen({
                   onFlush={flushQueuedSettingPersist}
                   onQueue={queueSettingPersist}
                 />
-                <label>
-                  <span>Pitch Bend</span>
-                  <select
-                    value={values['audio.pitchBendEnabled'] ?? 'true'}
-                    onChange={(event) => void persistSetting('audio', 'pitchBendEnabled', event.target.value)}
-                    disabled={!isRewardUnlocked('audio:pitch-bend', unlockedRewardIds)}
-                  >
-                    <option value="true">Enabled</option>
-                    <option value="false">Disabled</option>
-                  </select>
-                </label>
-                <label>
-                  <span>{selectedInstrument.label} Reverb</span>
-                  <select
-                    aria-label={`${selectedInstrument.label} Reverb`}
-                    value={selectedInstrumentReverbPreset}
-                    onChange={(event) => {
-                      const nextPreset = event.target.value as InstrumentReverbPreset;
-                      const nextMap = { ...instrumentReverbPresets };
-                      if (nextPreset === (selectedInstrument.reverbPreset ?? 'medium')) {
-                        delete nextMap[selectedInstrument.id];
-                      } else {
-                        nextMap[selectedInstrument.id] = nextPreset;
-                      }
-                      void persistSetting('audio', 'instrumentReverbPresets', JSON.stringify(nextMap));
-                    }}
-                    disabled={!reverbCustomizationUnlocked}
-                  >
-                    <option value="short">Short</option>
-                    <option value="medium">Medium</option>
-                    <option value="hall">Hall</option>
-                  </select>
-                </label>
-              </div>
-            </SettingsGroupCard>
-
-            <SettingsGroupCard title="Metronome" footer="Set how loud the click is and which sound it uses during songs and drills." accent="warning">
-              <div className="settings-grid">
                 <SettingsRangeField
                   category="audio"
                   label="Metronome Volume"
@@ -1249,7 +1282,7 @@ export function SettingsScreen({
               </div>
             </SettingsGroupCard>
 
-            <SettingsGroupCard title="Input Delay" footer="Use calibration if notes sound early or late when you play." accent="input">
+            <SettingsGroupCard title="Timing Calibration" footer="Use calibration if notes sound early or late when you play." accent="input">
               <div className="settings-grid settings-grid-single">
                 <div className="latency-comp-row">
                   <label>
@@ -1274,89 +1307,157 @@ export function SettingsScreen({
               </div>
             </SettingsGroupCard>
 
-            <SettingsGroupCard title="Instrument Sounds" footer="Install higher quality sounds or choose a desktop sample folder." accent="info">
+            <SettingsGroupCard
+              title="Advanced Sound Options"
+              description="Optional controls for unlocked expression settings and custom sound sources."
+              footer={showAdvancedAudio ? 'These settings are useful when you are tuning an instrument or installing alternate sounds.' : undefined}
+              accent="info"
+              className="settings-advanced-audio-card"
+            >
               <div className="settings-grid">
-                {selectedInstrumentPackStatus ? (
-                  <article className="settings-note-card settings-note-info">
-                    <span>Selected Instrument</span>
-                    <strong>
-                      {selectedInstrumentPackStatus.isInstalled
-                        ? `${selectedInstrumentPackStatus.packLabel} installed`
-                          : selectedInstrumentPackStatus.requiresPackForSelection
-                          ? 'Install sounds to use this instrument'
-                          : 'Built-in samples active'}
-                    </strong>
-                    <div className="settings-sample-pack-buttons">
-                      {selectedInstrumentPackStatus.canInstallInApp ? (
-                        <button
-                          className="secondary-button"
-                          disabled={activePackActionInstrumentId === selectedInstrument.id}
-                          onClick={() => void installSelectedInstrumentPack()}
-                        >
-                          <SettingsActionIcon icon={selectedInstrumentPackStatus.installMode === 'manual' ? 'upload' : 'pack'} />
-                          {activePackActionInstrumentId === selectedInstrument.id
-                            ? 'Working...'
-                            : selectedInstrumentPackStatus.installMode === 'manual'
-                              ? 'Choose Sound Folder'
-                              : 'Install Better Sounds'}
-                        </button>
-                      ) : null}
-                      {selectedInstrumentPackStatus.isInstalled ? (
-                        <button
-                          className="secondary-button"
-                          disabled={activePackActionInstrumentId === selectedInstrument.id}
-                          onClick={() => void removeSelectedInstrumentPack()}
-                        >
-                          <SettingsActionIcon icon="clear" />
-                          Use Built-in Sounds
-                        </button>
-                      ) : null}
-                    </div>
-                    <em>{selectedInstrumentPackStatus.statusMessage}</em>
-                  </article>
-                ) : (
-                  <article className="settings-note-card settings-note-info">
-                    <span>Instrument Sounds</span>
-                    <strong>No extra sound controls are available for this instrument.</strong>
-                  </article>
-                )}
-                {!IS_WEB ? (
-                  <article className="settings-note-card settings-note-info">
-                    <span>Custom Sound Folder</span>
-                    {samplePackPath ? (
-                      <strong>{samplePackPath} ({samplePackFileCount} file{samplePackFileCount !== 1 ? 's' : ''})</strong>
-                    ) : (
-                      <strong>No folder selected.</strong>
-                    )}
-                    <div className="settings-sample-pack-buttons">
-                      <button
-                        className="secondary-button"
-                        disabled={isSamplePackActionBusy}
-                        onClick={() => void browseSamplePack()}
-                      >
-                        <SettingsActionIcon icon="upload" />
-                        {isSamplePackActionBusy ? 'Working...' : 'Choose Folder'}
-                      </button>
+                <article className="settings-note-card settings-note-info settings-advanced-audio-summary">
+                  <span>Current Sound Source</span>
+                  <strong>
+                    {selectedInstrumentPackStatus?.isInstalled
+                      ? `${selectedInstrumentPackStatus.packLabel} installed`
+                      : samplePackPath
+                        ? `${samplePackFileCount} custom file${samplePackFileCount === 1 ? '' : 's'} selected`
+                        : 'Built-in sounds active'}
+                  </strong>
+                </article>
+                <button
+                  className="secondary-button settings-advanced-toggle"
+                  type="button"
+                  aria-expanded={showAdvancedAudio}
+                  onClick={() => setShowAdvancedAudio((current) => !current)}
+                >
+                  {showAdvancedAudio ? <SettingsActionIcon icon="x" /> : <SettingsActionIcon icon="pack" />}
+                  {showAdvancedAudio ? 'Hide Advanced Options' : 'Show Advanced Options'}
+                </button>
+              </div>
+              {showAdvancedAudio ? (
+                <div className="settings-advanced-audio-panel">
+                  <label>
+                    <span>Pitch Bend</span>
+                    <select
+                      value={values['audio.pitchBendEnabled'] ?? 'true'}
+                      onChange={(event) => void persistSetting('audio', 'pitchBendEnabled', event.target.value)}
+                      disabled={!isRewardUnlocked('audio:pitch-bend', unlockedRewardIds)}
+                    >
+                      <option value="true">Enabled</option>
+                      <option value="false">Disabled</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>{selectedInstrument.label} Reverb Shape</span>
+                    <select
+                      aria-label={`${selectedInstrument.label} Reverb Shape`}
+                      value={selectedInstrumentReverbPreset}
+                      onChange={(event) => {
+                        const nextPreset = event.target.value as InstrumentReverbPreset;
+                        const nextMap = { ...instrumentReverbPresets };
+                        if (nextPreset === (selectedInstrument.reverbPreset ?? 'medium')) {
+                          delete nextMap[selectedInstrument.id];
+                        } else {
+                          nextMap[selectedInstrument.id] = nextPreset;
+                        }
+                        void persistSetting('audio', 'instrumentReverbPresets', JSON.stringify(nextMap));
+                      }}
+                      disabled={!reverbCustomizationUnlocked}
+                    >
+                      <option value="short">Small Room</option>
+                      <option value="medium">Studio Room</option>
+                      <option value="hall">Concert Hall</option>
+                    </select>
+                  </label>
+                  {selectedInstrumentPackStatus ? (
+                    <article className="settings-note-card settings-note-info">
+                      <span>Selected Instrument</span>
+                      <strong>
+                        {selectedInstrumentPackStatus.isInstalled
+                          ? `${selectedInstrumentPackStatus.packLabel} installed`
+                            : selectedInstrumentPackStatus.requiresPackForSelection
+                            ? 'Install sounds to use this instrument'
+                            : 'Built-in sounds active'}
+                      </strong>
+                      <div className="settings-sample-pack-buttons">
+                        {selectedInstrumentPackStatus.canInstallInApp ? (
+                          <button
+                            className="secondary-button"
+                            disabled={activePackActionInstrumentId === selectedInstrument.id}
+                            onClick={() => void installSelectedInstrumentPack()}
+                          >
+                            <SettingsActionIcon icon={selectedInstrumentPackStatus.installMode === 'manual' ? 'upload' : 'pack'} />
+                            {activePackActionInstrumentId === selectedInstrument.id
+                              ? 'Working...'
+                              : selectedInstrumentPackStatus.installMode === 'manual'
+                                ? 'Choose Sound Folder'
+                                : 'Install Better Sounds'}
+                          </button>
+                        ) : null}
+                        {selectedInstrumentPackStatus.isInstalled ? (
+                          <button
+                            className="secondary-button"
+                            disabled={activePackActionInstrumentId === selectedInstrument.id}
+                            onClick={() => void removeSelectedInstrumentPack()}
+                          >
+                            <SettingsActionIcon icon="clear" />
+                            Use Built-in Sounds
+                          </button>
+                        ) : null}
+                      </div>
+                      <em>{selectedInstrumentPackStatus.statusMessage}</em>
+                    </article>
+                  ) : (
+                    <article className="settings-note-card settings-note-info">
+                      <span>Instrument Sounds</span>
+                      <strong>No extra sound controls are available for this instrument.</strong>
+                    </article>
+                  )}
+                  {!IS_WEB ? (
+                    <article className="settings-note-card settings-note-info">
+                      <span>Custom Sound Folder</span>
                       {samplePackPath ? (
+                        <strong>{samplePackPath} ({samplePackFileCount} file{samplePackFileCount !== 1 ? 's' : ''})</strong>
+                      ) : (
+                        <strong>No folder selected.</strong>
+                      )}
+                      <div className="settings-sample-pack-buttons">
                         <button
                           className="secondary-button"
                           disabled={isSamplePackActionBusy}
-                          onClick={() => void clearSamplePack()}
+                          onClick={() => void browseSamplePack()}
                         >
-                          <SettingsActionIcon icon="clear" />
-                          Use Built-in Sounds
+                          <SettingsActionIcon icon="upload" />
+                          {isSamplePackActionBusy ? 'Working...' : 'Choose Folder'}
                         </button>
-                      ) : null}
-                    </div>
-                    <em>Files should be named by note, for example A0.mp3, C1.mp3, Ds1.mp3, or Fs1.mp3.</em>
-                  </article>
-                ) : (
-                  <article className="settings-note-card settings-note-info">
-                    <span>Custom Sound Folder</span>
-                    <strong>Custom sound folders are available in the desktop app.</strong>
-                  </article>
-                )}
-              </div>
+                        {samplePackPath ? (
+                          <button
+                            className="secondary-button"
+                            disabled={isSamplePackActionBusy}
+                            onClick={() => void clearSamplePack()}
+                          >
+                            <SettingsActionIcon icon="clear" />
+                            Use Built-in Sounds
+                          </button>
+                        ) : null}
+                      </div>
+                      <em>Name files by note, such as A0.mp3, C1.mp3, Ds1.mp3, or Fs1.mp3.</em>
+                    </article>
+                  ) : (
+                    <article className="settings-note-card settings-note-info">
+                      <span>Custom Sound Folder</span>
+                      <strong>Custom sound folders are available in the desktop app.</strong>
+                    </article>
+                  )}
+                  {!isRewardUnlocked('audio:pitch-bend', unlockedRewardIds) || !reverbCustomizationUnlocked ? (
+                    <article className="settings-note-card settings-note-info">
+                      <span>Locked Sound Controls</span>
+                      <strong>Complete Music Theorist rewards to unlock pitch bend and per-instrument reverb shape.</strong>
+                    </article>
+                  ) : null}
+                </div>
+              ) : null}
             </SettingsGroupCard>
           </div>
         )}
@@ -1684,19 +1785,6 @@ export function SettingsScreen({
                     onChange={(event) => persistNumericSetting('practice', 'breakReminderMinutes', event.target.value, 1, 120)}
                   />
                 </label>
-              </div>
-            </SettingsGroupCard>
-
-            <SettingsGroupCard title="Save State" accent="success">
-              <div className="settings-grid settings-grid-single">
-                <article
-                  key={settingsSavePulse}
-                  className={`settings-note-card settings-note-success settings-save-status-card${isSaving ? ' settings-save-status-card-saving' : ''}${settingsSavePulse > 0 ? ' settings-save-status-card-saved' : ''}`}
-                  data-save-state={saveSignalState}
-                >
-                  <span>Changes</span>
-                  <strong>{isSaving ? 'Saving...' : isSaveQueued ? 'Changes queued' : 'All changes saved'}</strong>
-                </article>
               </div>
             </SettingsGroupCard>
 

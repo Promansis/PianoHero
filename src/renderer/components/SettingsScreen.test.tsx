@@ -93,6 +93,30 @@ describe('SettingsScreen', () => {
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
   });
 
+  it('keeps advanced audio controls hidden until requested', async () => {
+    renderSettingsScreen();
+
+    expect(await screen.findByText('Playback Mix')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Acoustic Piano Reverb Shape')).not.toBeInTheDocument();
+    expect(screen.queryByText('Locked Sound Controls')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show Advanced Options' }));
+
+    expect(screen.getByLabelText('Acoustic Piano Reverb Shape')).toBeInTheDocument();
+    expect(screen.getByText('Locked Sound Controls')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Hide Advanced Options' })).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('relies on the header save signal instead of a duplicate practice save card', async () => {
+    renderSettingsScreen();
+
+    fireEvent.click(await screen.findByText('Practice'));
+
+    expect(screen.getByText('Ready')).toBeInTheDocument();
+    expect(screen.queryByText('Save State')).not.toBeInTheDocument();
+    expect(screen.queryByText('All changes saved')).not.toBeInTheDocument();
+  });
+
   it('resets learning progress when modal confirmation is confirmed', async () => {
     renderSettingsScreen();
 
@@ -121,7 +145,8 @@ describe('SettingsScreen', () => {
       onSettingChange,
     });
 
-    fireEvent.change(await screen.findByLabelText('Acoustic Piano Reverb'), { target: { value: 'hall' } });
+    fireEvent.click(await screen.findByRole('button', { name: 'Show Advanced Options' }));
+    fireEvent.change(await screen.findByLabelText('Acoustic Piano Reverb Shape'), { target: { value: 'hall' } });
 
     await waitFor(() => {
       expect(onSettingChange).toHaveBeenCalledWith(
@@ -250,5 +275,43 @@ describe('SettingsScreen', () => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
       expect(resetLearningProgress).not.toHaveBeenCalled();
     });
+  });
+
+  it('keeps keyboard focus inside confirmation dialogs', async () => {
+    renderSettingsScreen();
+
+    fireEvent.click(await screen.findByText('Practice'));
+    fireEvent.click(screen.getByRole('button', { name: 'Clear Learning Progress' }));
+
+    const confirmButton = screen.getAllByRole('button', { name: 'Clear Learning Progress' })[1];
+    const cancelButton = screen.getByRole('button', { name: 'Cancel' });
+
+    expect(cancelButton).toHaveFocus();
+
+    fireEvent.keyDown(window, { key: 'Tab' });
+    expect(confirmButton).toHaveFocus();
+
+    fireEvent.keyDown(window, { key: 'Tab', shiftKey: true });
+    expect(cancelButton).toHaveFocus();
+  });
+
+  it('supports standard arrow-key navigation for settings tabs', async () => {
+    renderSettingsScreen();
+
+    const audioTab = await screen.findByRole('tab', { name: 'Audio' });
+    const visualTab = screen.getByRole('tab', { name: 'Visual' });
+    const practiceTab = screen.getByRole('tab', { name: 'Practice' });
+
+    audioTab.focus();
+    fireEvent.keyDown(audioTab, { key: 'ArrowRight' });
+
+    expect(visualTab).toHaveFocus();
+    expect(visualTab).toHaveAttribute('aria-selected', 'true');
+
+    fireEvent.keyDown(visualTab, { key: 'End' });
+
+    expect(practiceTab).toHaveFocus();
+    expect(practiceTab).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tabpanel', { name: 'Practice' })).toBeInTheDocument();
   });
 });
