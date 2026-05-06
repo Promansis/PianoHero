@@ -145,6 +145,26 @@ describe('SettingsScreen', () => {
     });
   });
 
+  it('coalesces rapid range changes into one bridge write', async () => {
+    const onSettingChange = vi.fn();
+
+    renderSettingsScreen({ onSettingChange });
+
+    const masterVolume = await screen.findByRole('slider', { name: 'Master Volume' });
+    fireEvent.change(masterVolume, { target: { value: '51' } });
+    fireEvent.change(masterVolume, { target: { value: '52' } });
+    fireEvent.change(masterVolume, { target: { value: '53' } });
+
+    expect(onSettingChange).toHaveBeenCalledWith('audio', 'masterVolume', '51');
+    expect(onSettingChange).toHaveBeenCalledWith('audio', 'masterVolume', '52');
+    expect(onSettingChange).toHaveBeenCalledWith('audio', 'masterVolume', '53');
+
+    await waitFor(() => {
+      expect(window.appBridge?.setSetting).toHaveBeenCalledTimes(1);
+      expect(window.appBridge?.setSetting).toHaveBeenCalledWith('audio', 'masterVolume', '53');
+    });
+  });
+
   it('shows saxophone as an available instrument option', async () => {
     renderSettingsScreen();
 

@@ -321,6 +321,27 @@ const DEFAULT_SETTINGS: SettingsValues = {
   'practice.breakReminderMinutes': '30',
 };
 
+const HIGH_FREQUENCY_SETTING_SAVE_DELAY_MS = 220;
+
+interface PendingSettingSave {
+  category: string;
+  key: string;
+  timeoutId: number;
+  value: string;
+}
+
+interface SettingsRangeFieldProps {
+  category: string;
+  label: string;
+  lastChangedSettingKey: string | null;
+  max: number;
+  min: number;
+  settingKey: string;
+  value: string;
+  onFlush: (category: string, key: string) => void;
+  onQueue: (category: string, key: string, value: string) => void;
+}
+
 function getSettingKey(category: string, key: string): string {
   return `${category}.${key}`;
 }
@@ -359,6 +380,42 @@ function parseInstrumentReverbPresets(rawValue: string | null | undefined): Reco
   } catch {
     return {};
   }
+}
+
+function SettingsRangeField({
+  category,
+  label,
+  lastChangedSettingKey,
+  max,
+  min,
+  settingKey,
+  value,
+  onFlush,
+  onQueue,
+}: SettingsRangeFieldProps) {
+  const compositeKey = getSettingKey(category, settingKey);
+
+  return (
+    <label className="settings-range-label">
+      <span className="settings-field-heading">
+        <span>{label}</span>
+        <output aria-hidden="true">{value}</output>
+      </span>
+      <input
+        type="range"
+        aria-label={label}
+        min={min}
+        max={max}
+        value={value}
+        data-save-flash={lastChangedSettingKey === compositeKey ? 'true' : undefined}
+        style={{ '--settings-range-value': getRangeFillPercent(value, min, max) } as SettingsStyle}
+        onBlur={() => onFlush(category, settingKey)}
+        onChange={(event) => onQueue(category, settingKey, event.target.value)}
+        onKeyUp={() => onFlush(category, settingKey)}
+        onPointerUp={() => onFlush(category, settingKey)}
+      />
+    </label>
+  );
 }
 
 interface ConfirmActionModalProps {
@@ -518,9 +575,11 @@ export function SettingsScreen({
   const [activePackActionInstrumentId, setActivePackActionInstrumentId] = useState<string | null>(null);
   const [isSamplePackActionBusy, setIsSamplePackActionBusy] = useState(false);
   const [settingsSavePulse, setSettingsSavePulse] = useState(0);
+  const [queuedSaveCount, setQueuedSaveCount] = useState(0);
   const [lastChangedSettingKey, setLastChangedSettingKey] = useState<string | null>(null);
   const savePulseTimerRef = useRef<number | null>(null);
   const lastChangedTimerRef = useRef<number | null>(null);
+  const pendingDebouncedSaveRef = useRef<Map<string, PendingSettingSave>>(new Map());
   const pendingSaveCountRef = useRef(0);
 
   useEffect(() => {
@@ -531,6 +590,11 @@ export function SettingsScreen({
       if (lastChangedTimerRef.current !== null) {
         window.clearTimeout(lastChangedTimerRef.current);
       }
+      pendingDebouncedSaveRef.current.forEach((pendingSave) => {
+        window.clearTimeout(pendingSave.timeoutId);
+        void window.appBridge?.setSetting(pendingSave.category, pendingSave.key, pendingSave.value).catch(() => undefined);
+      });
+      pendingDebouncedSaveRef.current.clear();
     };
   }, []);
 
@@ -626,7 +690,7 @@ export function SettingsScreen({
 
   const selectedMidiDeviceName = useMemo(
     () => midiDevices.find((device) => device.id === values['input.midiDeviceId'])?.name ?? 'Any connected device',
-    [midiDevices, values],
+    [midiDevices, values['input.midiDeviceId']],
   );
   const installedPackInstrumentIds = useMemo(
     () =>
@@ -637,14 +701,18 @@ export function SettingsScreen({
   );
   const selectedInstrument = getInstrumentDefinition(values['audio.instrumentId']);
   const selectedInstrumentPackStatus = instrumentSamplePackStatuses[selectedInstrument.id];
-  const instrumentReverbPresets = parseInstrumentReverbPresets(values['audio.instrumentReverbPresets']);
+  const instrumentReverbPresets = useMemo(
+    () => parseInstrumentReverbPresets(values['audio.instrumentReverbPresets']),
+    [values['audio.instrumentReverbPresets']],
+  );
   const selectedInstrumentReverbPreset = getInstrumentEffectiveReverbPreset(
     selectedInstrument.id,
     instrumentReverbPresets,
   );
   const reverbCustomizationUnlocked = isRewardUnlocked('audio:reverb-customization', unlockedRewardIds);
-  const saveSignalState = isSaving ? 'saving' : settingsSavePulse > 0 ? 'saved' : 'ready';
-  const saveSignalLabel = isSaving ? 'Syncing' : settingsSavePulse > 0 ? 'Saved' : 'Ready';
+  const isSaveQueued = queuedSaveCount > 0;
+  const saveSignalState = isSaving ? 'saving' : isSaveQueued ? 'queued' : settingsSavePulse > 0 ? 'saved' : 'ready';
+  const saveSignalLabel = isSaving ? 'Syncing' : isSaveQueued ? 'Queued' : settingsSavePulse > 0 ? 'Saved' : 'Ready';
 
   const installSelectedInstrumentPack = async () => {
     if (activePackActionInstrumentId !== null) {
@@ -690,11 +758,29 @@ export function SettingsScreen({
     }
   };
 
-  const persistSetting = async (category: string, key: string, value: string) => {
-    const compositeKey = getSettingKey(category, key);
-    setValues((current) => ({ ...current, [compositeKey]: value }));
+  const markSettingChanged = (compositeKey: string) => {
     setLastChangedSettingKey(compositeKey);
-    onSettingChange(category, key, value);
+    if (lastChangedTimerRef.current !== null) {
+      window.clearTimeout(lastChangedTimerRef.current);
+    }
+    lastChangedTimerRef.current = window.setTimeout(() => {
+      setLastChangedSettingKey(null);
+      lastChangedTimerRef.current = null;
+    }, 1150);
+  };
+
+  const cancelQueuedSettingSave = (compositeKey: string) => {
+    const pendingSave = pendingDebouncedSaveRef.current.get(compositeKey);
+    if (!pendingSave) {
+      return;
+    }
+
+    window.clearTimeout(pendingSave.timeoutId);
+    pendingDebouncedSaveRef.current.delete(compositeKey);
+    setQueuedSaveCount((current) => Math.max(0, current - 1));
+  };
+
+  const saveSettingToBridge = async (category: string, key: string, value: string) => {
     if (!window.appBridge) {
       setStatusMessage('Changed for this session. Storage is unavailable.');
       return;
@@ -728,14 +814,58 @@ export function SettingsScreen({
         setIsSaving(false);
       }
     }
+  };
 
-    if (lastChangedTimerRef.current !== null) {
-      window.clearTimeout(lastChangedTimerRef.current);
+  const updateSettingValue = (category: string, key: string, value: string) => {
+    const compositeKey = getSettingKey(category, key);
+    setValues((current) => ({ ...current, [compositeKey]: value }));
+    markSettingChanged(compositeKey);
+    onSettingChange(category, key, value);
+    return compositeKey;
+  };
+
+  const persistSetting = async (category: string, key: string, value: string) => {
+    const compositeKey = updateSettingValue(category, key, value);
+    cancelQueuedSettingSave(compositeKey);
+    await saveSettingToBridge(category, key, value);
+  };
+
+  const queueSettingPersist = (category: string, key: string, value: string) => {
+    const compositeKey = updateSettingValue(category, key, value);
+    cancelQueuedSettingSave(compositeKey);
+
+    if (!window.appBridge) {
+      setStatusMessage('Changed for this session. Storage is unavailable.');
+      return;
     }
-    lastChangedTimerRef.current = window.setTimeout(() => {
-      setLastChangedSettingKey(null);
-      lastChangedTimerRef.current = null;
-    }, 1150);
+
+    setStatusMessage('Waiting for input to settle...');
+    const timeoutId = window.setTimeout(() => {
+      pendingDebouncedSaveRef.current.delete(compositeKey);
+      setQueuedSaveCount((current) => Math.max(0, current - 1));
+      void saveSettingToBridge(category, key, value);
+    }, HIGH_FREQUENCY_SETTING_SAVE_DELAY_MS);
+
+    pendingDebouncedSaveRef.current.set(compositeKey, {
+      category,
+      key,
+      timeoutId,
+      value,
+    });
+    setQueuedSaveCount((current) => current + 1);
+  };
+
+  const flushQueuedSettingPersist = (category: string, key: string) => {
+    const compositeKey = getSettingKey(category, key);
+    const pendingSave = pendingDebouncedSaveRef.current.get(compositeKey);
+    if (!pendingSave) {
+      return;
+    }
+
+    window.clearTimeout(pendingSave.timeoutId);
+    pendingDebouncedSaveRef.current.delete(compositeKey);
+    setQueuedSaveCount((current) => Math.max(0, current - 1));
+    void saveSettingToBridge(pendingSave.category, pendingSave.key, pendingSave.value);
   };
 
   const persistNumericSetting = (category: string, key: string, value: string, min: number, max: number) => {
@@ -1033,30 +1163,28 @@ export function SettingsScreen({
               }
             >
               <div className="settings-grid">
-                <label>
-                  <span>Master Volume</span>
-                  <input
-                    type="range"
-                    min={0}
-                    max={100}
-                    value={values['audio.masterVolume']}
-                    data-save-flash={lastChangedSettingKey === 'audio.masterVolume' ? 'true' : undefined}
-                    style={{ '--settings-range-value': getRangeFillPercent(values['audio.masterVolume'], 0, 100) } as SettingsStyle}
-                    onChange={(event) => void persistSetting('audio', 'masterVolume', event.target.value)}
-                  />
-                </label>
-                <label>
-                  <span>Reverb Level</span>
-                  <input
-                    type="range"
-                    min={0}
-                    max={100}
-                    value={values['audio.reverbLevel']}
-                    data-save-flash={lastChangedSettingKey === 'audio.reverbLevel' ? 'true' : undefined}
-                    style={{ '--settings-range-value': getRangeFillPercent(values['audio.reverbLevel'], 0, 100) } as SettingsStyle}
-                    onChange={(event) => void persistSetting('audio', 'reverbLevel', event.target.value)}
-                  />
-                </label>
+                <SettingsRangeField
+                  category="audio"
+                  label="Master Volume"
+                  lastChangedSettingKey={lastChangedSettingKey}
+                  max={100}
+                  min={0}
+                  settingKey="masterVolume"
+                  value={values['audio.masterVolume']}
+                  onFlush={flushQueuedSettingPersist}
+                  onQueue={queueSettingPersist}
+                />
+                <SettingsRangeField
+                  category="audio"
+                  label="Reverb Level"
+                  lastChangedSettingKey={lastChangedSettingKey}
+                  max={100}
+                  min={0}
+                  settingKey="reverbLevel"
+                  value={values['audio.reverbLevel']}
+                  onFlush={flushQueuedSettingPersist}
+                  onQueue={queueSettingPersist}
+                />
                 <label>
                   <span>Pitch Bend</span>
                   <select
@@ -1095,18 +1223,17 @@ export function SettingsScreen({
 
             <SettingsGroupCard title="Metronome" footer="Set how loud the click is and which sound it uses during songs and drills." accent="warning">
               <div className="settings-grid">
-                <label>
-                  <span>Metronome Volume</span>
-                  <input
-                    type="range"
-                    min={0}
-                    max={100}
-                    value={values['audio.metronomeVolume']}
-                    data-save-flash={lastChangedSettingKey === 'audio.metronomeVolume' ? 'true' : undefined}
-                    style={{ '--settings-range-value': getRangeFillPercent(values['audio.metronomeVolume'], 0, 100) } as SettingsStyle}
-                    onChange={(event) => void persistSetting('audio', 'metronomeVolume', event.target.value)}
-                  />
-                </label>
+                <SettingsRangeField
+                  category="audio"
+                  label="Metronome Volume"
+                  lastChangedSettingKey={lastChangedSettingKey}
+                  max={100}
+                  min={0}
+                  settingKey="metronomeVolume"
+                  value={values['audio.metronomeVolume']}
+                  onFlush={flushQueuedSettingPersist}
+                  onQueue={queueSettingPersist}
+                />
                 <label>
                   <span>Metronome Sound</span>
                   <select
@@ -1319,19 +1446,17 @@ export function SettingsScreen({
                     <KeyboardSizeThumbnail size={(values['visual.keyboardOverlaySize'] as 'small' | 'medium' | 'large') ?? 'medium'} />
                   </div>
                 </label>
-                <label>
-                  <span>Falling Note Preview</span>
-                  <input
-                    type="range"
-                    min={4}
-                    max={16}
-                    step={1}
-                    value={values['visual.beatsVisible']}
-                    data-save-flash={lastChangedSettingKey === 'visual.beatsVisible' ? 'true' : undefined}
-                    style={{ '--settings-range-value': getRangeFillPercent(values['visual.beatsVisible'], 4, 16) } as SettingsStyle}
-                    onChange={(event) => void persistSetting('visual', 'beatsVisible', event.target.value)}
-                  />
-                </label>
+                <SettingsRangeField
+                  category="visual"
+                  label="Falling Note Preview"
+                  lastChangedSettingKey={lastChangedSettingKey}
+                  max={16}
+                  min={4}
+                  settingKey="beatsVisible"
+                  value={values['visual.beatsVisible']}
+                  onFlush={flushQueuedSettingPersist}
+                  onQueue={queueSettingPersist}
+                />
                 <label>
                   <span>Finger Numbers</span>
                   <select
@@ -1353,7 +1478,8 @@ export function SettingsScreen({
                   <input
                     type="color"
                     value={values['visual.leftHandColor'] || '#1f3d7a'}
-                    onChange={(event) => void persistSetting('visual', 'leftHandColor', event.target.value)}
+                    onBlur={() => flushQueuedSettingPersist('visual', 'leftHandColor')}
+                    onChange={(event) => queueSettingPersist('visual', 'leftHandColor', event.target.value)}
                   />
                   {values['visual.leftHandColor'] ? (
                     <button
@@ -1370,7 +1496,8 @@ export function SettingsScreen({
                   <input
                     type="color"
                     value={values['visual.rightHandColor'] || '#9a4c33'}
-                    onChange={(event) => void persistSetting('visual', 'rightHandColor', event.target.value)}
+                    onBlur={() => flushQueuedSettingPersist('visual', 'rightHandColor')}
+                    onChange={(event) => queueSettingPersist('visual', 'rightHandColor', event.target.value)}
                   />
                   {values['visual.rightHandColor'] ? (
                     <button
@@ -1489,7 +1616,7 @@ export function SettingsScreen({
                   <article className="settings-note-card settings-note-danger">
                     <span>MIDI Connection</span>
                     <strong>LumaKeys cannot access your MIDI keyboard. Check browser or system permission, then try again.</strong>
-                    <button className="secondary-button" onClick={onRetryMidi} style={{ marginTop: '0.5rem' }}>
+                    <button className="secondary-button settings-note-action" onClick={onRetryMidi}>
                       <SettingsActionIcon icon="retry" />
                       Try MIDI Again
                     </button>
@@ -1565,9 +1692,10 @@ export function SettingsScreen({
                 <article
                   key={settingsSavePulse}
                   className={`settings-note-card settings-note-success settings-save-status-card${isSaving ? ' settings-save-status-card-saving' : ''}${settingsSavePulse > 0 ? ' settings-save-status-card-saved' : ''}`}
+                  data-save-state={saveSignalState}
                 >
                   <span>Changes</span>
-                  <strong>{isSaving ? 'Saving...' : 'All changes saved'}</strong>
+                  <strong>{isSaving ? 'Saving...' : isSaveQueued ? 'Changes queued' : 'All changes saved'}</strong>
                 </article>
               </div>
             </SettingsGroupCard>
