@@ -2229,6 +2229,10 @@ select:focus {
   opacity: 1;
 }
 
+.menu-card:active {
+  transform: perspective(900px) rotateX(calc(var(--tilt-x) * 1deg)) rotateY(calc(var(--tilt-y) * 1deg)) translateY(-2px) scale(0.992);
+}
+
 .main-menu-screen:has(.menu-card:hover) .main-menu-sequencer,
 .main-menu-screen:has(.menu-card:focus-visible) .main-menu-sequencer {
   opacity: 1;
@@ -2269,6 +2273,23 @@ select:focus {
     0 16px 34px rgba(0, 0, 0, 0.26),
     0 0 26px color-mix(in srgb, var(--card-color) 25%, transparent);
   transform: translateZ(28px);
+  transition:
+    background 180ms ease-out,
+    border-color 180ms ease-out,
+    box-shadow 180ms ease-out,
+    transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.menu-card:hover .menu-card-icon,
+.menu-card:focus-visible .menu-card-icon {
+  border-color: color-mix(in oklch, var(--card-color) 58%, oklch(0.98 0.008 255));
+  background:
+    radial-gradient(circle at 35% 24%, oklch(0.98 0.008 255 / 0.3), transparent 42%),
+    color-mix(in oklch, var(--card-color) 34%, oklch(0.98 0.008 255 / 0.08));
+  box-shadow:
+    0 20px 42px rgba(0, 0, 0, 0.3),
+    0 0 34px color-mix(in oklch, var(--card-color) 36%, transparent);
+  transform: translateZ(44px) translateY(-2px) rotate(-2deg);
 }
 
 .menu-card-primary .menu-card-icon {
@@ -2316,6 +2337,21 @@ select:focus {
   line-height: 1;
   text-transform: uppercase;
   transform: translateZ(24px);
+  transition:
+    border-color 180ms ease-out,
+    color 180ms ease-out,
+    background 180ms ease-out,
+    box-shadow 180ms ease-out,
+    transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.menu-card:hover .menu-card-action,
+.menu-card:focus-visible .menu-card-action {
+  border-color: color-mix(in oklch, var(--card-color) 48%, oklch(0.98 0.008 255 / 0.34));
+  color: color-mix(in oklch, var(--card-color) 18%, oklch(0.98 0.008 255));
+  background: color-mix(in oklch, var(--card-color) 24%, oklch(0.1 0.02 255 / 0.36));
+  box-shadow: 0 0 28px color-mix(in oklch, var(--card-color) 25%, transparent);
+  transform: translateZ(34px) translateY(-1px);
 }
 
 .menu-card-popover {
@@ -2580,12 +2616,12 @@ select:focus {
 
   .main-menu-sequencer {
       top: 48px;
-      grid-template-rows: minmax(0, 1fr) 125px;
+      grid-template-rows: minmax(0, 1fr) 155px;
       opacity: 0.76;
     }
 
   .main-menu-key-rail {
-      height: 125px;
+      height: 155px;
     }
 
   .menu-card-primary {
@@ -2811,6 +2847,10 @@ select:focus {
   .menu-card,
     .menu-card:hover {
       transform: none;
+    }
+
+  .menu-card:active {
+      transform: scale(0.992);
     }
 
   .menu-card::before {

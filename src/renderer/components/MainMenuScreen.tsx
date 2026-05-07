@@ -35,6 +35,8 @@ type MenuStyle = CSSProperties & {
 };
 
 interface MenuCard {
+  id: string;
+  actionLabel: string;
   icon: ReactNode;
   title: string;
   subtitle: string;
@@ -134,6 +136,8 @@ function IconSetup() {
 
 const MENU_CARDS: MenuCard[] = [
   {
+    id: 'play-songs',
+    actionLabel: 'Choose Song',
     icon: <IconPlay />,
     title: 'Play Songs',
     subtitle: 'Open the song library and start a scored run.',
@@ -142,6 +146,8 @@ const MENU_CARDS: MenuCard[] = [
     onSelect: (props) => props.onOpenLibrary(),
   },
   {
+    id: 'guided-lessons',
+    actionLabel: 'Resume Lesson',
     icon: <IconLearn />,
     title: 'Guided Lessons',
     subtitle: 'Continue lessons with a cleaner practice flow.',
@@ -150,6 +156,8 @@ const MENU_CARDS: MenuCard[] = [
     onSelect: (props) => props.onOpenLearn(),
   },
   {
+    id: 'free-play',
+    actionLabel: 'Open Keys',
     icon: <IconFreePlay />,
     title: 'Free Play',
     subtitle: 'Jam, record ideas, and explore without scoring.',
@@ -158,6 +166,8 @@ const MENU_CARDS: MenuCard[] = [
     onSelect: (props) => props.onOpenFreePlay(),
   },
   {
+    id: 'soundboard',
+    actionLabel: 'Load Pads',
     icon: <IconSoundboard />,
     title: 'Soundboard',
     subtitle: 'Trigger quick hits and playful one-shots.',
@@ -166,6 +176,8 @@ const MENU_CARDS: MenuCard[] = [
     onSelect: (props) => props.onOpenSoundboard(),
   },
   {
+    id: 'theory-trainer',
+    actionLabel: 'Train Recall',
     icon: <IconTheory />,
     title: 'Theory Trainer',
     subtitle: 'Train scales, intervals, and fast recall.',
@@ -174,6 +186,8 @@ const MENU_CARDS: MenuCard[] = [
     onSelect: (props) => props.onOpenTheory(),
   },
   {
+    id: 'progress',
+    actionLabel: 'Review Streak',
     icon: <IconProgress />,
     title: 'Progress',
     subtitle: 'Review streaks, goals, and accuracy trends.',
@@ -182,6 +196,8 @@ const MENU_CARDS: MenuCard[] = [
     onSelect: (props) => props.onOpenProgress(),
   },
   {
+    id: 'settings',
+    actionLabel: 'Tune Setup',
     icon: <IconSettings />,
     title: 'Settings',
     subtitle: 'Tune audio, visuals, input, and accessibility.',
@@ -190,6 +206,8 @@ const MENU_CARDS: MenuCard[] = [
     onSelect: (props) => props.onOpenSettings(),
   },
   {
+    id: 'keyboard-setup',
+    actionLabel: 'Map Keys',
     icon: <IconSetup />,
     title: 'Keyboard Setup',
     subtitle: 'Map keys, devices, and onboarding basics.',
@@ -279,6 +297,18 @@ function getCardDelay(priority: MenuCard['priority'], index: number): string {
   const step = priority === 'primary' ? PRIMARY_CARD_ENTRANCE_STEP_MS : SECONDARY_CARD_ENTRANCE_STEP_MS;
 
   return `${start + index * step}ms`;
+}
+
+function getCardSequencerColumn(index: number): number {
+  return index % SEQUENCER_WHITE_KEY_COUNT;
+}
+
+function getCardSequencerLane(index: number): number {
+  return index % 6;
+}
+
+function getSequencerPosition(column: number): string {
+  return `${12.5 + column * 6.25}%`;
 }
 
 export function MainMenuScreen(props: MainMenuScreenProps) {
@@ -398,10 +428,14 @@ export function MainMenuScreen(props: MainMenuScreenProps) {
       return;
     }
 
+    const column = getCardSequencerColumn(index);
+    const lane = getCardSequencerLane(index);
+
+    node.dataset.activeCard = card.id;
     node.style.setProperty('--active-card-color', card.accent);
-    node.style.setProperty('--sequencer-column', String(index % SEQUENCER_WHITE_KEY_COUNT));
-    node.style.setProperty('--sequencer-lane', String(index % 6));
-    node.style.setProperty('--sequencer-position', `${12.5 + (index % SEQUENCER_WHITE_KEY_COUNT) * 6.25}%`);
+    node.style.setProperty('--sequencer-column', String(column));
+    node.style.setProperty('--sequencer-lane', String(lane));
+    node.style.setProperty('--sequencer-position', getSequencerPosition(column));
   };
 
   const handleSequencerIdle = () => {
@@ -410,6 +444,7 @@ export function MainMenuScreen(props: MainMenuScreenProps) {
       return;
     }
 
+    delete node.dataset.activeCard;
     node.style.setProperty('--active-card-color', 'var(--menu-neon-cyan)');
     node.style.setProperty('--sequencer-column', '2');
     node.style.setProperty('--sequencer-lane', '1');
@@ -459,6 +494,7 @@ export function MainMenuScreen(props: MainMenuScreenProps) {
         <span className="menu-card-copy">
           <span className="menu-card-title">{card.title}</span>
         </span>
+        <span className="menu-card-action" aria-hidden="true">{card.actionLabel}</span>
         <span className="menu-card-popover" id={tooltipId} role="tooltip">
           {card.subtitle}
         </span>
@@ -520,6 +556,7 @@ export function MainMenuScreen(props: MainMenuScreenProps) {
           </div>
         </div>
         <div className="main-menu-key-rail">
+          <span className="main-menu-key-press" aria-hidden="true" />
           <div className="main-menu-white-keys">
             {Array.from({ length: SEQUENCER_WHITE_KEY_COUNT }, (_, index) => (
               <span
