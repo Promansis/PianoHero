@@ -1597,7 +1597,11 @@ select:focus {
 .main-menu-screen {
   --mouse-x: 0;
   --mouse-y: 0;
+  --active-card-color: var(--menu-neon-cyan);
   --main-menu-rail-width: clamp(540px, 42vw, 640px);
+  --sequencer-column: 2;
+  --sequencer-lane: 1;
+  --sequencer-position: 25%;
   --menu-neon-cyan: #18ddff;
   --menu-neon-teal: #00f6d2;
   --menu-neon-blue: #4a86ff;
@@ -1610,7 +1614,7 @@ select:focus {
   position: relative;
   isolation: isolate;
   align-content: start;
-  gap: clamp(14px, 1.8vw, 22px);
+  gap: clamp(10px, 1.35vw, 16px);
   overflow: hidden;
   padding: 76px clamp(18px, 4vw, 64px) 24px clamp(28px, 4.4vw, 72px);
   color: #fbf8ff;
@@ -1732,6 +1736,225 @@ select:focus {
   transform: rotate(-4deg);
 }
 
+.main-menu-sequencer {
+  position: absolute;
+  top: 58px;
+  bottom: 20px;
+  left: clamp(28px, 4.4vw, 72px);
+  width: min(100%, var(--main-menu-rail-width));
+  z-index: 1;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) 125px;
+  align-items: end;
+  pointer-events: none;
+  opacity: 0.82;
+  transform: translate3d(calc(var(--mouse-x) * 8px), calc(var(--mouse-y) * 6px), 0);
+  transform-origin: 50% 50%;
+  transition: transform 180ms ease-out;
+}
+
+.main-menu-sequencer::before {
+  content: "";
+  position: absolute;
+  inset: 8% -12% 10%;
+  z-index: -1;
+  background:
+    radial-gradient(ellipse at 64% 100%, color-mix(in srgb, var(--active-card-color) 32%, transparent), transparent 54%),
+    radial-gradient(ellipse at 42% 38%, color-mix(in srgb, var(--menu-neon-cyan) 18%, transparent), transparent 64%);
+  filter: blur(14px);
+  opacity: 0.95;
+}
+
+.main-menu-sequencer-stage {
+  position: relative;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid rgba(251, 248, 255, 0.16);
+  border-radius: 28px 28px 8px 8px;
+  background:
+    linear-gradient(180deg, rgba(251, 248, 255, 0.13), transparent 10%),
+    linear-gradient(90deg, rgba(24, 221, 255, 0.14), transparent 18% 82%, rgba(255, 211, 111, 0.12)),
+    rgba(1, 8, 25, 0.44);
+  box-shadow:
+    0 18px 90px rgba(0, 0, 0, 0.38),
+    0 0 62px color-mix(in srgb, var(--active-card-color) 20%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -26px 70px rgba(0, 246, 210, 0.22);
+  mask-image: linear-gradient(180deg, transparent 0%, black 5%, black 100%);
+}
+
+.main-menu-sequencer-stage::before,
+.main-menu-sequencer-stage::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.main-menu-sequencer-stage::before {
+  background:
+    repeating-linear-gradient(
+      90deg,
+      rgba(251, 248, 255, 0.2) 0 1px,
+      transparent 1px calc(100% / 8)
+    ),
+    linear-gradient(90deg, transparent, color-mix(in srgb, var(--active-card-color) 26%, transparent), transparent);
+  opacity: 0.68;
+}
+
+.main-menu-sequencer-stage::after {
+  background:
+    linear-gradient(180deg, transparent 0 70%, color-mix(in srgb, var(--active-card-color) 26%, transparent) 86%, transparent 100%),
+    radial-gradient(ellipse at var(--sequencer-position) 88%, color-mix(in srgb, var(--active-card-color) 64%, transparent), transparent 22%);
+  mix-blend-mode: screen;
+  opacity: 0.9;
+}
+
+.main-menu-sequencer-scan {
+  position: absolute;
+  right: 0;
+  bottom: 10%;
+  left: 0;
+  z-index: 2;
+  height: 2px;
+  background:
+    linear-gradient(90deg, transparent, color-mix(in srgb, var(--active-card-color) 82%, #fbf8ff), transparent);
+  box-shadow: 0 0 34px color-mix(in srgb, var(--active-card-color) 44%, transparent);
+  opacity: 0.88;
+  animation: mainMenuScanLine 2.6s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+.main-menu-sequencer-lanes {
+  position: absolute;
+  inset: 6% 0 8%;
+  display: grid;
+  grid-template-rows: repeat(6, 1fr);
+}
+
+.main-menu-sequencer-lanes span {
+  border-bottom: 1px solid rgba(251, 248, 255, 0.11);
+  box-shadow: 0 1px 0 rgba(24, 221, 255, 0.05);
+}
+
+.main-menu-sequencer-lanes span:nth-child(2n) {
+  border-color: color-mix(in srgb, var(--menu-neon-cyan) 18%, transparent);
+}
+
+.main-menu-sequencer-notes {
+  position: absolute;
+  inset: 0;
+}
+
+.main-menu-sequencer-note {
+  position: absolute;
+  left: var(--note-x);
+  top: var(--note-top);
+  width: calc(var(--note-size) * 2.6);
+  height: var(--note-size);
+  border: 1px solid color-mix(in srgb, var(--note-color) 68%, rgba(251, 248, 255, 0.32));
+  border-radius: 999px;
+  background:
+    linear-gradient(90deg, rgba(251, 248, 255, 0.82), color-mix(in srgb, var(--note-color) 68%, transparent)),
+    color-mix(in srgb, var(--note-color) 54%, rgba(1, 8, 25, 0.28));
+  box-shadow:
+    0 0 28px color-mix(in srgb, var(--note-color) 74%, transparent),
+    0 0 78px color-mix(in srgb, var(--note-color) 36%, transparent);
+  opacity: 0;
+  transform: translate3d(-50%, -24vh, 0) scaleX(0.78);
+  animation: mainMenuNoteFall var(--note-speed) linear infinite;
+  animation-delay: var(--note-delay);
+}
+
+.main-menu-key-rail {
+  position: relative;
+  z-index: 3;
+  height: 125px;
+  padding: 12px 12px 14px;
+  border: 1px solid rgba(251, 248, 255, 0.14);
+  border-radius: 10px 10px 0 0;
+  background:
+    linear-gradient(180deg, rgba(251, 248, 255, 0.22), rgba(251, 248, 255, 0.04) 18%),
+    linear-gradient(90deg, rgba(0, 246, 210, 0.2), transparent 28% 72%, rgba(255, 211, 111, 0.2)),
+    rgba(1, 6, 20, 0.92);
+  box-shadow:
+    0 -22px 86px color-mix(in srgb, var(--active-card-color) 28%, transparent),
+    0 28px 80px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+
+.main-menu-white-keys {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(16, minmax(0, 1fr));
+  gap: 2px;
+  height: 100%;
+}
+
+.main-menu-black-keys {
+  position: absolute;
+  inset: 12px 12px 14px;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: repeat(16, minmax(0, 1fr));
+  gap: 2px;
+  pointer-events: none;
+}
+
+.main-menu-key {
+  position: relative;
+  min-width: 0;
+  border: 1px solid rgba(251, 248, 255, 0.16);
+  border-radius: 0 0 8px 8px;
+  background:
+    linear-gradient(180deg, rgba(251, 248, 255, 0.94), rgba(183, 227, 238, 0.72) 52%, rgba(41, 73, 102, 0.62)),
+    rgba(251, 248, 255, 0.72);
+  box-shadow:
+    inset 0 -14px 18px rgba(1, 8, 25, 0.28),
+    0 0 0 rgba(24, 221, 255, 0);
+  opacity: 0.78;
+  transform: translateY(0);
+  animation: mainMenuKeyIdle 3.8s ease-in-out infinite;
+  animation-delay: var(--key-delay);
+}
+
+.main-menu-key-white {
+  height: 100%;
+}
+
+.main-menu-key::after {
+  content: "";
+  position: absolute;
+  inset: auto 8% 4px;
+  height: 28px;
+  border-radius: inherit;
+  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--active-card-color) 42%, transparent));
+  opacity: 0;
+  transform: scaleY(0.68);
+  transform-origin: bottom;
+  animation: mainMenuKeySpark 2.6s ease-out infinite;
+  animation-delay: var(--key-spark-delay);
+}
+
+.main-menu-key-black {
+  grid-column: var(--black-key-column);
+  z-index: 2;
+  justify-self: end;
+  width: 58%;
+  height: 62%;
+  translate: 50% 0;
+  border-color: rgba(24, 221, 255, 0.24);
+  border-radius: 0 0 6px 6px;
+  background:
+    linear-gradient(180deg, rgba(41, 46, 72, 0.98), rgba(1, 8, 25, 0.96)),
+    #020a1c;
+  opacity: 0.92;
+  box-shadow:
+    inset 0 -8px 14px rgba(0, 0, 0, 0.72),
+    0 8px 20px rgba(0, 0, 0, 0.36);
+}
+
 .main-menu-secondary-heading .eyebrow,
 .main-menu-status-kicker {
   color: color-mix(in srgb, var(--color-accent-secondary) 72%, #fff6dc);
@@ -1823,6 +2046,8 @@ select:focus {
   width: min(100%, var(--main-menu-rail-width));
   justify-self: start;
   margin: 0 auto 0 0;
+  position: relative;
+  z-index: 3;
 }
 
 .main-menu-grid {
@@ -1831,9 +2056,11 @@ select:focus {
   justify-self: start;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: clamp(18px, 1.45vw, 24px);
+  gap: clamp(12px, 1.05vw, 16px);
   contain: layout style;
   perspective: 1200px;
+  position: relative;
+  z-index: 4;
 }
 
 .main-menu-secondary-shell {
@@ -1841,13 +2068,15 @@ select:focus {
   margin: 0 auto 0 0;
   justify-self: start;
   display: grid;
-  gap: 12px;
+  gap: 10px;
   contain: layout style;
   padding: 0;
   border: 0;
   border-radius: 0;
   background: none;
   box-shadow: none;
+  position: relative;
+  z-index: 4;
 }
 
 .main-menu-secondary-heading {
@@ -1859,7 +2088,7 @@ select:focus {
   margin: 0;
   color: #fff8ec;
   font-family: var(--font-display);
-  font-size: clamp(1.65rem, 2.4vw, 2.4rem);
+  font-size: clamp(1.35rem, 1.8vw, 1.85rem);
   font-weight: 800;
   letter-spacing: 0;
   line-height: 1;
@@ -1869,7 +2098,7 @@ select:focus {
 .main-menu-secondary-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
   perspective: 1000px;
 }
 
@@ -2000,16 +2229,29 @@ select:focus {
   opacity: 1;
 }
 
+.main-menu-screen:has(.menu-card:hover) .main-menu-sequencer,
+.main-menu-screen:has(.menu-card:focus-visible) .main-menu-sequencer {
+  opacity: 1;
+}
+
+.main-menu-screen:has(.menu-card:hover) .main-menu-sequencer-stage::after,
+.main-menu-screen:has(.menu-card:focus-visible) .main-menu-sequencer-stage::after {
+  opacity: 1;
+}
+
 .menu-card-primary {
-  min-height: clamp(178px, 17vh, 205px);
-  padding: clamp(18px, 1.9vw, 24px);
+  min-height: clamp(138px, 13.6vh, 162px);
+  padding: clamp(14px, 1.45vw, 18px);
 }
 
 .menu-card-secondary {
-  grid-template-rows: auto 1fr;
-  min-height: 118px;
-  padding: 12px;
-  border-radius: 16px;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: 1fr;
+  align-items: center;
+  gap: 10px;
+  min-height: 64px;
+  padding: 10px;
+  border-radius: 14px;
 }
 
 .menu-card-icon {
@@ -2030,8 +2272,8 @@ select:focus {
 }
 
 .menu-card-primary .menu-card-icon {
-  width: 64px;
-  height: 64px;
+  width: 54px;
+  height: 54px;
 }
 
 .menu-card-icon svg {
@@ -2053,7 +2295,7 @@ select:focus {
   overflow-wrap: break-word;
   color: color-mix(in srgb, var(--card-color) 34%, #fff8ec);
   font-family: var(--font-display);
-  font-size: clamp(1.45rem, 2vw, 1.85rem);
+  font-size: clamp(1.28rem, 1.72vw, 1.58rem);
   font-weight: 800;
   letter-spacing: 0;
   line-height: 1;
@@ -2123,7 +2365,7 @@ select:focus {
 }
 
 .menu-card-secondary .menu-card-title {
-  font-size: 1rem;
+  font-size: 0.96rem;
 }
 
 .menu-card-secondary .menu-card-popover {
@@ -2200,6 +2442,74 @@ select:focus {
   }
 }
 
+@keyframes mainMenuNoteFall {
+  0% {
+    opacity: 0;
+    transform: translate3d(-50%, -24vh, 0) scaleX(0.78);
+  }
+
+  12% {
+    opacity: 0.9;
+  }
+
+  78% {
+    opacity: 0.92;
+    transform: translate3d(-50%, 56vh, 0) scaleX(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate3d(-50%, 70vh, 0) scaleX(1.08);
+  }
+}
+
+@keyframes mainMenuScanLine {
+  0%,
+  100% {
+    opacity: 0.38;
+    transform: translateY(-22vh);
+  }
+
+  46% {
+    opacity: 1;
+  }
+
+  72% {
+    opacity: 0.7;
+    transform: translateY(8vh);
+  }
+}
+
+@keyframes mainMenuKeyIdle {
+  0%,
+  100% {
+    filter: brightness(0.78);
+    transform: translateY(0);
+  }
+
+  48% {
+    filter: brightness(1.08);
+    transform: translateY(1px);
+  }
+}
+
+@keyframes mainMenuKeySpark {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scaleY(0.62);
+  }
+
+  20% {
+    opacity: 0.9;
+    transform: scaleY(1);
+  }
+
+  36% {
+    opacity: 0.2;
+  }
+}
+
 @keyframes mainMenuMeterPulse {
   0%,
   100% {
@@ -2217,6 +2527,12 @@ select:focus {
   .main-menu-screen {
       --main-menu-rail-width: clamp(540px, 57vw, 620px);
       background-position: 54% center;
+    }
+
+  .main-menu-sequencer {
+      left: clamp(28px, 4.4vw, 72px);
+      width: min(100%, var(--main-menu-rail-width));
+      opacity: 0.74;
     }
 
   .main-menu-hero,
@@ -2243,7 +2559,7 @@ select:focus {
 
 @media (min-width: 781px) and (max-height: 940px) {
   .main-menu-screen {
-      gap: 10px;
+      gap: 8px;
       padding-top: 64px;
       padding-bottom: 18px;
     }
@@ -2262,9 +2578,19 @@ select:focus {
       gap: 14px;
     }
 
+  .main-menu-sequencer {
+      top: 48px;
+      grid-template-rows: minmax(0, 1fr) 125px;
+      opacity: 0.76;
+    }
+
+  .main-menu-key-rail {
+      height: 125px;
+    }
+
   .menu-card-primary {
-      min-height: 188px;
-      padding: 18px;
+      min-height: 132px;
+      padding: 14px;
     }
 
   .menu-card-primary .menu-card-action {
@@ -2277,8 +2603,8 @@ select:focus {
 
   .menu-card-secondary {
       gap: 10px;
-      min-height: 98px;
-      padding: 12px;
+      min-height: 58px;
+      padding: 9px;
     }
 
   .menu-card-secondary .menu-card-icon {
@@ -2302,7 +2628,7 @@ select:focus {
 
 @media (min-width: 781px) and (max-height: 820px) {
   .main-menu-screen {
-      gap: 8px;
+      gap: 6px;
       padding-top: 58px;
     }
 
@@ -2315,21 +2641,41 @@ select:focus {
       gap: 12px;
     }
 
+  .main-menu-sequencer {
+      grid-template-rows: minmax(0, 1fr) 125px;
+      opacity: 0.68;
+    }
+
+  .main-menu-key-rail {
+      height: 125px;
+    }
+
   .menu-card-primary {
-      min-height: 172px;
+      min-height: 118px;
     }
 
   .menu-card-secondary {
-      grid-template-columns: auto minmax(0, 1fr);
-      grid-template-rows: 1fr;
+      grid-template-columns: 1fr;
+      grid-template-rows: auto auto;
       align-items: center;
-      gap: 10px;
-      min-height: 68px;
-      padding: 10px;
+      gap: 7px;
+      min-height: 58px;
+      padding: 8px;
+      text-align: center;
     }
 
   .menu-card-secondary .menu-card-copy {
-      align-self: center;
+      align-self: start;
+      justify-items: center;
+    }
+
+  .main-menu-secondary-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+  .menu-card-secondary .menu-card-title {
+      font-size: 0.78rem;
     }
 
   .menu-card-secondary .menu-card-popover {
@@ -2381,6 +2727,21 @@ select:focus {
   .main-menu-light {
       width: 70vw;
       opacity: 0.12;
+    }
+
+  .main-menu-sequencer {
+      top: 96px;
+      right: 16px;
+      bottom: 4vh;
+      left: 16px;
+      width: auto;
+      grid-template-rows: minmax(0, 1fr) 125px;
+      opacity: 0.24;
+      transform: translate3d(calc(var(--mouse-x) * 5px), calc(var(--mouse-y) * 4px), 0);
+    }
+
+  .main-menu-key-rail {
+      height: 125px;
     }
 
   .main-menu-facet-a,
@@ -2459,6 +2820,10 @@ select:focus {
   .menu-card-sheen {
       display: none;
     }
+
+  .main-menu-sequencer {
+      opacity: 0.34;
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2484,6 +2849,25 @@ select:focus {
   .main-menu-status-meter i {
       height: 9px;
       opacity: 0.78;
+    }
+
+  .main-menu-sequencer {
+      opacity: 0.48;
+    }
+
+  .main-menu-sequencer-note {
+      opacity: 0.42;
+      transform: translate3d(-50%, calc(var(--note-lane) * 9vh), 0) scaleX(1);
+    }
+
+  .main-menu-sequencer-scan {
+      opacity: 0.52;
+      transform: translateY(0);
+    }
+
+  .main-menu-key,
+    .main-menu-key::after {
+      transform: none;
     }
 }
 

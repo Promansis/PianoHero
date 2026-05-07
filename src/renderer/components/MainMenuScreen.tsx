@@ -14,9 +14,24 @@ interface MainMenuScreenProps {
 
 type MenuStyle = CSSProperties & {
   '--card-color'?: string;
+  '--active-card-color'?: string;
   '--entrance-delay'?: string;
   '--mouse-x'?: string;
   '--mouse-y'?: string;
+  '--note-color'?: string;
+  '--note-delay'?: string;
+  '--note-lane'?: string;
+  '--note-size'?: string;
+  '--note-top'?: string;
+  '--note-speed'?: string;
+  '--note-x'?: string;
+  '--key-delay'?: string;
+  '--key-spark-delay'?: string;
+  '--key-index'?: string;
+  '--black-key-column'?: string;
+  '--sequencer-column'?: string;
+  '--sequencer-lane'?: string;
+  '--sequencer-position'?: string;
 };
 
 interface MenuCard {
@@ -189,6 +204,20 @@ const STATUS_ITEMS = [
   ['Main Routes', String(MENU_CARDS.filter((card) => card.priority === 'primary').length)],
   ['Support Tools', String(MENU_CARDS.filter((card) => card.priority === 'secondary').length)],
 ] as const;
+
+const SEQUENCER_NOTES = [
+  { lane: 0, x: 12, size: 16, delay: -0.4, speed: 4.8, color: 'var(--menu-neon-gold)' },
+  { lane: 2, x: 36, size: 22, delay: -2.2, speed: 5.6, color: 'var(--menu-neon-cyan)' },
+  { lane: 4, x: 68, size: 14, delay: -1.4, speed: 4.4, color: 'var(--menu-neon-violet)' },
+  { lane: 1, x: 24, size: 18, delay: -3.1, speed: 5.2, color: 'var(--menu-neon-blue)' },
+  { lane: 5, x: 82, size: 24, delay: -0.9, speed: 6.1, color: 'var(--menu-neon-magenta)' },
+  { lane: 3, x: 52, size: 16, delay: -2.8, speed: 4.9, color: 'var(--menu-neon-teal)' },
+  { lane: 0, x: 74, size: 12, delay: -4.1, speed: 5.8, color: 'var(--menu-neon-coral)' },
+  { lane: 4, x: 18, size: 20, delay: -5, speed: 6.4, color: 'var(--menu-neon-indigo)' },
+] as const;
+
+const SEQUENCER_WHITE_KEY_COUNT = 16;
+const SEQUENCER_BLACK_KEY_POSITIONS = [0, 1, 3, 4, 5, 7, 8, 10, 11, 12, 14] as const;
 
 const PRIMARY_CARD_ENTRANCE_START_MS = 220;
 const PRIMARY_CARD_ENTRANCE_STEP_MS = 70;
@@ -363,6 +392,30 @@ export function MainMenuScreen(props: MainMenuScreenProps) {
     });
   };
 
+  const handleCardActivate = (card: MenuCard, index: number) => {
+    const node = mainRef.current;
+    if (!node) {
+      return;
+    }
+
+    node.style.setProperty('--active-card-color', card.accent);
+    node.style.setProperty('--sequencer-column', String(index % SEQUENCER_WHITE_KEY_COUNT));
+    node.style.setProperty('--sequencer-lane', String(index % 6));
+    node.style.setProperty('--sequencer-position', `${12.5 + (index % SEQUENCER_WHITE_KEY_COUNT) * 6.25}%`);
+  };
+
+  const handleSequencerIdle = () => {
+    const node = mainRef.current;
+    if (!node) {
+      return;
+    }
+
+    node.style.setProperty('--active-card-color', 'var(--menu-neon-cyan)');
+    node.style.setProperty('--sequencer-column', '2');
+    node.style.setProperty('--sequencer-lane', '1');
+    node.style.setProperty('--sequencer-position', '25%');
+  };
+
   const handleCardPointerLeave = (event: ReactPointerEvent<HTMLButtonElement>) => {
     if (pendingCardTiltRef.current?.element === event.currentTarget) {
       pendingCardTiltRef.current = null;
@@ -372,6 +425,7 @@ export function MainMenuScreen(props: MainMenuScreenProps) {
     event.currentTarget.style.setProperty('--tilt-y', '0');
     event.currentTarget.style.setProperty('--shine-x', '50%');
     event.currentTarget.style.setProperty('--shine-y', '18%');
+    handleSequencerIdle();
   };
 
   const renderMenuCard = (card: MenuCard, index: number) => {
@@ -383,7 +437,10 @@ export function MainMenuScreen(props: MainMenuScreenProps) {
         aria-describedby={tooltipId}
         aria-label={card.title}
         className={`menu-card menu-card-${card.priority}`}
+        onBlur={handleSequencerIdle}
         onClick={() => card.onSelect(props)}
+        onFocus={() => handleCardActivate(card, index)}
+        onPointerEnter={() => handleCardActivate(card, index)}
         onPointerLeave={handleCardPointerLeave}
         onPointerMove={handleCardPointerMove}
         style={
@@ -415,7 +472,16 @@ export function MainMenuScreen(props: MainMenuScreenProps) {
       onPointerLeave={handleScreenPointerLeave}
       onPointerMove={handleScreenPointerMove}
       ref={mainRef}
-      style={{ '--mouse-x': '0', '--mouse-y': '0' } as MenuStyle}
+      style={
+        {
+          '--active-card-color': 'var(--menu-neon-cyan)',
+          '--mouse-x': '0',
+          '--mouse-y': '0',
+          '--sequencer-column': '2',
+          '--sequencer-lane': '1',
+          '--sequencer-position': '25%',
+        } as MenuStyle
+      }
     >
       <div className="main-menu-backdrop" aria-hidden="true">
         <span className="main-menu-light main-menu-light-a" />
@@ -423,6 +489,71 @@ export function MainMenuScreen(props: MainMenuScreenProps) {
         <span className="main-menu-facet main-menu-facet-a" />
         <span className="main-menu-facet main-menu-facet-b" />
         <span className="main-menu-score-lines" />
+      </div>
+
+      <div className="main-menu-sequencer" aria-hidden="true">
+        <div className="main-menu-sequencer-stage">
+          <span className="main-menu-sequencer-scan" />
+          <div className="main-menu-sequencer-lanes">
+            {Array.from({ length: 6 }, (_, index) => (
+              <span key={index} />
+            ))}
+          </div>
+          <div className="main-menu-sequencer-notes">
+            {SEQUENCER_NOTES.map((note, index) => (
+              <span
+                className="main-menu-sequencer-note"
+                key={`${note.lane}-${note.x}-${index}`}
+                style={
+                  {
+                    '--note-color': note.color,
+                    '--note-delay': `${note.delay}s`,
+                    '--note-lane': String(note.lane),
+                    '--note-size': `${note.size}px`,
+                    '--note-speed': `${note.speed}s`,
+                    '--note-top': `${note.lane * 13 - 18}%`,
+                    '--note-x': `${note.x}%`,
+                  } as MenuStyle
+                }
+              />
+            ))}
+          </div>
+        </div>
+        <div className="main-menu-key-rail">
+          <div className="main-menu-white-keys">
+            {Array.from({ length: SEQUENCER_WHITE_KEY_COUNT }, (_, index) => (
+              <span
+                className="main-menu-key main-menu-key-white"
+                key={index}
+                style={
+                  {
+                    '--key-delay': `${index * -110}ms`,
+                    '--key-spark-delay': `${index * 70}ms`,
+                    '--key-index': String(index),
+                    '--sequencer-column': String(index),
+                  } as MenuStyle
+                }
+              />
+            ))}
+          </div>
+          <div className="main-menu-black-keys">
+            {SEQUENCER_BLACK_KEY_POSITIONS.map((whiteKeyIndex, index) => (
+              <span
+                className="main-menu-key main-menu-key-black"
+                key={whiteKeyIndex}
+                style={
+                  {
+                    '--black-key-column': String(whiteKeyIndex + 1),
+                    '--key-delay': `${(whiteKeyIndex + 0.5) * -110}ms`,
+                    '--key-spark-delay': `${(index * 70) + 35}ms`,
+                    '--key-index': String(whiteKeyIndex),
+                    '--sequencer-column': String(whiteKeyIndex),
+                  } as MenuStyle
+                }
+              />
+            ))}
+          </div>
+        </div>
       </div>
 
       <section className="main-menu-hero">
