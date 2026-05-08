@@ -1599,6 +1599,7 @@ select:focus {
   --mouse-y: 0;
   --active-card-color: var(--menu-neon-cyan);
   --main-menu-rail-width: clamp(540px, 42vw, 640px);
+  --main-menu-key-rail-height: 150px;
   --sequencer-column: 2;
   --sequencer-lane: 1;
   --sequencer-position: 25%;
@@ -1623,8 +1624,6 @@ select:focus {
       url('/assets/main-menu/mainmenu-neonbackground.webp') type('image/webp'),
       url('/assets/main-menu/mainmenu-neonbackground.png') type('image/png')
     ) center / cover no-repeat,
-    linear-gradient(180deg, rgba(1, 6, 20, 0.18) 0%, rgba(1, 6, 20, 0.44) 52%, rgba(1, 4, 13, 0.9) 100%),
-    linear-gradient(90deg, rgba(0, 8, 25, 0.9) 0%, rgba(0, 8, 25, 0.68) 39%, rgba(0, 8, 25, 0.22) 68%, rgba(0, 8, 25, 0.5) 100%),
     #010819;
   animation: fadeIn 0.28s ease-out;
 }
@@ -1640,19 +1639,19 @@ select:focus {
 
 .main-menu-screen::before {
   background:
-    radial-gradient(circle at calc(67% + var(--mouse-x) * 9%) 26%, color-mix(in srgb, var(--menu-neon-cyan) 20%, transparent), transparent 30%),
-    radial-gradient(ellipse at 83% 62%, color-mix(in srgb, var(--menu-neon-gold) 18%, transparent), transparent 42%),
-    radial-gradient(ellipse at 7% 44%, rgba(0, 8, 32, 0.82), transparent 58%);
-  opacity: 0.76;
+    radial-gradient(circle at calc(67% + var(--mouse-x) * 9%) 26%, color-mix(in srgb, var(--menu-neon-cyan) 9%, transparent), transparent 34%),
+    radial-gradient(ellipse at 83% 62%, color-mix(in srgb, var(--menu-neon-gold) 8%, transparent), transparent 46%),
+    radial-gradient(ellipse at 7% 44%, rgba(0, 8, 32, 0.9), transparent 60%);
+  opacity: 0.64;
 }
 
 .main-menu-screen::after {
   background:
-    linear-gradient(115deg, transparent 0 23%, rgba(24, 221, 255, 0.08) 30%, transparent 41%),
-    linear-gradient(74deg, transparent 0 62%, color-mix(in srgb, var(--menu-neon-violet) 17%, transparent) 66%, transparent 75%),
+    linear-gradient(115deg, transparent 0 23%, rgba(24, 221, 255, 0.035) 30%, transparent 41%),
+    linear-gradient(74deg, transparent 0 62%, color-mix(in srgb, var(--menu-neon-violet) 7%, transparent) 66%, transparent 75%),
     radial-gradient(ellipse at 50% 16%, transparent 0 46%, rgba(0, 0, 0, 0.48) 100%);
   mix-blend-mode: screen;
-  opacity: 0.5;
+  opacity: 0.28;
   transform: translate3d(calc(var(--mouse-x) * -18px), calc(var(--mouse-y) * -12px), 0);
   transition: transform 150ms ease-out;
 }
@@ -1679,7 +1678,7 @@ select:focus {
   width: 32vw;
   height: 105vh;
   top: -22vh;
-  opacity: 0.12;
+  opacity: 0.07;
   mix-blend-mode: screen;
 }
 
@@ -1696,11 +1695,11 @@ select:focus {
 }
 
 .main-menu-facet {
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: linear-gradient(135deg, rgba(24, 221, 255, 0.13), transparent 60%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(135deg, rgba(24, 221, 255, 0.08), transparent 60%);
   clip-path: polygon(50% 0, 100% 38%, 78% 100%, 12% 82%, 0 22%);
   filter: blur(0.2px);
-  opacity: 0.12;
+  opacity: 0.07;
 }
 
 .main-menu-facet-a {
@@ -1728,29 +1727,31 @@ select:focus {
     repeating-linear-gradient(
       180deg,
       transparent 0 18px,
-      rgba(24, 221, 255, 0.12) 18px 20px,
+      rgba(24, 221, 255, 0.07) 18px 20px,
       transparent 20px 28px
     );
   mask-image: linear-gradient(90deg, transparent, black 18%, black 72%, transparent);
-  opacity: 0.12;
+  opacity: 0.08;
   transform: rotate(-4deg);
 }
 
 .main-menu-sequencer {
   position: absolute;
-  top: 58px;
-  bottom: 20px;
+  top: 0;
+  bottom: 0;
   left: clamp(28px, 4.4vw, 72px);
   width: min(100%, var(--main-menu-rail-width));
   z-index: 1;
   display: grid;
-  grid-template-rows: minmax(0, 1fr) 125px;
+  grid-template-rows: minmax(0, 1fr) var(--main-menu-key-rail-height);
   align-items: end;
   pointer-events: none;
-  opacity: 0.82;
+  opacity: 0.58;
   transform: translate3d(calc(var(--mouse-x) * 8px), calc(var(--mouse-y) * 6px), 0);
   transform-origin: 50% 50%;
-  transition: transform 180ms ease-out;
+  transition:
+    opacity 200ms ease-out,
+    transform 180ms ease-out;
 }
 
 .main-menu-sequencer::before {
@@ -1759,10 +1760,10 @@ select:focus {
   inset: 8% -12% 10%;
   z-index: -1;
   background:
-    radial-gradient(ellipse at 64% 100%, color-mix(in srgb, var(--active-card-color) 32%, transparent), transparent 54%),
-    radial-gradient(ellipse at 42% 38%, color-mix(in srgb, var(--menu-neon-cyan) 18%, transparent), transparent 64%);
-  filter: blur(14px);
-  opacity: 0.95;
+    radial-gradient(ellipse at 64% 100%, color-mix(in srgb, var(--active-card-color) 15%, transparent), transparent 56%),
+    radial-gradient(ellipse at 42% 38%, color-mix(in srgb, var(--menu-neon-cyan) 8%, transparent), transparent 66%);
+  filter: blur(18px);
+  opacity: 0.72;
 }
 
 .main-menu-sequencer-stage {
@@ -1771,16 +1772,15 @@ select:focus {
   min-height: 0;
   overflow: hidden;
   border: 1px solid rgba(251, 248, 255, 0.16);
-  border-radius: 28px 28px 8px 8px;
   background:
-    linear-gradient(180deg, rgba(251, 248, 255, 0.13), transparent 10%),
-    linear-gradient(90deg, rgba(24, 221, 255, 0.14), transparent 18% 82%, rgba(255, 211, 111, 0.12)),
-    rgba(1, 8, 25, 0.44);
+    linear-gradient(180deg, rgba(251, 248, 255, 0.08), transparent 10%),
+    linear-gradient(90deg, rgba(24, 221, 255, 0.055), transparent 20% 80%, rgba(255, 211, 111, 0.045)),
+    rgba(1, 8, 25, 0.34);
   box-shadow:
-    0 18px 90px rgba(0, 0, 0, 0.38),
-    0 0 62px color-mix(in srgb, var(--active-card-color) 20%, transparent),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    inset 0 -26px 70px rgba(0, 246, 210, 0.22);
+    0 18px 76px rgba(0, 0, 0, 0.34),
+    0 0 38px color-mix(in srgb, var(--active-card-color) 9%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -24px 58px rgba(0, 246, 210, 0.09);
   mask-image: linear-gradient(180deg, transparent 0%, black 5%, black 100%);
 }
 
@@ -1796,19 +1796,20 @@ select:focus {
   background:
     repeating-linear-gradient(
       90deg,
-      rgba(251, 248, 255, 0.2) 0 1px,
+      rgba(251, 248, 255, 0.12) 0 1px,
       transparent 1px calc(100% / 8)
     ),
-    linear-gradient(90deg, transparent, color-mix(in srgb, var(--active-card-color) 26%, transparent), transparent);
-  opacity: 0.68;
+    linear-gradient(90deg, transparent, color-mix(in srgb, var(--active-card-color) 11%, transparent), transparent);
+  opacity: 0.42;
 }
 
 .main-menu-sequencer-stage::after {
   background:
-    linear-gradient(180deg, transparent 0 70%, color-mix(in srgb, var(--active-card-color) 26%, transparent) 86%, transparent 100%),
-    radial-gradient(ellipse at var(--sequencer-position) 88%, color-mix(in srgb, var(--active-card-color) 64%, transparent), transparent 22%);
+    linear-gradient(180deg, transparent 0 70%, color-mix(in srgb, var(--active-card-color) 16%, transparent) 86%, transparent 100%),
+    radial-gradient(ellipse at var(--sequencer-position) 88%, color-mix(in srgb, var(--active-card-color) 40%, transparent), transparent 22%);
   mix-blend-mode: screen;
-  opacity: 0.9;
+  opacity: 0.48;
+  transition: opacity 200ms ease-out;
 }
 
 .main-menu-sequencer-scan {
@@ -1820,8 +1821,8 @@ select:focus {
   height: 2px;
   background:
     linear-gradient(90deg, transparent, color-mix(in srgb, var(--active-card-color) 82%, #fbf8ff), transparent);
-  box-shadow: 0 0 34px color-mix(in srgb, var(--active-card-color) 44%, transparent);
-  opacity: 0.88;
+  box-shadow: 0 0 22px color-mix(in srgb, var(--active-card-color) 25%, transparent);
+  opacity: 0.48;
   animation: mainMenuScanLine 2.6s cubic-bezier(0.16, 1, 0.3, 1) infinite;
 }
 
@@ -1833,12 +1834,12 @@ select:focus {
 }
 
 .main-menu-sequencer-lanes span {
-  border-bottom: 1px solid rgba(251, 248, 255, 0.11);
-  box-shadow: 0 1px 0 rgba(24, 221, 255, 0.05);
+  border-bottom: 1px solid rgba(251, 248, 255, 0.07);
+  box-shadow: 0 1px 0 rgba(24, 221, 255, 0.025);
 }
 
 .main-menu-sequencer-lanes span:nth-child(2n) {
-  border-color: color-mix(in srgb, var(--menu-neon-cyan) 18%, transparent);
+  border-color: color-mix(in srgb, var(--menu-neon-cyan) 8%, transparent);
 }
 
 .main-menu-sequencer-notes {
@@ -1858,8 +1859,8 @@ select:focus {
     linear-gradient(90deg, rgba(251, 248, 255, 0.82), color-mix(in srgb, var(--note-color) 68%, transparent)),
     color-mix(in srgb, var(--note-color) 54%, rgba(1, 8, 25, 0.28));
   box-shadow:
-    0 0 28px color-mix(in srgb, var(--note-color) 74%, transparent),
-    0 0 78px color-mix(in srgb, var(--note-color) 36%, transparent);
+    0 0 18px color-mix(in srgb, var(--note-color) 42%, transparent),
+    0 0 44px color-mix(in srgb, var(--note-color) 18%, transparent);
   opacity: 0;
   transform: translate3d(-50%, -24vh, 0) scaleX(0.78);
   animation: mainMenuNoteFall var(--note-speed) linear infinite;
@@ -1869,18 +1870,18 @@ select:focus {
 .main-menu-key-rail {
   position: relative;
   z-index: 3;
-  height: 125px;
+  height: var(--main-menu-key-rail-height);
   padding: 12px 12px 14px;
   border: 1px solid rgba(251, 248, 255, 0.14);
-  border-radius: 10px 10px 0 0;
+  border-radius: 0 0 10px 10px;
   background:
-    linear-gradient(180deg, rgba(251, 248, 255, 0.22), rgba(251, 248, 255, 0.04) 18%),
-    linear-gradient(90deg, rgba(0, 246, 210, 0.2), transparent 28% 72%, rgba(255, 211, 111, 0.2)),
+    linear-gradient(180deg, rgba(251, 248, 255, 0.16), rgba(251, 248, 255, 0.035) 18%),
+    linear-gradient(90deg, rgba(0, 246, 210, 0.08), transparent 28% 72%, rgba(255, 211, 111, 0.08)),
     rgba(1, 6, 20, 0.92);
   box-shadow:
-    0 -22px 86px color-mix(in srgb, var(--active-card-color) 28%, transparent),
+    0 -18px 56px color-mix(in srgb, var(--active-card-color) 10%, transparent),
     0 28px 80px rgba(0, 0, 0, 0.42),
-    inset 0 1px 0 rgba(255, 255, 255, 0.16);
+    inset 0 1px 0 rgba(255, 255, 255, 0.11);
 }
 
 .main-menu-white-keys {
@@ -1913,7 +1914,7 @@ select:focus {
   box-shadow:
     inset 0 -14px 18px rgba(1, 8, 25, 0.28),
     0 0 0 rgba(24, 221, 255, 0);
-  opacity: 0.78;
+  opacity: 0.62;
   transform: translateY(0);
   animation: mainMenuKeyIdle 3.8s ease-in-out infinite;
   animation-delay: var(--key-delay);
@@ -1929,7 +1930,7 @@ select:focus {
   inset: auto 8% 4px;
   height: 28px;
   border-radius: inherit;
-  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--active-card-color) 42%, transparent));
+  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--active-card-color) 24%, transparent));
   opacity: 0;
   transform: scaleY(0.68);
   transform-origin: bottom;
@@ -1949,7 +1950,7 @@ select:focus {
   background:
     linear-gradient(180deg, rgba(41, 46, 72, 0.98), rgba(1, 8, 25, 0.96)),
     #020a1c;
-  opacity: 0.92;
+  opacity: 0.76;
   box-shadow:
     inset 0 -8px 14px rgba(0, 0, 0, 0.72),
     0 8px 20px rgba(0, 0, 0, 0.36);
@@ -2115,19 +2116,19 @@ select:focus {
   min-height: 205px;
   overflow: hidden;
   padding: 22px;
-  border: 1px solid rgba(24, 221, 255, 0.13);
-  border-left: 1px solid color-mix(in srgb, var(--card-color) 42%, rgba(255, 255, 255, 0.12));
+  border: 1px solid rgba(251, 248, 255, 0.11);
+  border-left: 1px solid color-mix(in srgb, var(--card-color) 24%, rgba(255, 255, 255, 0.11));
   border-radius: 18px;
   background:
-    linear-gradient(145deg, color-mix(in srgb, var(--card-color) 19%, rgba(255, 255, 255, 0.06)), transparent 44%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(24, 221, 255, 0.035)),
-    rgba(2, 10, 28, 0.7);
+    linear-gradient(145deg, color-mix(in srgb, var(--card-color) 9%, rgba(251, 248, 255, 0.04)), transparent 48%),
+    linear-gradient(180deg, rgba(251, 248, 255, 0.075), rgba(24, 221, 255, 0.018)),
+    rgba(2, 10, 28, 0.84);
   color: #fbf8ff;
   text-align: left;
   cursor: pointer;
   box-shadow:
-    0 24px 90px rgba(0, 0, 0, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    0 18px 64px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
   transform: perspective(900px) rotateX(calc(var(--tilt-x) * 1deg)) rotateY(calc(var(--tilt-y) * 1deg)) translateY(0) scale(1);
   transform-style: preserve-3d;
   transition:
@@ -2159,7 +2160,7 @@ select:focus {
     transparent 172deg,
     transparent 360deg
   );
-  opacity: 0.55;
+  opacity: 0.24;
   mask:
     linear-gradient(#000 0 0) content-box,
     linear-gradient(#000 0 0);
@@ -2172,9 +2173,9 @@ select:focus {
 
 .menu-card::after {
   background:
-    linear-gradient(90deg, color-mix(in srgb, var(--card-color) 28%, transparent), transparent 3px),
-    radial-gradient(circle at top right, color-mix(in srgb, var(--card-color) 24%, transparent), transparent 46%);
-  opacity: 0.7;
+    linear-gradient(90deg, color-mix(in srgb, var(--card-color) 12%, transparent), transparent 3px),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--card-color) 13%, transparent), transparent 48%);
+  opacity: 0.36;
 }
 
 .menu-card > * {
@@ -2190,7 +2191,7 @@ select:focus {
   border-radius: 50%;
   background: radial-gradient(ellipse at center, color-mix(in srgb, var(--card-color) 36%, transparent), transparent 68%);
   filter: blur(8px);
-  opacity: 0.48;
+  opacity: 0.22;
   transform: translateZ(-1px);
 }
 
@@ -2210,19 +2211,24 @@ select:focus {
   z-index: 5;
   border-color: color-mix(in srgb, var(--card-color) 52%, rgba(255, 255, 255, 0.2));
   background:
-    linear-gradient(145deg, color-mix(in srgb, var(--card-color) 25%, rgba(255, 255, 255, 0.1)), transparent 46%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.06)),
-    rgba(8, 9, 18, 0.76);
+    linear-gradient(145deg, color-mix(in srgb, var(--card-color) 18%, rgba(251, 248, 255, 0.08)), transparent 46%),
+    linear-gradient(180deg, rgba(251, 248, 255, 0.11), rgba(251, 248, 255, 0.04)),
+    rgba(7, 10, 22, 0.88);
   box-shadow:
-    0 32px 120px rgba(0, 0, 0, 0.42),
-    0 0 46px color-mix(in srgb, var(--card-color) 34%, transparent),
-    inset 0 1px 0 rgba(255, 255, 255, 0.16);
-  transform: perspective(900px) rotateX(calc(var(--tilt-x) * 1deg)) rotateY(calc(var(--tilt-y) * 1deg)) translateY(-8px) scale(1.018);
+    0 26px 92px rgba(0, 0, 0, 0.4),
+    0 0 34px color-mix(in srgb, var(--card-color) 24%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.13);
+  transform: perspective(900px) rotateX(calc(var(--tilt-x) * 1deg)) rotateY(calc(var(--tilt-y) * 1deg)) translateY(-5px) scale(1.012);
 }
 
 .menu-card:hover::before {
-  opacity: 1;
+  opacity: 0.82;
   animation: menuGlowSpin 2.4s linear infinite;
+}
+
+.menu-card:hover .menu-card-glow,
+.menu-card:focus-visible .menu-card-glow {
+  opacity: 0.46;
 }
 
 .menu-card:hover .menu-card-sheen {
@@ -2235,17 +2241,18 @@ select:focus {
 
 .main-menu-screen:has(.menu-card:hover) .main-menu-sequencer,
 .main-menu-screen:has(.menu-card:focus-visible) .main-menu-sequencer {
-  opacity: 1;
+  opacity: 0.9;
 }
 
 .main-menu-screen:has(.menu-card:hover) .main-menu-sequencer-stage::after,
 .main-menu-screen:has(.menu-card:focus-visible) .main-menu-sequencer-stage::after {
-  opacity: 1;
+  opacity: 0.82;
 }
 
 .menu-card-primary {
+  gap: 12px;
   min-height: clamp(138px, 13.6vh, 162px);
-  padding: clamp(14px, 1.45vw, 18px);
+  padding: clamp(14px, 1.35vw, 17px);
 }
 
 .menu-card-secondary {
@@ -2256,6 +2263,9 @@ select:focus {
   min-height: 64px;
   padding: 10px;
   border-radius: 14px;
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--card-color) 6%, rgba(251, 248, 255, 0.025)), transparent 52%),
+    rgba(2, 10, 28, 0.7);
 }
 
 .menu-card-icon {
@@ -2263,15 +2273,15 @@ select:focus {
   width: 58px;
   height: 58px;
   place-items: center;
-  border: 1px solid color-mix(in srgb, var(--card-color) 32%, rgba(255, 255, 255, 0.16));
+  border: 1px solid color-mix(in srgb, var(--card-color) 18%, rgba(255, 255, 255, 0.14));
   border-radius: 18px;
   background:
-    radial-gradient(circle at 35% 24%, rgba(255, 255, 255, 0.18), transparent 42%),
-    color-mix(in srgb, var(--card-color) 22%, rgba(255, 255, 255, 0.08));
-  color: color-mix(in srgb, var(--card-color) 82%, #ffffff);
+    radial-gradient(circle at 35% 24%, rgba(255, 255, 255, 0.12), transparent 42%),
+    color-mix(in srgb, var(--card-color) 12%, rgba(255, 255, 255, 0.06));
+  color: color-mix(in srgb, var(--card-color) 58%, #fff8ec);
   box-shadow:
-    0 16px 34px rgba(0, 0, 0, 0.26),
-    0 0 26px color-mix(in srgb, var(--card-color) 25%, transparent);
+    0 12px 24px rgba(0, 0, 0, 0.22),
+    0 0 16px color-mix(in srgb, var(--card-color) 10%, transparent);
   transform: translateZ(28px);
   transition:
     background 180ms ease-out,
@@ -2293,8 +2303,23 @@ select:focus {
 }
 
 .menu-card-primary .menu-card-icon {
-  width: 54px;
-  height: 54px;
+  width: 46px;
+  height: 46px;
+  border-radius: 15px;
+}
+
+.menu-card-primary .menu-card-icon svg {
+  width: 25px;
+  height: 25px;
+}
+
+.menu-card-primary .menu-card-copy {
+  gap: 7px;
+}
+
+.menu-card-primary .menu-card-action {
+  padding: 6px 10px;
+  font-size: 0.68rem;
 }
 
 .menu-card-icon svg {
@@ -2306,7 +2331,7 @@ select:focus {
 .menu-card-copy {
   display: grid;
   align-self: end;
-  gap: 0;
+  gap: 7px;
   min-width: 0;
   transform: translateZ(38px);
 }
@@ -2314,22 +2339,34 @@ select:focus {
 .menu-card-title {
   display: block;
   overflow-wrap: break-word;
-  color: color-mix(in srgb, var(--card-color) 34%, #fff8ec);
+  color: color-mix(in srgb, var(--card-color) 18%, #fff8ec);
   font-family: var(--font-display);
   font-size: clamp(1.28rem, 1.72vw, 1.58rem);
   font-weight: 800;
   letter-spacing: 0;
   line-height: 1;
-  text-shadow: 0 12px 28px rgba(0, 0, 0, 0.38);
+  text-shadow: 0 12px 28px rgba(0, 0, 0, 0.42);
+}
+
+.menu-card-intent {
+  display: block;
+  max-width: 28ch;
+  color: rgba(251, 248, 255, 0.68);
+  font-family: var(--font-body);
+  font-size: clamp(0.76rem, 0.86vw, 0.86rem);
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.28;
+  text-shadow: 0 10px 24px rgba(0, 0, 0, 0.44);
 }
 
 .menu-card-action {
   justify-self: start;
   padding: 7px 11px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.11);
   border-radius: 999px;
-  color: rgba(251, 248, 255, 0.78);
-  background: rgba(255, 255, 255, 0.07);
+  color: rgba(251, 248, 255, 0.7);
+  background: rgba(255, 255, 255, 0.045);
   font-family: var(--font-meta);
   font-size: 0.74rem;
   font-weight: 800;
@@ -2402,6 +2439,10 @@ select:focus {
 
 .menu-card-secondary .menu-card-title {
   font-size: 0.96rem;
+}
+
+.menu-card-secondary .menu-card-copy {
+  gap: 0;
 }
 
 .menu-card-secondary .menu-card-popover {
@@ -2601,7 +2642,7 @@ select:focus {
     }
 
   .main-menu-hero {
-      min-height: 150px;
+      min-height: 120px;
       padding-top: 10px;
       padding-bottom: 2px;
     }
@@ -2615,22 +2656,18 @@ select:focus {
     }
 
   .main-menu-sequencer {
-      top: 48px;
-      grid-template-rows: minmax(0, 1fr) 155px;
       opacity: 0.76;
-    }
-
-  .main-menu-key-rail {
-      height: 155px;
     }
 
   .menu-card-primary {
       min-height: 132px;
-      padding: 14px;
+      padding: 12px;
     }
 
-  .menu-card-primary .menu-card-action {
-      display: none;
+  .menu-card-intent {
+      max-width: 25ch;
+      font-size: 0.72rem;
+      line-height: 1.2;
     }
 
   .main-menu-secondary-heading h2 {
@@ -2678,16 +2715,17 @@ select:focus {
     }
 
   .main-menu-sequencer {
-      grid-template-rows: minmax(0, 1fr) 125px;
       opacity: 0.68;
     }
 
-  .main-menu-key-rail {
-      height: 125px;
+  .menu-card-primary {
+      min-height: 132px;
     }
 
-  .menu-card-primary {
-      min-height: 118px;
+  .menu-card-intent {
+      max-width: 23ch;
+      font-size: 0.72rem;
+      line-height: 1.2;
     }
 
   .menu-card-secondary {
@@ -2743,6 +2781,7 @@ select:focus {
 
 @media (max-width: 780px) {
   .main-menu-screen {
+      --main-menu-key-rail-height: 125px;
       padding: 116px 16px 20px;
       gap: 18px;
       background:
@@ -2771,13 +2810,8 @@ select:focus {
       bottom: 4vh;
       left: 16px;
       width: auto;
-      grid-template-rows: minmax(0, 1fr) 125px;
       opacity: 0.24;
       transform: translate3d(calc(var(--mouse-x) * 5px), calc(var(--mouse-y) * 4px), 0);
-    }
-
-  .main-menu-key-rail {
-      height: 125px;
     }
 
   .main-menu-facet-a,

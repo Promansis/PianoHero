@@ -34,7 +34,8 @@ describe('MainMenuScreen', () => {
           name: 'Play Songs',
         }),
         name: 'Play Songs',
-        description: 'Open the song library and start a scored run.',
+        description: 'Open your library, choose a song, then play for score.',
+        intent: 'Pick a MIDI song and start a scored run.',
         actionLabel: 'Choose Song',
         handler: handlers.onOpenLibrary,
       },
@@ -43,7 +44,8 @@ describe('MainMenuScreen', () => {
           name: 'Guided Lessons',
         }),
         name: 'Guided Lessons',
-        description: 'Continue lessons with a cleaner practice flow.',
+        description: 'Continue lessons with drills, checks, and practice flow.',
+        intent: 'Follow guided practice with lesson steps.',
         actionLabel: 'Resume Lesson',
         handler: handlers.onOpenLearn,
       },
@@ -52,7 +54,8 @@ describe('MainMenuScreen', () => {
           name: 'Free Play',
         }),
         name: 'Free Play',
-        description: 'Jam, record ideas, and explore without scoring.',
+        description: 'Jam, test sounds, and explore the keyboard at your pace.',
+        intent: 'Play freely without score or timing pressure.',
         actionLabel: 'Open Keys',
         handler: handlers.onOpenFreePlay,
       },
@@ -61,7 +64,8 @@ describe('MainMenuScreen', () => {
           name: 'Soundboard',
         }),
         name: 'Soundboard',
-        description: 'Trigger quick hits and playful one-shots.',
+        description: 'Load the pad grid for quick sounds and one-shots.',
+        intent: 'Trigger playful pads and quick sound hits.',
         actionLabel: 'Load Pads',
         handler: handlers.onOpenSoundboard,
       },
@@ -123,6 +127,9 @@ describe('MainMenuScreen', () => {
       expect(destination.button).toBeInTheDocument();
       expect(destination.button).toHaveAccessibleDescription(destination.description);
       expect(destination.button).toHaveAccessibleName(destination.name);
+      if (destination.intent) {
+        expect(within(destination.button).getByText(destination.intent)).toBeInTheDocument();
+      }
       expect(within(destination.button).getByText(destination.actionLabel)).toHaveAttribute('aria-hidden', 'true');
       await user.click(destination.button);
       expect(destination.handler).toHaveBeenCalledOnce();

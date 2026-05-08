@@ -38,6 +38,7 @@ interface MenuCard {
   id: string;
   actionLabel: string;
   icon: ReactNode;
+  intent?: string;
   title: string;
   subtitle: string;
   accent: string;
@@ -139,8 +140,9 @@ const MENU_CARDS: MenuCard[] = [
     id: 'play-songs',
     actionLabel: 'Choose Song',
     icon: <IconPlay />,
+    intent: 'Pick a MIDI song and start a scored run.',
     title: 'Play Songs',
-    subtitle: 'Open the song library and start a scored run.',
+    subtitle: 'Open your library, choose a song, then play for score.',
     accent: 'var(--menu-neon-gold)',
     priority: 'primary',
     onSelect: (props) => props.onOpenLibrary(),
@@ -149,8 +151,9 @@ const MENU_CARDS: MenuCard[] = [
     id: 'guided-lessons',
     actionLabel: 'Resume Lesson',
     icon: <IconLearn />,
+    intent: 'Follow guided practice with lesson steps.',
     title: 'Guided Lessons',
-    subtitle: 'Continue lessons with a cleaner practice flow.',
+    subtitle: 'Continue lessons with drills, checks, and practice flow.',
     accent: 'var(--menu-neon-violet)',
     priority: 'primary',
     onSelect: (props) => props.onOpenLearn(),
@@ -159,8 +162,9 @@ const MENU_CARDS: MenuCard[] = [
     id: 'free-play',
     actionLabel: 'Open Keys',
     icon: <IconFreePlay />,
+    intent: 'Play freely without score or timing pressure.',
     title: 'Free Play',
-    subtitle: 'Jam, record ideas, and explore without scoring.',
+    subtitle: 'Jam, test sounds, and explore the keyboard at your pace.',
     accent: 'var(--menu-neon-cyan)',
     priority: 'primary',
     onSelect: (props) => props.onOpenFreePlay(),
@@ -169,8 +173,9 @@ const MENU_CARDS: MenuCard[] = [
     id: 'soundboard',
     actionLabel: 'Load Pads',
     icon: <IconSoundboard />,
+    intent: 'Trigger playful pads and quick sound hits.',
     title: 'Soundboard',
-    subtitle: 'Trigger quick hits and playful one-shots.',
+    subtitle: 'Load the pad grid for quick sounds and one-shots.',
     accent: 'var(--menu-neon-blue)',
     priority: 'primary',
     onSelect: (props) => props.onOpenSoundboard(),
@@ -493,6 +498,7 @@ export function MainMenuScreen(props: MainMenuScreenProps) {
         </span>
         <span className="menu-card-copy">
           <span className="menu-card-title">{card.title}</span>
+          {card.intent && <span className="menu-card-intent">{card.intent}</span>}
         </span>
         <span className="menu-card-action" aria-hidden="true">{card.actionLabel}</span>
         <span className="menu-card-popover" id={tooltipId} role="tooltip">
