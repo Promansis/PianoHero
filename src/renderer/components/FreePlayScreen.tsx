@@ -1,4 +1,5 @@
 import { Midi } from '@tonejs/midi';
+import { Info } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AudioEngine } from '../../lib/audio/audioEngine';
 import { ComputerKeyboardInputService } from '../../lib/input/computerKeyboardInputService';
@@ -144,6 +145,7 @@ export function FreePlayScreen({
   const [visualSceneResetToken, setVisualSceneResetToken] = useState(0);
   const [isVisualControlsPinned, setIsVisualControlsPinned] = useState(false);
   const [isVisualControlsHovered, setIsVisualControlsHovered] = useState(false);
+  const [openVisualInfoMode, setOpenVisualInfoMode] = useState<FreePlayVisualMode | null>(null);
   const [visualStageElement, setVisualStageElement] = useState<HTMLDivElement | null>(null);
   const noteStartMapRef = useRef(new Map<string, { startTimeSec: number; velocity: number; midi: number }>());
   const playbackTimeoutsRef = useRef<number[]>([]);
@@ -857,16 +859,41 @@ export function FreePlayScreen({
                 ? REWARD_CATALOG.find((r) => r.id === option.requiredRewardId)
                 : undefined;
               return (
-                <button
+                <div
                   key={option.value}
                   className={`free-play-mode-card ${visualMode === option.value ? 'active' : ''} ${locked ? 'locked' : ''}`}
-                  onClick={() => !locked && handleVisualModeChange(option.value)}
-                  disabled={locked}
                   title={locked && reward ? `Locked — ${reward.description}` : undefined}
                 >
-                  <strong>{locked ? `🔒 ${option.label}` : option.label}</strong>
-                  <span>{locked && reward ? `Unlock: ${reward.description}` : option.description}</span>
-                </button>
+                  <button
+                    className="free-play-mode-card-select"
+                    onClick={() => !locked && handleVisualModeChange(option.value)}
+                    disabled={locked}
+                    type="button"
+                  >
+                    {locked ? `🔒 ${option.label}` : option.label}
+                  </button>
+                  <span className="card-info-control">
+                    <span
+                      className={`card-info-popover${openVisualInfoMode === option.value ? ' open' : ''}`}
+                      role="status"
+                    >
+                      {locked && reward ? `Unlock: ${reward.description}` : option.description}
+                    </span>
+                    <button
+                      className="card-info-button"
+                      aria-label={`${option.label} info`}
+                      aria-pressed={openVisualInfoMode === option.value}
+                      title={locked && reward ? `Unlock: ${reward.description}` : option.description}
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setOpenVisualInfoMode((current) => (current === option.value ? null : option.value));
+                      }}
+                    >
+                      <Info size={13} strokeWidth={2.2} aria-hidden="true" />
+                    </button>
+                  </span>
+                </div>
               );
             })}
           </div>

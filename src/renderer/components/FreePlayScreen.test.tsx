@@ -246,11 +246,38 @@ describe('FreePlayScreen', () => {
 
     expect(popout).toHaveAttribute('aria-hidden', 'false');
     expect(within(popout).getByRole('heading', { name: 'Classic Piano' })).toBeInTheDocument();
-    expect(within(popout).getByRole('button', { name: /Ink in Water/ })).toBeInTheDocument();
-    expect(within(popout).getByRole('button', { name: /Tree of Light/ })).toBeInTheDocument();
-    expect(within(popout).getByRole('button', { name: /Particle Galaxy/ })).toBeInTheDocument();
-    expect(within(popout).getByRole('button', { name: /Aurora Borealis/ })).toBeInTheDocument();
-    expect(within(popout).getByRole('button', { name: /Fireworks/ })).toBeInTheDocument();
+    expect(within(popout).getByRole('button', { name: 'Ink in Water' })).toBeInTheDocument();
+    expect(within(popout).getByRole('button', { name: 'Tree of Light' })).toBeInTheDocument();
+    expect(within(popout).getByRole('button', { name: 'Particle Galaxy' })).toBeInTheDocument();
+    expect(within(popout).getByRole('button', { name: 'Aurora Borealis' })).toBeInTheDocument();
+    expect(within(popout).getByRole('button', { name: 'Fireworks' })).toBeInTheDocument();
+  });
+
+  it('reveals visual mode descriptions from compact info controls', () => {
+    render(
+      <FreePlayScreen
+        audioEngine={buildAudioEngineStub()}
+        midiInputService={new MockMidiInputService() as unknown as MidiInputService}
+        keyboardInputService={new MockKeyboardInputService() as unknown as ComputerKeyboardInputService}
+        inputMode="both"
+        keyboardOverlaySize="medium"
+        postureReminderMinutes={null}
+        breakReminderMinutes={null}
+        pitchBendEnabled
+        stagePalette="default"
+        instrumentId="acoustic-piano"
+        onBackToMainMenu={vi.fn()}
+        onInstrumentChange={vi.fn()}
+        onStagePaletteChange={vi.fn()}
+        onOpenKeyboardSetup={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show visual mode controls' }));
+    const popout = screen.getByTestId('free-play-visual-popout');
+    fireEvent.click(within(popout).getByRole('button', { name: 'Ink in Water info' }));
+
+    expect(within(popout).getByText(/watercolor built from your session/i)).toBeInTheDocument();
   });
 
   it('opens the instrument and visual popouts from the HUD controls', () => {
@@ -334,7 +361,7 @@ describe('FreePlayScreen', () => {
 
     fireEvent.mouseEnter(screen.getByRole('button', { name: 'Show instrument controls' }));
     const popout = screen.getByRole('region', { name: 'Instrument controls' });
-    fireEvent.click(within(popout).getByRole('button', { name: /Electric Piano/ }));
+    fireEvent.click(within(popout).getByRole('button', { name: 'Electric Piano' }));
 
     expect(onInstrumentChange).toHaveBeenCalledWith('electric-piano');
   });
@@ -456,7 +483,7 @@ describe('FreePlayScreen', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Show visual mode controls' }));
     const popout = screen.getByTestId('free-play-visual-popout');
-    fireEvent.click(within(popout).getByRole('button', { name: /Ink in Water/ }));
+    fireEvent.click(within(popout).getByRole('button', { name: 'Ink in Water' }));
 
     expect(screen.getByRole('region', { name: 'Ink in Water visualizer' })).toBeInTheDocument();
     expect(screen.getByText('jam.mp3')).toBeInTheDocument();
@@ -591,7 +618,7 @@ describe('FreePlayScreen', () => {
     expect(screen.getByRole('button', { name: /Constellation Galactic/ })).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: 'Show visual mode controls' }));
     const popout = screen.getByTestId('free-play-visual-popout');
-    expect(within(popout).getByRole('button', { name: /Particle Galaxy/ })).toBeEnabled();
-    expect(within(popout).getByRole('button', { name: /Sacred Geometry/ })).toBeEnabled();
+    expect(within(popout).getByRole('button', { name: 'Particle Galaxy' })).toBeEnabled();
+    expect(within(popout).getByRole('button', { name: 'Sacred Geometry' })).toBeEnabled();
   });
 });

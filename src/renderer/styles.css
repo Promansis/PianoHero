@@ -1798,10 +1798,10 @@ select:focus {
 }
 
 .immersive-instrument-popout.stage-popout {
-  top: 112px;
-  right: 32px;
-  width: min(460px, calc(100vw - 64px));
-  max-height: min(68vh, 620px);
+  top: 86px;
+  right: 24px;
+  width: min(390px, calc(100% - 48px));
+  max-height: min(500px, calc(100% - 110px));
   overflow: auto;
   transform: translateY(-10px) scale(0.98);
   z-index: 45;
@@ -1813,28 +1813,28 @@ select:focus {
 
 .immersive-instrument-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(126px, 1fr));
+  gap: 8px;
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding-right: 6px;
+  padding-right: 4px;
 }
 
 .immersive-instrument-option {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  align-items: flex-start;
-  min-height: 102px;
-  padding: 14px;
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px;
+  align-items: center;
+  min-height: 42px;
+  padding: 9px 8px 9px 10px;
   border: 1px solid var(--product-deck-soft-line);
   border-radius: 8px;
   background: var(--product-deck-card-bg);
   color: var(--product-deck-ink);
   text-align: left;
   clip-path: var(--product-deck-cut-sm);
-  cursor: pointer;
   transition:
     transform 150ms cubic-bezier(0.25, 1, 0.5, 1),
     border-color 150ms cubic-bezier(0.25, 1, 0.5, 1),
@@ -1842,7 +1842,7 @@ select:focus {
     background 150ms cubic-bezier(0.25, 1, 0.5, 1);
 }
 
-.immersive-instrument-option:hover:not(:disabled) {
+.immersive-instrument-option:hover:not(.disabled) {
   transform: translateY(-2px);
   border-color: color-mix(in oklch, var(--product-deck-accent) 48%, var(--product-deck-ink));
   background:
@@ -1850,6 +1850,25 @@ select:focus {
     linear-gradient(145deg, color-mix(in oklch, var(--product-deck-accent) 12%, transparent), transparent 58%),
     oklch(14% 0.048 263 / 0.86);
   box-shadow: var(--product-deck-glow);
+}
+
+.immersive-instrument-option-select,
+.free-play-mode-card-select {
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.immersive-instrument-option-select:focus-visible,
+.free-play-mode-card-select:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid color-mix(in oklch, var(--product-deck-accent) 58%, var(--product-deck-ink));
+  outline-offset: 3px;
 }
 
 .immersive-instrument-option.active {
@@ -1860,22 +1879,18 @@ select:focus {
   box-shadow: 0 0 24px color-mix(in oklch, var(--product-deck-accent) 18%, transparent);
 }
 
-.immersive-instrument-option:disabled {
+.immersive-instrument-option.disabled {
   opacity: 0.58;
-  cursor: not-allowed;
 }
 
-.immersive-instrument-option-label {
+.immersive-instrument-option-select {
   font-family: var(--font-display);
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 800;
   letter-spacing: 0;
-}
-
-.immersive-instrument-option-copy {
-  font-size: 12px;
-  line-height: 1.45;
-  color: var(--product-deck-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .immersive-canvas-area {
@@ -2238,7 +2253,7 @@ select:focus {
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
-.app-shell-immersive .free-play-mode-card:hover:not(:disabled) {
+.app-shell-immersive .free-play-mode-card:hover:not(.locked) {
   transform: translateY(-2px);
   border-color: color-mix(in oklch, var(--product-deck-accent) 48%, oklch(94% 0.018 88 / 0.14));
   background:
@@ -2251,14 +2266,12 @@ select:focus {
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
-.app-shell-immersive .free-play-mode-card.locked,
-.app-shell-immersive .free-play-mode-card:disabled {
+.app-shell-immersive .free-play-mode-card.locked {
   opacity: 0.55;
   cursor: not-allowed;
 }
 
-.app-shell-immersive .free-play-mode-card.locked:hover,
-.app-shell-immersive .free-play-mode-card:disabled:hover {
+.app-shell-immersive .free-play-mode-card.locked:hover {
   transform: none;
   border-color: var(--product-deck-soft-line);
   background: var(--product-deck-card-bg);
@@ -5771,6 +5784,7 @@ select:focus {
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  container-type: size;
 }
 
 .free-play-visualizer::before {
@@ -5852,16 +5866,16 @@ select:focus {
 
 .free-play-visual-popout {
   position: absolute;
-  top: 112px;
-  right: 32px;
+  top: 86px;
+  right: 24px;
   z-index: 45;
-  width: min(460px, calc(100vw - 64px));
-  max-height: min(68vh, 620px);
+  width: min(340px, calc(100% - 48px));
+  max-height: min(500px, calc(100% - 110px));
   display: grid;
-  gap: var(--product-deck-gap-md);
+  gap: 10px;
   border: 1px solid var(--product-deck-line);
   border-radius: 8px;
-  padding: 16px;
+  padding: 12px;
   background: var(--product-deck-panel-bg);
   color: var(--product-deck-ink);
   box-shadow: var(--product-deck-shadow);
@@ -5884,25 +5898,25 @@ select:focus {
 
 .free-play-overlay-section {
   border-radius: 8px;
-  padding: 16px;
+  padding: 12px;
   display: grid;
-  gap: var(--product-deck-gap-md);
+  gap: 10px;
 }
 
 .free-play-mode-grid,
 .free-play-overlay-grid {
   display: grid;
-  gap: var(--product-deck-gap-md);
+  gap: 8px;
 }
 
 .free-play-mode-grid {
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(126px, 1fr));
 }
 
 .free-play-preset-row {
   display: flex;
   align-items: center;
-  gap: var(--product-deck-gap-sm);
+  gap: 6px;
   margin-bottom: 0;
 }
 
@@ -5937,16 +5951,19 @@ select:focus {
 }
 
 .free-play-mode-card {
+  position: relative;
   display: grid;
-  gap: 8px;
-  padding: 14px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px;
+  align-items: center;
+  padding: 9px 8px 9px 10px;
+  min-height: 42px;
   border-radius: 8px;
   border: 1px solid var(--product-deck-soft-line);
   background: var(--product-deck-card-bg);
   color: var(--product-deck-ink);
   text-align: left;
   clip-path: var(--product-deck-cut-sm);
-  cursor: pointer;
   transition:
     transform 150ms cubic-bezier(0.25, 1, 0.5, 1),
     border-color 150ms cubic-bezier(0.25, 1, 0.5, 1),
@@ -5954,13 +5971,12 @@ select:focus {
     background 150ms cubic-bezier(0.25, 1, 0.5, 1);
 }
 
-.free-play-mode-card strong {
-  font-size: 1rem;
-}
-
-.free-play-mode-card span {
-  color: var(--product-deck-muted);
-  line-height: 1.5;
+.free-play-mode-card-select {
+  overflow: hidden;
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .free-play-mode-card.active,
@@ -5985,6 +6001,76 @@ select:focus {
   transform: none;
   border-color: var(--product-deck-soft-line);
   box-shadow: none;
+}
+
+.card-info-control {
+  position: relative;
+  display: inline-grid;
+  align-items: center;
+  justify-items: center;
+  min-width: 24px;
+}
+
+.card-info-button {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--product-deck-soft-line);
+  border-radius: 8px;
+  background: color-mix(in oklch, var(--product-deck-bg) 84%, transparent);
+  color: var(--product-deck-muted);
+  clip-path: var(--product-deck-cut-sm);
+  cursor: help;
+  transition:
+    transform 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    border-color 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    color 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    background 150ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.card-info-button:hover,
+.card-info-button:focus-visible,
+.card-info-button[aria-pressed="true"] {
+  transform: translateY(-1px);
+  border-color: color-mix(in oklch, var(--product-deck-accent) 54%, var(--product-deck-ink));
+  background: color-mix(in oklch, var(--product-deck-accent) 16%, var(--product-deck-bg));
+  color: var(--product-deck-ink);
+  outline: none;
+}
+
+.card-info-popover {
+  position: absolute;
+  right: -2px;
+  top: calc(100% + 8px);
+  z-index: 8;
+  width: min(250px, 62vw);
+  padding: 9px 10px;
+  border: 1px solid color-mix(in oklch, var(--product-deck-accent) 32%, var(--product-deck-line));
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, color-mix(in oklch, var(--product-deck-accent) 10%, transparent), transparent 64%),
+    var(--product-deck-panel-bg);
+  box-shadow: var(--product-deck-shadow);
+  color: var(--product-deck-muted);
+  font-size: 0.72rem;
+  line-height: 1.38;
+  text-align: left;
+  clip-path: var(--product-deck-cut-sm);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-4px) scale(0.98);
+  transition:
+    opacity 140ms cubic-bezier(0.25, 1, 0.5, 1),
+    transform 140ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.card-info-popover.open {
+  opacity: 1;
+  transform: translateY(0) scale(1);
 }
 
 .free-play-overlay-grid {
@@ -6082,9 +6168,9 @@ select:focus {
       right: 0;
       left: auto;
       bottom: auto;
-      width: min(460px, calc(100vw - 24px));
-      max-height: min(62vh, 560px);
-      border-radius: 28px 28px 20px 20px;
+      width: min(340px, calc(100% - 24px));
+      max-height: min(460px, calc(100% - 96px));
+      border-radius: 8px;
       transform: translateY(18px) scale(0.99);
     }
 
