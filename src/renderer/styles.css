@@ -6267,11 +6267,11 @@ select:focus {
   width: auto;
   min-width: 2.2rem;
   font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
-  font-size: 2rem;
+  font-size: 1.7rem;
   line-height: 1;
   letter-spacing: 0;
   color: rgba(255, 248, 241, 0.92);
-  transform: translateX(-50%);
+  transform: translateX(calc(-50% - 0.0625em));
 }
 
 .soundboard-overlay-panel {
