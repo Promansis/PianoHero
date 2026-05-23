@@ -78,32 +78,32 @@ export function ImmersiveHud({
       <div className="immersive-hud" aria-label={label}>
         <div className="immersive-hud-core">
           {stats}
-          {navigationItems.length > 0 ? (
-            <nav className="immersive-hud-nav" aria-label="Play screen navigation">
-              {navigationItems.map((item) => {
-                const isCurrent = item.key === currentDestination;
-                return (
-                  <button
-                    key={item.key}
-                    className={`immersive-hud-nav-btn${isCurrent ? ' active' : ''}`}
-                    type="button"
-                    title={item.title}
-                    aria-current={isCurrent ? 'page' : undefined}
-                    onClick={() => {
-                      if (!isCurrent) {
-                        setIsPinned(false);
-                        setIsHovered(false);
-                        item.onSelect();
-                      }
-                    }}
-                  >
-                    {item.label}
-                  </button>
-                );
-              })}
-            </nav>
-          ) : null}
         </div>
+        {navigationItems.length > 0 ? (
+          <nav className="immersive-hud-nav" aria-label="Play screen navigation">
+            {navigationItems.map((item) => {
+              const isCurrent = item.key === currentDestination;
+              return (
+                <button
+                  key={item.key}
+                  className={`immersive-hud-nav-btn${isCurrent ? ' active' : ''}`}
+                  type="button"
+                  title={item.title}
+                  aria-current={isCurrent ? 'page' : undefined}
+                  onClick={() => {
+                    if (!isCurrent) {
+                      setIsPinned(false);
+                      setIsHovered(false);
+                      item.onSelect();
+                    }
+                  }}
+                >
+                  {item.label}
+                </button>
+              );
+            })}
+          </nav>
+        ) : null}
         <div className="immersive-hud-actions">
           {actions}
         </div>
