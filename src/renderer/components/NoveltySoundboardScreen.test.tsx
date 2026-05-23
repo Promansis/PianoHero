@@ -177,6 +177,36 @@ describe('NoveltySoundboardScreen', () => {
     expect(screen.queryByText('Toy Whistle')).not.toBeInTheDocument();
   });
 
+  it('switches between classic and animals from the HUD', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(buildCanvasContextStub());
+    render(
+      <NoveltySoundboardScreen
+        audioEngine={buildAudioEngineStub()}
+        midiInputService={new MockMidiInputService() as unknown as MidiInputService}
+        keyboardInputService={new MockKeyboardInputService() as unknown as ComputerKeyboardInputService}
+        inputMode="both"
+        keyboardOverlaySize="medium"
+        onBackToMainMenu={vi.fn()}
+        onOpenKeyboardSetup={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Classic', { selector: '.immersive-hud-item strong' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Show animal key map/i })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Switch to Animals mode' }));
+
+    expect(screen.getByText('Animals', { selector: '.immersive-hud-item strong' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Show animal key map/i })).toBeInTheDocument();
+    expect(screen.getByText('🐶', { selector: '.key-caption.custom' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Switch to Classic mode' }));
+
+    expect(screen.getByText('Classic', { selector: '.immersive-hud-item strong' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Show animal key map/i })).not.toBeInTheDocument();
+    expect(screen.getByText('🪈', { selector: '.key-caption.custom' })).toBeInTheDocument();
+  });
+
   it('keeps visual effects live while suppressing overlapping animal audio', async () => {
     vi.useFakeTimers();
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(buildCanvasContextStub());

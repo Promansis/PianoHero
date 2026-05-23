@@ -238,6 +238,8 @@ export function NoveltySoundboardScreen({
   };
 
   const isAnimalMode = mode.id === 'animals';
+  const nextModeId: SoundboardModeId = isAnimalMode ? 'classic' : 'animals';
+  const nextMode = getSoundboardMode(nextModeId);
   const isAnimalMapOpen = isAnimalMode && (isAnimalMapPinned || isAnimalMapHovered);
   const stageStatus = lastPlayedId
     ? mode.clips.find((clip) => clip.id === lastPlayedId)?.label ?? 'Ready'
@@ -397,6 +399,13 @@ export function NoveltySoundboardScreen({
               🐾
             </button>
           ) : null}
+          <button
+            className="immersive-menu-btn soundboard-mode-toggle"
+            aria-label={`Switch to ${nextMode.label} mode`}
+            onClick={() => setModeId(nextModeId)}
+          >
+            {nextMode.label}
+          </button>
           <button
             className="immersive-menu-btn"
             ref={menuButtonRef}
