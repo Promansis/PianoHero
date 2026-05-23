@@ -1268,13 +1268,19 @@ export function GameScreen({
         </section>
       )}
 
-      {/* Settings overlay — shown when Escape is pressed */}
+      {/* Session overlay — shown when Escape is pressed */}
       {overlayVisible && (
         <div className="immersive-overlay" onClick={(e) => { if (e.target === e.currentTarget) setOverlayVisible(false); }}>
-          <div className="immersive-overlay-panel">
+          <div
+            className="immersive-overlay-panel game-overlay-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="game-overlay-title"
+          >
             <div className="immersive-overlay-header">
               <div>
-                <h2>{currentSongRef.current.title}</h2>
+                <p className="eyebrow">Session</p>
+                <h2 id="game-overlay-title">{currentSongRef.current.title}</h2>
                 {isTemporaryLibrarySong ? (
                   <p className="panel-copy">Unsaved MIDI run. Results, trouble spots, and fingerings are disabled.</p>
                 ) : null}

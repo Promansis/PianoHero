@@ -253,7 +253,34 @@ describe('FreePlayScreen', () => {
     expect(within(popout).getByRole('button', { name: /Fireworks/ })).toBeInTheDocument();
   });
 
-  it('pins the visual mode popout on click after hover and closes it on a second click', () => {
+  it('opens the instrument and visual popouts from the HUD controls', () => {
+    render(
+      <FreePlayScreen
+        audioEngine={buildAudioEngineStub()}
+        midiInputService={new MockMidiInputService() as unknown as MidiInputService}
+        keyboardInputService={new MockKeyboardInputService() as unknown as ComputerKeyboardInputService}
+        inputMode="both"
+        keyboardOverlaySize="medium"
+        postureReminderMinutes={null}
+        breakReminderMinutes={null}
+        pitchBendEnabled
+        stagePalette="default"
+        instrumentId="acoustic-piano"
+        onBackToMainMenu={vi.fn()}
+        onInstrumentChange={vi.fn()}
+        onStagePaletteChange={vi.fn()}
+        onOpenKeyboardSetup={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show instrument controls' }));
+    expect(screen.getByTestId('immersive-instrument-popout')).toHaveAttribute('aria-hidden', 'false');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show visual mode controls' }));
+    expect(screen.getByTestId('free-play-visual-popout')).toHaveAttribute('aria-hidden', 'false');
+  });
+
+  it('opens the visual mode popout on hover and closes it on click when already open', () => {
     render(
       <FreePlayScreen
         audioEngine={buildAudioEngineStub()}
@@ -280,11 +307,63 @@ describe('FreePlayScreen', () => {
     expect(popout).toHaveAttribute('aria-hidden', 'false');
 
     fireEvent.click(toggleButton);
-    fireEvent.mouseLeave(toggleButton);
-    expect(popout).toHaveAttribute('aria-hidden', 'false');
-
-    fireEvent.click(toggleButton);
     expect(popout).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  it('changes the active instrument from the immersive HUD', () => {
+    const onInstrumentChange = vi.fn();
+
+    render(
+      <FreePlayScreen
+        audioEngine={buildAudioEngineStub()}
+        midiInputService={new MockMidiInputService() as unknown as MidiInputService}
+        keyboardInputService={new MockKeyboardInputService() as unknown as ComputerKeyboardInputService}
+        inputMode="both"
+        keyboardOverlaySize="medium"
+        postureReminderMinutes={null}
+        breakReminderMinutes={null}
+        pitchBendEnabled
+        stagePalette="default"
+        instrumentId="acoustic-piano"
+        onBackToMainMenu={vi.fn()}
+        onInstrumentChange={onInstrumentChange}
+        onStagePaletteChange={vi.fn()}
+        onOpenKeyboardSetup={vi.fn()}
+      />,
+    );
+
+    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Show instrument controls' }));
+    const popout = screen.getByRole('region', { name: 'Instrument controls' });
+    fireEvent.click(within(popout).getByRole('button', { name: /Electric Piano/ }));
+
+    expect(onInstrumentChange).toHaveBeenCalledWith('electric-piano');
+  });
+
+  it('keeps the immersive HUD action buttons clickable', () => {
+    render(
+      <FreePlayScreen
+        audioEngine={buildAudioEngineStub()}
+        midiInputService={new MockMidiInputService() as unknown as MidiInputService}
+        keyboardInputService={new MockKeyboardInputService() as unknown as ComputerKeyboardInputService}
+        inputMode="both"
+        keyboardOverlaySize="medium"
+        postureReminderMinutes={null}
+        breakReminderMinutes={null}
+        pitchBendEnabled
+        stagePalette="default"
+        instrumentId="acoustic-piano"
+        onBackToMainMenu={vi.fn()}
+        onInstrumentChange={vi.fn()}
+        onStagePaletteChange={vi.fn()}
+        onOpenKeyboardSetup={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show instrument controls' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show visual mode controls' }));
+
+    expect(screen.getByTestId('immersive-instrument-popout')).toHaveAttribute('aria-hidden', 'false');
+    expect(screen.getByTestId('free-play-visual-popout')).toHaveAttribute('aria-hidden', 'false');
   });
 
   it('closes the pinned visual mode popout on outside pointer down', () => {

@@ -144,11 +144,12 @@ export function FreePlayScreen({
   const [visualSceneResetToken, setVisualSceneResetToken] = useState(0);
   const [isVisualControlsPinned, setIsVisualControlsPinned] = useState(false);
   const [isVisualControlsHovered, setIsVisualControlsHovered] = useState(false);
+  const [visualStageElement, setVisualStageElement] = useState<HTMLDivElement | null>(null);
   const noteStartMapRef = useRef(new Map<string, { startTimeSec: number; velocity: number; midi: number }>());
   const playbackTimeoutsRef = useRef<number[]>([]);
   const visualNoteTimeoutsRef = useRef<number[]>([]);
   const visualHeldByNoteRef = useRef(new Map<number, Set<string>>());
-  const visualControlRef = useRef<HTMLDivElement | null>(null);
+  const visualStageRef = useRef<HTMLDivElement | null>(null);
   const menuButtonRef = useRef<HTMLButtonElement | null>(null);
   const visualToggleRef = useRef<HTMLButtonElement | null>(null);
 
@@ -397,8 +398,8 @@ export function FreePlayScreen({
     }
 
     const handlePointerDown = (event: PointerEvent) => {
-      const control = visualControlRef.current;
-      if (!control || control.contains(event.target as Node)) {
+      const stage = visualStageRef.current;
+      if (!stage || stage.contains(event.target as Node)) {
         return;
       }
       closeVisualControls(true);
@@ -744,98 +745,41 @@ export function FreePlayScreen({
           <ImmersiveInstrumentControl
             instrumentId={instrumentId}
             instrumentSamplePackStatuses={instrumentSamplePackStatuses}
+            popoutHost={visualStageElement}
+            popoutPlacement="stage"
+            outsideClickBoundaryRef={visualStageRef}
             unlockedRewardIds={unlockedRewardIds}
             onInstrumentChange={onInstrumentChange}
           />
-          <div
-            className="immersive-control-wrap free-play-visual-control"
-            ref={visualControlRef}
+          <button
+            className="immersive-menu-btn free-play-visual-toggle"
+            ref={visualToggleRef}
+            aria-label="Show visual mode controls"
+            aria-controls="free-play-visual-popout"
+            aria-expanded={isVisualControlsOpen}
+            onClick={() => {
+              if (isVisualControlsOpen) {
+                closeVisualControls(true);
+                return;
+              }
+              setIsVisualControlsPinned(true);
+              setIsVisualControlsHovered(false);
+            }}
             onMouseEnter={() => setIsVisualControlsHovered(true)}
             onMouseLeave={() => {
               if (!isVisualControlsPinned) {
                 setIsVisualControlsHovered(false);
               }
             }}
-          >
-            <button
-              className="immersive-menu-btn free-play-visual-toggle"
-              ref={visualToggleRef}
-              aria-label="Show visual mode controls"
-              aria-controls="free-play-visual-popout"
-              aria-expanded={isVisualControlsOpen}
-              onClick={() => {
-                if (isVisualControlsPinned) {
-                  closeVisualControls(true);
-                  return;
-                }
-                setIsVisualControlsPinned(true);
+            onFocus={() => setIsVisualControlsHovered(true)}
+            onBlur={() => {
+              if (!isVisualControlsPinned) {
                 setIsVisualControlsHovered(false);
-              }}
-              onFocus={() => setIsVisualControlsHovered(true)}
-              onBlur={() => {
-                if (!isVisualControlsPinned) {
-                  setIsVisualControlsHovered(false);
-                }
-              }}
-            >
-              ✦
-            </button>
-            <section
-              className={`panel free-play-visual-popout${isVisualControlsOpen ? ' open' : ''}`}
-              id="free-play-visual-popout"
-              aria-label="Visual mode controls"
-              aria-hidden={!isVisualControlsOpen}
-              data-testid="free-play-visual-popout"
-              onMouseEnter={() => setIsVisualControlsHovered(true)}
-              onMouseLeave={() => {
-                if (!isVisualControlsPinned) {
-                  setIsVisualControlsHovered(false);
-                }
-              }}
-            >
-              <div className="panel-heading">
-                <div>
-                  <p className="eyebrow">Visual Palette</p>
-                  <h2>{visualModeLabel}</h2>
-                </div>
-                <p className="panel-copy">{visualModeDescription}</p>
-              </div>
-              <div className="free-play-preset-row">
-                <span className="free-play-preset-label">Preset</span>
-                {(['subtle', 'balanced', 'vivid'] as VisualPreset[]).map((presetOption) => (
-                  <button
-                    key={presetOption}
-                    className={`free-play-preset-btn ${visualPreset === presetOption ? 'active' : ''}`}
-                    onClick={() => setVisualPreset(presetOption)}
-                  >
-                    {presetOption.charAt(0).toUpperCase() + presetOption.slice(1)}
-                  </button>
-                ))}
-              </div>
-              <div className="free-play-mode-grid">
-                {FREE_PLAY_VISUAL_MODE_OPTIONS.map((option) => {
-                  const locked = option.requiredRewardId
-                    ? !isRewardUnlocked(option.requiredRewardId, unlockedRewardIds ?? new Set())
-                    : false;
-                  const reward = option.requiredRewardId
-                    ? REWARD_CATALOG.find((r) => r.id === option.requiredRewardId)
-                    : undefined;
-                  return (
-                    <button
-                      key={option.value}
-                      className={`free-play-mode-card ${visualMode === option.value ? 'active' : ''} ${locked ? 'locked' : ''}`}
-                      onClick={() => !locked && handleVisualModeChange(option.value)}
-                      disabled={locked}
-                      title={locked && reward ? `Locked — ${reward.description}` : undefined}
-                    >
-                      <strong>{locked ? `🔒 ${option.label}` : option.label}</strong>
-                      <span>{locked && reward ? `Unlock: ${reward.description}` : option.description}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-          </div>
+              }
+            }}
+          >
+            ✦
+          </button>
           <button
             className="immersive-menu-btn"
             ref={menuButtonRef}
@@ -849,7 +793,18 @@ export function FreePlayScreen({
         }
       />
 
-      <div className="immersive-canvas-area free-play-stage-area">
+      <div
+        className="immersive-canvas-area free-play-stage-area"
+        ref={(element) => {
+          visualStageRef.current = element;
+          setVisualStageElement(element);
+        }}
+        onMouseLeave={() => {
+          if (!isVisualControlsPinned) {
+            setIsVisualControlsHovered(false);
+          }
+        }}
+      >
         <FreePlayVisualizer
           mode={visualMode}
           activeNotes={visualizerActiveNotes}
@@ -860,6 +815,62 @@ export function FreePlayScreen({
           metronomeBeat={metronomeBeat}
           visualPreset={visualPreset}
         />
+
+        <section
+          className={`panel free-play-visual-popout${isVisualControlsOpen ? ' open' : ''}`}
+          id="free-play-visual-popout"
+          aria-label="Visual mode controls"
+          aria-hidden={!isVisualControlsOpen}
+          data-testid="free-play-visual-popout"
+          onMouseEnter={() => setIsVisualControlsHovered(true)}
+          onMouseLeave={() => {
+            if (!isVisualControlsPinned) {
+              setIsVisualControlsHovered(false);
+            }
+          }}
+        >
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Visual Palette</p>
+              <h2>{visualModeLabel}</h2>
+            </div>
+            <p className="panel-copy">{visualModeDescription}</p>
+          </div>
+          <div className="free-play-preset-row">
+            <span className="free-play-preset-label">Preset</span>
+            {(['subtle', 'balanced', 'vivid'] as VisualPreset[]).map((presetOption) => (
+              <button
+                key={presetOption}
+                className={`free-play-preset-btn ${visualPreset === presetOption ? 'active' : ''}`}
+                onClick={() => setVisualPreset(presetOption)}
+              >
+                {presetOption.charAt(0).toUpperCase() + presetOption.slice(1)}
+              </button>
+            ))}
+          </div>
+          <div className="free-play-mode-grid">
+            {FREE_PLAY_VISUAL_MODE_OPTIONS.map((option) => {
+              const locked = option.requiredRewardId
+                ? !isRewardUnlocked(option.requiredRewardId, unlockedRewardIds ?? new Set())
+                : false;
+              const reward = option.requiredRewardId
+                ? REWARD_CATALOG.find((r) => r.id === option.requiredRewardId)
+                : undefined;
+              return (
+                <button
+                  key={option.value}
+                  className={`free-play-mode-card ${visualMode === option.value ? 'active' : ''} ${locked ? 'locked' : ''}`}
+                  onClick={() => !locked && handleVisualModeChange(option.value)}
+                  disabled={locked}
+                  title={locked && reward ? `Locked — ${reward.description}` : undefined}
+                >
+                  <strong>{locked ? `🔒 ${option.label}` : option.label}</strong>
+                  <span>{locked && reward ? `Unlock: ${reward.description}` : option.description}</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
       </div>
 
       <div className="immersive-keyboard free-play-keyboard">
@@ -916,7 +927,10 @@ export function FreePlayScreen({
             aria-labelledby="free-play-overlay-title"
           >
             <div className="immersive-overlay-header">
-              <h2 id="free-play-overlay-title">Free Play</h2>
+              <div>
+                <p className="eyebrow">Session</p>
+                <h2 id="free-play-overlay-title">Free Play</h2>
+              </div>
               <div className="immersive-overlay-actions">
                 <button className="primary-button" onClick={() => closeOverlay(true)}>
                   Resume
