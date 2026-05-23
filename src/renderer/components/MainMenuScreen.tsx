@@ -526,6 +526,12 @@ export function MainMenuScreen(props: MainMenuScreenProps) {
       }
     >
       <div className="main-menu-backdrop" aria-hidden="true">
+        <span className="main-menu-ambient-pulse main-menu-ambient-pulse-a" />
+        <span className="main-menu-ambient-pulse main-menu-ambient-pulse-b" />
+        <span className="main-menu-ambient-pulse main-menu-ambient-pulse-c" />
+        <span className="main-menu-ambient-pulse main-menu-ambient-pulse-d" />
+        <span className="main-menu-gradient-river main-menu-gradient-river-a" />
+        <span className="main-menu-gradient-river main-menu-gradient-river-b" />
         <span className="main-menu-light main-menu-light-a" />
         <span className="main-menu-light main-menu-light-b" />
         <span className="main-menu-facet main-menu-facet-a" />
@@ -562,6 +568,8 @@ export function MainMenuScreen(props: MainMenuScreenProps) {
           </div>
         </div>
         <div className="main-menu-key-rail">
+          <span className="main-menu-soundscape-pulse main-menu-soundscape-pulse-a" aria-hidden="true" />
+          <span className="main-menu-soundscape-pulse main-menu-soundscape-pulse-b" aria-hidden="true" />
           <span className="main-menu-key-press" aria-hidden="true" />
           <div className="main-menu-white-keys">
             {Array.from({ length: SEQUENCER_WHITE_KEY_COUNT }, (_, index) => (

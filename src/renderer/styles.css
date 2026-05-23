@@ -587,6 +587,362 @@ select:focus {
 }
 
 /* ==========================================================================
+   Shared Product Deck Surface
+   ========================================================================== */
+
+.progress-dashboard-screen,
+.learn-hub-screen,
+.lesson-screen,
+.library-screen,
+.theory-hub-screen,
+.theory-practice-screen {
+  --product-deck-gap-xs: 6px;
+  --product-deck-gap-sm: 8px;
+  --product-deck-gap-md: 12px;
+  --product-deck-gap-lg: 16px;
+  --product-deck-gap-xl: 22px;
+  --product-deck-control-height: 40px;
+  --product-deck-cut-sm: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+  --product-deck-cut-md: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+  --product-deck-base: oklch(12% 0.045 263);
+  --product-deck-void: oklch(8% 0.032 268);
+  --product-deck-ink: oklch(97% 0.012 88);
+  --product-deck-muted: oklch(86% 0.025 267 / 0.74);
+  --product-deck-quiet: oklch(78% 0.026 267 / 0.62);
+  --product-neon-cyan: oklch(82% 0.17 214);
+  --product-neon-teal: oklch(78% 0.17 168);
+  --product-neon-gold: oklch(83% 0.18 76);
+  --product-neon-orange: oklch(76% 0.2 48);
+  --product-neon-magenta: oklch(73% 0.25 331);
+  --product-neon-coral: oklch(73% 0.2 29);
+  --product-success: oklch(75% 0.16 154);
+  --product-danger: oklch(73% 0.2 29);
+  --product-warning: oklch(83% 0.18 76);
+  --product-info: oklch(82% 0.17 214);
+  --product-deck-accent: var(--product-neon-cyan);
+  --product-deck-alt: var(--product-neon-orange);
+  --product-deck-line: color-mix(in oklch, var(--product-deck-accent) 28%, oklch(94% 0.018 88 / 0.12));
+  --product-deck-soft-line: color-mix(in oklch, var(--product-deck-accent) 18%, oklch(94% 0.018 88 / 0.08));
+  --product-deck-bg: color-mix(in oklch, var(--product-deck-void) 74%, transparent);
+  --product-deck-card-bg:
+    radial-gradient(circle at 92% 10%, color-mix(in oklch, var(--product-deck-accent) 10%, transparent), transparent 36%),
+    linear-gradient(145deg, color-mix(in oklch, var(--product-deck-accent) 8%, transparent), transparent 58%),
+    oklch(13% 0.044 263 / 0.76);
+  --product-deck-panel-bg:
+    linear-gradient(145deg, color-mix(in oklch, var(--product-deck-accent) 10%, transparent), transparent 48%),
+    color-mix(in oklch, var(--product-deck-bg) 96%, transparent);
+  --product-deck-shadow:
+    0 22px 58px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --product-deck-glow: 0 0 30px color-mix(in oklch, var(--product-deck-accent) 20%, transparent);
+  position: relative;
+  color: var(--product-deck-ink);
+  background:
+    radial-gradient(circle at 18% 10%, color-mix(in oklch, var(--product-deck-accent) 16%, transparent), transparent 30%),
+    radial-gradient(circle at 82% 8%, color-mix(in oklch, var(--product-deck-alt) 13%, transparent), transparent 28%),
+    linear-gradient(180deg, rgba(1, 6, 20, 0.2) 0%, rgba(1, 6, 20, 0.62) 52%, rgba(1, 4, 13, 0.94) 100%),
+    var(--product-deck-base);
+}
+
+.progress-dashboard-screen::before,
+.learn-hub-screen::before,
+.lesson-screen::before,
+.library-screen::before,
+.theory-hub-screen::before,
+.theory-practice-screen::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(112deg, transparent 0 22%, color-mix(in oklch, var(--product-deck-accent) 7%, transparent) 32%, transparent 44%),
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 6px);
+  opacity: 0.52;
+}
+
+.progress-dashboard-screen > *,
+.learn-hub-screen > *,
+.lesson-screen > *,
+.library-screen > *,
+.theory-hub-screen > *,
+.theory-practice-screen > * {
+  position: relative;
+  z-index: 1;
+}
+
+.progress-dashboard-screen .panel,
+.learn-hub-screen .panel,
+.lesson-screen .panel,
+.library-screen .panel,
+.theory-hub-screen .panel,
+.theory-practice-screen .panel {
+  border: 1px solid var(--product-deck-line);
+  border-radius: 8px;
+  background: var(--product-deck-panel-bg);
+  color: var(--product-deck-ink);
+  box-shadow: var(--product-deck-shadow);
+  clip-path: var(--product-deck-cut-md);
+  backdrop-filter: none;
+}
+
+.progress-dashboard-screen .panel h1,
+.progress-dashboard-screen .panel h2,
+.learn-hub-screen .panel h1,
+.learn-hub-screen .panel h2,
+.lesson-screen .panel h1,
+.lesson-screen .panel h2,
+.library-screen .panel h1,
+.library-screen .panel h2,
+.theory-hub-screen .panel h1,
+.theory-hub-screen .panel h2,
+.theory-practice-screen .panel h1,
+.theory-practice-screen .panel h2 {
+  color: var(--product-deck-ink);
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.06;
+}
+
+.progress-dashboard-screen .song-title,
+.progress-dashboard-screen .panel-copy,
+.progress-dashboard-screen .empty-state,
+.learn-hub-screen .song-title,
+.learn-hub-screen .panel-copy,
+.learn-hub-screen .empty-state,
+.lesson-screen .song-title,
+.lesson-screen .panel-copy,
+.lesson-screen .empty-state,
+.library-screen .song-title,
+.library-screen .panel-copy,
+.library-screen .empty-state,
+.theory-hub-screen .song-title,
+.theory-hub-screen .panel-copy,
+.theory-hub-screen .empty-state,
+.theory-practice-screen .song-title,
+.theory-practice-screen .panel-copy,
+.theory-practice-screen .empty-state {
+  color: var(--product-deck-muted);
+}
+
+.progress-dashboard-screen .eyebrow,
+.learn-hub-screen .eyebrow,
+.lesson-screen .eyebrow,
+.library-screen .eyebrow,
+.theory-hub-screen .eyebrow,
+.theory-practice-screen .eyebrow {
+  color: color-mix(in oklch, var(--product-deck-accent) 72%, var(--product-deck-ink));
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.075em;
+  text-shadow: 0 0 20px color-mix(in oklch, var(--product-deck-accent) 26%, transparent);
+}
+
+.progress-dashboard-screen input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+.progress-dashboard-screen select,
+.learn-hub-screen input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+.learn-hub-screen select,
+.lesson-screen input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+.lesson-screen select,
+.library-screen input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+.library-screen select,
+.theory-hub-screen input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+.theory-hub-screen select,
+.theory-practice-screen input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+.theory-practice-screen select {
+  min-height: var(--product-deck-control-height);
+  border: 1px solid var(--product-deck-line);
+  border-radius: 8px;
+  padding: 8px 11px;
+  background:
+    linear-gradient(180deg, oklch(98% 0.01 88 / 0.045), color-mix(in oklch, var(--product-deck-accent) 2%, transparent)),
+    oklch(10% 0.04 263 / 0.84);
+  color: var(--product-deck-ink);
+  font-size: 0.88rem;
+  line-height: 1.25;
+}
+
+.progress-dashboard-screen input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):focus,
+.progress-dashboard-screen select:focus,
+.learn-hub-screen input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):focus,
+.learn-hub-screen select:focus,
+.lesson-screen input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):focus,
+.lesson-screen select:focus,
+.library-screen input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):focus,
+.library-screen select:focus,
+.theory-hub-screen input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):focus,
+.theory-hub-screen select:focus,
+.theory-practice-screen input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):focus,
+.theory-practice-screen select:focus {
+  outline: 3px solid color-mix(in oklch, var(--product-deck-accent) 34%, transparent);
+  outline-offset: 2px;
+  border-color: color-mix(in oklch, var(--product-deck-accent) 70%, var(--product-deck-ink));
+  box-shadow: var(--product-deck-glow);
+}
+
+.progress-dashboard-screen .primary-button,
+.progress-dashboard-screen .secondary-button,
+.progress-dashboard-screen .danger-button,
+.learn-hub-screen .primary-button,
+.learn-hub-screen .secondary-button,
+.learn-hub-screen .danger-button,
+.lesson-screen .primary-button,
+.lesson-screen .secondary-button,
+.lesson-screen .danger-button,
+.library-screen .primary-button,
+.library-screen .secondary-button,
+.library-screen .danger-button,
+.theory-hub-screen .primary-button,
+.theory-hub-screen .secondary-button,
+.theory-hub-screen .danger-button,
+.theory-practice-screen .primary-button,
+.theory-practice-screen .secondary-button,
+.theory-practice-screen .danger-button {
+  min-height: var(--product-deck-control-height);
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 8px;
+  padding: 8px 11px;
+  font-family: var(--font-meta);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.075em;
+  line-height: 1.05;
+  text-transform: uppercase;
+  clip-path: var(--product-deck-cut-sm);
+  transition:
+    transform 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    border-color 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    box-shadow 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    background 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    opacity 150ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.progress-dashboard-screen .primary-button,
+.learn-hub-screen .primary-button,
+.lesson-screen .primary-button,
+.library-screen .primary-button,
+.theory-hub-screen .primary-button,
+.theory-practice-screen .primary-button {
+  border: 1px solid color-mix(in oklch, var(--product-deck-accent) 70%, var(--product-deck-ink));
+  background: linear-gradient(135deg, var(--product-deck-accent), color-mix(in oklch, var(--product-deck-accent) 58%, var(--product-deck-ink)));
+  color: oklch(17% 0.045 263);
+  box-shadow: 0 0 24px color-mix(in oklch, var(--product-deck-accent) 30%, transparent);
+}
+
+.progress-dashboard-screen .secondary-button,
+.learn-hub-screen .secondary-button,
+.lesson-screen .secondary-button,
+.library-screen .secondary-button,
+.theory-hub-screen .secondary-button,
+.theory-practice-screen .secondary-button {
+  border: 1px solid color-mix(in oklch, var(--product-deck-accent) 26%, oklch(94% 0.018 88 / 0.12));
+  background:
+    linear-gradient(135deg, color-mix(in oklch, var(--product-deck-accent) 12%, transparent), transparent 60%),
+    color-mix(in oklch, var(--product-deck-bg) 90%, transparent);
+  color: var(--product-deck-ink);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.progress-dashboard-screen .danger-button,
+.learn-hub-screen .danger-button,
+.lesson-screen .danger-button,
+.library-screen .danger-button,
+.theory-hub-screen .danger-button,
+.theory-practice-screen .danger-button {
+  border: 1px solid color-mix(in oklch, var(--product-danger) 54%, oklch(94% 0.018 88 / 0.12));
+  background:
+    linear-gradient(135deg, color-mix(in oklch, var(--product-danger) 24%, transparent), color-mix(in oklch, var(--product-neon-coral) 12%, transparent)),
+    oklch(17% 0.07 351 / 0.74);
+  color: var(--product-deck-ink);
+  box-shadow: 0 0 22px color-mix(in oklch, var(--product-danger) 16%, transparent);
+}
+
+.progress-dashboard-screen .primary-button:not(:disabled):hover,
+.progress-dashboard-screen .secondary-button:not(:disabled):hover,
+.progress-dashboard-screen .danger-button:not(:disabled):hover,
+.learn-hub-screen .primary-button:not(:disabled):hover,
+.learn-hub-screen .secondary-button:not(:disabled):hover,
+.learn-hub-screen .danger-button:not(:disabled):hover,
+.lesson-screen .primary-button:not(:disabled):hover,
+.lesson-screen .secondary-button:not(:disabled):hover,
+.lesson-screen .danger-button:not(:disabled):hover,
+.library-screen .primary-button:not(:disabled):hover,
+.library-screen .secondary-button:not(:disabled):hover,
+.library-screen .danger-button:not(:disabled):hover,
+.theory-hub-screen .primary-button:not(:disabled):hover,
+.theory-hub-screen .secondary-button:not(:disabled):hover,
+.theory-hub-screen .danger-button:not(:disabled):hover,
+.theory-practice-screen .primary-button:not(:disabled):hover,
+.theory-practice-screen .secondary-button:not(:disabled):hover,
+.theory-practice-screen .danger-button:not(:disabled):hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in oklch, var(--product-deck-accent) 60%, var(--product-deck-ink));
+  box-shadow:
+    var(--product-deck-glow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.progress-dashboard-screen .primary-button:focus-visible,
+.progress-dashboard-screen .secondary-button:focus-visible,
+.progress-dashboard-screen .danger-button:focus-visible,
+.learn-hub-screen .primary-button:focus-visible,
+.learn-hub-screen .secondary-button:focus-visible,
+.learn-hub-screen .danger-button:focus-visible,
+.lesson-screen .primary-button:focus-visible,
+.lesson-screen .secondary-button:focus-visible,
+.lesson-screen .danger-button:focus-visible,
+.library-screen .primary-button:focus-visible,
+.library-screen .secondary-button:focus-visible,
+.library-screen .danger-button:focus-visible,
+.theory-hub-screen .primary-button:focus-visible,
+.theory-hub-screen .secondary-button:focus-visible,
+.theory-hub-screen .danger-button:focus-visible,
+.theory-practice-screen .primary-button:focus-visible,
+.theory-practice-screen .secondary-button:focus-visible,
+.theory-practice-screen .danger-button:focus-visible {
+  outline: 3px solid color-mix(in oklch, var(--product-deck-accent) 78%, var(--product-deck-ink));
+  outline-offset: 4px;
+  box-shadow:
+    0 0 0 8px color-mix(in oklch, var(--product-deck-accent) 18%, transparent),
+    var(--product-deck-glow);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progress-dashboard-screen,
+    .progress-dashboard-screen *,
+    .progress-dashboard-screen *::before,
+    .progress-dashboard-screen *::after,
+    .learn-hub-screen,
+    .learn-hub-screen *,
+    .learn-hub-screen *::before,
+    .learn-hub-screen *::after,
+    .lesson-screen,
+    .lesson-screen *,
+    .lesson-screen *::before,
+    .lesson-screen *::after,
+    .library-screen,
+    .library-screen *,
+    .library-screen *::before,
+    .library-screen *::after,
+    .theory-hub-screen,
+    .theory-hub-screen *,
+    .theory-hub-screen *::before,
+    .theory-hub-screen *::after,
+    .theory-practice-screen,
+    .theory-practice-screen *,
+    .theory-practice-screen *::before,
+    .theory-practice-screen *::after {
+      animation: none !important;
+      transition-duration: 0.01ms !important;
+    }
+}
+
+/* ==========================================================================
    Shared Tags
    ========================================================================== */
 
@@ -1068,6 +1424,44 @@ select:focus {
    ========================================================================== */
 
 .app-shell-immersive {
+  --product-deck-gap-xs: 6px;
+  --product-deck-gap-sm: 8px;
+  --product-deck-gap-md: 12px;
+  --product-deck-gap-lg: 16px;
+  --product-deck-gap-xl: 22px;
+  --product-deck-control-height: 40px;
+  --product-deck-cut-sm: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+  --product-deck-cut-md: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+  --product-neon-cyan: oklch(82% 0.17 214);
+  --product-neon-teal: oklch(78% 0.17 168);
+  --product-neon-gold: oklch(83% 0.18 76);
+  --product-neon-orange: oklch(76% 0.2 48);
+  --product-neon-coral: oklch(73% 0.2 29);
+  --product-success: oklch(75% 0.16 154);
+  --product-danger: oklch(73% 0.2 29);
+  --product-warning: oklch(83% 0.18 76);
+  --product-deck-base: oklch(12% 0.045 263);
+  --product-deck-void: oklch(8% 0.032 268);
+  --product-deck-ink: oklch(97% 0.012 88);
+  --product-deck-muted: oklch(86% 0.025 267 / 0.74);
+  --product-deck-quiet: oklch(78% 0.026 267 / 0.62);
+  --product-deck-accent: var(--color-accent);
+  --product-deck-alt: var(--color-accent-secondary);
+  --product-deck-line: color-mix(in oklch, var(--product-deck-accent) 32%, oklch(94% 0.018 88 / 0.12));
+  --product-deck-soft-line: color-mix(in oklch, var(--product-deck-accent) 18%, oklch(94% 0.018 88 / 0.08));
+  --product-deck-bg: color-mix(in oklch, var(--product-deck-void) 76%, transparent);
+  --product-deck-card-bg:
+    radial-gradient(circle at 92% 10%, color-mix(in oklch, var(--product-deck-accent) 10%, transparent), transparent 36%),
+    linear-gradient(145deg, color-mix(in oklch, var(--product-deck-accent) 8%, transparent), transparent 58%),
+    oklch(13% 0.044 263 / 0.8);
+  --product-deck-panel-bg:
+    radial-gradient(circle at 8% 0%, color-mix(in oklch, var(--product-deck-accent) 12%, transparent), transparent 34%),
+    linear-gradient(145deg, color-mix(in oklch, var(--product-deck-accent) 10%, transparent), transparent 48%),
+    color-mix(in oklch, var(--product-deck-bg) 96%, transparent);
+  --product-deck-shadow:
+    0 28px 88px rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --product-deck-glow: 0 0 30px color-mix(in oklch, var(--product-deck-accent) 20%, transparent);
   display: flex;
   flex-direction: column;
   height: 100vh;
@@ -1075,6 +1469,8 @@ select:focus {
   gap: 0;
   overflow: hidden;
   position: relative;
+  isolation: isolate;
+  color: var(--product-deck-ink);
 }
 
 .immersive-hud-shell {
@@ -1082,7 +1478,7 @@ select:focus {
   top: 0;
   left: 0;
   right: 0;
-  z-index: 10;
+  z-index: 30;
   min-height: 30px;
   overflow: visible;
 }
@@ -1102,26 +1498,41 @@ select:focus {
   z-index: 2;
   transform: translateX(-50%);
   pointer-events: auto;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 999px;
-  padding: 3px 14px;
-  background: rgba(0, 0, 0, 0.48);
-  color: rgba(255, 255, 255, 0.76);
+  min-height: 26px;
+  border: 1px solid var(--product-deck-line);
+  border-radius: 8px;
+  padding: 4px 14px;
+  background:
+    linear-gradient(135deg, color-mix(in oklch, var(--product-deck-accent) 12%, transparent), transparent 62%),
+    oklch(8% 0.032 268 / 0.84);
+  color: var(--product-deck-muted);
   font-family: var(--font-meta);
   font-size: 10px;
   font-weight: 800;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+  box-shadow:
+    0 12px 28px rgba(0, 0, 0, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(10px);
+  clip-path: var(--product-deck-cut-sm);
   cursor: pointer;
-  transition: opacity 150ms ease, transform 150ms ease, background 150ms ease;
+  transition:
+    opacity 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    transform 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    border-color 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    color 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    background 150ms cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .immersive-hud-tab:hover,
 .immersive-hud-tab:focus-visible {
-  background: rgba(255, 255, 255, 0.14);
-  color: #fff;
+  border-color: color-mix(in oklch, var(--product-deck-accent) 58%, var(--product-deck-ink));
+  background:
+    linear-gradient(135deg, color-mix(in oklch, var(--product-deck-accent) 20%, transparent), transparent 62%),
+    oklch(10% 0.038 268 / 0.9);
+  color: var(--product-deck-ink);
+  outline: none;
 }
 
 .immersive-hud-shell.open .immersive-hud-tab,
@@ -1134,19 +1545,26 @@ select:focus {
 .immersive-hud {
   position: relative;
   z-index: 1;
-  display: grid;
-  grid-template-columns: minmax(220px, max-content) minmax(0, 1fr) auto;
+  display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 7px 12px;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.34), rgba(0, 0, 0, 0.16));
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.24);
+  gap: var(--product-deck-gap-md);
+  padding: 8px 12px 10px;
+  background:
+    linear-gradient(112deg, transparent 0 26%, color-mix(in oklch, var(--product-deck-accent) 6%, transparent) 34%, transparent 48%),
+    var(--product-deck-panel-bg);
+  border: 1px solid var(--product-deck-soft-line);
+  border-top: 0;
+  box-shadow:
+    0 18px 44px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(14px);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px));
   opacity: 0;
   transform: translateY(calc(-100% - 8px));
   pointer-events: none;
-  transition: opacity 170ms ease, transform 170ms ease;
+  transition:
+    opacity 170ms cubic-bezier(0.25, 1, 0.5, 1),
+    transform 170ms cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .immersive-hud-shell.open .immersive-hud,
@@ -1156,9 +1574,17 @@ select:focus {
   pointer-events: auto;
 }
 
+.immersive-hud-core {
+  display: flex;
+  align-items: center;
+  gap: var(--product-deck-gap-md);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .immersive-hud-stats {
   display: flex;
-  gap: 8px;
+  gap: var(--product-deck-gap-sm);
   min-width: 0;
   flex-wrap: nowrap;
 }
@@ -1168,10 +1594,13 @@ select:focus {
   flex-direction: column;
   align-items: center;
   gap: 1px;
-  background: rgba(0, 0, 0, 0.45);
+  min-height: 34px;
+  border: 1px solid var(--product-deck-soft-line);
   border-radius: 8px;
   padding: 3px 9px;
+  background: var(--product-deck-card-bg);
   backdrop-filter: blur(6px);
+  clip-path: var(--product-deck-cut-sm);
   min-width: 0;
 }
 
@@ -1180,15 +1609,15 @@ select:focus {
   font-size: 9px;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--product-deck-quiet);
 }
 
 .immersive-hud-item strong {
   font-family: var(--font-display);
   font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  color: rgba(255, 255, 255, 0.95);
+  font-weight: 800;
+  letter-spacing: 0;
+  color: var(--product-deck-ink);
   text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
 }
 
@@ -1203,28 +1632,49 @@ select:focus {
   animation: comboPop 250ms ease-out both;
 }
 
-.immersive-hud-item strong.accuracy-high { color: #40b56a; }
+.immersive-hud-item strong.accuracy-high { color: var(--product-success); }
 
-.immersive-hud-item strong.accuracy-mid  { color: #d4a017; }
+.immersive-hud-item strong.accuracy-mid  { color: var(--product-warning); }
 
-.immersive-hud-item strong.accuracy-low  { color: #bf5b44; }
+.immersive-hud-item strong.accuracy-low  { color: var(--product-danger); }
 
 .immersive-menu-btn {
   pointer-events: all;
-  background: rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(6px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: rgba(255, 255, 255, 0.8);
+  min-height: 34px;
+  border: 1px solid var(--product-deck-line);
   border-radius: 8px;
-  padding: 5px 10px;
-  font-size: 12px;
+  padding: 7px 10px;
+  background:
+    linear-gradient(135deg, color-mix(in oklch, var(--product-deck-accent) 12%, transparent), transparent 60%),
+    color-mix(in oklch, var(--product-deck-bg) 92%, transparent);
+  backdrop-filter: blur(6px);
+  color: var(--product-deck-ink);
+  font-family: var(--font-meta);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.075em;
+  line-height: 1.05;
+  text-transform: uppercase;
+  clip-path: var(--product-deck-cut-sm);
   cursor: pointer;
-  transition: background 0.15s;
+  transition:
+    transform 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    border-color 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    box-shadow 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    background 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    color 150ms cubic-bezier(0.25, 1, 0.5, 1);
 }
 
-.immersive-menu-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
-  color: #fff;
+.immersive-menu-btn:hover,
+.immersive-menu-btn:focus-visible {
+  transform: translateY(-1px);
+  border-color: color-mix(in oklch, var(--product-deck-accent) 60%, var(--product-deck-ink));
+  background:
+    linear-gradient(135deg, color-mix(in oklch, var(--product-deck-accent) 18%, transparent), transparent 60%),
+    color-mix(in oklch, var(--product-deck-bg) 88%, transparent);
+  color: var(--product-deck-ink);
+  box-shadow: var(--product-deck-glow);
+  outline: none;
 }
 
 .immersive-hud-actions,
@@ -1232,17 +1682,21 @@ select:focus {
 .animal-soundboard-hud-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--product-deck-gap-sm);
   flex-wrap: nowrap;
   justify-content: flex-end;
   min-width: 0;
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 2;
+  overflow: visible;
 }
 
 .immersive-hud-nav {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  gap: 6px;
   min-width: 0;
   overflow-x: auto;
   scrollbar-width: none;
@@ -1254,27 +1708,40 @@ select:focus {
 
 .immersive-hud-nav-btn {
   flex: 0 0 auto;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 999px;
-  padding: 4px 9px;
-  background: rgba(0, 0, 0, 0.34);
-  color: rgba(255, 255, 255, 0.76);
-  font-size: 11px;
-  font-weight: 700;
+  min-height: 30px;
+  border: 1px solid var(--product-deck-soft-line);
+  border-radius: 8px;
+  padding: 5px 9px;
+  background: color-mix(in oklch, var(--product-deck-bg) 82%, transparent);
+  color: var(--product-deck-muted);
+  font-family: var(--font-meta);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+  clip-path: var(--product-deck-cut-sm);
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition:
+    transform 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    background 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    color 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    border-color 150ms cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .immersive-hud-nav-btn:hover,
 .immersive-hud-nav-btn:focus-visible {
-  background: rgba(255, 255, 255, 0.14);
-  color: #fff;
+  transform: translateY(-1px);
+  border-color: color-mix(in oklch, var(--product-deck-accent) 42%, var(--product-deck-ink));
+  background: color-mix(in oklch, var(--product-deck-accent) 14%, var(--product-deck-bg));
+  color: var(--product-deck-ink);
+  outline: none;
 }
 
 .immersive-hud-nav-btn.active {
-  border-color: color-mix(in srgb, var(--color-accent-secondary) 58%, transparent);
-  background: color-mix(in srgb, var(--color-accent-secondary) 24%, rgba(0, 0, 0, 0.38));
-  color: #fff;
+  border-color: color-mix(in oklch, var(--product-deck-accent) 62%, var(--product-deck-ink));
+  background: color-mix(in oklch, var(--product-deck-accent) 22%, var(--product-deck-bg));
+  color: var(--product-deck-ink);
+  box-shadow: 0 0 20px color-mix(in oklch, var(--product-deck-accent) 16%, transparent);
   cursor: default;
 }
 
@@ -1298,11 +1765,22 @@ select:focus {
   max-height: min(70vh, calc(100vh - 140px));
   display: flex;
   flex-direction: column;
+  gap: var(--product-deck-gap-md);
+  border: 1px solid var(--product-deck-line);
+  border-radius: 8px;
+  padding: 16px;
+  background: var(--product-deck-panel-bg);
+  color: var(--product-deck-ink);
+  box-shadow: var(--product-deck-shadow);
+  clip-path: var(--product-deck-cut-md);
+  backdrop-filter: blur(14px);
   opacity: 0;
   transform: translateY(-6px);
   overflow: hidden;
   pointer-events: none;
-  transition: opacity 160ms ease, transform 160ms ease;
+  transition:
+    opacity 160ms cubic-bezier(0.25, 1, 0.5, 1),
+    transform 160ms cubic-bezier(0.25, 1, 0.5, 1);
   z-index: 40;
 }
 
@@ -1312,11 +1790,24 @@ select:focus {
   pointer-events: auto;
 }
 
+.immersive-instrument-popout.stage-popout {
+  top: 112px;
+  right: 32px;
+  width: min(460px, calc(100vw - 64px));
+  max-height: min(68vh, 620px);
+  overflow: auto;
+  transform: translateY(-10px) scale(0.98);
+  z-index: 45;
+}
+
+.immersive-instrument-popout.stage-popout.open {
+  transform: translateY(0) scale(1);
+}
+
 .immersive-instrument-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   gap: 10px;
-  margin-top: 18px;
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -1330,24 +1821,36 @@ select:focus {
   align-items: flex-start;
   min-height: 102px;
   padding: 14px;
-  border-radius: 16px;
-  border: 1px solid rgba(162, 195, 255, 0.16);
-  background: rgba(10, 17, 32, 0.72);
-  color: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--product-deck-soft-line);
+  border-radius: 8px;
+  background: var(--product-deck-card-bg);
+  color: var(--product-deck-ink);
   text-align: left;
+  clip-path: var(--product-deck-cut-sm);
   cursor: pointer;
-  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+  transition:
+    transform 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    border-color 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    box-shadow 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    background 150ms cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .immersive-instrument-option:hover:not(:disabled) {
-  transform: translateY(-1px);
-  border-color: rgba(162, 195, 255, 0.42);
-  background: rgba(16, 28, 49, 0.9);
+  transform: translateY(-2px);
+  border-color: color-mix(in oklch, var(--product-deck-accent) 48%, var(--product-deck-ink));
+  background:
+    radial-gradient(circle at 88% 10%, color-mix(in oklch, var(--product-deck-accent) 16%, transparent), transparent 36%),
+    linear-gradient(145deg, color-mix(in oklch, var(--product-deck-accent) 12%, transparent), transparent 58%),
+    oklch(14% 0.048 263 / 0.86);
+  box-shadow: var(--product-deck-glow);
 }
 
 .immersive-instrument-option.active {
-  border-color: rgba(112, 194, 255, 0.72);
-  box-shadow: 0 0 0 1px rgba(112, 194, 255, 0.26);
+  border-color: color-mix(in oklch, var(--product-deck-accent) 62%, var(--product-deck-ink));
+  background:
+    radial-gradient(circle at 88% 10%, color-mix(in oklch, var(--product-deck-accent) 18%, transparent), transparent 38%),
+    color-mix(in oklch, var(--product-deck-bg) 88%, transparent);
+  box-shadow: 0 0 24px color-mix(in oklch, var(--product-deck-accent) 18%, transparent);
 }
 
 .immersive-instrument-option:disabled {
@@ -1358,14 +1861,14 @@ select:focus {
 .immersive-instrument-option-label {
   font-family: var(--font-display);
   font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  font-weight: 800;
+  letter-spacing: 0;
 }
 
 .immersive-instrument-option-copy {
   font-size: 12px;
   line-height: 1.45;
-  color: rgba(232, 238, 250, 0.72);
+  color: var(--product-deck-muted);
 }
 
 .immersive-canvas-area {
@@ -1374,6 +1877,7 @@ select:focus {
   display: flex;
   flex-direction: column;
   position: relative;
+  z-index: 20;
 }
 
 .countdown-overlay {
@@ -1427,18 +1931,59 @@ select:focus {
   max-width: min(600px, calc(100vw - 48px));
 }
 
+.app-shell-immersive .panel-heading {
+  align-items: flex-start;
+  gap: var(--product-deck-gap-md);
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--product-deck-soft-line);
+}
+
+.app-shell-immersive .panel-heading h2,
+.app-shell-immersive .panel-heading h3,
+.app-shell-immersive .control-bar h1 {
+  margin: 0;
+  color: var(--product-deck-ink);
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.06;
+}
+
+.app-shell-immersive .panel-copy,
+.app-shell-immersive .empty-state,
+.app-shell-immersive .status-inline-label,
+.app-shell-immersive .track-row span,
+.app-shell-immersive .free-play-mode-card span,
+.app-shell-immersive .free-play-visualizer-copy .panel-copy {
+  color: var(--product-deck-muted);
+}
+
+.app-shell-immersive .eyebrow,
+.app-shell-immersive .free-play-overlay-section .eyebrow {
+  color: color-mix(in oklch, var(--product-deck-accent) 72%, var(--product-deck-ink));
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.075em;
+  text-shadow: 0 0 20px color-mix(in oklch, var(--product-deck-accent) 26%, transparent);
+}
+
 .immersive-overlay-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: var(--product-deck-gap-lg);
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--product-deck-line);
 }
 
 .immersive-overlay-header h2 {
   margin: 0;
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: var(--color-text);
+  color: var(--product-deck-ink);
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.04;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1451,45 +1996,287 @@ select:focus {
 .immersive-overlay-panel .session-chip-group {
   display: flex;
   flex-wrap: wrap;
+  gap: var(--product-deck-gap-md);
 }
 
 .immersive-overlay {
   position: fixed;
   inset: 0;
   z-index: 50;
-  background: rgba(0, 0, 0, 0.72);
+  background:
+    radial-gradient(circle at 16% 8%, color-mix(in oklch, var(--product-deck-accent) 13%, transparent), transparent 34%),
+    radial-gradient(circle at 84% 6%, color-mix(in oklch, var(--product-deck-alt) 10%, transparent), transparent 30%),
+    linear-gradient(180deg, oklch(3% 0.016 268 / 0.72), oklch(2% 0.012 268 / 0.88));
   backdrop-filter: blur(12px);
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding: 24px 16px;
+  padding: 24px 16px 32px;
   overflow-y: auto;
 }
 
 .immersive-overlay-panel {
   width: 100%;
-  max-width: 900px;
+  max-width: 940px;
   display: grid;
-  gap: 16px;
+  gap: var(--product-deck-gap-lg);
+  border: 1px solid var(--product-deck-line);
+  border-radius: 8px;
+  padding: 18px;
+  background:
+    linear-gradient(112deg, transparent 0 24%, color-mix(in oklch, var(--product-deck-accent) 6%, transparent) 34%, transparent 46%),
+    var(--product-deck-panel-bg);
+  color: var(--product-deck-ink);
+  box-shadow: var(--product-deck-shadow);
+  clip-path: var(--product-deck-cut-md);
 }
 
 .immersive-overlay-actions {
   display: flex;
-  gap: 12px;
+  gap: var(--product-deck-gap-md);
   justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.app-shell-immersive .primary-button,
+.app-shell-immersive .secondary-button,
+.app-shell-immersive .danger-button,
+.app-shell-immersive .free-play-preset-btn {
+  min-height: var(--product-deck-control-height);
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 8px;
+  padding: 8px 11px;
+  font-family: var(--font-meta);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.075em;
+  line-height: 1.05;
+  text-transform: uppercase;
+  clip-path: var(--product-deck-cut-sm);
+  transition:
+    transform 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    border-color 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    box-shadow 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    background 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    opacity 150ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.app-shell-immersive .primary-button {
+  border: 1px solid color-mix(in oklch, var(--product-deck-accent) 70%, var(--product-deck-ink));
+  background: linear-gradient(135deg, var(--product-deck-accent), color-mix(in oklch, var(--product-deck-accent) 58%, var(--product-deck-ink)));
+  color: oklch(17% 0.045 263);
+  box-shadow: 0 0 24px color-mix(in oklch, var(--product-deck-accent) 30%, transparent);
+}
+
+.app-shell-immersive .secondary-button,
+.app-shell-immersive .free-play-preset-btn {
+  border: 1px solid color-mix(in oklch, var(--product-deck-accent) 26%, oklch(94% 0.018 88 / 0.12));
+  background:
+    linear-gradient(135deg, color-mix(in oklch, var(--product-deck-accent) 12%, transparent), transparent 60%),
+    color-mix(in oklch, var(--product-deck-bg) 90%, transparent);
+  color: var(--product-deck-ink);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.app-shell-immersive .danger-button {
+  border: 1px solid color-mix(in oklch, var(--product-danger) 54%, oklch(94% 0.018 88 / 0.12));
+  background:
+    linear-gradient(135deg, color-mix(in oklch, var(--product-danger) 24%, transparent), color-mix(in oklch, var(--product-neon-coral) 12%, transparent)),
+    oklch(17% 0.07 351 / 0.74);
+  color: var(--product-deck-ink);
+  box-shadow: 0 0 22px color-mix(in oklch, var(--product-danger) 16%, transparent);
+}
+
+.app-shell-immersive .primary-button:not(:disabled):hover,
+.app-shell-immersive .secondary-button:not(:disabled):hover,
+.app-shell-immersive .danger-button:not(:disabled):hover,
+.app-shell-immersive .free-play-preset-btn:not(:disabled):hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in oklch, var(--product-deck-accent) 60%, var(--product-deck-ink));
+  box-shadow:
+    var(--product-deck-glow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.app-shell-immersive .primary-button:focus-visible,
+.app-shell-immersive .secondary-button:focus-visible,
+.app-shell-immersive .danger-button:focus-visible,
+.app-shell-immersive .free-play-preset-btn:focus-visible,
+.app-shell-immersive select:focus,
+.app-shell-immersive input:not([type="range"]):focus {
+  outline: 3px solid color-mix(in oklch, var(--product-deck-accent) 78%, var(--product-deck-ink));
+  outline-offset: 4px;
+  box-shadow:
+    0 0 0 8px color-mix(in oklch, var(--product-deck-accent) 18%, transparent),
+    var(--product-deck-glow);
+}
+
+.app-shell-immersive input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+.app-shell-immersive select {
+  min-height: var(--product-deck-control-height);
+  border: 1px solid var(--product-deck-line);
+  border-radius: 8px;
+  padding: 8px 11px;
+  background:
+    linear-gradient(180deg, oklch(98% 0.01 88 / 0.045), color-mix(in oklch, var(--product-deck-accent) 2%, transparent)),
+    oklch(10% 0.04 263 / 0.84);
+  color: var(--product-deck-ink);
+  font-size: 0.88rem;
+  line-height: 1.25;
+}
+
+.app-shell-immersive input[type="range"] {
+  accent-color: var(--product-deck-accent);
+}
+
+.app-shell-immersive label > span,
+.app-shell-immersive .status-card span,
+.app-shell-immersive .tempo-card span,
+.app-shell-immersive .progress-card span,
+.app-shell-immersive .free-play-preset-label {
+  color: var(--product-deck-quiet);
+  font-family: var(--font-meta);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+}
+
+.app-shell-immersive .status-strip,
+.app-shell-immersive .free-play-mode-grid,
+.app-shell-immersive .free-play-overlay-grid {
+  gap: var(--product-deck-gap-md);
+}
+
+.app-shell-immersive .status-card,
+.app-shell-immersive .tempo-card,
+.app-shell-immersive .progress-card,
+.app-shell-immersive .track-row,
+.app-shell-immersive .free-play-mode-card {
+  border: 1px solid var(--product-deck-soft-line);
+  border-radius: 8px;
+  background: var(--product-deck-card-bg);
+  color: var(--product-deck-ink);
+  clip-path: var(--product-deck-cut-sm);
+}
+
+.app-shell-immersive .status-card,
+.app-shell-immersive .tempo-card,
+.app-shell-immersive .progress-card {
+  padding: 12px;
+}
+
+.app-shell-immersive .status-card strong,
+.app-shell-immersive .tempo-card strong,
+.app-shell-immersive .progress-card strong,
+.app-shell-immersive .track-row strong,
+.app-shell-immersive .free-play-mode-card strong {
+  color: var(--product-deck-ink);
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.app-shell-immersive .control-bar,
+.app-shell-immersive .session-toolbar,
+.app-shell-immersive .track-panel,
+.app-shell-immersive .free-play-overlay-section {
+  border: 1px solid var(--product-deck-line);
+  border-radius: 8px;
+  padding: 16px;
+  background: var(--product-deck-panel-bg);
+  color: var(--product-deck-ink);
+  box-shadow: var(--product-deck-shadow);
+  clip-path: var(--product-deck-cut-md);
+}
+
+.app-shell-immersive .control-bar,
+.app-shell-immersive .session-toolbar,
+.app-shell-immersive .track-panel,
+.app-shell-immersive .free-play-overlay-section,
+.app-shell-immersive .track-list,
+.app-shell-immersive .free-play-slider-card {
+  display: grid;
+  gap: var(--product-deck-gap-md);
+}
+
+.app-shell-immersive .control-grid {
+  gap: var(--product-deck-gap-md);
+  margin-top: 0;
+}
+
+.app-shell-immersive .transport-buttons,
+.app-shell-immersive .free-play-preset-row {
+  gap: var(--product-deck-gap-sm);
+}
+
+.app-shell-immersive .free-play-preset-row {
+  flex-wrap: wrap;
+  margin-bottom: 0;
+}
+
+.app-shell-immersive .free-play-preset-btn.active,
+.app-shell-immersive .free-play-mode-card.active {
+  border-color: color-mix(in oklch, var(--product-deck-accent) 62%, oklch(94% 0.018 88 / 0.16));
+  background:
+    linear-gradient(135deg, color-mix(in oklch, var(--product-deck-accent) 16%, transparent), transparent 58%),
+    color-mix(in oklch, var(--product-deck-bg) 92%, transparent);
+  color: var(--product-deck-ink);
+  box-shadow:
+    0 0 28px color-mix(in oklch, var(--product-deck-accent) 18%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.app-shell-immersive .free-play-mode-card:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: color-mix(in oklch, var(--product-deck-accent) 48%, oklch(94% 0.018 88 / 0.14));
+  background:
+    radial-gradient(circle at 88% 10%, color-mix(in oklch, var(--product-deck-accent) 16%, transparent), transparent 36%),
+    linear-gradient(145deg, color-mix(in oklch, var(--product-deck-accent) 12%, transparent), transparent 58%),
+    oklch(14% 0.048 263 / 0.84);
+  box-shadow:
+    0 20px 54px rgba(0, 0, 0, 0.3),
+    0 0 30px color-mix(in oklch, var(--product-deck-accent) 18%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.app-shell-immersive .free-play-mode-card.locked,
+.app-shell-immersive .free-play-mode-card:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.app-shell-immersive .free-play-mode-card.locked:hover,
+.app-shell-immersive .free-play-mode-card:disabled:hover {
+  transform: none;
+  border-color: var(--product-deck-soft-line);
+  background: var(--product-deck-card-bg);
+  box-shadow: none;
 }
 
 .free-play-immersive-shell {
+  --product-deck-accent: var(--product-neon-cyan);
+  --product-deck-alt: var(--product-neon-orange);
+  --color-accent: var(--product-deck-accent);
+  --color-accent-secondary: var(--product-deck-alt);
   background:
-    radial-gradient(circle at top, rgba(83, 161, 255, 0.22), transparent 34%),
-    radial-gradient(circle at bottom right, rgba(255, 138, 76, 0.18), transparent 30%),
-    linear-gradient(180deg, #0f1729 0%, #050811 56%, #02040a 100%);
+    radial-gradient(circle at top, color-mix(in oklch, var(--product-deck-accent) 18%, transparent), transparent 34%),
+    radial-gradient(circle at bottom right, color-mix(in oklch, var(--product-deck-alt) 16%, transparent), transparent 30%),
+    linear-gradient(180deg, oklch(18% 0.06 263) 0%, oklch(8% 0.032 268) 56%, oklch(4% 0.02 268) 100%);
+}
+
+.free-play-hud {
+  z-index: 30;
 }
 
 .free-play-hud .immersive-hud-item,
 .free-play-hud .immersive-menu-btn {
-  background: rgba(7, 12, 24, 0.58);
-  border-color: rgba(162, 195, 255, 0.12);
+  border-color: var(--product-deck-soft-line);
+  background: var(--product-deck-card-bg);
 }
 
 .app-frame:has(.soundboard-screen.app-shell-immersive) .app-topbar {
@@ -1521,6 +2308,10 @@ select:focus {
 
 .free-play-hud .immersive-hud-stats {
   gap: 8px;
+}
+
+.free-play-hud .immersive-hud-core {
+  min-width: 0;
 }
 
 .free-play-hud .immersive-hud-item {
@@ -1610,6 +2401,7 @@ select:focus {
   --menu-neon-indigo: #7668ff;
   --menu-neon-magenta: #f45cff;
   --menu-neon-gold: #ffd36f;
+  --menu-neon-orange: #ff9f2f;
   --menu-neon-coral: #ff7a8a;
   min-height: 100vh;
   position: relative;
@@ -1659,7 +2451,7 @@ select:focus {
 .main-menu-backdrop {
   position: absolute;
   inset: 0;
-  z-index: 0;
+  z-index: 2;
   overflow: hidden;
   pointer-events: none;
   transform: translate3d(calc(var(--mouse-x) * 12px), calc(var(--mouse-y) * 8px), 0);
@@ -1667,11 +2459,121 @@ select:focus {
 }
 
 .main-menu-light,
+.main-menu-ambient-pulse,
+.main-menu-gradient-river,
 .main-menu-facet,
 .main-menu-score-lines {
   position: absolute;
   display: block;
   pointer-events: none;
+}
+
+.main-menu-ambient-pulse {
+  z-index: 0;
+  border-radius: 999px;
+  filter: blur(18px) saturate(1.42);
+  mix-blend-mode: screen;
+  opacity: 0;
+  transform-origin: center;
+  will-change: opacity, transform;
+}
+
+.main-menu-ambient-pulse-a {
+  right: -2vw;
+  top: 0;
+  width: clamp(340px, 42vw, 760px);
+  height: clamp(260px, 38vw, 680px);
+  background:
+    radial-gradient(ellipse at 36% 34%, color-mix(in srgb, var(--menu-neon-cyan) 56%, transparent), transparent 40%),
+    radial-gradient(ellipse at 70% 58%, color-mix(in srgb, var(--menu-neon-violet) 42%, transparent), transparent 52%),
+    radial-gradient(circle at 53% 78%, color-mix(in srgb, var(--menu-neon-blue) 22%, transparent), transparent 60%);
+  animation: mainMenuAmbientPulse 8.2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+.main-menu-ambient-pulse-b {
+  right: 6vw;
+  bottom: 5vh;
+  width: clamp(260px, 34vw, 600px);
+  height: clamp(200px, 28vw, 460px);
+  background:
+    radial-gradient(ellipse at 42% 55%, color-mix(in srgb, var(--menu-neon-gold) 42%, transparent), transparent 42%),
+    radial-gradient(ellipse at 68% 36%, color-mix(in srgb, var(--menu-neon-orange) 38%, transparent), transparent 54%);
+  animation: mainMenuAmbientPulse 10.4s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  animation-delay: -4.2s;
+}
+
+.main-menu-ambient-pulse-c {
+  left: 38vw;
+  top: 18vh;
+  width: clamp(240px, 28vw, 520px);
+  height: clamp(240px, 28vw, 520px);
+  background:
+    radial-gradient(circle at 46% 46%, color-mix(in srgb, var(--menu-neon-magenta) 40%, transparent), transparent 38%),
+    radial-gradient(circle at 68% 68%, color-mix(in srgb, var(--menu-neon-teal) 28%, transparent), transparent 54%);
+  animation: mainMenuAmbientPulse 12.2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  animation-delay: -7.6s;
+}
+
+.main-menu-ambient-pulse-d {
+  left: 8vw;
+  bottom: 0;
+  width: clamp(240px, 30vw, 540px);
+  height: clamp(180px, 24vw, 420px);
+  background:
+    radial-gradient(ellipse at 44% 56%, color-mix(in srgb, var(--menu-neon-orange) 26%, transparent), transparent 48%),
+    radial-gradient(ellipse at 62% 42%, color-mix(in srgb, var(--menu-neon-cyan) 20%, transparent), transparent 62%);
+  animation: mainMenuAmbientPulse 9.6s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  animation-delay: -2.8s;
+}
+
+.main-menu-gradient-river {
+  z-index: 1;
+  height: clamp(92px, 10vw, 148px);
+  border-radius: 999px;
+  filter: blur(10px) saturate(1.35);
+  mix-blend-mode: screen;
+  opacity: 0;
+  transform-origin: center;
+  will-change: opacity, transform, background-position;
+}
+
+.main-menu-gradient-river-a {
+  right: -8vw;
+  bottom: 22vh;
+  width: clamp(520px, 62vw, 980px);
+  background:
+    linear-gradient(
+      94deg,
+      transparent 0 9%,
+      color-mix(in srgb, var(--menu-neon-cyan) 36%, transparent) 20%,
+      color-mix(in srgb, var(--menu-neon-teal) 44%, transparent) 34%,
+      color-mix(in srgb, var(--menu-neon-violet) 38%, transparent) 53%,
+      color-mix(in srgb, var(--menu-neon-magenta) 30%, transparent) 68%,
+      transparent 86% 100%
+    );
+  background-size: 260% 100%;
+  animation: mainMenuGradientRiver 6.8s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  transform: rotate(-17deg);
+}
+
+.main-menu-gradient-river-b {
+  right: -10vw;
+  bottom: 10vh;
+  width: clamp(460px, 54vw, 860px);
+  height: clamp(76px, 8vw, 118px);
+  background:
+    linear-gradient(
+      88deg,
+      transparent 0 10%,
+      color-mix(in srgb, var(--menu-neon-gold) 32%, transparent) 22%,
+      color-mix(in srgb, var(--menu-neon-orange) 52%, transparent) 42%,
+      color-mix(in srgb, var(--menu-neon-coral) 34%, transparent) 60%,
+      transparent 82% 100%
+    );
+  background-size: 240% 100%;
+  animation: mainMenuGradientRiver 8.4s cubic-bezier(0.16, 1, 0.3, 1) infinite reverse;
+  animation-delay: -2.7s;
+  transform: rotate(-10deg);
 }
 
 .main-menu-light {
@@ -1741,7 +2643,7 @@ select:focus {
   bottom: 0;
   left: clamp(28px, 4.4vw, 72px);
   width: min(100%, var(--main-menu-rail-width));
-  z-index: 1;
+  z-index: 3;
   display: grid;
   grid-template-rows: minmax(0, 1fr) var(--main-menu-key-rail-height);
   align-items: end;
@@ -1882,6 +2784,52 @@ select:focus {
     0 -18px 56px color-mix(in srgb, var(--active-card-color) 10%, transparent),
     0 28px 80px rgba(0, 0, 0, 0.42),
     inset 0 1px 0 rgba(255, 255, 255, 0.11);
+}
+
+.main-menu-soundscape-pulse {
+  position: absolute;
+  inset: 7px 12px 12px;
+  z-index: 0;
+  border-radius: 0 0 8px 8px;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  opacity: 0;
+  will-change: background-position, opacity, transform;
+}
+
+.main-menu-soundscape-pulse-a {
+  background:
+    linear-gradient(
+      94deg,
+      transparent 0 8%,
+      color-mix(in srgb, var(--menu-neon-cyan) 18%, transparent) 14%,
+      color-mix(in srgb, var(--menu-neon-teal) 36%, transparent) 28%,
+      color-mix(in srgb, var(--menu-neon-blue) 30%, transparent) 44%,
+      color-mix(in srgb, var(--menu-neon-violet) 34%, transparent) 60%,
+      color-mix(in srgb, var(--menu-neon-magenta) 26%, transparent) 72%,
+      transparent 86% 100%
+    );
+  background-size: 240% 100%;
+  filter: blur(8px) saturate(1.34);
+  animation: mainMenuSoundscapePulse 8.4s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+.main-menu-soundscape-pulse-b {
+  inset: auto 10px 8px;
+  height: 54%;
+  background:
+    linear-gradient(
+      96deg,
+      transparent 0 10%,
+      color-mix(in srgb, var(--menu-neon-gold) 34%, transparent) 22%,
+      color-mix(in srgb, var(--menu-neon-orange) 42%, transparent) 42%,
+      color-mix(in srgb, var(--menu-neon-coral) 28%, transparent) 60%,
+      transparent 80% 100%
+    );
+  background-size: 260% 100%;
+  filter: blur(10px) saturate(1.3);
+  animation: mainMenuSoundscapePulse 10.2s cubic-bezier(0.16, 1, 0.3, 1) infinite reverse;
+  animation-delay: -3.8s;
 }
 
 .main-menu-white-keys {
@@ -2048,7 +2996,7 @@ select:focus {
   justify-self: start;
   margin: 0 auto 0 0;
   position: relative;
-  z-index: 3;
+  z-index: 4;
 }
 
 .main-menu-grid {
@@ -2061,7 +3009,7 @@ select:focus {
   contain: layout style;
   perspective: 1200px;
   position: relative;
-  z-index: 4;
+  z-index: 5;
 }
 
 .main-menu-secondary-shell {
@@ -2077,7 +3025,7 @@ select:focus {
   background: none;
   box-shadow: none;
   position: relative;
-  z-index: 4;
+  z-index: 5;
 }
 
 .main-menu-secondary-heading {
@@ -2519,6 +3467,89 @@ select:focus {
   }
 }
 
+@keyframes mainMenuAmbientPulse {
+  0%,
+  100% {
+    opacity: 0.08;
+    transform: translate3d(-1.5%, 1.5%, 0) scale(0.94);
+  }
+
+  28% {
+    opacity: 0.48;
+    transform: translate3d(1%, -0.6%, 0) scale(1.04);
+  }
+
+  46% {
+    opacity: 0.28;
+    transform: translate3d(0.2%, 0.8%, 0) scale(0.99);
+  }
+
+  72% {
+    opacity: 0.42;
+    transform: translate3d(-0.8%, -0.2%, 0) scale(1.08);
+  }
+}
+
+@keyframes mainMenuGradientRiver {
+  0%,
+  100% {
+    background-position: 120% 50%;
+    opacity: 0.1;
+    translate: 4% 0;
+    scale: 0.96 0.9;
+  }
+
+  24% {
+    opacity: 0.58;
+  }
+
+  52% {
+    background-position: 46% 50%;
+    opacity: 0.26;
+    translate: -1% -1%;
+    scale: 1.04 1;
+  }
+
+  76% {
+    opacity: 0.66;
+    translate: -6% 1%;
+  }
+
+  92% {
+    background-position: -22% 50%;
+    opacity: 0.14;
+  }
+}
+
+@keyframes mainMenuSoundscapePulse {
+  0%,
+  100% {
+    background-position: 120% 50%;
+    opacity: 0.06;
+    transform: scaleX(0.95);
+  }
+
+  22% {
+    opacity: 0.34;
+  }
+
+  48% {
+    background-position: 50% 50%;
+    opacity: 0.18;
+    transform: scaleX(1.04);
+  }
+
+  68% {
+    opacity: 0.42;
+  }
+
+  86% {
+    background-position: -20% 50%;
+    opacity: 0.08;
+    transform: scaleX(1);
+  }
+}
+
 @keyframes mainMenuNoteFall {
   0% {
     opacity: 0;
@@ -2804,6 +3835,35 @@ select:focus {
       opacity: 0.12;
     }
 
+  .main-menu-ambient-pulse {
+      filter: blur(16px) saturate(1.26);
+    }
+
+  .main-menu-gradient-river {
+      right: -34vw;
+      width: 110vw;
+    }
+
+  .main-menu-ambient-pulse-a {
+      right: -14vw;
+      top: -2vh;
+    }
+
+  .main-menu-ambient-pulse-b {
+      right: -8vw;
+      bottom: 12vh;
+    }
+
+  .main-menu-ambient-pulse-c {
+      left: 28vw;
+      top: 26vh;
+    }
+
+  .main-menu-ambient-pulse-d {
+      left: -4vw;
+      bottom: 6vh;
+    }
+
   .main-menu-sequencer {
       top: 96px;
       right: 16px;
@@ -2923,6 +3983,23 @@ select:focus {
   .main-menu-status-meter i {
       height: 9px;
       opacity: 0.78;
+    }
+
+  .main-menu-ambient-pulse {
+      opacity: 0.18;
+      transform: none !important;
+    }
+
+  .main-menu-soundscape-pulse {
+      background-position: 50% 50% !important;
+      opacity: 0.2;
+      transform: none !important;
+    }
+
+  .main-menu-gradient-river {
+      background-position: 50% 50% !important;
+      opacity: 0.34;
+      transform: none !important;
     }
 
   .main-menu-sequencer {
@@ -3594,6 +4671,263 @@ select:focus {
     }
 }
 
+.library-screen {
+  --product-deck-accent: var(--product-neon-cyan);
+  --product-deck-alt: var(--product-neon-orange);
+  gap: 14px;
+}
+
+.library-screen .library-header {
+  padding: 16px;
+  gap: var(--product-deck-gap-xl);
+}
+
+.library-screen .library-header h1 {
+  font-size: 1.55rem;
+  line-height: 1.04;
+  letter-spacing: 0;
+}
+
+.library-screen .library-layout {
+  gap: 14px;
+}
+
+.library-screen .library-content {
+  gap: 12px;
+}
+
+.library-screen .library-sidebar {
+  top: 16px;
+  gap: 12px;
+  padding: 14px;
+}
+
+.library-screen .sidebar-section,
+.library-screen .sidebar-list {
+  gap: 8px;
+}
+
+.library-screen .sidebar-section-header {
+  gap: 8px;
+}
+
+.library-screen .sidebar-row,
+.library-screen .sidebar-create-row {
+  gap: 8px;
+}
+
+.library-screen .sidebar-row .secondary-button,
+.library-screen .sidebar-row .primary-button,
+.library-screen .sidebar-create-row .secondary-button {
+  min-height: 34px;
+}
+
+.library-screen .library-sidebar input {
+  min-height: 34px;
+  padding: 6px 10px;
+}
+
+.library-screen .library-sidebar-embedded {
+  clip-path: none;
+}
+
+.library-screen .search-bar,
+.library-screen .active-filters-panel,
+.library-screen .advanced-filters,
+.library-screen .recommendations-section,
+.library-screen .practice-plan-section,
+.library-screen .library-maintenance-section,
+.library-screen .metadata-editor,
+.library-screen .bulk-action-bar,
+.library-screen .playlist-view,
+.library-screen .library-mobile-disclosure {
+  padding: 14px;
+}
+
+.library-screen .search-bar {
+  gap: 12px;
+  align-items: end;
+}
+
+.library-screen .search-bar span,
+.library-screen .song-card-stats span,
+.library-screen .song-goal-row label,
+.library-screen .filter-preset-label,
+.library-screen .bulk-action-controls label span,
+.library-screen .metadata-grid label > span {
+  color: var(--product-deck-quiet);
+  font-size: 0.72rem;
+  letter-spacing: 0.075em;
+}
+
+.library-screen .filter-chips {
+  gap: 8px;
+}
+
+.library-screen .filter-chips .secondary-button,
+.library-screen .filter-chips .primary-button,
+.library-screen .user-preset-save .secondary-button {
+  min-height: 34px;
+  padding: 7px 10px;
+}
+
+.library-screen .preset-name-input {
+  min-height: 34px;
+  border-color: var(--product-deck-line);
+  background: oklch(10% 0.04 263 / 0.72);
+  color: var(--product-deck-ink);
+}
+
+.library-screen .song-grid {
+  grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+  gap: 12px;
+}
+
+.library-screen .song-list {
+  gap: 10px;
+}
+
+.library-screen .song-card {
+  gap: 12px;
+  padding: 14px;
+  border-color: var(--product-deck-soft-line);
+  background: var(--product-deck-card-bg);
+  transition:
+    transform 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    border-color 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    box-shadow 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    background 150ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.library-screen .song-card:hover,
+.library-screen .song-card:focus-within {
+  transform: translateY(-2px);
+  border-color: color-mix(in oklch, var(--product-deck-accent) 48%, oklch(94% 0.018 88 / 0.14));
+  background:
+    radial-gradient(circle at 88% 10%, color-mix(in oklch, var(--product-deck-accent) 16%, transparent), transparent 36%),
+    linear-gradient(145deg, color-mix(in oklch, var(--product-deck-accent) 12%, transparent), transparent 58%),
+    oklch(14% 0.048 263 / 0.84);
+  box-shadow:
+    0 20px 54px rgba(0, 0, 0, 0.3),
+    0 0 30px color-mix(in oklch, var(--product-deck-accent) 18%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.library-screen .song-card-header {
+  gap: 12px;
+}
+
+.library-screen .song-card-title {
+  font-size: 1.1rem;
+  line-height: 1.08;
+  letter-spacing: 0;
+}
+
+.library-screen .song-card-meta {
+  gap: 8px;
+}
+
+.library-screen .song-card-stats {
+  gap: 8px;
+}
+
+.library-screen .song-card-stats strong {
+  color: var(--product-deck-ink);
+  font-size: 0.98rem;
+}
+
+.library-screen .song-goal-row {
+  align-items: end;
+}
+
+.library-screen .song-goal-row input {
+  min-height: 34px;
+}
+
+.library-screen .song-card-actions {
+  gap: 8px;
+}
+
+.library-screen .song-card-actions .primary-button,
+.library-screen .song-card-actions .secondary-button,
+.library-screen .song-card-more-actions .secondary-button,
+.library-screen .song-card-more-actions .primary-button {
+  min-height: 34px;
+}
+
+.library-screen .difficulty-badge,
+.library-screen .song-tag,
+.library-screen .tag-chip {
+  border: 1px solid color-mix(in oklch, var(--product-deck-accent) 22%, transparent);
+  border-radius: 8px;
+  font-family: var(--font-meta);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+  clip-path: var(--product-deck-cut-sm);
+}
+
+.library-screen .difficulty-1,
+.library-screen .difficulty-2,
+.library-screen .difficulty-3 {
+  background: color-mix(in oklch, var(--product-success) 18%, transparent);
+  color: color-mix(in oklch, var(--product-success) 72%, var(--product-deck-ink));
+}
+
+.library-screen .difficulty-4,
+.library-screen .difficulty-5,
+.library-screen .difficulty-6 {
+  background: color-mix(in oklch, var(--product-warning) 18%, transparent);
+  color: color-mix(in oklch, var(--product-warning) 74%, var(--product-deck-ink));
+}
+
+.library-screen .difficulty-7,
+.library-screen .difficulty-8,
+.library-screen .difficulty-9,
+.library-screen .difficulty-10 {
+  background: color-mix(in oklch, var(--product-danger) 18%, transparent);
+  color: color-mix(in oklch, var(--product-danger) 72%, var(--product-deck-ink));
+}
+
+.library-screen .recommendation-carousel {
+  gap: 10px;
+}
+
+.library-screen .recommendation-card,
+.library-screen .practice-routine-step,
+.library-screen .playlist-row {
+  border: 1px solid var(--product-deck-soft-line);
+  border-radius: 8px;
+  background: var(--product-deck-card-bg);
+  clip-path: var(--product-deck-cut-sm);
+}
+
+.library-screen .practice-routine-step {
+  padding: 12px;
+}
+
+.library-screen .step-number {
+  border-radius: 8px;
+  background: color-mix(in oklch, var(--product-neon-orange) 18%, transparent);
+  color: color-mix(in oklch, var(--product-neon-orange) 74%, var(--product-deck-ink));
+  clip-path: var(--product-deck-cut-sm);
+}
+
+.library-screen .metadata-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.library-screen .metadata-grid label {
+  display: grid;
+  gap: 8px;
+}
+
+.library-screen .empty-state-panel {
+  padding: 28px;
+}
+
 /* ==========================================================================
    Results Page
    ========================================================================== */
@@ -4024,6 +5358,177 @@ select:focus {
     }
 }
 
+.lesson-screen {
+  --product-deck-accent: var(--product-neon-gold);
+  --product-deck-alt: var(--product-neon-cyan);
+  gap: 14px;
+}
+
+.lesson-screen .lesson-screen-hero,
+.lesson-screen .lesson-stepper,
+.lesson-screen .lesson-step-card,
+.lesson-screen .lesson-complete-panel,
+.lesson-screen .lesson-empty-state {
+  padding: 16px;
+}
+
+.lesson-screen .lesson-screen-hero h1 {
+  margin: 0;
+  font-size: 1.55rem;
+  line-height: 1.04;
+}
+
+.lesson-screen .lesson-hero-meta {
+  min-width: 154px;
+  border: 1px solid color-mix(in oklch, var(--product-deck-accent) 30%, oklch(94% 0.018 88 / 0.12));
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--product-deck-card-bg);
+  clip-path: var(--product-deck-cut-sm);
+}
+
+.lesson-screen .lesson-hero-meta strong {
+  color: color-mix(in oklch, var(--product-deck-accent) 76%, var(--product-deck-ink));
+  font-size: 1.28rem;
+  letter-spacing: 0;
+}
+
+.lesson-screen .lesson-layout {
+  grid-template-columns: minmax(250px, 310px) minmax(0, 1fr);
+  gap: 14px;
+}
+
+.lesson-screen .lesson-step-list {
+  gap: 8px;
+}
+
+.lesson-screen .lesson-step-button {
+  grid-template-columns: 32px minmax(0, 1fr);
+  border: 1px solid var(--product-deck-soft-line);
+  border-radius: 8px;
+  padding: 10px;
+  background: color-mix(in oklch, var(--product-deck-bg) 74%, transparent);
+  color: var(--product-deck-ink);
+  clip-path: var(--product-deck-cut-sm);
+  transition:
+    transform 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    border-color 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    box-shadow 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    background 150ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.lesson-screen .lesson-step-button:hover,
+.lesson-screen .lesson-step-button:focus-visible {
+  transform: translateY(-2px);
+  border-color: color-mix(in oklch, var(--product-deck-accent) 46%, oklch(94% 0.018 88 / 0.14));
+  box-shadow: 0 0 24px color-mix(in oklch, var(--product-deck-accent) 16%, transparent);
+}
+
+.lesson-screen .lesson-step-button span {
+  border-radius: 8px;
+  background: color-mix(in oklch, var(--product-deck-accent) 16%, transparent);
+  color: color-mix(in oklch, var(--product-deck-accent) 74%, var(--product-deck-ink));
+  font-family: var(--font-meta);
+  clip-path: var(--product-deck-cut-sm);
+}
+
+.lesson-screen .lesson-step-button strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lesson-screen .lesson-step-button.active {
+  border-color: color-mix(in oklch, var(--product-deck-accent) 62%, oklch(94% 0.018 88 / 0.16));
+  background:
+    linear-gradient(135deg, color-mix(in oklch, var(--product-deck-accent) 16%, transparent), transparent 58%),
+    color-mix(in oklch, var(--product-deck-bg) 92%, transparent);
+  box-shadow:
+    0 0 28px color-mix(in oklch, var(--product-deck-accent) 18%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.lesson-screen .lesson-step-button.completed span {
+  background: color-mix(in oklch, var(--product-success) 18%, transparent);
+  color: color-mix(in oklch, var(--product-success) 74%, var(--product-deck-ink));
+}
+
+.lesson-screen .lesson-step-header {
+  border-bottom: 1px solid var(--product-deck-soft-line);
+  padding-bottom: 10px;
+}
+
+.lesson-screen .lesson-step-card {
+  gap: 16px;
+}
+
+.lesson-screen .lesson-step-badge {
+  border: 1px solid color-mix(in oklch, var(--product-warning) 34%, oklch(94% 0.018 88 / 0.12));
+  border-radius: 8px;
+  background: color-mix(in oklch, var(--product-warning) 16%, transparent);
+  color: color-mix(in oklch, var(--product-warning) 74%, var(--product-deck-ink));
+  font-family: var(--font-meta);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+  clip-path: var(--product-deck-cut-sm);
+}
+
+.lesson-screen .lesson-step-badge.completed {
+  border-color: color-mix(in oklch, var(--product-success) 40%, oklch(94% 0.018 88 / 0.12));
+  background: color-mix(in oklch, var(--product-success) 16%, transparent);
+  color: color-mix(in oklch, var(--product-success) 74%, var(--product-deck-ink));
+}
+
+.lesson-screen .lesson-step-copy {
+  max-width: 74ch;
+}
+
+.lesson-screen .lesson-step-copy p {
+  color: var(--product-deck-muted);
+}
+
+.lesson-screen .lesson-diagram,
+.lesson-screen .lesson-finger-pill {
+  border: 1px solid var(--product-deck-soft-line);
+  border-radius: 8px;
+  background: var(--product-deck-card-bg);
+  clip-path: var(--product-deck-cut-sm);
+}
+
+.lesson-screen .lesson-inline-activity {
+  border: 1px solid var(--product-deck-soft-line);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--product-deck-card-bg);
+  clip-path: var(--product-deck-cut-sm);
+}
+
+.lesson-screen .lesson-step-footer {
+  border-top: 1px solid var(--product-deck-soft-line);
+  padding-top: 10px;
+}
+
+.lesson-screen .lesson-step-note {
+  color: var(--product-deck-quiet);
+}
+
+.lesson-screen .lesson-complete-panel {
+  align-items: center;
+}
+
+.lesson-screen .lesson-empty-state {
+  min-height: 220px;
+}
+
+@media (max-width: 1180px) {
+  .lesson-screen .lesson-layout {
+      grid-template-columns: 1fr;
+    }
+}
+
 /* ==========================================================================
    Theory, Interval, And Scale Practice Pages
    ========================================================================== */
@@ -4298,7 +5803,7 @@ select:focus {
 
 .free-play-visualizer-copy .eyebrow,
 .free-play-overlay-section .eyebrow {
-  color: #9fc4ff;
+  color: color-mix(in oklch, var(--product-deck-accent) 72%, var(--product-deck-ink));
 }
 
 .free-play-visualizer-copy .panel-copy {
@@ -4340,18 +5845,28 @@ select:focus {
 
 .free-play-visual-popout {
   position: absolute;
-  top: calc(100% + 14px);
-  right: 0;
-  z-index: 40;
-  width: min(460px, calc(100vw - 32px));
-  max-height: min(70vh, 760px);
+  top: 112px;
+  right: 32px;
+  z-index: 45;
+  width: min(460px, calc(100vw - 64px));
+  max-height: min(68vh, 620px);
+  display: grid;
+  gap: var(--product-deck-gap-md);
+  border: 1px solid var(--product-deck-line);
+  border-radius: 8px;
+  padding: 16px;
+  background: var(--product-deck-panel-bg);
+  color: var(--product-deck-ink);
+  box-shadow: var(--product-deck-shadow);
+  clip-path: var(--product-deck-cut-md);
+  backdrop-filter: blur(14px);
   overflow: auto;
   opacity: 0;
   pointer-events: none;
   transform: translateY(-10px) scale(0.98);
   transition:
-    opacity 150ms ease,
-    transform 150ms ease;
+    opacity 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    transform 150ms cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .free-play-visual-popout.open {
@@ -4361,16 +5876,16 @@ select:focus {
 }
 
 .free-play-overlay-section {
-  border-radius: 28px;
-  padding: 24px;
+  border-radius: 8px;
+  padding: 16px;
   display: grid;
-  gap: 18px;
+  gap: var(--product-deck-gap-md);
 }
 
 .free-play-mode-grid,
 .free-play-overlay-grid {
   display: grid;
-  gap: 14px;
+  gap: var(--product-deck-gap-md);
 }
 
 .free-play-mode-grid {
@@ -4380,48 +5895,56 @@ select:focus {
 .free-play-preset-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 14px;
+  gap: var(--product-deck-gap-sm);
+  margin-bottom: 0;
 }
 
 .free-play-preset-label {
-  font-size: 0.875rem;
-  color: var(--color-text-muted);
   margin-right: 4px;
 }
 
 .free-play-preset-btn {
-  padding: 6px 16px;
-  border-radius: 999px;
-  border: 1px solid var(--color-border);
-  background: color-mix(in srgb, var(--sub-panel-bg) 88%, transparent);
-  color: var(--color-text);
-  font-size: 0.875rem;
+  border: 1px solid color-mix(in oklch, var(--product-deck-accent) 26%, oklch(94% 0.018 88 / 0.12));
+  background:
+    linear-gradient(135deg, color-mix(in oklch, var(--product-deck-accent) 12%, transparent), transparent 60%),
+    color-mix(in oklch, var(--product-deck-bg) 90%, transparent);
+  color: var(--product-deck-ink);
   cursor: pointer;
-  transition: border-color 140ms ease, background 140ms ease;
+  transition:
+    transform 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    border-color 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    box-shadow 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    background 150ms cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .free-play-preset-btn:hover {
-  border-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
+  border-color: color-mix(in oklch, var(--product-deck-accent) 60%, var(--product-deck-ink));
 }
 
 .free-play-preset-btn.active {
-  background: color-mix(in srgb, var(--panel-bg-solid) 78%, var(--color-accent) 22%);
-  border-color: color-mix(in srgb, var(--color-accent) 50%, transparent);
-  color: var(--color-text);
+  background:
+    linear-gradient(135deg, color-mix(in oklch, var(--product-deck-accent) 16%, transparent), transparent 58%),
+    color-mix(in oklch, var(--product-deck-bg) 92%, transparent);
+  border-color: color-mix(in oklch, var(--product-deck-accent) 62%, oklch(94% 0.018 88 / 0.16));
+  color: var(--product-deck-ink);
 }
 
 .free-play-mode-card {
   display: grid;
   gap: 8px;
-  padding: 18px;
-  border-radius: 22px;
-  border: 1px solid var(--color-border);
-  background: color-mix(in srgb, var(--sub-panel-bg) 88%, transparent);
-  color: var(--color-text);
+  padding: 14px;
+  border-radius: 8px;
+  border: 1px solid var(--product-deck-soft-line);
+  background: var(--product-deck-card-bg);
+  color: var(--product-deck-ink);
   text-align: left;
+  clip-path: var(--product-deck-cut-sm);
   cursor: pointer;
-  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+  transition:
+    transform 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    border-color 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    box-shadow 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    background 150ms cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .free-play-mode-card strong {
@@ -4429,19 +5952,21 @@ select:focus {
 }
 
 .free-play-mode-card span {
-  color: var(--color-text-muted);
+  color: var(--product-deck-muted);
   line-height: 1.5;
 }
 
 .free-play-mode-card.active,
 .free-play-mode-card:hover {
   transform: translateY(-1px);
-  border-color: color-mix(in srgb, var(--color-accent) 34%, transparent);
-  box-shadow: 0 14px 32px color-mix(in srgb, var(--color-accent) 16%, transparent);
+  border-color: color-mix(in oklch, var(--product-deck-accent) 48%, oklch(94% 0.018 88 / 0.14));
+  box-shadow: 0 14px 32px color-mix(in oklch, var(--product-deck-accent) 16%, transparent);
 }
 
 .free-play-mode-card.active {
-  background: color-mix(in srgb, var(--panel-bg-solid) 82%, var(--color-accent) 18%);
+  background:
+    linear-gradient(135deg, color-mix(in oklch, var(--product-deck-accent) 16%, transparent), transparent 58%),
+    color-mix(in oklch, var(--product-deck-bg) 92%, transparent);
 }
 
 .free-play-mode-card.locked {
@@ -4451,7 +5976,7 @@ select:focus {
 
 .free-play-mode-card.locked:hover {
   transform: none;
-  border-color: var(--color-border);
+  border-color: var(--product-deck-soft-line);
   box-shadow: none;
 }
 
@@ -5685,6 +7210,208 @@ select:focus {
 @media (max-width: 780px) {
   .progress-empty-state-actions {
       width: 100%;
+    }
+}
+
+.progress-dashboard-screen {
+  --product-deck-accent: var(--product-neon-teal);
+  --product-deck-alt: var(--product-neon-orange);
+  --color-chart-bg: oklch(9% 0.036 263 / 0.76);
+  --color-chart-grid: color-mix(in oklch, var(--product-deck-accent) 18%, transparent);
+  --color-good: var(--product-success);
+  --color-accent-secondary: var(--product-neon-orange);
+  gap: 14px;
+}
+
+.progress-dashboard-screen .progress-hero-card,
+.progress-dashboard-screen .progress-empty-state-card {
+  padding: 16px;
+  gap: 18px;
+}
+
+.progress-dashboard-screen .progress-hero-copy {
+  gap: 8px;
+}
+
+.progress-dashboard-screen .progress-hero-card h1 {
+  font-size: 1.55rem;
+  line-height: 1.04;
+}
+
+.progress-dashboard-screen .progress-hero-highlight {
+  min-width: 190px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in oklch, var(--product-neon-orange) 36%, oklch(94% 0.018 88 / 0.12));
+  padding: 18px;
+  background:
+    radial-gradient(circle at 76% 18%, color-mix(in oklch, var(--product-neon-orange) 22%, transparent), transparent 38%),
+    linear-gradient(145deg, color-mix(in oklch, var(--product-deck-accent) 14%, transparent), transparent 58%),
+    oklch(13% 0.044 263 / 0.78);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 0 34px color-mix(in oklch, var(--product-neon-orange) 16%, transparent);
+  clip-path: var(--product-deck-cut-md);
+}
+
+.progress-dashboard-screen .progress-hero-highlight strong {
+  color: color-mix(in oklch, var(--product-neon-orange) 74%, var(--product-deck-ink));
+  font-size: 4.2rem;
+  letter-spacing: 0;
+  text-shadow: 0 0 24px color-mix(in oklch, var(--product-neon-orange) 26%, transparent);
+}
+
+.progress-dashboard-screen .progress-hero-highlight span {
+  color: var(--product-deck-muted);
+  font-family: var(--font-meta);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+}
+
+.progress-dashboard-screen .progress-hero-stats {
+  gap: 10px;
+}
+
+.progress-dashboard-screen .progress-hero-stat,
+.progress-dashboard-screen .achievement-card {
+  border: 1px solid var(--product-deck-soft-line);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--product-deck-card-bg);
+  clip-path: var(--product-deck-cut-sm);
+}
+
+.progress-dashboard-screen .progress-hero-stat span,
+.progress-dashboard-screen .top-songs-plays,
+.progress-dashboard-screen .trouble-spots-global-range {
+  color: var(--product-deck-quiet);
+}
+
+.progress-dashboard-screen .progress-hero-stat strong {
+  color: var(--product-deck-ink);
+  font-size: 1.05rem;
+  letter-spacing: 0;
+}
+
+.progress-dashboard-screen .daily-goal-bar-track {
+  border: 1px solid color-mix(in oklch, var(--product-deck-accent) 20%, transparent);
+  background: oklch(8% 0.032 268 / 0.66);
+}
+
+.progress-dashboard-screen .daily-goal-bar-fill {
+  background: linear-gradient(90deg, var(--product-deck-accent), var(--product-neon-orange));
+  box-shadow: 0 0 18px color-mix(in oklch, var(--product-deck-accent) 28%, transparent);
+}
+
+.progress-dashboard-screen .progress-primary-chart-grid,
+.progress-dashboard-screen .progress-secondary-grid {
+  gap: 12px;
+}
+
+.progress-dashboard-screen .chart-panel,
+.progress-dashboard-screen .top-songs-panel,
+.progress-dashboard-screen .trouble-spots-global-panel,
+.progress-dashboard-screen .achievements-panel {
+  padding: 14px;
+}
+
+.progress-dashboard-screen .chart-canvas {
+  min-height: 230px;
+  border: 1px solid var(--product-deck-soft-line);
+  border-radius: 8px;
+  background: oklch(9% 0.036 263 / 0.76);
+  clip-path: var(--product-deck-cut-sm);
+}
+
+.progress-dashboard-screen .progress-inline-empty {
+  min-height: 230px;
+  padding: 14px;
+  border: 1px solid var(--product-deck-soft-line);
+  border-radius: 8px;
+  background: var(--product-deck-card-bg);
+  clip-path: var(--product-deck-cut-sm);
+}
+
+.progress-dashboard-screen .top-songs-list,
+.progress-dashboard-screen .trouble-spots-global-list {
+  gap: 8px;
+}
+
+.progress-dashboard-screen .top-songs-item,
+.progress-dashboard-screen .trouble-spots-global-item {
+  border: 1px solid var(--product-deck-soft-line);
+  border-radius: 8px;
+  padding: 9px 10px;
+  background: color-mix(in oklch, var(--product-deck-bg) 76%, transparent);
+  clip-path: var(--product-deck-cut-sm);
+}
+
+.progress-dashboard-screen .top-songs-item:last-child,
+.progress-dashboard-screen .trouble-spots-global-item:last-child {
+  border-bottom: 1px solid var(--product-deck-soft-line);
+}
+
+.progress-dashboard-screen .top-songs-rank {
+  color: color-mix(in oklch, var(--product-deck-accent) 68%, var(--product-deck-ink));
+  font-family: var(--font-meta);
+  font-weight: 800;
+}
+
+.progress-dashboard-screen .top-songs-title {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--product-deck-ink);
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.progress-dashboard-screen .top-songs-title:disabled {
+  cursor: default;
+  opacity: 0.75;
+}
+
+.progress-dashboard-screen .top-songs-accuracy {
+  color: color-mix(in oklch, var(--product-success) 74%, var(--product-deck-ink));
+}
+
+.progress-dashboard-screen .trouble-spots-global-acc {
+  color: color-mix(in oklch, var(--product-danger) 72%, var(--product-deck-ink));
+}
+
+.progress-dashboard-screen .trouble-spots-global-struggles {
+  color: var(--product-deck-muted);
+}
+
+.progress-dashboard-screen .achievement-grid {
+  gap: 10px;
+}
+
+.progress-dashboard-screen .achievement-card.unlocked {
+  border-color: color-mix(in oklch, var(--product-success) 38%, oklch(94% 0.018 88 / 0.12));
+  background:
+    radial-gradient(circle at 88% 12%, color-mix(in oklch, var(--product-success) 16%, transparent), transparent 38%),
+    linear-gradient(145deg, color-mix(in oklch, var(--product-success) 10%, transparent), transparent 58%),
+    oklch(13% 0.044 263 / 0.78);
+}
+
+.progress-dashboard-screen .achievement-card-icon {
+  border-radius: 8px;
+  background: color-mix(in oklch, var(--product-success) 18%, transparent);
+  color: color-mix(in oklch, var(--product-success) 72%, var(--product-deck-ink));
+  clip-path: var(--product-deck-cut-sm);
+}
+
+.progress-dashboard-screen .maestro-title-badge {
+  color: color-mix(in oklch, var(--product-neon-gold) 76%, var(--product-deck-ink));
+  letter-spacing: 0.075em;
+}
+
+@media (max-width: 1180px) {
+  .progress-dashboard-screen .progress-hero-highlight strong {
+      font-size: 3.4rem;
     }
 }
 
@@ -7880,4 +9607,582 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
       justify-items: start;
       text-align: left;
     }
+}
+
+/* ==========================================================================
+   Learn, Lesson, And Theory Product Deck Overrides
+   ========================================================================== */
+
+.learn-hub-screen {
+  --product-deck-accent: var(--product-neon-gold);
+  --product-deck-alt: var(--product-neon-teal);
+  gap: 14px;
+}
+
+.lesson-screen {
+  --product-deck-accent: var(--product-neon-gold);
+  --product-deck-alt: var(--product-neon-cyan);
+  gap: 14px;
+}
+
+.theory-hub-screen {
+  --product-deck-accent: var(--product-neon-magenta);
+  --product-deck-alt: var(--product-neon-teal);
+  gap: 14px;
+}
+
+.theory-practice-screen {
+  --product-deck-accent: var(--product-neon-teal);
+  --product-deck-alt: var(--product-neon-orange);
+  --color-accent: var(--product-deck-accent);
+  --color-chart-bg: oklch(9% 0.036 263 / 0.76);
+  --color-chart-grid: color-mix(in oklch, var(--product-deck-accent) 18%, transparent);
+  gap: 14px;
+}
+
+.learn-hub-screen .panel,
+.lesson-screen .panel,
+.theory-hub-screen .panel,
+.theory-practice-screen .panel {
+  border: 1px solid var(--product-deck-line);
+  border-radius: 8px;
+  background: var(--product-deck-panel-bg);
+  color: var(--product-deck-ink);
+  box-shadow: var(--product-deck-shadow);
+  clip-path: var(--product-deck-cut-md);
+  backdrop-filter: none;
+}
+
+.learn-hub-screen .panel h1,
+.learn-hub-screen .panel h2,
+.learn-hub-screen .panel h3,
+.lesson-screen .panel h1,
+.lesson-screen .panel h2,
+.lesson-screen .panel h3,
+.theory-hub-screen .panel h1,
+.theory-hub-screen .panel h2,
+.theory-hub-screen .panel h3,
+.theory-practice-screen .panel h1,
+.theory-practice-screen .panel h2,
+.theory-practice-screen .panel h3 {
+  margin: 0;
+  color: var(--product-deck-ink);
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.06;
+}
+
+.learn-hub-screen .panel h1,
+.lesson-screen .panel h1,
+.theory-hub-screen .panel h1,
+.theory-practice-screen .panel h1 {
+  font-size: 1.55rem;
+  line-height: 1.04;
+}
+
+.learn-hub-screen .panel h2,
+.lesson-screen .panel h2,
+.theory-hub-screen .panel h2,
+.theory-practice-screen .panel h2 {
+  font-size: 1.2rem;
+}
+
+.learn-hub-screen .song-title,
+.learn-hub-screen .panel-copy,
+.lesson-screen .song-title,
+.lesson-screen .panel-copy,
+.theory-hub-screen .song-title,
+.theory-hub-screen .panel-copy,
+.theory-practice-screen .song-title,
+.theory-practice-screen .panel-copy {
+  color: var(--product-deck-muted);
+}
+
+.learn-hub-screen .eyebrow,
+.lesson-screen .eyebrow,
+.theory-hub-screen .eyebrow,
+.theory-practice-screen .eyebrow {
+  color: color-mix(in oklch, var(--product-deck-accent) 72%, var(--product-deck-ink));
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.075em;
+  text-shadow: 0 0 20px color-mix(in oklch, var(--product-deck-accent) 26%, transparent);
+}
+
+.learn-hub-screen .theory-hub-hero,
+.learn-hub-screen .learn-hub-controls,
+.learn-hub-screen .learn-tier,
+.lesson-screen .lesson-screen-hero,
+.lesson-screen .lesson-stepper,
+.lesson-screen .lesson-step-card,
+.lesson-screen .lesson-complete-panel,
+.lesson-screen .lesson-empty-state,
+.theory-hub-screen .theory-hub-hero,
+.theory-hub-screen .theory-card,
+.theory-practice-screen .theory-screen-hero,
+.theory-practice-screen .theory-settings-panel,
+.theory-practice-screen .theory-question-panel,
+.theory-practice-screen .theory-review-panel,
+.theory-practice-screen .scale-fingering-panel {
+  padding: 16px;
+}
+
+.learn-hub-screen .theory-hub-hero,
+.lesson-screen .lesson-screen-hero,
+.theory-hub-screen .theory-hub-hero,
+.theory-practice-screen .theory-screen-hero {
+  gap: var(--product-deck-gap-xl);
+}
+
+.learn-hub-screen .learn-hub-summary,
+.learn-hub-screen .learn-tier-meta,
+.lesson-screen .lesson-hero-meta {
+  min-width: 154px;
+  border: 1px solid color-mix(in oklch, var(--product-deck-accent) 30%, oklch(94% 0.018 88 / 0.12));
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--product-deck-card-bg);
+  color: var(--product-deck-muted);
+  clip-path: var(--product-deck-cut-sm);
+}
+
+.learn-hub-screen .learn-hub-summary strong,
+.learn-hub-screen .learn-tier-meta strong,
+.lesson-screen .lesson-hero-meta strong {
+  color: color-mix(in oklch, var(--product-deck-accent) 76%, var(--product-deck-ink));
+  font-size: 1.28rem;
+  letter-spacing: 0;
+}
+
+.learn-hub-screen .learn-hub-summary span,
+.learn-hub-screen .learn-tier-meta span,
+.lesson-screen .lesson-hero-meta span {
+  color: var(--product-deck-quiet);
+  font-family: var(--font-meta);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+}
+
+.learn-hub-screen .learn-hub-controls {
+  gap: 12px;
+}
+
+.learn-hub-screen .learn-hub-toggle {
+  color: var(--product-deck-ink);
+  font-family: var(--font-meta);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+}
+
+.learn-hub-screen .learn-hub-toggle input {
+  accent-color: var(--product-deck-accent);
+}
+
+.learn-hub-screen .learn-tier-list,
+.learn-hub-screen .learn-tier,
+.learn-hub-screen .learn-tier-lessons,
+.lesson-screen .lesson-layout,
+.lesson-screen .lesson-step-list,
+.theory-hub-screen .theory-card-grid,
+.theory-practice-screen .theory-choice-grid,
+.theory-practice-screen .theory-type-select,
+.theory-practice-screen .scale-fingering-rows {
+  gap: 12px;
+}
+
+.lesson-screen .lesson-layout {
+  grid-template-columns: minmax(250px, 310px) minmax(0, 1fr);
+}
+
+.learn-hub-screen .learn-tier-header {
+  gap: 16px;
+  color: var(--product-deck-ink);
+}
+
+.learn-hub-screen .learn-tier-progress-bar,
+.learn-hub-screen .learn-lesson-progress-bar,
+.progress-dashboard-screen .daily-goal-bar-track {
+  height: 8px;
+  border: 1px solid color-mix(in oklch, var(--product-deck-accent) 20%, transparent);
+  border-radius: 999px;
+  background: oklch(8% 0.032 268 / 0.66);
+  overflow: hidden;
+}
+
+.learn-hub-screen .learn-tier-progress-bar span,
+.learn-hub-screen .learn-lesson-progress-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--product-deck-accent), var(--product-neon-orange));
+  box-shadow: 0 0 18px color-mix(in oklch, var(--product-deck-accent) 28%, transparent);
+}
+
+.learn-hub-screen .learn-lesson-card,
+.learn-hub-screen .learn-capstone-card,
+.lesson-screen .lesson-step-button,
+.lesson-screen .lesson-diagram,
+.lesson-screen .lesson-finger-pill,
+.lesson-screen .lesson-inline-activity,
+.theory-hub-screen .theory-card-stats > div,
+.theory-practice-screen .status-card,
+.theory-practice-screen .theory-review-list li,
+.theory-practice-screen .fingering-cell,
+.theory-practice-screen .note-staff-container {
+  border: 1px solid var(--product-deck-soft-line);
+  border-radius: 8px;
+  background: var(--product-deck-card-bg);
+  color: var(--product-deck-ink);
+  clip-path: var(--product-deck-cut-sm);
+}
+
+.learn-hub-screen .learn-lesson-card,
+.learn-hub-screen .learn-capstone-card,
+.lesson-screen .lesson-step-button {
+  transition:
+    transform 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    border-color 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    box-shadow 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    background 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    opacity 150ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.learn-hub-screen .learn-lesson-card:hover:not(:disabled),
+.learn-hub-screen .learn-lesson-card:focus-visible:not(:disabled),
+.lesson-screen .lesson-step-button:hover,
+.lesson-screen .lesson-step-button:focus-visible {
+  transform: translateY(-2px);
+  border-color: color-mix(in oklch, var(--product-deck-accent) 48%, oklch(94% 0.018 88 / 0.14));
+  background:
+    radial-gradient(circle at 88% 10%, color-mix(in oklch, var(--product-deck-accent) 16%, transparent), transparent 36%),
+    linear-gradient(145deg, color-mix(in oklch, var(--product-deck-accent) 12%, transparent), transparent 58%),
+    oklch(14% 0.048 263 / 0.84);
+  box-shadow:
+    0 20px 54px rgba(0, 0, 0, 0.3),
+    0 0 30px color-mix(in oklch, var(--product-deck-accent) 18%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.learn-hub-screen .learn-lesson-card.completed,
+.learn-hub-screen .learn-capstone-card.cleared {
+  border-color: color-mix(in oklch, var(--product-success) 40%, oklch(94% 0.018 88 / 0.12));
+  background:
+    radial-gradient(circle at 88% 12%, color-mix(in oklch, var(--product-success) 16%, transparent), transparent 38%),
+    linear-gradient(145deg, color-mix(in oklch, var(--product-success) 10%, transparent), transparent 58%),
+    oklch(13% 0.044 263 / 0.78);
+}
+
+.learn-hub-screen .learn-lesson-card.disabled,
+.learn-hub-screen .learn-capstone-card.locked {
+  opacity: 0.58;
+}
+
+.learn-hub-screen .learn-lesson-status,
+.lesson-screen .lesson-step-button span,
+.lesson-screen .lesson-step-badge {
+  border: 1px solid color-mix(in oklch, var(--product-deck-accent) 30%, oklch(94% 0.018 88 / 0.12));
+  border-radius: 8px;
+  background: color-mix(in oklch, var(--product-deck-accent) 16%, transparent);
+  color: color-mix(in oklch, var(--product-deck-accent) 74%, var(--product-deck-ink));
+  font-family: var(--font-meta);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+  clip-path: var(--product-deck-cut-sm);
+}
+
+.learn-hub-screen .learn-lesson-card.completed .learn-lesson-status,
+.lesson-screen .lesson-step-button.completed span,
+.lesson-screen .lesson-step-badge.completed {
+  border-color: color-mix(in oklch, var(--product-success) 40%, oklch(94% 0.018 88 / 0.12));
+  background: color-mix(in oklch, var(--product-success) 16%, transparent);
+  color: color-mix(in oklch, var(--product-success) 74%, var(--product-deck-ink));
+}
+
+.learn-hub-screen .learn-lesson-meta strong,
+.learn-hub-screen .learn-lesson-progress-copy strong {
+  color: var(--product-deck-ink);
+}
+
+.learn-hub-screen .learn-lesson-meta span {
+  color: var(--product-deck-quiet);
+  font-family: var(--font-meta);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+}
+
+.learn-hub-screen .learn-capstone-badge {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  border: 1px solid color-mix(in oklch, var(--product-neon-orange) 34%, oklch(94% 0.018 88 / 0.12));
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: color-mix(in oklch, var(--product-neon-orange) 16%, transparent);
+  color: color-mix(in oklch, var(--product-neon-orange) 76%, var(--product-deck-ink));
+  font-size: 1.35rem;
+  clip-path: var(--product-deck-cut-sm);
+}
+
+.lesson-screen .lesson-step-button {
+  grid-template-columns: 32px minmax(0, 1fr);
+  padding: 10px;
+  text-align: left;
+}
+
+.lesson-screen .lesson-step-button strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--product-deck-ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lesson-screen .lesson-step-button.active {
+  border-color: color-mix(in oklch, var(--product-deck-accent) 62%, oklch(94% 0.018 88 / 0.16));
+  background:
+    linear-gradient(135deg, color-mix(in oklch, var(--product-deck-accent) 16%, transparent), transparent 58%),
+    color-mix(in oklch, var(--product-deck-bg) 92%, transparent);
+  box-shadow:
+    0 0 28px color-mix(in oklch, var(--product-deck-accent) 18%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.lesson-screen .lesson-step-header {
+  border-bottom: 1px solid var(--product-deck-soft-line);
+  padding-bottom: 10px;
+}
+
+.lesson-screen .lesson-step-footer {
+  border-top: 1px solid var(--product-deck-soft-line);
+  padding-top: 10px;
+}
+
+.lesson-screen .lesson-step-copy {
+  max-width: 74ch;
+}
+
+.lesson-screen .lesson-step-copy p,
+.lesson-screen .lesson-step-note {
+  color: var(--product-deck-muted);
+}
+
+.lesson-screen .lesson-diagram,
+.lesson-screen .lesson-inline-activity {
+  padding: 12px;
+}
+
+.lesson-screen .lesson-finger-pill {
+  padding: 14px 12px;
+}
+
+.lesson-screen .lesson-finger-pill span {
+  color: color-mix(in oklch, var(--product-deck-accent) 76%, var(--product-deck-ink));
+  font-size: 1.35rem;
+}
+
+.lesson-screen .lesson-keyboard-label {
+  border: 1px solid var(--product-deck-soft-line);
+  border-radius: 8px;
+  background: oklch(10% 0.04 263 / 0.86);
+  color: var(--product-deck-ink);
+  clip-path: var(--product-deck-cut-sm);
+}
+
+.theory-hub-screen .theory-card-grid {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.theory-hub-screen .theory-card {
+  gap: 14px;
+}
+
+.theory-hub-screen .theory-card-stats {
+  gap: 8px;
+}
+
+.theory-hub-screen .theory-card-stats > div {
+  padding: 10px;
+}
+
+.theory-hub-screen .theory-card-stats span,
+.theory-practice-screen .status-card span,
+.theory-practice-screen .theory-settings-panel label > span,
+.theory-practice-screen .fingering-hand-label {
+  color: var(--product-deck-quiet);
+  font-family: var(--font-meta);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+}
+
+.theory-hub-screen .theory-card-stats strong,
+.theory-practice-screen .status-card strong {
+  color: var(--product-deck-ink);
+}
+
+.theory-practice-screen .theory-settings-panel {
+  gap: 12px;
+  align-items: end;
+}
+
+.theory-practice-screen .theory-settings-panel label {
+  display: grid;
+  gap: 8px;
+}
+
+.theory-practice-screen input[type="range"] {
+  accent-color: var(--product-deck-accent);
+}
+
+.theory-practice-screen .status-strip {
+  gap: 10px;
+}
+
+.theory-practice-screen .status-card {
+  padding: 12px;
+}
+
+.theory-practice-screen .theory-choice-button {
+  min-height: 58px;
+}
+
+.theory-practice-screen .note-staff-container {
+  justify-self: center;
+  width: min(100%, 300px);
+  padding: 12px;
+}
+
+.theory-practice-screen .note-staff-svg {
+  color: color-mix(in oklch, var(--product-deck-accent) 72%, var(--product-deck-ink));
+  filter: drop-shadow(0 0 14px color-mix(in oklch, var(--product-deck-accent) 22%, transparent));
+}
+
+.theory-practice-screen .theory-review-list {
+  gap: 8px;
+}
+
+.theory-practice-screen .theory-review-list li {
+  padding: 12px;
+}
+
+.theory-practice-screen .theory-review-list li strong {
+  color: var(--product-deck-ink);
+}
+
+.theory-practice-screen .theory-review-list .review-correct {
+  border-color: color-mix(in oklch, var(--product-success) 40%, oklch(94% 0.018 88 / 0.12));
+  background:
+    linear-gradient(135deg, color-mix(in oklch, var(--product-success) 14%, transparent), transparent 58%),
+    oklch(13% 0.044 263 / 0.78);
+}
+
+.theory-practice-screen .theory-review-list .review-incorrect {
+  border-color: color-mix(in oklch, var(--product-danger) 40%, oklch(94% 0.018 88 / 0.12));
+  background:
+    linear-gradient(135deg, color-mix(in oklch, var(--product-danger) 14%, transparent), transparent 58%),
+    oklch(13% 0.044 263 / 0.78);
+}
+
+.theory-practice-screen .scale-fingering-panel {
+  gap: 12px;
+}
+
+.theory-practice-screen .scale-fingering-row {
+  gap: 6px;
+}
+
+.theory-practice-screen .fingering-cell {
+  min-width: 34px;
+  padding: 7px 5px;
+}
+
+.theory-practice-screen .fingering-cell--active {
+  border-color: color-mix(in oklch, var(--product-neon-orange) 58%, oklch(94% 0.018 88 / 0.12));
+  background:
+    radial-gradient(circle at 50% 16%, color-mix(in oklch, var(--product-neon-orange) 22%, transparent), transparent 48%),
+    oklch(16% 0.052 263 / 0.88);
+  box-shadow: 0 0 22px color-mix(in oklch, var(--product-neon-orange) 24%, transparent);
+}
+
+.theory-practice-screen .fingering-finger {
+  color: var(--product-deck-ink);
+}
+
+.theory-practice-screen .fingering-note {
+  color: var(--product-deck-quiet);
+}
+
+.theory-practice-screen .fingering-cell--active .fingering-finger,
+.theory-practice-screen .fingering-cell--active .fingering-note {
+  color: color-mix(in oklch, var(--product-neon-orange) 78%, var(--product-deck-ink));
+}
+
+.theory-practice-screen .keyboard-shell {
+  border: 1px solid var(--product-deck-line);
+  border-radius: 8px;
+  padding: 14px;
+  background: var(--product-deck-panel-bg);
+  box-shadow: var(--product-deck-shadow);
+  clip-path: var(--product-deck-cut-md);
+}
+
+.theory-practice-screen .keyboard-stage {
+  border: 1px solid var(--product-deck-soft-line);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, oklch(13% 0.045 263), oklch(7% 0.026 268));
+  clip-path: var(--product-deck-cut-sm);
+}
+
+.learn-hub-screen .primary-button,
+.learn-hub-screen .secondary-button,
+.lesson-screen .primary-button,
+.lesson-screen .secondary-button,
+.theory-hub-screen .primary-button,
+.theory-hub-screen .secondary-button,
+.theory-practice-screen .primary-button,
+.theory-practice-screen .secondary-button {
+  min-height: 40px;
+  border-radius: 8px;
+  padding: 8px 11px;
+  font-family: var(--font-meta);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.075em;
+  line-height: 1.05;
+  text-transform: uppercase;
+  clip-path: var(--product-deck-cut-sm);
+}
+
+.learn-hub-screen .primary-button,
+.lesson-screen .primary-button,
+.theory-hub-screen .primary-button,
+.theory-practice-screen .primary-button {
+  border: 1px solid color-mix(in oklch, var(--product-deck-accent) 70%, var(--product-deck-ink));
+  background: linear-gradient(135deg, var(--product-deck-accent), color-mix(in oklch, var(--product-deck-accent) 58%, var(--product-deck-ink)));
+  color: oklch(17% 0.045 263);
+  box-shadow: 0 0 24px color-mix(in oklch, var(--product-deck-accent) 30%, transparent);
+}
+
+.learn-hub-screen .secondary-button,
+.lesson-screen .secondary-button,
+.theory-hub-screen .secondary-button,
+.theory-practice-screen .secondary-button {
+  border: 1px solid color-mix(in oklch, var(--product-deck-accent) 26%, oklch(94% 0.018 88 / 0.12));
+  background:
+    linear-gradient(135deg, color-mix(in oklch, var(--product-deck-accent) 12%, transparent), transparent 60%),
+    color-mix(in oklch, var(--product-deck-bg) 90%, transparent);
+  color: var(--product-deck-ink);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
