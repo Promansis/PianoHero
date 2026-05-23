@@ -30,9 +30,18 @@ describe('ImmersiveInstrumentControl', () => {
     render(<ImmersiveInstrumentControl instrumentId="acoustic-piano" onInstrumentChange={onInstrumentChange} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Show instrument controls' }));
-    fireEvent.click(screen.getByRole('button', { name: /Organ/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Organ' }));
 
     expect(onInstrumentChange).toHaveBeenCalledWith('organ');
     expect(screen.getByTestId('immersive-instrument-popout')).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  it('reveals instrument descriptions from compact info controls', () => {
+    render(<ImmersiveInstrumentControl instrumentId="acoustic-piano" onInstrumentChange={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show instrument controls' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Organ info' }));
+
+    expect(screen.getByText(/Sampled pipe organ/i)).toBeInTheDocument();
   });
 });

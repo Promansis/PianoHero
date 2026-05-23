@@ -1,5 +1,6 @@
 import { type RefObject, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { Info } from 'lucide-react';
 import { getInstrumentDefinition, INSTRUMENTS, isInstrumentSelectable } from '../../lib/audio/instrumentCatalog';
 import { isRewardUnlocked, REWARD_CATALOG } from '../../lib/rewards/rewardCatalog';
 import type { InstrumentSamplePackStatus } from '../../shared/ipc';
@@ -25,6 +26,7 @@ export function ImmersiveInstrumentControl({
 }: ImmersiveInstrumentControlProps) {
   const [isPinned, setIsPinned] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const [openInfoInstrumentId, setOpenInfoInstrumentId] = useState<string | null>(null);
   const controlRef = useRef<HTMLDivElement | null>(null);
   const popoutRef = useRef<HTMLElement | null>(null);
   const selectedInstrument = getInstrumentDefinition(instrumentId);
@@ -100,26 +102,48 @@ export function ImmersiveInstrumentControl({
               : instrument.description;
 
           return (
-            <button
+            <div
               key={instrument.id}
-              className={`immersive-instrument-option${instrument.id === selectedInstrument.id ? ' active' : ''}`}
-              disabled={disabled}
-              onClick={() => {
-                if (disabled || instrument.id === selectedInstrument.id) {
-                  return;
-                }
-                onInstrumentChange(instrument.id);
-                setIsPinned(false);
-                setIsHovered(false);
-              }}
+              className={`immersive-instrument-option${instrument.id === selectedInstrument.id ? ' active' : ''}${disabled ? ' disabled' : ''}`}
               title={status}
-              type="button"
             >
-              <span className="immersive-instrument-option-label">
+              <button
+                className="immersive-instrument-option-select"
+                disabled={disabled}
+                onClick={() => {
+                  if (disabled || instrument.id === selectedInstrument.id) {
+                    return;
+                  }
+                  onInstrumentChange(instrument.id);
+                  setIsPinned(false);
+                  setIsHovered(false);
+                }}
+                type="button"
+              >
                 {locked ? `Locked: ${instrument.label}` : instrument.label}
+              </button>
+              <span className="card-info-control">
+                <span
+                  className={`card-info-popover${openInfoInstrumentId === instrument.id ? ' open' : ''}`}
+                  role="status"
+                >
+                  {status}
+                </span>
+                <button
+                  className="card-info-button"
+                  aria-label={`${instrument.label} info`}
+                  aria-pressed={openInfoInstrumentId === instrument.id}
+                  title={status}
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setOpenInfoInstrumentId((current) => (current === instrument.id ? null : instrument.id));
+                  }}
+                >
+                  <Info size={13} strokeWidth={2.2} aria-hidden="true" />
+                </button>
               </span>
-              <span className="immersive-instrument-option-copy">{status}</span>
-            </button>
+            </div>
           );
         })}
       </div>
