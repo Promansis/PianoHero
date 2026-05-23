@@ -1545,7 +1545,8 @@ select:focus {
 .immersive-hud {
   position: relative;
   z-index: 1;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: var(--product-deck-gap-md);
   padding: 8px 12px 10px;
@@ -1575,11 +1576,13 @@ select:focus {
 }
 
 .immersive-hud-core {
+  grid-column: 1;
   display: flex;
   align-items: center;
   gap: var(--product-deck-gap-md);
   flex: 1 1 auto;
   min-width: 0;
+  justify-self: start;
 }
 
 .immersive-hud-stats {
@@ -1680,6 +1683,7 @@ select:focus {
 .immersive-hud-actions,
 .free-play-hud-actions,
 .animal-soundboard-hud-actions {
+  grid-column: 3;
   display: flex;
   align-items: center;
   gap: var(--product-deck-gap-sm);
@@ -1690,14 +1694,17 @@ select:focus {
   position: relative;
   z-index: 2;
   overflow: visible;
+  justify-self: end;
 }
 
 .immersive-hud-nav {
+  grid-column: 2;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
   min-width: 0;
+  justify-self: center;
   overflow-x: auto;
   scrollbar-width: none;
 }
