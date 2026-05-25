@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ACHIEVEMENTS } from '../lib/achievements/achievementDefinitions';
 import { App } from './App';
-import type { AchievementRow } from '../shared/dbTypes';
+import type { AchievementRow, SongRow } from '../shared/dbTypes';
 
 const preloadSpy = vi.fn(() => Promise.resolve());
 const unlockSpy = vi.fn(() => Promise.resolve());
@@ -24,6 +24,7 @@ vi.mock('./components/MainMenuScreen', () => ({
     onOpenProgress,
     onOpenSoundboard,
     onOpenSettings,
+    onStartSong,
   }: {
     onOpenLibrary: () => void;
     onOpenFreePlay: () => void;
@@ -31,6 +32,7 @@ vi.mock('./components/MainMenuScreen', () => ({
     onOpenProgress: () => void;
     onOpenSoundboard: () => void;
     onOpenSettings: () => void;
+    onStartSong: (song: SongRow) => void;
   }) => (
     <>
       <button onClick={onOpenLibrary}>Open Library</button>
@@ -39,6 +41,27 @@ vi.mock('./components/MainMenuScreen', () => ({
       <button onClick={onOpenProgress}>Open Progress</button>
       <button onClick={onOpenSoundboard}>Open Soundboard</button>
       <button onClick={onOpenSettings}>Open Settings</button>
+      <button
+        onClick={() => onStartSong({
+          id: 'quick-song',
+          title: 'Quick Song',
+          artist: '',
+          genre: '',
+          filePath: '/tmp/quick.mid',
+          difficulty: 3,
+          durationSec: 60,
+          bpm: 120,
+          noteCount: 100,
+          dateAdded: '2026-04-18T00:00:00.000Z',
+          timesPlayed: 0,
+          tags: [],
+          isFavorite: false,
+          folderId: null,
+          trackAssignments: { left: 'left', right: 'right' },
+        })}
+      >
+        Start Recommended Song
+      </button>
     </>
   ),
 }));
@@ -360,6 +383,17 @@ describe('App', () => {
     fireEvent.click(await screen.findByText('Open Soundboard'));
 
     expect(screen.getByText('Mock Soundboard')).toBeInTheDocument();
+  });
+
+  it('starts the main menu recommended song in scored play mode', async () => {
+    render(<App />);
+
+    fireEvent.click(await screen.findByText('Start Recommended Song'));
+
+    expect(screen.getByText('Game')).toBeInTheDocument();
+    expect(screen.getByTestId('game-source-kind')).toHaveTextContent('library-song');
+    expect(screen.getByTestId('game-session-mode')).toHaveTextContent('piano-hero');
+    expect(screen.getByTestId('game-session-wait')).toHaveTextContent('false');
   });
 
   it('applies the neon dataset theme when the settings screen selects it', async () => {

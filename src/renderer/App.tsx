@@ -1417,6 +1417,7 @@ export function App() {
           onOpenProgress={() => setCurrentScreen({ screen: 'progress-dashboard' })}
           onOpenSettings={() => setCurrentScreen({ screen: 'settings' })}
           onOpenSetup={() => setCurrentScreen({ screen: 'setup' })}
+          onStartSong={(song) => startSongSession(song, 'piano-hero')}
         />
       );
       break;
@@ -1838,7 +1839,7 @@ export function App() {
         screenContent
       )}
       {startupError && (
-        <aside className="achievement-toast achievement-toast--goal" role="status" aria-live="polite">
+        <aside className="achievement-toast achievement-toast--goal achievement-toast--plain" role="status" aria-live="polite">
           <div>
             <p className="eyebrow">Startup Defaults Active</p>
             <strong>{startupError}</strong>

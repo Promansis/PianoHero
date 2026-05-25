@@ -1,5 +1,12 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode } from 'react';
+import type {
+  LibrarySnapshot,
+  PracticeStreak,
+  RecommendationItem,
+  SongRow,
+  UserStatsRow,
+} from '../../shared/dbTypes';
 
 interface MainMenuScreenProps {
   onOpenLibrary: () => void;
@@ -10,6 +17,7 @@ interface MainMenuScreenProps {
   onOpenProgress: () => void;
   onOpenSettings: () => void;
   onOpenSetup: () => void;
+  onStartSong: (song: SongRow) => void;
 }
 
 type MenuStyle = CSSProperties & {
@@ -36,14 +44,43 @@ type MenuStyle = CSSProperties & {
 
 interface MenuCard {
   id: string;
-  actionLabel: string;
+  actionLabel?: string;
+  description: string;
+  getDescription?: (insights: MainMenuInsights) => string;
   icon: ReactNode;
-  intent?: string;
   title: string;
-  subtitle: string;
   accent: string;
   priority: 'primary' | 'secondary';
   onSelect: (props: MainMenuScreenProps) => void;
+}
+
+interface MenuSongTarget {
+  song: SongRow;
+  stats: UserStatsRow | null;
+}
+
+interface MenuRecommendationTarget extends MenuSongTarget {
+  group: 'Next Challenge' | 'Skill Builder' | 'You Might Like' | 'Revisit';
+  item: RecommendationItem;
+}
+
+interface MainMenuInsights {
+  status: 'loading' | 'ready' | 'unavailable';
+  songCount: number;
+  streak: PracticeStreak | null;
+  recommendation: MenuRecommendationTarget | null;
+  recentSong: MenuSongTarget | null;
+  fallbackSong: SongRow | null;
+}
+
+interface MenuPracticeAction {
+  actionLabel: string;
+  accent: string;
+  detail: string;
+  eyebrow: string;
+  meta: string[];
+  song: SongRow | null;
+  title: string;
 }
 
 function IconPlay() {
@@ -139,10 +176,14 @@ const MENU_CARDS: MenuCard[] = [
   {
     id: 'play-songs',
     actionLabel: 'Choose Song',
+    description: 'Open your MIDI library and start a scored run.',
+    getDescription: (insights) => (
+      insights.songCount > 0
+        ? `${insights.songCount} ${insights.songCount === 1 ? 'song' : 'songs'} ready for scored practice.`
+        : 'Import a MIDI song to start scored practice.'
+    ),
     icon: <IconPlay />,
-    intent: 'Pick a MIDI song and start a scored run.',
     title: 'Play Songs',
-    subtitle: 'Open your library, choose a song, then play for score.',
     accent: 'var(--menu-neon-gold)',
     priority: 'primary',
     onSelect: (props) => props.onOpenLibrary(),
@@ -150,83 +191,84 @@ const MENU_CARDS: MenuCard[] = [
   {
     id: 'guided-lessons',
     actionLabel: 'Resume Lesson',
+    description: 'Follow guided lessons, drills, and checkpoints.',
     icon: <IconLearn />,
-    intent: 'Follow guided practice with lesson steps.',
     title: 'Guided Lessons',
-    subtitle: 'Continue lessons with drills, checks, and practice flow.',
     accent: 'var(--menu-neon-violet)',
     priority: 'primary',
     onSelect: (props) => props.onOpenLearn(),
   },
   {
     id: 'free-play',
-    actionLabel: 'Open Keys',
+    actionLabel: 'Open Free Play',
+    description: 'Play without score or timing pressure.',
     icon: <IconFreePlay />,
-    intent: 'Play freely without score or timing pressure.',
     title: 'Free Play',
-    subtitle: 'Jam, test sounds, and explore the keyboard at your pace.',
     accent: 'var(--menu-neon-cyan)',
     priority: 'primary',
     onSelect: (props) => props.onOpenFreePlay(),
   },
   {
     id: 'soundboard',
-    actionLabel: 'Load Pads',
+    actionLabel: 'Open Soundboard',
+    description: 'Trigger pads, one-shots, and playful sounds.',
     icon: <IconSoundboard />,
-    intent: 'Trigger playful pads and quick sound hits.',
     title: 'Soundboard',
-    subtitle: 'Load the pad grid for quick sounds and one-shots.',
     accent: 'var(--menu-neon-blue)',
     priority: 'primary',
     onSelect: (props) => props.onOpenSoundboard(),
   },
   {
     id: 'theory-trainer',
-    actionLabel: 'Train Recall',
+    description: 'Intervals, scales, and quiz practice.',
     icon: <IconTheory />,
     title: 'Theory Trainer',
-    subtitle: 'Train scales, intervals, and fast recall.',
     accent: 'var(--menu-neon-magenta)',
     priority: 'secondary',
     onSelect: (props) => props.onOpenTheory(),
   },
   {
     id: 'progress',
-    actionLabel: 'Review Streak',
+    description: 'Streaks, accuracy, and practice history.',
+    getDescription: (insights) => (
+      insights.streak
+        ? `${insights.streak.currentStreak}-day streak. Longest: ${insights.streak.longestStreak}.`
+        : 'Streaks, accuracy, and practice history.'
+    ),
     icon: <IconProgress />,
     title: 'Progress',
-    subtitle: 'Review streaks, goals, and accuracy trends.',
     accent: 'var(--menu-neon-teal)',
     priority: 'secondary',
     onSelect: (props) => props.onOpenProgress(),
   },
   {
     id: 'settings',
-    actionLabel: 'Tune Setup',
+    description: 'Audio, visuals, input, and accessibility.',
     icon: <IconSettings />,
     title: 'Settings',
-    subtitle: 'Tune audio, visuals, input, and accessibility.',
     accent: 'var(--menu-neon-coral)',
     priority: 'secondary',
     onSelect: (props) => props.onOpenSettings(),
   },
   {
     id: 'keyboard-setup',
-    actionLabel: 'Map Keys',
+    description: 'Map keys, devices, and onboarding basics.',
     icon: <IconSetup />,
     title: 'Keyboard Setup',
-    subtitle: 'Map keys, devices, and onboarding basics.',
     accent: 'var(--menu-neon-indigo)',
     priority: 'secondary',
     onSelect: (props) => props.onOpenSetup(),
   },
 ];
 
-const STATUS_ITEMS = [
-  ['Stage', 'Ready'],
-  ['Main Routes', String(MENU_CARDS.filter((card) => card.priority === 'primary').length)],
-  ['Support Tools', String(MENU_CARDS.filter((card) => card.priority === 'secondary').length)],
-] as const;
+const EMPTY_INSIGHTS: MainMenuInsights = {
+  status: 'loading',
+  songCount: 0,
+  streak: null,
+  recommendation: null,
+  recentSong: null,
+  fallbackSong: null,
+};
 
 const SEQUENCER_NOTES = [
   { lane: 0, x: 12, size: 16, delay: -0.4, speed: 4.8, color: 'var(--menu-neon-gold)' },
@@ -316,6 +358,126 @@ function getSequencerPosition(column: number): string {
   return `${12.5 + column * 6.25}%`;
 }
 
+function getLatestPlayedSong(snapshot: LibrarySnapshot): MenuSongTarget | null {
+  const playedSongs = snapshot.songs
+    .map((song) => ({ song, stats: snapshot.statsBySongId[song.id] ?? null }))
+    .filter((entry): entry is MenuSongTarget & { stats: UserStatsRow & { lastPlayed: string } } => (
+      Boolean(entry.stats?.lastPlayed)
+    ))
+    .sort((left, right) => right.stats.lastPlayed.localeCompare(left.stats.lastPlayed));
+
+  return playedSongs[0] ?? null;
+}
+
+function getFallbackSong(snapshot: LibrarySnapshot): SongRow | null {
+  return [...snapshot.songs]
+    .sort((left, right) => right.dateAdded.localeCompare(left.dateAdded))
+    [0] ?? null;
+}
+
+function getRecommendationTarget(snapshot: LibrarySnapshot): MenuRecommendationTarget | null {
+  const recommendationGroups = snapshot.recommendations
+    ? [
+        ['Next Challenge', snapshot.recommendations.nextChallenge] as const,
+        ['Skill Builder', snapshot.recommendations.skillBuilder] as const,
+        ['Revisit', snapshot.recommendations.revisit] as const,
+        ['You Might Like', snapshot.recommendations.youMightLike] as const,
+      ]
+    : [];
+
+  for (const [group, items] of recommendationGroups) {
+    const item = items[0];
+    if (!item) {
+      continue;
+    }
+
+    return {
+      group,
+      item,
+      song: item.song,
+      stats: snapshot.statsBySongId[item.song.id] ?? null,
+    };
+  }
+
+  return null;
+}
+
+function formatAccuracy(value: number | null | undefined): string | null {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+    return null;
+  }
+
+  return `${Math.round(value)}% best`;
+}
+
+function buildPracticeAction(insights: MainMenuInsights): MenuPracticeAction {
+  if (insights.recommendation) {
+    const { group, item, song, stats } = insights.recommendation;
+    return {
+      actionLabel: 'Start Song',
+      accent: 'var(--menu-neon-gold)',
+      detail: item.reason,
+      eyebrow: group,
+      meta: [
+        `Difficulty ${song.difficulty}`,
+        formatAccuracy(stats?.bestAccuracy),
+      ].filter((value): value is string => Boolean(value)),
+      song,
+      title: song.title,
+    };
+  }
+
+  if (insights.recentSong) {
+    const { song, stats } = insights.recentSong;
+    return {
+      actionLabel: 'Replay Song',
+      accent: 'var(--menu-neon-cyan)',
+      detail: 'Pick up from your most recent song and keep the practice thread moving.',
+      eyebrow: 'Recent Song',
+      meta: [
+        `Played ${stats?.playCount ?? 1} ${(stats?.playCount ?? 1) === 1 ? 'time' : 'times'}`,
+        formatAccuracy(stats?.bestAccuracy),
+      ].filter((value): value is string => Boolean(value)),
+      song,
+      title: song.title,
+    };
+  }
+
+  if (insights.fallbackSong) {
+    return {
+      actionLabel: 'Start Song',
+      accent: 'var(--menu-neon-violet)',
+      detail: 'Start with the newest song in your library.',
+      eyebrow: 'Library Ready',
+      meta: [`Difficulty ${insights.fallbackSong.difficulty}`],
+      song: insights.fallbackSong,
+      title: insights.fallbackSong.title,
+    };
+  }
+
+  return {
+    actionLabel: 'Open Library',
+    accent: 'var(--menu-neon-gold)',
+    detail: insights.status === 'loading'
+      ? 'Checking your library and practice history.'
+      : insights.status === 'unavailable'
+        ? 'Open the library to choose a song while practice data is unavailable.'
+        : 'Import a MIDI song to unlock scored practice recommendations.',
+    eyebrow: insights.status === 'loading'
+      ? 'Loading Practice'
+      : insights.status === 'unavailable'
+        ? 'Practice Data Unavailable'
+        : 'No Songs Yet',
+    meta: insights.status === 'unavailable' ? ['Practice data unavailable'] : [],
+    song: null,
+    title: insights.status === 'loading'
+      ? 'Preparing your next step'
+      : insights.status === 'unavailable'
+        ? 'Open your library'
+        : 'Import your first MIDI song',
+  };
+}
+
 export function MainMenuScreen(props: MainMenuScreenProps) {
   const mainRef = useRef<HTMLElement | null>(null);
   const reduceMotionRef = useRef(getMediaQueryMatches(REDUCE_MOTION_QUERY));
@@ -330,9 +492,52 @@ export function MainMenuScreen(props: MainMenuScreenProps) {
     tiltX: number;
     tiltY: number;
   } | null>(null);
+  const [insights, setInsights] = useState<MainMenuInsights>(EMPTY_INSIGHTS);
 
   const primaryCards = useMemo(() => MENU_CARDS.filter((card) => card.priority === 'primary'), []);
   const secondaryCards = useMemo(() => MENU_CARDS.filter((card) => card.priority === 'secondary'), []);
+  const practiceAction = useMemo(() => buildPracticeAction(insights), [insights]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    const loadInsights = async () => {
+      if (!window.appBridge) {
+        setInsights({ ...EMPTY_INSIGHTS, status: 'unavailable' });
+        return;
+      }
+
+      try {
+        const [snapshot, streak] = await Promise.all([
+          window.appBridge.getLibrarySnapshot(),
+          window.appBridge.getPracticeStreak().catch(() => null),
+        ]);
+
+        if (ignore) {
+          return;
+        }
+
+        setInsights({
+          status: 'ready',
+          songCount: snapshot.songs.length,
+          streak,
+          recommendation: getRecommendationTarget(snapshot),
+          recentSong: getLatestPlayedSong(snapshot),
+          fallbackSong: getFallbackSong(snapshot),
+        });
+      } catch {
+        if (!ignore) {
+          setInsights({ ...EMPTY_INSIGHTS, status: 'unavailable' });
+        }
+      }
+    };
+
+    void loadInsights();
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   useEffect(() => {
     const unsubscribeReduceMotion = subscribeMediaQuery(REDUCE_MOTION_QUERY, (matches) => {
@@ -469,12 +674,13 @@ export function MainMenuScreen(props: MainMenuScreenProps) {
   };
 
   const renderMenuCard = (card: MenuCard, index: number) => {
-    const tooltipId = `main-menu-${card.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-hint`;
+    const description = card.getDescription?.(insights) ?? card.description;
+    const descriptionId = `main-menu-${card.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-description`;
 
     return (
       <button
         key={card.title}
-        aria-describedby={tooltipId}
+        aria-describedby={descriptionId}
         aria-label={card.title}
         className={`menu-card menu-card-${card.priority}`}
         onBlur={handleSequencerIdle}
@@ -498,12 +704,9 @@ export function MainMenuScreen(props: MainMenuScreenProps) {
         </span>
         <span className="menu-card-copy">
           <span className="menu-card-title">{card.title}</span>
-          {card.intent && <span className="menu-card-intent">{card.intent}</span>}
+          <span className="menu-card-intent" id={descriptionId}>{description}</span>
         </span>
-        <span className="menu-card-action" aria-hidden="true">{card.actionLabel}</span>
-        <span className="menu-card-popover" id={tooltipId} role="tooltip">
-          {card.subtitle}
-        </span>
+        {card.actionLabel && <span className="menu-card-action" aria-hidden="true">{card.actionLabel}</span>}
       </button>
     );
   };
@@ -526,10 +729,6 @@ export function MainMenuScreen(props: MainMenuScreenProps) {
       }
     >
       <div className="main-menu-backdrop" aria-hidden="true">
-        <span className="main-menu-ambient-pulse main-menu-ambient-pulse-a" />
-        <span className="main-menu-ambient-pulse main-menu-ambient-pulse-b" />
-        <span className="main-menu-ambient-pulse main-menu-ambient-pulse-c" />
-        <span className="main-menu-ambient-pulse main-menu-ambient-pulse-d" />
         <span className="main-menu-gradient-river main-menu-gradient-river-a" />
         <span className="main-menu-gradient-river main-menu-gradient-river-b" />
         <span className="main-menu-light main-menu-light-a" />
@@ -568,8 +767,6 @@ export function MainMenuScreen(props: MainMenuScreenProps) {
           </div>
         </div>
         <div className="main-menu-key-rail">
-          <span className="main-menu-soundscape-pulse main-menu-soundscape-pulse-a" aria-hidden="true" />
-          <span className="main-menu-soundscape-pulse main-menu-soundscape-pulse-b" aria-hidden="true" />
           <span className="main-menu-key-press" aria-hidden="true" />
           <div className="main-menu-white-keys">
             {Array.from({ length: SEQUENCER_WHITE_KEY_COUNT }, (_, index) => (
@@ -611,6 +808,43 @@ export function MainMenuScreen(props: MainMenuScreenProps) {
         <div className="main-menu-hero-copy entrance-animate" style={{ '--entrance-delay': '0ms' } as MenuStyle}>
           <h1>LumaKeys</h1>
         </div>
+      </section>
+
+      <section
+        aria-label="Recommended practice"
+        className="main-menu-practice-panel entrance-animate"
+        style={
+          {
+            '--card-color': practiceAction.accent,
+            '--entrance-delay': '120ms',
+          } as MenuStyle
+        }
+      >
+        <div className="main-menu-practice-copy">
+          <p className="main-menu-practice-eyebrow">{practiceAction.eyebrow}</p>
+          <h2>{practiceAction.title}</h2>
+          <p>{practiceAction.detail}</p>
+          {practiceAction.meta.length > 0 && (
+            <div className="main-menu-practice-meta" aria-label="Practice details">
+              {practiceAction.meta.map((item) => (
+                <span key={item}>{item}</span>
+              ))}
+            </div>
+          )}
+        </div>
+        <button
+          className="main-menu-practice-action"
+          onClick={() => {
+            if (practiceAction.song) {
+              props.onStartSong(practiceAction.song);
+              return;
+            }
+            props.onOpenLibrary();
+          }}
+          type="button"
+        >
+          {practiceAction.actionLabel}
+        </button>
       </section>
 
       <section aria-label="Primary destinations" className="main-menu-grid">

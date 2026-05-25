@@ -1,25 +1,64 @@
 import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { LibrarySnapshot, SongRow, UserStatsRow } from '../../shared/dbTypes';
 import { MainMenuScreen } from './MainMenuScreen';
+
+function createHandlers() {
+  return {
+    onOpenLibrary: vi.fn(),
+    onOpenLearn: vi.fn(),
+    onOpenFreePlay: vi.fn(),
+    onOpenSoundboard: vi.fn(),
+    onOpenTheory: vi.fn(),
+    onOpenProgress: vi.fn(),
+    onOpenSettings: vi.fn(),
+    onOpenSetup: vi.fn(),
+    onStartSong: vi.fn(),
+  };
+}
+
+function createSong(overrides: Partial<SongRow> = {}): SongRow {
+  return {
+    id: overrides.id ?? 'song-1',
+    title: overrides.title ?? 'Practice Song',
+    artist: overrides.artist ?? '',
+    genre: overrides.genre ?? '',
+    filePath: overrides.filePath ?? '/tmp/practice.mid',
+    difficulty: overrides.difficulty ?? 3,
+    durationSec: overrides.durationSec ?? 80,
+    bpm: overrides.bpm ?? 120,
+    noteCount: overrides.noteCount ?? 120,
+    dateAdded: overrides.dateAdded ?? '2026-04-18T00:00:00.000Z',
+    timesPlayed: overrides.timesPlayed ?? 0,
+    tags: overrides.tags ?? [],
+    isFavorite: overrides.isFavorite ?? false,
+    folderId: overrides.folderId ?? null,
+    trackAssignments: overrides.trackAssignments ?? { left: 'left', right: 'right' },
+  };
+}
+
+function createStats(songId: string, overrides: Partial<UserStatsRow> = {}): UserStatsRow {
+  return {
+    songId,
+    playCount: overrides.playCount ?? 2,
+    bestScore: overrides.bestScore ?? 1200,
+    averageScore: overrides.averageScore ?? 1040,
+    bestAccuracy: overrides.bestAccuracy ?? 84,
+    lastPlayed: overrides.lastPlayed ?? '2026-05-20T12:00:00.000Z',
+    totalPracticeTimeSec: overrides.totalPracticeTimeSec ?? 600,
+  };
+}
 
 describe('MainMenuScreen', () => {
   afterEach(() => {
     cleanup();
+    window.appBridge = undefined;
   });
 
   it('keeps all destination buttons accessible and wired to the same handlers', async () => {
     const user = userEvent.setup();
-    const handlers = {
-      onOpenLibrary: vi.fn(),
-      onOpenLearn: vi.fn(),
-      onOpenFreePlay: vi.fn(),
-      onOpenSoundboard: vi.fn(),
-      onOpenTheory: vi.fn(),
-      onOpenProgress: vi.fn(),
-      onOpenSettings: vi.fn(),
-      onOpenSetup: vi.fn(),
-    };
+    const handlers = createHandlers();
 
     render(<MainMenuScreen {...handlers} />);
 
@@ -34,8 +73,7 @@ describe('MainMenuScreen', () => {
           name: 'Play Songs',
         }),
         name: 'Play Songs',
-        description: 'Open your library, choose a song, then play for score.',
-        intent: 'Pick a MIDI song and start a scored run.',
+        description: 'Import a MIDI song to start scored practice.',
         actionLabel: 'Choose Song',
         handler: handlers.onOpenLibrary,
       },
@@ -44,8 +82,7 @@ describe('MainMenuScreen', () => {
           name: 'Guided Lessons',
         }),
         name: 'Guided Lessons',
-        description: 'Continue lessons with drills, checks, and practice flow.',
-        intent: 'Follow guided practice with lesson steps.',
+        description: 'Follow guided lessons, drills, and checkpoints.',
         actionLabel: 'Resume Lesson',
         handler: handlers.onOpenLearn,
       },
@@ -54,9 +91,8 @@ describe('MainMenuScreen', () => {
           name: 'Free Play',
         }),
         name: 'Free Play',
-        description: 'Jam, test sounds, and explore the keyboard at your pace.',
-        intent: 'Play freely without score or timing pressure.',
-        actionLabel: 'Open Keys',
+        description: 'Play without score or timing pressure.',
+        actionLabel: 'Open Free Play',
         handler: handlers.onOpenFreePlay,
       },
       {
@@ -64,9 +100,8 @@ describe('MainMenuScreen', () => {
           name: 'Soundboard',
         }),
         name: 'Soundboard',
-        description: 'Load the pad grid for quick sounds and one-shots.',
-        intent: 'Trigger playful pads and quick sound hits.',
-        actionLabel: 'Load Pads',
+        description: 'Trigger pads, one-shots, and playful sounds.',
+        actionLabel: 'Open Soundboard',
         handler: handlers.onOpenSoundboard,
       },
       {
@@ -74,8 +109,7 @@ describe('MainMenuScreen', () => {
           name: 'Theory Trainer',
         }),
         name: 'Theory Trainer',
-        description: 'Train scales, intervals, and fast recall.',
-        actionLabel: 'Train Recall',
+        description: 'Intervals, scales, and quiz practice.',
         handler: handlers.onOpenTheory,
       },
       {
@@ -83,8 +117,7 @@ describe('MainMenuScreen', () => {
           name: 'Progress',
         }),
         name: 'Progress',
-        description: 'Review streaks, goals, and accuracy trends.',
-        actionLabel: 'Review Streak',
+        description: 'Streaks, accuracy, and practice history.',
         handler: handlers.onOpenProgress,
       },
       {
@@ -92,8 +125,7 @@ describe('MainMenuScreen', () => {
           name: 'Settings',
         }),
         name: 'Settings',
-        description: 'Tune audio, visuals, input, and accessibility.',
-        actionLabel: 'Tune Setup',
+        description: 'Audio, visuals, input, and accessibility.',
         handler: handlers.onOpenSettings,
       },
       {
@@ -102,7 +134,6 @@ describe('MainMenuScreen', () => {
         }),
         name: 'Keyboard Setup',
         description: 'Map keys, devices, and onboarding basics.',
-        actionLabel: 'Map Keys',
         handler: handlers.onOpenSetup,
       },
     ];
@@ -127,10 +158,10 @@ describe('MainMenuScreen', () => {
       expect(destination.button).toBeInTheDocument();
       expect(destination.button).toHaveAccessibleDescription(destination.description);
       expect(destination.button).toHaveAccessibleName(destination.name);
-      if (destination.intent) {
-        expect(within(destination.button).getByText(destination.intent)).toBeInTheDocument();
+      expect(within(destination.button).getByText(destination.description)).toBeInTheDocument();
+      if (destination.actionLabel) {
+        expect(within(destination.button).getByText(destination.actionLabel)).toHaveAttribute('aria-hidden', 'true');
       }
-      expect(within(destination.button).getByText(destination.actionLabel)).toHaveAttribute('aria-hidden', 'true');
       await user.click(destination.button);
       expect(destination.handler).toHaveBeenCalledOnce();
     }
@@ -138,16 +169,7 @@ describe('MainMenuScreen', () => {
 
   it('reacts to focused destinations with matching stage variables', async () => {
     const user = userEvent.setup();
-    const handlers = {
-      onOpenLibrary: vi.fn(),
-      onOpenLearn: vi.fn(),
-      onOpenFreePlay: vi.fn(),
-      onOpenSoundboard: vi.fn(),
-      onOpenTheory: vi.fn(),
-      onOpenProgress: vi.fn(),
-      onOpenSettings: vi.fn(),
-      onOpenSetup: vi.fn(),
-    };
+    const handlers = createHandlers();
 
     render(<MainMenuScreen {...handlers} />);
 
@@ -155,9 +177,7 @@ describe('MainMenuScreen', () => {
     const primaryDestinations = screen.getByRole('region', { name: 'Primary destinations' });
     const freePlayButton = within(primaryDestinations).getByRole('button', { name: 'Free Play' });
 
-    await user.tab();
-    await user.tab();
-    await user.tab();
+    freePlayButton.focus();
 
     expect(freePlayButton).toHaveFocus();
     expect(mainMenu).toHaveAttribute('data-active-card', 'free-play');
@@ -177,5 +197,55 @@ describe('MainMenuScreen', () => {
       '--sequencer-lane': '3',
       '--sequencer-position': '31.25%',
     });
+  });
+
+  it('shows a data-backed recommended song and starts it directly', async () => {
+    const user = userEvent.setup();
+    const handlers = createHandlers();
+    const challengeSong = createSong({
+      id: 'challenge',
+      title: 'Brighter Etude',
+      difficulty: 4,
+    });
+    const stats = createStats(challengeSong.id, { bestAccuracy: 88 });
+    const snapshot: LibrarySnapshot = {
+      songs: [challengeSong],
+      folders: [],
+      playlists: [],
+      recommendations: {
+        nextChallenge: [
+          {
+            song: challengeSong,
+            reason: 'Difficulty 4 is just above your recent comfort zone.',
+          },
+        ],
+        skillBuilder: [],
+        youMightLike: [],
+        revisit: [],
+      },
+      statsBySongId: {
+        [challengeSong.id]: stats,
+      },
+      songGoals: {},
+    };
+
+    window.appBridge = {
+      getLibrarySnapshot: vi.fn().mockResolvedValue(snapshot),
+      getPracticeStreak: vi.fn().mockResolvedValue({ currentStreak: 3, longestStreak: 5, streakFreezes: 0 }),
+    } as unknown as typeof window.appBridge;
+
+    render(<MainMenuScreen {...handlers} />);
+
+    const recommendation = await screen.findByRole('region', { name: 'Recommended practice' });
+    expect(within(recommendation).getByRole('heading', { name: 'Brighter Etude' })).toBeInTheDocument();
+    expect(within(recommendation).getByText('Next Challenge')).toBeInTheDocument();
+    expect(within(recommendation).getByText('Difficulty 4')).toBeInTheDocument();
+    expect(within(recommendation).getByText('88% best')).toBeInTheDocument();
+    const primaryDestinations = screen.getByRole('region', { name: 'Primary destinations' });
+    expect(within(primaryDestinations).getByRole('button', { name: 'Play Songs' })).toHaveAccessibleDescription('1 song ready for scored practice.');
+
+    await user.click(within(recommendation).getByRole('button', { name: 'Start Song' }));
+
+    expect(handlers.onStartSong).toHaveBeenCalledWith(challengeSong);
   });
 });
