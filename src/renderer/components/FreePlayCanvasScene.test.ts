@@ -38,13 +38,46 @@ describe('getEffectProfile', () => {
 
   it('bloom alpha cap is always positive and finite for all presets', () => {
     for (const preset of ['subtle', 'balanced', 'vivid'] as const) {
-      const { bloomAlphaCap, bloomBlurMin, bloomBlurMax, vignetteStrength, colorGradeStrength } = getEffectProfile(preset);
+      const {
+        bloomAlphaCap,
+        bloomBlurMin,
+        bloomBlurMax,
+        vignetteStrength,
+        colorGradeStrength,
+        spawnMultiplier,
+        motionMultiplier,
+        trailMultiplier,
+        glowMultiplier,
+        particleCapMultiplier,
+        auroraBandLimit,
+      } = getEffectProfile(preset);
       expect(bloomAlphaCap).toBeGreaterThan(0);
       expect(bloomBlurMin).toBeGreaterThan(0);
       expect(bloomBlurMax).toBeGreaterThan(bloomBlurMin);
       expect(vignetteStrength).toBeGreaterThan(0);
       expect(colorGradeStrength).toBeGreaterThanOrEqual(0);
+      expect(spawnMultiplier).toBeGreaterThan(0);
+      expect(motionMultiplier).toBeGreaterThan(0);
+      expect(trailMultiplier).toBeGreaterThan(0);
+      expect(glowMultiplier).toBeGreaterThan(0);
+      expect(particleCapMultiplier).toBeGreaterThan(0);
+      expect(auroraBandLimit).toBeGreaterThan(0);
     }
+  });
+
+  it('scene-level intensity knobs increase from subtle to vivid', () => {
+    const subtle = getEffectProfile('subtle');
+    const balanced = getEffectProfile('balanced');
+    const vivid = getEffectProfile('vivid');
+
+    expect(subtle.spawnMultiplier).toBeLessThan(balanced.spawnMultiplier);
+    expect(balanced.spawnMultiplier).toBeLessThan(vivid.spawnMultiplier);
+    expect(subtle.motionMultiplier).toBeLessThan(balanced.motionMultiplier);
+    expect(balanced.motionMultiplier).toBeLessThan(vivid.motionMultiplier);
+    expect(subtle.glowMultiplier).toBeLessThan(balanced.glowMultiplier);
+    expect(balanced.glowMultiplier).toBeLessThan(vivid.glowMultiplier);
+    expect(subtle.auroraBandLimit).toBeLessThan(balanced.auroraBandLimit);
+    expect(balanced.auroraBandLimit).toBeLessThan(vivid.auroraBandLimit);
   });
 });
 

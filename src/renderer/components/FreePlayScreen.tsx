@@ -1,5 +1,5 @@
 import { Midi } from '@tonejs/midi';
-import { Info } from 'lucide-react';
+import { Info, Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AudioEngine } from '../../lib/audio/audioEngine';
 import { ComputerKeyboardInputService } from '../../lib/input/computerKeyboardInputService';
@@ -780,7 +780,7 @@ export function FreePlayScreen({
               }
             }}
           >
-            ✦
+            <Sparkles size={17} strokeWidth={2.2} aria-hidden="true" />
           </button>
           <button
             className="immersive-menu-btn"
@@ -839,7 +839,7 @@ export function FreePlayScreen({
             <p className="panel-copy">{visualModeDescription}</p>
           </div>
           <div className="free-play-preset-row">
-            <span className="free-play-preset-label">Preset</span>
+            <span className="free-play-preset-label">Intensity</span>
             {(['subtle', 'balanced', 'vivid'] as VisualPreset[]).map((presetOption) => (
               <button
                 key={presetOption}
@@ -1114,7 +1114,7 @@ export function FreePlayScreen({
                 <p className="panel-copy">{visualModeDescription}</p>
               </div>
               <div className="free-play-preset-row">
-                <span className="free-play-preset-label">Preset</span>
+                <span className="free-play-preset-label">Intensity</span>
                 {(['subtle', 'balanced', 'vivid'] as VisualPreset[]).map((presetOption) => (
                   <button
                     key={presetOption}
