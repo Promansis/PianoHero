@@ -523,7 +523,9 @@ describe('FreePlayScreen', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Show visual mode controls' }));
     const popout = screen.getByTestId('free-play-visual-popout');
 
-    // Preset buttons are present
+    expect(within(popout).getByText('Intensity')).toBeInTheDocument();
+
+    // Intensity buttons are present
     expect(within(popout).getByRole('button', { name: 'Subtle' })).toBeInTheDocument();
     expect(within(popout).getByRole('button', { name: 'Balanced' })).toBeInTheDocument();
     expect(within(popout).getByRole('button', { name: 'Vivid' })).toBeInTheDocument();

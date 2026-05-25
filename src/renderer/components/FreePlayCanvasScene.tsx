@@ -36,13 +36,21 @@ interface FreePlayCanvasSceneProps {
   visualPreset: VisualPreset;
 }
 
-// Internal effect profile — per-preset tuning knobs for bloom and post-processing
+// Shared intensity profile for scene generation and post-processing.
 interface SceneEffectProfile {
   bloomBlurMin: number;
   bloomBlurMax: number;
   bloomAlphaCap: number;
   vignetteStrength: number;
   colorGradeStrength: number;
+  spawnMultiplier: number;
+  motionMultiplier: number;
+  trailMultiplier: number;
+  glowMultiplier: number;
+  backgroundContrast: number;
+  labelAlpha: number;
+  particleCapMultiplier: number;
+  auroraBandLimit: number;
 }
 
 // Placeholder shapes for a future layered render pipeline (not wired into live rendering)
@@ -700,9 +708,11 @@ function pickOrnament(
   };
 }
 
-function addTreeGrowth(state: SceneState, note: FreePlayVisualNote): void {
+function addTreeGrowth(state: SceneState, note: FreePlayVisualNote, profile: SceneEffectProfile): void {
   const seed = seededUnit(note.id, 5);
   const velocity = clamp(note.velocity, 0.1, 1.25);
+  const growthScale = profile.spawnMultiplier;
+  const branchWeightScale = clamp(profile.glowMultiplier, 0.82, 1.12);
 
   state.treeNoteCount += 1;
   const n = state.treeNoteCount;
@@ -714,7 +724,7 @@ function addTreeGrowth(state: SceneState, note: FreePlayVisualNote): void {
     const rootSpread = 0.4 + seed * 0.35;
     const angle = side === 0 ? Math.PI - rootSpread : rootSpread;
     const anchor = chooseTreeAnchor(state.treeAnchors, 'root', seed);
-    const length = 0.04 + velocity * 0.06;
+    const length = (0.04 + velocity * 0.06) * growthScale;
     const endX = clamp(anchor.x + Math.cos(angle) * length * 1.1, 0.1, 0.9);
     const endY = clamp(anchor.y + Math.sin(angle) * length, 0.7, 0.98);
     state.treeSegments.push({
@@ -723,7 +733,7 @@ function addTreeGrowth(state: SceneState, note: FreePlayVisualNote): void {
       startY: anchor.y,
       endX,
       endY,
-      thickness: 2.8 + velocity * 4,
+      thickness: (2.8 + velocity * 4) * branchWeightScale,
       hue: 30 + seed * 14,
       createdAt: note.createdAt,
       kind: 'root',
@@ -740,13 +750,13 @@ function addTreeGrowth(state: SceneState, note: FreePlayVisualNote): void {
     // === TRUNK: notes 5–12 always grow upward ===
     const anchor = chooseTreeAnchor(state.treeAnchors, 'trunk', seed);
     const angle = -Math.PI / 2 + (seed - 0.5) * 0.24;
-    const length = 0.04 + velocity * 0.07;
+    const length = (0.04 + velocity * 0.07) * growthScale;
     const endX = clamp(anchor.x + Math.cos(angle) * length * 0.42, 0.18, 0.82);
     const endY = clamp(anchor.y + Math.sin(angle) * length, 0.1, 0.92);
     state.treeSegments.push({
       id: `tree-${note.id}`,
       startX: anchor.x, startY: anchor.y, endX, endY,
-      thickness: 5 + velocity * 7,
+      thickness: (5 + velocity * 7) * branchWeightScale,
       hue: 30 + seed * 12,
       createdAt: note.createdAt,
       kind: 'trunk',
@@ -774,13 +784,13 @@ function addTreeGrowth(state: SceneState, note: FreePlayVisualNote): void {
       // === Continue growing trunk ===
       const anchor = chooseTreeAnchor(state.treeAnchors, 'trunk', seed);
       const angle = -Math.PI / 2 + (seed - 0.5) * 0.20;
-      const length = 0.035 + velocity * 0.06;
+      const length = (0.035 + velocity * 0.06) * growthScale;
       const endX = clamp(anchor.x + Math.cos(angle) * length * 0.42, 0.18, 0.82);
       const endY = clamp(anchor.y + Math.sin(angle) * length, 0.06, 0.92);
       state.treeSegments.push({
         id: `tree-${note.id}`,
         startX: anchor.x, startY: anchor.y, endX, endY,
-        thickness: 4 + velocity * 5,
+        thickness: (4 + velocity * 5) * branchWeightScale,
         hue: 30 + seed * 12,
         createdAt: note.createdAt,
         kind: 'trunk',
@@ -820,8 +830,8 @@ function addTreeGrowth(state: SceneState, note: FreePlayVisualNote): void {
 
       // Scale size by branch depth
       const depthFactor = [1, 0.8, 0.6, 0.45][newBranchDepth] ?? 0.45;
-      const length = (0.035 + velocity * 0.07) * depthFactor;
-      const thickness = (3 + velocity * 4) * depthFactor;
+      const length = (0.035 + velocity * 0.07) * depthFactor * growthScale;
+      const thickness = (3 + velocity * 4) * depthFactor * branchWeightScale;
 
       const endX = clamp(anchor.x + Math.cos(angle) * length, 0.06, 0.94);
       const endY = clamp(anchor.y + Math.sin(angle) * length, 0.06, 0.92);
@@ -851,8 +861,9 @@ function addTreeGrowth(state: SceneState, note: FreePlayVisualNote): void {
       });
 
       // Add ornament at branch tip
-      if (velocity > 0.45) {
+      if (velocity > (profile.spawnMultiplier < 1 ? 0.58 : 0.45)) {
         const orn = pickOrnament(note.id, endX, endY, velocity, seed);
+        orn.radius *= profile.glowMultiplier;
         state.treeOrnaments.push(orn);
       }
 
@@ -866,28 +877,33 @@ function addTreeGrowth(state: SceneState, note: FreePlayVisualNote): void {
       const ox = clamp(anchor.x + (seed - 0.5) * 0.06, 0.08, 0.92);
       const oy = clamp(anchor.y + (seededUnit(note.id, 7) - 0.6) * 0.05, 0.08, 0.88);
       const orn = pickOrnament(`extra-${note.id}`, ox, oy, velocity, seed);
-      orn.radius = 4 + velocity * 8; // extra ornaments are larger
+      orn.radius = (4 + velocity * 8) * profile.glowMultiplier; // extra ornaments are larger
       state.treeOrnaments.push(orn);
     }
   }
 
-  state.treeGlow = clamp(state.treeGlow + note.velocity * 0.22, 0, 1.5);
+  state.treeGlow = clamp(state.treeGlow + note.velocity * 0.22 * profile.glowMultiplier, 0, 1.5);
 }
 
-function addGalaxyBurst(state: SceneState, note: FreePlayVisualNote, props: FreePlayCanvasSceneProps): void {
+function addGalaxyBurst(
+  state: SceneState,
+  note: FreePlayVisualNote,
+  props: FreePlayCanvasSceneProps,
+  profile: SceneEffectProfile,
+): void {
   const polyphony = Math.max(1, props.activeNotes.length);
   const recentClusterSize = state.noteHistory.filter((event) => note.createdAt - event.createdAt <= 180).length;
   const densityDamping = 1 / (1 + Math.max(0, recentClusterSize - 1) * 0.55 + Math.max(0, polyphony - 1) * 0.24);
   state.galaxySpinBoost = clamp(
-    state.galaxySpinBoost + note.velocity * 0.0032 * densityDamping,
+    state.galaxySpinBoost + note.velocity * 0.0016 * densityDamping * profile.motionMultiplier,
     0,
-    0.009,
+    0.0048 * profile.motionMultiplier,
   );
   const baseSeed = seededUnit(note.id, 20);
   const pitchRatio = clamp((note.midi - state.adaptiveMin) / Math.max(1, state.adaptiveMax - state.adaptiveMin), 0, 1);
-  const baseRadiusRatio = clamp(0.10 + pitchRatio * 0.55 + (baseSeed - 0.5) * 0.08, 0.08, 0.72);
+  const baseRadiusRatio = clamp(0.12 + pitchRatio * 0.5 + (baseSeed - 0.5) * 0.06, 0.1, 0.68);
   const armCount = polyphony >= 3 ? 4 : 3;
-  const particleCount = Math.round(10 + note.velocity * 20 + Math.max(0, polyphony - 1) * 5);
+  const particleCount = Math.round((8 + note.velocity * 13 + Math.max(0, polyphony - 1) * 3) * profile.spawnMultiplier);
   for (let index = 0; index < particleCount; index += 1) {
     const particleId = `${note.id}-galaxy-${index}`;
     const seed = seededUnit(particleId, 1);
@@ -900,10 +916,10 @@ function addGalaxyBurst(state: SceneState, note: FreePlayVisualNote, props: Free
       laneRatio: baseRadiusRatio,
       radiusRatio: Math.max(0.04, baseRadiusRatio * (0.45 + seed * 0.75)),
       targetRadiusRatio: baseRadiusRatio * (0.90 + seed * 0.22),
-      spin: 0.00009 + note.velocity * 0.00016 * densityDamping + seed * 0.00012,
-      size: 1.4 + note.velocity * 3.1 + seed * 1.2,
+      spin: (0.000055 + note.velocity * 0.00007 * densityDamping + seed * 0.000035) * profile.motionMultiplier,
+      size: (1.2 + note.velocity * 2.4 + seed * 0.9) * profile.glowMultiplier,
       hue: (midiToHue(note.midi) + seed * 26) % 360,
-      alpha: 0.35 + note.velocity * 0.45,
+      alpha: clamp((0.28 + note.velocity * 0.42) * profile.glowMultiplier, 0.16, 0.92),
       createdAt: note.createdAt,
       sparkle: seed * Math.PI * 2,
     });
@@ -921,17 +937,21 @@ function auroraHueForNote(_midi: number, register: NoteRegister, id: string): nu
   return 300 + seed * 28;
 }
 
-function addAuroraRibbon(state: SceneState, note: FreePlayVisualNote): void {
+function addAuroraRibbon(state: SceneState, note: FreePlayVisualNote, profile: SceneEffectProfile): void {
   const register = classifyNoteRegister(note.midi);
   const seed = seededUnit(note.id, 10);
   const lane = adaptiveLaneRatio(note.midi, state.adaptiveMin, state.adaptiveMax);
   const previousMidi = state.noteHistory[state.noteHistory.length - 2]?.midi;
+  const bandLimit = profile.auroraBandLimit;
+  if (state.auroraBands.length >= bandLimit) {
+    state.auroraBands.splice(0, state.auroraBands.length - bandLimit + 1);
+  }
   const baseY =
     register === 'low'
-      ? lerp(0.7, 0.86, 1 - lane * 0.6)
+      ? lerp(0.67, 0.82, 1 - lane * 0.58)
       : register === 'mid'
-        ? lerp(0.45, 0.7, 1 - lane * 0.4)
-        : lerp(0.18, 0.42, 1 - lane * 0.25);
+        ? lerp(0.42, 0.6, 1 - lane * 0.4)
+        : lerp(0.17, 0.34, 1 - lane * 0.25);
 
   state.auroraBands.push({
     id: note.id,
@@ -939,18 +959,18 @@ function addAuroraRibbon(state: SceneState, note: FreePlayVisualNote): void {
     hue: auroraHueForNote(note.midi, register, note.id),
     baseY,
     pitchCenterRatio: lane,
-    amplitude: 18 + note.velocity * 16,
-    targetAmplitude: 26 + note.velocity * 44,
-    thickness: register === 'low' ? 30 + note.velocity * 30 : register === 'mid' ? 24 + note.velocity * 26 : 18 + note.velocity * 22,
-    speed: register === 'low' ? 0.0008 + seed * 0.0006 : register === 'mid' ? 0.0011 + seed * 0.0008 : 0.0018 + seed * 0.0011,
+    amplitude: (12 + note.velocity * 9) * profile.motionMultiplier,
+    targetAmplitude: (20 + note.velocity * 22) * profile.motionMultiplier,
+    thickness: (register === 'low' ? 22 + note.velocity * 16 : register === 'mid' ? 18 + note.velocity * 14 : 14 + note.velocity * 12) * profile.glowMultiplier,
+    speed: (register === 'low' ? 0.00036 + seed * 0.00018 : register === 'mid' ? 0.00044 + seed * 0.00022 : 0.00056 + seed * 0.00026) * profile.motionMultiplier,
     phaseDirection: auroraPhaseDirection(note.midi, previousMidi),
     phase: seed * Math.PI * 2,
-    alpha: 0.22 + note.velocity * 0.34,
+    alpha: clamp((0.16 + note.velocity * 0.22) * profile.glowMultiplier, 0.08, 0.72),
     shimmer: seededUnit(note.id, 11) * Math.PI * 2,
     createdAt: note.createdAt,
     lastHitAt: note.createdAt,
   });
-  state.auroraEnergy = clamp(state.auroraEnergy + note.velocity * 0.18, 0, 1.5);
+  state.auroraEnergy = clamp(state.auroraEnergy + note.velocity * 0.14 * profile.glowMultiplier, 0, 1.2);
 }
 
 function launchFireworkShells(state: SceneState, note: FreePlayVisualNote, props: FreePlayCanvasSceneProps): void {
@@ -1003,6 +1023,7 @@ function launchFireworkShells(state: SceneState, note: FreePlayVisualNote, props
 }
 
 function syncSceneState(state: SceneState, props: FreePlayCanvasSceneProps, now: number): void {
+  const profile = getEffectProfile(props.visualPreset);
   const newNotes = props.recentNotes.filter((note) => !state.processedNoteIds.has(note.id));
   for (const note of newNotes) {
     state.processedNoteIds.add(note.id);
@@ -1026,101 +1047,146 @@ function syncSceneState(state: SceneState, props: FreePlayCanvasSceneProps, now:
     });
     state.heatValues = applyNoteToHeatmap(state.heatValues, note.midi, note.velocity);
 
-    state.stageBursts.push({
-      id: note.id,
-      midi: note.midi,
-      velocity: note.velocity,
-      hue: midiToHue(note.midi),
-      createdAt: note.createdAt,
-    });
-    state.ribbons.push({
-      id: note.id,
-      midi: note.midi,
-      hue: midiToHue(note.midi),
-      velocity: note.velocity,
-      createdAt: note.createdAt,
-    });
-
-    const stats = state.repeatedStats.get(note.midi);
-    const existingBody = state.orbitBodies.find((body) => body.midi === note.midi);
-    if (existingBody) {
-      existingBody.radiusTarget = clamp(9 + (stats?.streak ?? 1) * 2.4, 9, 28);
-      existingBody.lastHitAt = note.createdAt;
-      existingBody.mass = 1 + (stats?.hits ?? 1) * 0.03;
-      existingBody.angularVelocity += (note.velocity - 0.45) * 0.004;
-    } else {
-      const lane = adaptiveLaneRatio(note.midi, state.adaptiveMin, state.adaptiveMax);
-      const semiMajor = 80 + lane * 260;
-      state.orbitBodies.push({
+    if (props.mode === 'concert-stage' || props.mode === 'constellation') {
+      state.stageBursts.push({
+        id: note.id,
+        midi: note.midi,
+        velocity: note.velocity,
+        hue: midiToHue(note.midi),
+        createdAt: note.createdAt,
+      });
+    }
+    if (props.mode === 'color-ribbons') {
+      state.ribbons.push({
         id: note.id,
         midi: note.midi,
         hue: midiToHue(note.midi),
-        angle: lane * Math.PI * 2,
-        angularVelocity: (0.002 + note.velocity * 0.0035) * (note.midi % 2 === 0 ? 1 : -1),
-        semiMajor,
-        semiMinor: semiMajor * (0.56 + ((note.midi % 7) / 20)),
-        radius: 8,
-        radiusTarget: clamp(10 + (stats?.streak ?? 1) * 2.4, 10, 28),
-        x: 0,
-        y: 0,
-        vx: 0,
-        vy: 0,
-        mass: 1 + (stats?.hits ?? 1) * 0.03,
-        lastHitAt: note.createdAt,
-        trail: [],
+        velocity: note.velocity,
+        createdAt: note.createdAt,
       });
     }
 
-    const motif = selectConstellationMotif([...state.noteHistory.slice(-7), event]);
-    const motifIndex = state.stars.length % motif.anchors.length;
-    const motifCycle = Math.floor(state.stars.length / motif.anchors.length);
-    const anchor = motif.anchors[motifIndex];
-    const lane = adaptiveLaneRatio(note.midi, state.adaptiveMin, state.adaptiveMax);
-    const x = clamp(anchor.x + (lane - 0.5) * 0.14 + (motifCycle % 4) * 0.02 - 0.03, 0.08, 0.92);
-    const y = clamp(anchor.y + ((note.midi % 5) - 2) * 0.02 - (motifCycle % 3) * 0.03, 0.12, 0.84);
-    const starId = `star-${note.id}`;
-    state.stars.push({
-      id: starId,
-      midi: note.midi,
-      x,
-      y,
-      hue: midiToHue(note.midi),
-      radius: 2.4 + note.velocity * 2.8,
-      createdAt: note.createdAt,
-      twinkleOffset: state.stars.length * 0.37,
-    });
-    if (motifIndex === motif.anchors.length - 1) {
-      const starIds = state.stars.slice(-motif.anchors.length).map((star) => star.id);
-      state.constellationPaths.push({
-        id: `path-${note.id}`,
-        starIds,
+    if (props.mode === 'pulse-orbit') {
+      const stats = state.repeatedStats.get(note.midi);
+      const existingBody = state.orbitBodies.find((body) => body.midi === note.midi);
+      if (existingBody) {
+        existingBody.radiusTarget = clamp(9 + (stats?.streak ?? 1) * 2.4, 9, 28);
+        existingBody.lastHitAt = note.createdAt;
+        existingBody.mass = 1 + (stats?.hits ?? 1) * 0.03;
+        existingBody.angularVelocity += (note.velocity - 0.45) * 0.004;
+      } else {
+        const lane = adaptiveLaneRatio(note.midi, state.adaptiveMin, state.adaptiveMax);
+        const semiMajor = 80 + lane * 260;
+        state.orbitBodies.push({
+          id: note.id,
+          midi: note.midi,
+          hue: midiToHue(note.midi),
+          angle: lane * Math.PI * 2,
+          angularVelocity: (0.002 + note.velocity * 0.0035) * (note.midi % 2 === 0 ? 1 : -1),
+          semiMajor,
+          semiMinor: semiMajor * (0.56 + ((note.midi % 7) / 20)),
+          radius: 8,
+          radiusTarget: clamp(10 + (stats?.streak ?? 1) * 2.4, 10, 28),
+          x: 0,
+          y: 0,
+          vx: 0,
+          vy: 0,
+          mass: 1 + (stats?.hits ?? 1) * 0.03,
+          lastHitAt: note.createdAt,
+          trail: [],
+        });
+      }
+    }
+
+    if (props.mode === 'constellation') {
+      const motif = selectConstellationMotif([...state.noteHistory.slice(-7), event]);
+      const motifIndex = state.stars.length % motif.anchors.length;
+      const motifCycle = Math.floor(state.stars.length / motif.anchors.length);
+      const anchor = motif.anchors[motifIndex];
+      const lane = adaptiveLaneRatio(note.midi, state.adaptiveMin, state.adaptiveMax);
+      const x = clamp(anchor.x + (lane - 0.5) * 0.14 + (motifCycle % 4) * 0.02 - 0.03, 0.08, 0.92);
+      const y = clamp(anchor.y + ((note.midi % 5) - 2) * 0.02 - (motifCycle % 3) * 0.03, 0.12, 0.84);
+      const starId = `star-${note.id}`;
+      state.stars.push({
+        id: starId,
+        midi: note.midi,
+        x,
+        y,
         hue: midiToHue(note.midi),
+        radius: 2.4 + note.velocity * 2.8,
         createdAt: note.createdAt,
+        twinkleOffset: state.stars.length * 0.37,
       });
+      if (motifIndex === motif.anchors.length - 1) {
+        const starIds = state.stars.slice(-motif.anchors.length).map((star) => star.id);
+        state.constellationPaths.push({
+          id: `path-${note.id}`,
+          starIds,
+          hue: midiToHue(note.midi),
+          createdAt: note.createdAt,
+        });
+      }
+      if (note.velocity >= 0.9) {
+        state.shootingStars.push({
+          id: `shoot-${note.id}`,
+          x: clamp(x + 0.08, 0.2, 0.92),
+          y: clamp(y - 0.1, 0.08, 0.66),
+          vx: -0.00034 * (240 + note.velocity * 200),
+          vy: 0.00018 * (180 + note.velocity * 120),
+          createdAt: note.createdAt,
+          lifeMs: 900,
+        });
+      }
     }
 
-    if (note.velocity >= 0.9) {
-      state.shootingStars.push({
-        id: `shoot-${note.id}`,
-        x: clamp(x + 0.08, 0.2, 0.92),
-        y: clamp(y - 0.1, 0.08, 0.66),
-        vx: -0.00034 * (240 + note.velocity * 200),
-        vy: 0.00018 * (180 + note.velocity * 120),
+    if (props.mode === 'ink-in-water') {
+      addInkBloom(state, note);
+    }
+    if (props.mode === 'tree-of-light') {
+      addTreeGrowth(state, note, profile);
+    }
+    if (props.mode === 'particle-galaxy') {
+      addGalaxyBurst(state, note, props, profile);
+    }
+    if (props.mode === 'aurora-borealis') {
+      addAuroraRibbon(state, note, profile);
+    }
+    if (props.mode === 'fireworks') {
+      launchFireworkShells(state, note, props);
+    }
+    if (props.mode === 'sacred-geometry') {
+      const pitchClass = note.midi % 12;
+      for (const ring of state.geometryRings) {
+        if (ring.midi % 12 === pitchClass) {
+          ring.targetRadius = Math.min(ring.targetRadius + 4, 180);
+        }
+      }
+      state.geometryRings.push({
+        id: note.id,
+        midi: note.midi,
+        hue: midiToHue(note.midi),
+        x: adaptiveLaneRatio(note.midi, state.adaptiveMin, state.adaptiveMax),
+        y: clamp(
+          (classifyNoteRegister(note.midi) === 'low' ? 0.72 : classifyNoteRegister(note.midi) === 'mid' ? 0.47 : 0.22)
+            + (seededUnit(note.id, 22) - 0.5) * 0.28,
+          0.06,
+          0.92,
+        ),
+        sides: geometrySidesForMidi(note.midi),
+        radius: 0,
+        targetRadius: (30 + note.velocity * 90) * profile.glowMultiplier,
+        rotation: seededUnit(note.id, 9) * Math.PI * 2,
+        rotationSpeed: (note.velocity * 0.0012 + 0.0002) * profile.motionMultiplier * (note.midi % 2 === 0 ? 1 : -1),
+        alpha: clamp((0.7 + note.velocity * 0.3) * profile.glowMultiplier, 0.3, 1),
         createdAt: note.createdAt,
-        lifeMs: 900,
       });
     }
 
     state.pageFlutter = clamp(state.pageFlutter + note.velocity * 0.35, 0, 1.4);
-    addInkBloom(state, note);
-    addTreeGrowth(state, note);
-    addGalaxyBurst(state, note, props);
-    addAuroraRibbon(state, note);
-    launchFireworkShells(state, note, props);
 
     if (props.mode === 'bubble-pop') {
       const hue = (note.midi % 12) * 30;
-      const spawnCount = props.sustainOn ? 2 : 1;
+      const spawnCount = Math.max(1, Math.round((props.sustainOn ? 2 : 1) * profile.spawnMultiplier));
       for (let bi = 0; bi < spawnCount; bi++) {
         const xOffset = bi === 0 ? 0 : (Math.random() - 0.5) * 0.06;
         const baseVy = bubbleRiseVelocityForNote(note.midi, note.velocity) * (1 + Math.random() * 0.18);
@@ -1130,46 +1196,21 @@ function syncSceneState(state: SceneState, props: FreePlayCanvasSceneProps, now:
           midi: note.midi,
           x: clamp(adaptiveLaneRatio(note.midi, state.adaptiveMin, state.adaptiveMax) + xOffset, 0.02, 0.98),
           y: 0.96,
-          radius: bubbleRadiusForNote(note.midi, note.velocity) * (bi === 0 ? 1 : 0.72),
+          radius: bubbleRadiusForNote(note.midi, note.velocity) * (bi === 0 ? 1 : 0.72) * profile.glowMultiplier,
           hue: (hue + bi * 15) % 360,
           vx: (Math.random() - 0.5) * 0.00004,
           vy: baseVy,
           baseVy,
           wobblePhase: Math.random() * Math.PI * 2,
-          swayAmplitude: bubbleSwayAmplitudeForNote(note.midi, note.velocity) * (bi === 0 ? 1 : 0.82),
+          swayAmplitude: bubbleSwayAmplitudeForNote(note.midi, note.velocity) * (bi === 0 ? 1 : 0.82) * profile.motionMultiplier,
           createdAt: note.createdAt,
-          lifetime: 2800 + Math.random() * 600,
+          lifetime: (2800 + Math.random() * 600) * profile.trailMultiplier,
           popThreshold: Math.random() * 0.67,
         });
       }
-      if (state.bubbles.length > 80) state.bubbles.splice(0, state.bubbles.length - 80);
+      const bubbleLimit = Math.round(80 * profile.particleCapMultiplier);
+      if (state.bubbles.length > bubbleLimit) state.bubbles.splice(0, state.bubbles.length - bubbleLimit);
     }
-
-    const pitchClass = note.midi % 12;
-    for (const ring of state.geometryRings) {
-      if (ring.midi % 12 === pitchClass) {
-        ring.targetRadius = Math.min(ring.targetRadius + 4, 180);
-      }
-    }
-    state.geometryRings.push({
-      id: note.id,
-      midi: note.midi,
-      hue: midiToHue(note.midi),
-      x: adaptiveLaneRatio(note.midi, state.adaptiveMin, state.adaptiveMax),
-      y: clamp(
-        (classifyNoteRegister(note.midi) === 'low' ? 0.72 : classifyNoteRegister(note.midi) === 'mid' ? 0.47 : 0.22)
-          + (seededUnit(note.id, 22) - 0.5) * 0.28,
-        0.06,
-        0.92,
-      ),
-      sides: geometrySidesForMidi(note.midi),
-      radius: 0,
-      targetRadius: 30 + note.velocity * 90,
-      rotation: seededUnit(note.id, 9) * Math.PI * 2,
-      rotationSpeed: (note.velocity * 0.0012 + 0.0002) * (note.midi % 2 === 0 ? 1 : -1),
-      alpha: 0.7 + note.velocity * 0.3,
-      createdAt: note.createdAt,
-    });
   }
 
   if (props.metronomeEnabled && props.metronomeBeat !== state.lastMetronomeBeat) {
@@ -1187,6 +1228,7 @@ function updateGenerativeModes(
   harmony: number,
   silence: number,
 ): void {
+  const profile = getEffectProfile(props.visualPreset);
   if (props.sustainOn && !state.lastSustainOn) {
     state.galaxySupernova = Math.max(state.galaxySupernova, 1);
   }
@@ -1200,7 +1242,7 @@ function updateGenerativeModes(
     blob.alpha *= 0.9992 - silence * 0.0002;
   }
 
-  state.treeGlow = lerp(state.treeGlow, intensity * 0.4 + harmony * 0.28, 0.035);
+  state.treeGlow = lerp(state.treeGlow, (intensity * 0.36 + harmony * 0.22) * profile.glowMultiplier, 0.035);
 
   const sustainAndHarmony = props.sustainOn && props.activeNotes.length >= 3 && harmony > 0.65;
   if (sustainAndHarmony && state.galaxySupernova < 0.25) {
@@ -1209,29 +1251,29 @@ function updateGenerativeModes(
     state.galaxySupernova = nextGalaxySupernova(state.galaxySupernova, deltaMs, sustainAndHarmony);
   }
   state.galaxySpinBoost = lerp(state.galaxySpinBoost, 0, 0.022);
-  const recentGalaxyParticleCount = state.galaxyParticles.filter((particle) => now - particle.createdAt <= 2200).length;
-  const galaxyLoadDamping = 1 / Math.sqrt(1 + recentGalaxyParticleCount / 28);
+  const recentGalaxyParticleCount = state.galaxyParticles.filter((particle) => now - particle.createdAt <= 2200 * profile.trailMultiplier).length;
+  const galaxyLoadDamping = 1 / Math.sqrt(1 + recentGalaxyParticleCount / 22);
   for (const particle of state.galaxyParticles) {
-    particle.targetRadiusRatio = particle.laneRatio * (1 + state.galaxySupernova * 0.9);
-    particle.radiusRatio = lerp(particle.radiusRatio, particle.targetRadiusRatio, 0.045);
+    particle.targetRadiusRatio = particle.laneRatio * (1 + state.galaxySupernova * 0.55);
+    particle.radiusRatio = lerp(particle.radiusRatio, particle.targetRadiusRatio, 0.034);
     particle.angle +=
-      (particle.spin + state.galaxySpinBoost) * deltaMs * galaxyLoadDamping * (1 + state.galaxySupernova * 0.08);
-    particle.alpha *= 0.9994;
+      (particle.spin + state.galaxySpinBoost) * deltaMs * galaxyLoadDamping * (1 + state.galaxySupernova * 0.04);
+    particle.alpha *= 1 - deltaMs * 0.000032 / profile.trailMultiplier;
   }
 
-  state.auroraEnergy = lerp(state.auroraEnergy, harmony * 0.95 + intensity * 0.3, props.activeNotes.length > 0 ? 0.08 : 0.022);
+  state.auroraEnergy = lerp(state.auroraEnergy, (harmony * 0.76 + intensity * 0.22) * profile.glowMultiplier, props.activeNotes.length > 0 ? 0.06 : 0.02);
   for (const band of state.auroraBands) {
     const lift = band.register === 'high' ? 1.2 : band.register === 'mid' ? 1 : 0.85;
     band.targetAmplitude = Math.max(
-      14,
-      band.targetAmplitude * (props.activeNotes.length > 0 ? 0.9988 : 0.9965 - silence * 0.0008),
+      10 * profile.motionMultiplier,
+      band.targetAmplitude * (props.activeNotes.length > 0 ? 0.9978 : 0.994 - silence * 0.001),
     );
-    band.amplitude = lerp(band.amplitude, band.targetAmplitude * (1 + state.auroraEnergy * 0.4 * lift), 0.04);
-    band.phase += band.phaseDirection * band.speed * deltaMs * (1 + state.auroraEnergy * 0.25);
+    band.amplitude = lerp(band.amplitude, band.targetAmplitude * (1 + state.auroraEnergy * 0.22 * lift), 0.034);
+    band.phase += band.phaseDirection * band.speed * deltaMs * (1 + state.auroraEnergy * 0.14);
     band.alpha = lerp(
       band.alpha,
-      Math.max(0.05, band.alpha * (1 - silence * 0.02) + state.sustainEnvelope * 0.08),
-      0.02,
+      Math.max(0.035, band.alpha * (1 - silence * 0.028) + state.sustainEnvelope * 0.045 * profile.glowMultiplier),
+      0.018,
     );
   }
 
@@ -1298,7 +1340,7 @@ function updateGenerativeModes(
     // Slow this specific bubble if its key is still held down after the hold threshold
     const keyStillHeld = props.activeNotes.includes(bubble.midi) && (now - bubble.createdAt) >= BUBBLE_HOLD_THRESHOLD_MS;
     const holdSlow = keyStillHeld ? 0.7 : 1;
-    bubble.vy = bubble.baseVy * holdSlow * sustainSlow;
+    bubble.vy = bubble.baseVy * holdSlow * sustainSlow * profile.motionMultiplier;
     bubble.y += bubble.vy * deltaMs;
     bubble.x += bubble.vx * deltaMs + Math.sin(bubble.wobblePhase + now * 0.002) * bubble.swayAmplitude;
   }
@@ -1546,12 +1588,13 @@ function drawClassicPiano(
   now: number,
   intensity: number,
   silence: number,
+  profile: SceneEffectProfile,
 ): void {
-  drawBackground(context, width, height, '#141a27', '#05070d');
+  drawBackground(context, width, height, '#111723', '#04060b');
 
-  const idlePulse = (Math.sin(now * 0.00115) + 1) * 0.5;
-  const ambientAlpha = 0.1 + silence * 0.12 + intensity * 0.08;
-  const deckTop = height * 0.7;
+  const idlePulse = (Math.sin(now * 0.00075 * profile.motionMultiplier) + 1) * 0.5;
+  const ambientAlpha = 0.055 + silence * 0.055 + intensity * 0.045 * profile.glowMultiplier;
+  const deckTop = height * 0.72;
 
   const spotlight = context.createRadialGradient(
     width * 0.5,
@@ -1561,17 +1604,17 @@ function drawClassicPiano(
     height * 0.58,
     width * 0.62,
   );
-  spotlight.addColorStop(0, `rgba(188, 222, 255, ${0.12 + idlePulse * 0.08 + intensity * 0.12})`);
+  spotlight.addColorStop(0, `rgba(210, 226, 246, ${0.07 + idlePulse * 0.025 + intensity * 0.045 * profile.glowMultiplier})`);
   spotlight.addColorStop(0.52, `rgba(72, 115, 196, ${ambientAlpha})`);
   spotlight.addColorStop(1, 'rgba(8, 12, 20, 0)');
   context.fillStyle = spotlight;
   context.fillRect(0, 0, width, height);
 
   const sideGlow = context.createLinearGradient(0, 0, width, 0);
-  sideGlow.addColorStop(0, `rgba(88, 132, 214, ${0.09 + silence * 0.05})`);
+  sideGlow.addColorStop(0, `rgba(88, 132, 214, ${0.035 + silence * 0.02})`);
   sideGlow.addColorStop(0.18, 'rgba(88, 132, 214, 0)');
   sideGlow.addColorStop(0.82, 'rgba(88, 132, 214, 0)');
-  sideGlow.addColorStop(1, `rgba(88, 132, 214, ${0.09 + silence * 0.05})`);
+  sideGlow.addColorStop(1, `rgba(88, 132, 214, ${0.035 + silence * 0.02})`);
   context.fillStyle = sideGlow;
   context.fillRect(0, 0, width, height);
 
@@ -1581,20 +1624,20 @@ function drawClassicPiano(
   context.fillStyle = 'rgba(255, 255, 255, 0.04)';
   context.fillRect(width * 0.18, deckTop + 6, width * 0.64, 3);
 
-  for (let index = 0; index < 3; index += 1) {
-    const orbit = ((now * (0.00042 + index * 0.00009)) + index * 0.33) % 1;
+  for (let index = 0; index < 2; index += 1) {
+    const orbit = ((now * (0.00024 + index * 0.00005) * profile.motionMultiplier) + index * 0.42) % 1;
     const x = width * (0.22 + orbit * 0.56);
-    const y = height * (0.2 + index * 0.16 + Math.sin(now * 0.001 + index * 2.2) * 0.02);
-    const dust = context.createRadialGradient(x, y, 0, x, y, width * 0.08);
-    dust.addColorStop(0, `rgba(236, 244, 255, ${0.07 + idlePulse * 0.04})`);
+    const y = height * (0.22 + index * 0.18 + Math.sin(now * 0.0006 + index * 2.2) * 0.012);
+    const dust = context.createRadialGradient(x, y, 0, x, y, width * 0.06);
+    dust.addColorStop(0, `rgba(236, 244, 255, ${0.03 + idlePulse * 0.018})`);
     dust.addColorStop(1, 'rgba(236, 244, 255, 0)');
     context.fillStyle = dust;
-    context.fillRect(x - width * 0.08, y - width * 0.08, width * 0.16, width * 0.16);
+    context.fillRect(x - width * 0.06, y - width * 0.06, width * 0.12, width * 0.12);
   }
 
   context.save();
-  context.globalAlpha = 0.34 + silence * 0.18;
-  context.strokeStyle = 'rgba(179, 214, 255, 0.16)';
+  context.globalAlpha = 0.24 + silence * 0.08;
+  context.strokeStyle = 'rgba(202, 220, 244, 0.16)';
   context.lineWidth = 1;
   context.beginPath();
   context.moveTo(width * 0.12, deckTop - 40);
@@ -1603,7 +1646,7 @@ function drawClassicPiano(
   context.restore();
 
   context.save();
-  context.globalAlpha = 0.72;
+  context.globalAlpha = profile.labelAlpha;
   context.fillStyle = 'rgba(240, 245, 255, 0.84)';
   context.font = '700 12px "Segoe UI", system-ui, sans-serif';
   context.textAlign = 'left';
@@ -1931,6 +1974,7 @@ function drawHeatmap(
   props: FreePlayCanvasSceneProps,
   keyHue: number,
   now: number,
+  profile: SceneEffectProfile,
 ): void {
   drawBackground(context, width, height, '#0b1221', '#03070f');
 
@@ -1964,7 +2008,7 @@ function drawHeatmap(
     const zoneX = padding.left + (peak.startMidi - 21) * cellWidth;
     const zoneW = (peak.endMidi - peak.startMidi + 1) * cellWidth;
     const pulse = (Math.sin(now * 0.0022 + index * 1.9) + 1) * 0.5;
-    const glowAlpha = clamp(0.03 + pulse * 0.04 * clamp(peak.score, 0, 1), 0, 0.08);
+    const glowAlpha = clamp((0.025 + pulse * 0.035 * clamp(peak.score, 0, 1)) * profile.glowMultiplier, 0, 0.1);
     const glowHue = (keyHue + index * 36) % 360;
     const zoneGrad = context.createLinearGradient(zoneX, padding.top, zoneX, padding.top + plotHeight);
     zoneGrad.addColorStop(0, hsla(glowHue, 80, 60, glowAlpha));
@@ -1981,7 +2025,7 @@ function drawHeatmap(
         return;
       }
       const hue = (keyHue + noteIndex * 1.8) % 360;
-      context.fillStyle = hsla(hue, 92, 62, clamp(value * 0.8, 0.04, 0.86));
+      context.fillStyle = hsla(hue, 92, 62, clamp(value * (0.62 + profile.glowMultiplier * 0.2), 0.035, 0.9));
       context.fillRect(padding.left + noteIndex * cellWidth, y, Math.max(1.2, cellWidth + 0.5), rowHeight + 0.6);
     });
   });
@@ -2109,12 +2153,13 @@ function drawTreeOfLight(
   now: number,
   pitchCenter: number,
   intensity: number,
+  profile: SceneEffectProfile,
 ): void {
   drawBackground(context, width, height, '#08111d', '#010407');
 
   const moonGlow = context.createRadialGradient(width * 0.76, height * 0.18, 0, width * 0.76, height * 0.18, width * 0.24);
-  moonGlow.addColorStop(0, 'rgba(240, 244, 255, 0.28)');
-  moonGlow.addColorStop(0.45, 'rgba(139, 174, 255, 0.14)');
+  moonGlow.addColorStop(0, `rgba(240, 244, 255, ${0.16 + 0.08 * profile.backgroundContrast})`);
+  moonGlow.addColorStop(0.45, `rgba(139, 174, 255, ${0.08 + 0.04 * profile.backgroundContrast})`);
   moonGlow.addColorStop(1, 'rgba(139, 174, 255, 0)');
   context.fillStyle = moonGlow;
   context.fillRect(0, 0, width, height);
@@ -2126,7 +2171,9 @@ function drawTreeOfLight(
   context.fillRect(0, height * 0.78, width, height * 0.22);
 
   for (const segment of state.treeSegments) {
-    const sway = segment.kind === 'branch' ? Math.sin(now * 0.001 * segment.swaySpeed + segment.swayOffset) * 6 : 0;
+    const sway = segment.kind === 'branch'
+      ? Math.sin(now * 0.00062 * segment.swaySpeed * profile.motionMultiplier + segment.swayOffset) * (2.4 + profile.motionMultiplier * 2.2)
+      : 0;
     const startX = segment.startX * width;
     const startY = segment.startY * height;
     const endX = segment.endX * width + sway;
@@ -2138,7 +2185,7 @@ function drawTreeOfLight(
     const bassBoost = segment.kind === 'root' || segment.kind === 'trunk'
       ? clamp((55 - pitchCenter) * 0.04, 0, 0.22) * intensity
       : 0;
-    const glowAlpha = 0.18 + state.treeGlow * 0.12 + bassBoost;
+    const glowAlpha = (0.12 + state.treeGlow * 0.1 + bassBoost) * profile.glowMultiplier;
     const coreL = segment.kind === 'root' ? 28 + bassBoost * 60 : 38;
 
     // Differentiate trunk (brown) from branches (vibrant) in glow and core layers
@@ -2148,7 +2195,7 @@ function drawTreeOfLight(
     const coreLightFinal = segment.kind === 'root' ? coreL : segment.kind === 'trunk' ? 38 : 62;
 
     context.strokeStyle = hsla(segment.hue, glowSat, glowLight, glowAlpha);
-    context.lineWidth = segment.thickness + 7;
+    context.lineWidth = segment.thickness + 4 + profile.glowMultiplier * 3;
     context.beginPath();
     context.moveTo(startX, startY);
     context.quadraticCurveTo(controlX, controlY, endX, endY);
@@ -2163,10 +2210,10 @@ function drawTreeOfLight(
   }
 
   for (const ornament of state.treeOrnaments) {
-    const twinkle = 0.65 + (Math.sin(now * 0.0024 + ornament.shimmer) + 1) * 0.22;
-    const driftAmt = ornament.kind === 'leaf' ? 2.5 : 4;
-    const x = ornament.x * width + Math.sin(now * 0.0016 + ornament.drift) * driftAmt;
-    const y = ornament.y * height + Math.cos(now * 0.0012 + ornament.drift) * 2.2;
+    const twinkle = 0.72 + (Math.sin(now * 0.0016 * profile.motionMultiplier + ornament.shimmer) + 1) * 0.16;
+    const driftAmt = (ornament.kind === 'leaf' ? 1.5 : 2.4) * profile.motionMultiplier;
+    const x = ornament.x * width + Math.sin(now * 0.0009 * profile.motionMultiplier + ornament.drift) * driftAmt;
+    const y = ornament.y * height + Math.cos(now * 0.00072 * profile.motionMultiplier + ornament.drift) * 1.4;
     const radius = ornament.radius * twinkle;
     const shape = ornament.shape ?? (ornament.kind === 'leaf' ? 'ellipse' : 'circle');
     const sat = ornament.sat ?? (ornament.kind === 'bloom' ? 94 : 72);
@@ -2174,8 +2221,8 @@ function drawTreeOfLight(
 
     // Per-shape glow
     const glowRadiusMult = shape === 'star' ? 6 : ornament.kind === 'bloom' ? 5 : shape === 'diamond' ? 4.5 : shape === 'teardrop' ? 4 : 3.5;
-    const glowAlpha2 = shape === 'star' ? 0.32 : ornament.kind === 'bloom' ? 0.28 : shape === 'diamond' ? 0.24 : shape === 'teardrop' ? 0.22 : 0.16;
-    drawSoftGlow(context, x, y, radius * glowRadiusMult, ornament.hue, glowAlpha2);
+    const glowAlpha2 = (shape === 'star' ? 0.24 : ornament.kind === 'bloom' ? 0.2 : shape === 'diamond' ? 0.18 : shape === 'teardrop' ? 0.16 : 0.12) * profile.glowMultiplier;
+    drawSoftGlow(context, x, y, radius * glowRadiusMult * profile.glowMultiplier, ornament.hue, glowAlpha2);
 
     context.fillStyle = hsla(ornament.hue, sat, light, 0.94);
     context.beginPath();
@@ -2229,6 +2276,7 @@ function drawParticleGalaxy(
   state: SceneState,
   now: number,
   harmony: number,
+  profile: SceneEffectProfile,
 ): void {
   drawBackground(context, width, height, '#040813', '#010205');
   const centerX = width / 2;
@@ -2236,29 +2284,30 @@ function drawParticleGalaxy(
   const minDimension = Math.min(width, height);
 
   const backdrop = context.createRadialGradient(centerX, centerY, minDimension * 0.02, centerX, centerY, minDimension * 0.7);
-  backdrop.addColorStop(0, 'rgba(44, 84, 160, 0.24)');
-  backdrop.addColorStop(0.5, 'rgba(28, 18, 66, 0.12)');
+  backdrop.addColorStop(0, `rgba(44, 84, 160, ${0.16 + profile.backgroundContrast * 0.06})`);
+  backdrop.addColorStop(0.5, `rgba(28, 18, 66, ${0.08 + profile.backgroundContrast * 0.04})`);
   backdrop.addColorStop(1, 'rgba(0, 0, 0, 0)');
   context.fillStyle = backdrop;
   context.fillRect(0, 0, width, height);
 
-  const nebulaHues = [200, 280, 320, 60];
-  for (let n = 0; n < 4; n += 1) {
+  const nebulaHues = [200, 276, 324];
+  for (let n = 0; n < nebulaHues.length; n += 1) {
     const nx = seededUnit(`neb-${n}`, 1) * width;
     const ny = seededUnit(`neb-${n}`, 2) * height;
     const nr = minDimension * (0.18 + seededUnit(`neb-${n}`, 3) * 0.22);
     const nebulaGrad = context.createRadialGradient(nx, ny, 0, nx, ny, nr);
-    nebulaGrad.addColorStop(0, hsla(nebulaHues[n], 80, 38, 0.12 + state.galaxySupernova * 0.08));
+    nebulaGrad.addColorStop(0, hsla(nebulaHues[n], 80, 38, (0.07 + state.galaxySupernova * 0.04) * profile.backgroundContrast));
     nebulaGrad.addColorStop(1, hsla(nebulaHues[n], 70, 30, 0));
     context.fillStyle = nebulaGrad;
     context.fillRect(0, 0, width, height);
   }
 
-  for (let index = 0; index < 120; index += 1) {
+  const starCount = Math.round(96 * profile.particleCapMultiplier);
+  for (let index = 0; index < starCount; index += 1) {
     const seed = seededUnit(`galaxy-star-${index}`, 1);
     const starX = seededUnit(`galaxy-star-${index}`, 2) * width;
     const starY = seededUnit(`galaxy-star-${index}`, 3) * height;
-    const twinkle = seed * 0.28 + Math.sin(now * 0.0016 * (0.4 + seed * 0.8) + index * 1.7) * 0.12;
+    const twinkle = seed * 0.22 + Math.sin(now * 0.0011 * profile.motionMultiplier * (0.4 + seed * 0.8) + index * 1.7) * 0.08;
     context.fillStyle = `rgba(255,255,255,${Math.max(0, 0.06 + twinkle)})`;
     context.beginPath();
     context.arc(starX, starY, 0.5 + seed * 1.6, 0, Math.PI * 2);
@@ -2267,33 +2316,33 @@ function drawParticleGalaxy(
 
   for (const particle of state.galaxyParticles) {
     const radius = particle.radiusRatio * minDimension;
-    const spiralAngle = particle.angle + particle.arm * ((Math.PI * 2) / 4) + particle.radiusRatio * 7.4;
+    const spiralAngle = particle.angle + particle.arm * ((Math.PI * 2) / 4) + particle.radiusRatio * 6.8;
     const x = centerX + Math.cos(spiralAngle) * radius * 1.12;
     const y = centerY + Math.sin(spiralAngle) * radius * 0.6;
     const tailAngle = spiralAngle - particle.spin * 180;
     const tailRadius = Math.max(0, radius - minDimension * 0.03);
     const tailX = centerX + Math.cos(tailAngle) * tailRadius * 1.08;
     const tailY = centerY + Math.sin(tailAngle) * tailRadius * 0.58;
-    const age = clamp((now - particle.createdAt) / 70000, 0, 1);
+    const age = clamp((now - particle.createdAt) / (52000 * profile.trailMultiplier), 0, 1);
 
     // Strengthen spiral-arm tail readability with harmony
-    const armAlphaBoost = harmony * 0.10;
-    context.strokeStyle = hsla(particle.hue, 88 + harmony * 8, 72, particle.alpha * (1 - age) * (0.12 + armAlphaBoost));
-    context.lineWidth = particle.size * (1.6 + harmony * 0.5);
+    const armAlphaBoost = harmony * 0.08;
+    context.strokeStyle = hsla(particle.hue, 84 + harmony * 8, 72, particle.alpha * (1 - age) * (0.09 + armAlphaBoost) * profile.glowMultiplier);
+    context.lineWidth = particle.size * (1.25 + harmony * 0.36);
     context.beginPath();
     context.moveTo(tailX, tailY);
     context.lineTo(x, y);
     context.stroke();
 
-    drawSoftGlow(context, x, y, particle.size * (13 + state.galaxySupernova * 5), particle.hue, particle.alpha * (0.18 + harmony * 0.06));
-    context.fillStyle = hsla(particle.hue, 90, 72, particle.alpha * (0.7 + (Math.sin(now * 0.0022 + particle.sparkle) + 1) * 0.15));
+    drawSoftGlow(context, x, y, particle.size * (9 + state.galaxySupernova * 4) * profile.glowMultiplier, particle.hue, particle.alpha * (0.13 + harmony * 0.05));
+    context.fillStyle = hsla(particle.hue, 88, 72, particle.alpha * (0.62 + (Math.sin(now * 0.0016 * profile.motionMultiplier + particle.sparkle) + 1) * 0.12));
     context.beginPath();
     context.arc(x, y, particle.size * (0.8 + state.galaxySupernova * 0.22), 0, Math.PI * 2);
     context.fill();
   }
 
   if (state.galaxySupernova > 0.4) {
-    const flashAlpha = (state.galaxySupernova - 0.4) * 0.55;
+    const flashAlpha = (state.galaxySupernova - 0.4) * 0.32 * profile.glowMultiplier;
     const flash = context.createRadialGradient(centerX, centerY, 0, centerX, centerY, minDimension * 0.6);
     flash.addColorStop(0, `rgba(255, 240, 200, ${flashAlpha})`);
     flash.addColorStop(0.5, `rgba(255, 200, 140, ${flashAlpha * 0.4})`);
@@ -2303,8 +2352,8 @@ function drawParticleGalaxy(
   }
 
   const coreGradient = context.createRadialGradient(centerX, centerY, 0, centerX, centerY, minDimension * 0.16);
-  coreGradient.addColorStop(0, 'rgba(255, 236, 182, 0.95)');
-  coreGradient.addColorStop(0.25, 'rgba(255, 168, 90, 0.6)');
+  coreGradient.addColorStop(0, `rgba(255, 236, 182, ${0.68 + 0.14 * profile.glowMultiplier})`);
+  coreGradient.addColorStop(0.25, `rgba(255, 168, 90, ${0.36 + 0.12 * profile.glowMultiplier})`);
   coreGradient.addColorStop(0.7, `rgba(126, 174, 255, ${0.18 + state.galaxySupernova * 0.18})`);
   coreGradient.addColorStop(1, 'rgba(126, 174, 255, 0)');
   context.fillStyle = coreGradient;
@@ -2324,6 +2373,7 @@ function drawAuroraBorealis(
   harmony: number,
   _sustainOn: boolean,
   pitchCenter: number,
+  profile: SceneEffectProfile,
 ): void {
   const sky = context.createLinearGradient(0, 0, 0, height);
   sky.addColorStop(0, '#020816');
@@ -2332,46 +2382,54 @@ function drawAuroraBorealis(
   context.fillStyle = sky;
   context.fillRect(0, 0, width, height);
 
-  for (let index = 0; index < 80; index += 1) {
+  const starCount = Math.round(56 * profile.particleCapMultiplier);
+  for (let index = 0; index < starCount; index += 1) {
     const seed = seededUnit(`aurora-star-${index}`, 1);
     const starX = seededUnit(`aurora-star-${index}`, 2) * width;
     const starY = seededUnit(`aurora-star-${index}`, 3) * height * 0.55;
-    context.fillStyle = `rgba(255,255,255,${0.08 + seed * 0.28})`;
+    context.fillStyle = `rgba(255,255,255,${(0.06 + seed * 0.2) * profile.backgroundContrast})`;
     context.beginPath();
     context.arc(starX, starY, 0.5 + seed * 1.4, 0, Math.PI * 2);
     context.fill();
   }
 
   for (const band of state.auroraBands) {
-    const age = clamp((now - band.createdAt) / 40000, 0, 1);
+    const age = clamp((now - band.createdAt) / (30000 * profile.trailMultiplier), 0, 1);
     const bandAlpha = Math.max(0.03, band.alpha * (1 - age * 0.3) * (1 - silence * 0.5));
-    const shimmer = 0.8 + (Math.sin(now * 0.0018 + band.shimmer) + 1) * 0.16;
-    for (let layer = 0; layer < 3; layer += 1) {
-      const layerOffset = layer * 12;
-      context.strokeStyle = hsla(band.hue + layer * 6, 88, layer === 0 ? 72 : 66, bandAlpha * (0.44 - layer * 0.1));
-      context.lineWidth = Math.max(8, band.thickness - layerOffset) * shimmer;
+    const shimmer = 0.86 + (Math.sin(now * 0.0011 * profile.motionMultiplier + band.shimmer) + 1) * 0.1;
+    const layerCount = profile.spawnMultiplier > 1.1 ? 3 : 2;
+    for (let layer = 0; layer < layerCount; layer += 1) {
+      const layerOffset = layer * 10;
+      context.strokeStyle = hsla(band.hue + layer * 7, 86, layer === 0 ? 72 : 66, bandAlpha * (0.36 - layer * 0.09) * profile.glowMultiplier);
+      context.lineWidth = Math.max(5, band.thickness - layerOffset) * shimmer;
       context.lineCap = 'round';
       context.beginPath();
-      context.moveTo(-20, band.baseY * height);
-      for (let x = 0; x <= width + 40; x += 88) {
-        const wave = Math.sin(x * 0.007 + band.phase + layer * 0.6) * band.amplitude;
-        const y = band.baseY * height + wave - layer * 10;
-        const controlX = x + 44;
-        const controlY = band.baseY * height + Math.sin((x + 44) * 0.007 + band.phase + layer * 0.6) * band.amplitude - layer * 10;
-        context.quadraticCurveTo(controlX, controlY, x + 88, y);
+      const slope = (band.pitchCenterRatio - 0.5) * height * 0.18;
+      context.moveTo(-30, band.baseY * height - slope);
+      for (let x = 0; x <= width + 60; x += 96) {
+        const ratio = x / Math.max(width, 1);
+        const diagonal = (ratio - 0.5) * slope * 2;
+        const wave = Math.sin(x * 0.0052 + band.phase + layer * 0.52) * band.amplitude;
+        const y = band.baseY * height + diagonal + wave - layer * 9;
+        const controlX = x + 48;
+        const controlRatio = controlX / Math.max(width, 1);
+        const controlDiagonal = (controlRatio - 0.5) * slope * 2;
+        const controlY = band.baseY * height + controlDiagonal + Math.sin(controlX * 0.0052 + band.phase + layer * 0.52) * band.amplitude - layer * 9;
+        context.quadraticCurveTo(controlX, controlY, x + 96, y);
       }
       context.stroke();
     }
 
-    const curtainStep = Math.max(6, 14 - state.sustainEnvelope * 7);
-    const curtainAlphaBoost = state.sustainEnvelope * 0.3;
+    const curtainStep = Math.max(14, 26 - state.sustainEnvelope * 5 - profile.spawnMultiplier * 4);
+    const curtainAlphaBoost = state.sustainEnvelope * 0.16 * profile.glowMultiplier;
     const curtainCount = Math.floor(width / curtainStep);
     for (let c = 0; c < curtainCount; c += 1) {
       const cx = (c / curtainCount) * width;
-      const waveY = band.baseY * height + Math.sin(cx * 0.007 + band.phase) * band.amplitude;
-      const curtainLen = 40 + Math.sin(cx * 0.04 + now * 0.001 + band.shimmer) * 25;
+      const slope = (band.pitchCenterRatio - 0.5) * height * 0.18;
+      const waveY = band.baseY * height + ((cx / Math.max(width, 1)) - 0.5) * slope * 2 + Math.sin(cx * 0.0052 + band.phase) * band.amplitude;
+      const curtainLen = (24 + Math.sin(cx * 0.028 + now * 0.00065 * profile.motionMultiplier + band.shimmer) * 13) * profile.glowMultiplier;
       const curtainGrad = context.createLinearGradient(cx, waveY, cx, waveY + curtainLen);
-      curtainGrad.addColorStop(0, hsla(band.hue, 90, 72, clamp(bandAlpha * 0.55 + curtainAlphaBoost, 0, 0.9)));
+      curtainGrad.addColorStop(0, hsla(band.hue, 88, 72, clamp(bandAlpha * 0.36 + curtainAlphaBoost, 0, 0.62)));
       curtainGrad.addColorStop(1, hsla(band.hue, 90, 72, 0));
       context.strokeStyle = curtainGrad;
       context.lineWidth = 1;
@@ -2381,13 +2439,15 @@ function drawAuroraBorealis(
       context.stroke();
     }
 
-    for (let s = 0; s < 18; s += 1) {
+    const sparkleCount = Math.round(7 * profile.spawnMultiplier);
+    for (let s = 0; s < sparkleCount; s += 1) {
       const sx = seededUnit(`aurora-sparkle-${band.createdAt}-${s}`, 1) * width;
-      const sparkWaveY = band.baseY * height + Math.sin(sx * 0.007 + band.phase) * band.amplitude;
+      const slope = (band.pitchCenterRatio - 0.5) * height * 0.18;
+      const sparkWaveY = band.baseY * height + ((sx / Math.max(width, 1)) - 0.5) * slope * 2 + Math.sin(sx * 0.0052 + band.phase) * band.amplitude;
       const sparkleAlpha =
         ((Math.sin(now * 0.003 * (0.4 + seededUnit(`aurora-sparkle-${band.createdAt}-${s}`, 2) * 0.8) + s) + 1) * 0.5) *
         bandAlpha *
-        0.9;
+        0.42 * profile.glowMultiplier;
       context.fillStyle = `rgba(255, 255, 255, ${sparkleAlpha})`;
       context.beginPath();
       context.arc(sx, sparkWaveY, 1.2, 0, Math.PI * 2);
@@ -2398,28 +2458,28 @@ function drawAuroraBorealis(
   const glowAnchorX = adaptiveLaneRatio(pitchCenter, state.adaptiveMin, state.adaptiveMax) * width;
   const glowAnchorY = height * 0.38;
   const harmonyGlow = context.createRadialGradient(glowAnchorX, glowAnchorY, 0, glowAnchorX, glowAnchorY, width * 0.28);
-  harmonyGlow.addColorStop(0, hsla(midiToHue(pitchCenter), 88, 70, clamp(harmony * 0.18 + state.sustainEnvelope * 0.08, 0, 0.28)));
+  harmonyGlow.addColorStop(0, hsla(midiToHue(pitchCenter), 86, 70, clamp((harmony * 0.12 + state.sustainEnvelope * 0.05) * profile.glowMultiplier, 0, 0.22)));
   harmonyGlow.addColorStop(1, hsla(midiToHue(pitchCenter), 88, 70, 0));
   context.fillStyle = harmonyGlow;
   context.fillRect(0, 0, width, height);
 
   // Horizon reflection — alpha responds to intensity and harmony instead of being fixed
-  const reflectionAlpha = clamp(0.05 + intensity * 0.16 + harmony * 0.12, 0.04, 0.32);
+  const reflectionAlpha = clamp((0.035 + intensity * 0.09 + harmony * 0.07) * profile.glowMultiplier, 0.025, 0.22);
   context.save();
   context.globalAlpha = reflectionAlpha;
   for (const band of state.auroraBands) {
-    const age = clamp((now - band.createdAt) / 40000, 0, 1);
+    const age = clamp((now - band.createdAt) / (30000 * profile.trailMultiplier), 0, 1);
     const bandAlpha = Math.max(0.03, band.alpha * (1 - age * 0.3) * (1 - silence * 0.5));
     const reflectBaseY = height * 0.96 - (1 - band.baseY) * height * 0.14;
     context.strokeStyle = hsla(band.hue, 88, 66, bandAlpha * 0.5);
-    context.lineWidth = Math.max(4, band.thickness * 0.4);
+    context.lineWidth = Math.max(3, band.thickness * 0.26);
     context.lineCap = 'round';
     context.beginPath();
     context.moveTo(-20, reflectBaseY);
     for (let x = 0; x <= width + 40; x += 88) {
-      const wave = Math.sin(x * 0.007 + band.phase) * band.amplitude * 0.3;
+      const wave = Math.sin(x * 0.0052 + band.phase) * band.amplitude * 0.22;
       const controlX = x + 44;
-      const controlY = reflectBaseY + Math.sin((x + 44) * 0.007 + band.phase) * band.amplitude * 0.3;
+      const controlY = reflectBaseY + Math.sin((x + 44) * 0.0052 + band.phase) * band.amplitude * 0.22;
       context.quadraticCurveTo(controlX, controlY, x + 88, reflectBaseY + wave);
     }
     context.stroke();
@@ -2700,11 +2760,53 @@ function drawBubblePop(
 export function getEffectProfile(preset: VisualPreset): SceneEffectProfile {
   switch (preset) {
     case 'subtle':
-      return { bloomBlurMin: 3, bloomBlurMax: 6, bloomAlphaCap: 0.10, vignetteStrength: 0.14, colorGradeStrength: 0.04 };
+      return {
+        bloomBlurMin: 2,
+        bloomBlurMax: 5,
+        bloomAlphaCap: 0.08,
+        vignetteStrength: 0.12,
+        colorGradeStrength: 0.035,
+        spawnMultiplier: 0.62,
+        motionMultiplier: 0.68,
+        trailMultiplier: 0.7,
+        glowMultiplier: 0.68,
+        backgroundContrast: 0.75,
+        labelAlpha: 0.52,
+        particleCapMultiplier: 0.62,
+        auroraBandLimit: 8,
+      };
     case 'vivid':
-      return { bloomBlurMin: 6, bloomBlurMax: 13, bloomAlphaCap: 0.26, vignetteStrength: 0.34, colorGradeStrength: 0.15 };
+      return {
+        bloomBlurMin: 6,
+        bloomBlurMax: 13,
+        bloomAlphaCap: 0.26,
+        vignetteStrength: 0.34,
+        colorGradeStrength: 0.15,
+        spawnMultiplier: 1.28,
+        motionMultiplier: 1.18,
+        trailMultiplier: 1.28,
+        glowMultiplier: 1.25,
+        backgroundContrast: 1.18,
+        labelAlpha: 0.88,
+        particleCapMultiplier: 1.18,
+        auroraBandLimit: 14,
+      };
     default: // 'balanced'
-      return { bloomBlurMin: 4, bloomBlurMax: 9, bloomAlphaCap: 0.18, vignetteStrength: 0.24, colorGradeStrength: 0.09 };
+      return {
+        bloomBlurMin: 4,
+        bloomBlurMax: 9,
+        bloomAlphaCap: 0.16,
+        vignetteStrength: 0.22,
+        colorGradeStrength: 0.085,
+        spawnMultiplier: 1,
+        motionMultiplier: 1,
+        trailMultiplier: 1,
+        glowMultiplier: 1,
+        backgroundContrast: 1,
+        labelAlpha: 0.72,
+        particleCapMultiplier: 1,
+        auroraBandLimit: 11,
+      };
   }
 }
 
@@ -2833,6 +2935,7 @@ export function FreePlayCanvasScene(props: FreePlayCanvasSceneProps) {
     const drawFrame = () => {
       const nextProps = latestPropsRef.current;
       const now = performance.now();
+      const profile = getEffectProfile(nextProps.visualPreset);
       const palette = readPalette();
       const rect = container.getBoundingClientRect();
       const width = Math.max(1, Math.round(rect.width));
@@ -2869,7 +2972,7 @@ export function FreePlayCanvasScene(props: FreePlayCanvasSceneProps) {
           drawConcertStage(context, width, height, state, nextProps, now, intensity, pitchCenter, keyCenter.hue);
           break;
         case 'classic-piano':
-          drawClassicPiano(context, width, height, now, intensity, silence);
+          drawClassicPiano(context, width, height, now, intensity, silence, profile);
           break;
         case 'color-ribbons':
           drawColorRibbons(context, width, height, state.ribbons, now, keyCenter.hue, state.adaptiveMin, state.adaptiveMax);
@@ -2881,19 +2984,19 @@ export function FreePlayCanvasScene(props: FreePlayCanvasSceneProps) {
           drawConstellation(context, width, height, state, now, intensity, keyCenter.hue, nextProps.sustainOn, harmony);
           break;
         case 'scale-heatmap':
-          drawHeatmap(context, width, height, state, nextProps, keyCenter.hue, now);
+          drawHeatmap(context, width, height, state, nextProps, keyCenter.hue, now, profile);
           break;
         case 'ink-in-water':
           drawInkInWater(context, width, height, state, now, silence, nextProps.sustainOn);
           break;
         case 'tree-of-light':
-          drawTreeOfLight(context, width, height, state, now, pitchCenter, intensity);
+          drawTreeOfLight(context, width, height, state, now, pitchCenter, intensity, profile);
           break;
         case 'particle-galaxy':
-          drawParticleGalaxy(context, width, height, state, now, harmony);
+          drawParticleGalaxy(context, width, height, state, now, harmony, profile);
           break;
         case 'aurora-borealis':
-          drawAuroraBorealis(context, width, height, state, now, silence, intensity, harmony, nextProps.sustainOn, pitchCenter);
+          drawAuroraBorealis(context, width, height, state, now, silence, intensity, harmony, nextProps.sustainOn, pitchCenter, profile);
           break;
         case 'fireworks':
           drawFireworks(context, width, height, state, nextProps, now);
