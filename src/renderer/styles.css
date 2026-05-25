@@ -1798,8 +1798,8 @@ select:focus {
 }
 
 .immersive-instrument-popout.stage-popout {
-  top: 86px;
-  right: 24px;
+  top: 58px;
+  right: 1px;
   width: min(390px, calc(100% - 48px));
   max-height: min(500px, calc(100% - 110px));
   overflow: auto;
@@ -2294,7 +2294,9 @@ select:focus {
 }
 
 .free-play-hud .immersive-hud-item,
-.free-play-hud .immersive-menu-btn {
+.free-play-hud .immersive-menu-btn,
+.regular-soundboard-hud .immersive-hud-item,
+.regular-soundboard-hud .immersive-menu-btn {
   border-color: var(--product-deck-soft-line);
   background: var(--product-deck-card-bg);
 }
@@ -2326,24 +2328,42 @@ select:focus {
   align-content: stretch;
 }
 
-.free-play-hud .immersive-hud-stats {
+.free-play-hud .immersive-hud-stats,
+.regular-soundboard-hud .immersive-hud-stats,
+.animal-soundboard-hud .immersive-hud-stats {
   gap: 8px;
 }
 
-.free-play-hud .immersive-hud-core {
+.free-play-hud .immersive-hud-core,
+.regular-soundboard-hud .immersive-hud-core,
+.animal-soundboard-hud .immersive-hud-core {
   min-width: 0;
 }
 
-.free-play-hud .immersive-hud-item {
+.free-play-hud .immersive-hud-item,
+.regular-soundboard-hud .immersive-hud-item,
+.animal-soundboard-hud .immersive-hud-item {
   min-width: 0;
   align-items: flex-start;
 }
 
-.free-play-hud .immersive-hud-item strong {
+.free-play-hud .immersive-hud-item strong,
+.regular-soundboard-hud .immersive-hud-item strong,
+.animal-soundboard-hud .immersive-hud-item strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   max-width: 24ch;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.soundboard-card-emoji {
+  flex: 0 0 auto;
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+  font-size: 1.05em;
+  line-height: 1;
 }
 
 @media (max-width: 780px) {
@@ -4256,7 +4276,6 @@ select:focus {
 .view-toggle,
 .filter-chips,
 .timing-breakdown {
-  display: flex;
   gap: 16px;
 }
 
@@ -5866,8 +5885,8 @@ select:focus {
 
 .free-play-visual-popout {
   position: absolute;
-  top: 86px;
-  right: 24px;
+  top: 58px;
+  right: 1px;
   z-index: 45;
   width: min(340px, calc(100% - 48px));
   max-height: min(500px, calc(100% - 110px));
@@ -6195,10 +6214,24 @@ select:focus {
     linear-gradient(180deg, #68d7ff 0%, #61eeb5 40%, #ffd768 100%);
 }
 
-.animal-map-toggle {
+.soundboard-regular-mode {
+  --product-deck-accent: var(--product-neon-cyan);
+  --product-deck-alt: var(--product-neon-orange);
+  --color-accent: var(--product-deck-accent);
+  --color-accent-secondary: var(--product-deck-alt);
+  background:
+    radial-gradient(circle at 18% 18%, color-mix(in oklch, var(--product-neon-cyan) 28%, transparent), transparent 30%),
+    radial-gradient(circle at 84% 16%, color-mix(in oklch, var(--product-neon-orange) 20%, transparent), transparent 28%),
+    radial-gradient(circle at 68% 88%, color-mix(in oklch, var(--product-neon-lime) 16%, transparent), transparent 34%),
+    linear-gradient(180deg, oklch(7% 0.046 263) 0%, oklch(11% 0.052 278) 48%, oklch(6% 0.036 246) 100%);
+}
+
+.soundboard-map-toggle {
   min-width: 52px;
-  font-size: 1.4rem;
-  line-height: 1;
+}
+
+.soundboard-map-toggle svg {
+  display: block;
 }
 
 .animal-soundboard-stage {
@@ -6206,7 +6239,8 @@ select:focus {
   overflow: hidden;
 }
 
-.animal-soundboard-map-popout {
+.animal-soundboard-map-popout,
+.soundboard-mode-popout {
   position: absolute;
   top: 112px;
   right: 32px;
@@ -6228,24 +6262,108 @@ select:focus {
     transform 150ms ease;
 }
 
-.animal-soundboard-map-popout.open {
+.soundboard-regular-mode .animal-soundboard-map-popout,
+.soundboard-mode-popout {
+  top: 58px;
+  right: 1px;
+  z-index: 45;
+  width: min(440px, calc(100% - 48px));
+  max-height: min(500px, calc(100% - 110px));
+  border: 1px solid var(--product-deck-line);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--product-deck-panel-bg);
+  color: var(--product-deck-ink);
+  box-shadow: var(--product-deck-shadow);
+  clip-path: var(--product-deck-cut-md);
+  backdrop-filter: blur(14px);
+  transform: translateY(-10px) scale(0.98);
+  transition:
+    opacity 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    transform 150ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.soundboard-mode-popout {
+  width: min(340px, calc(100% - 48px));
+  display: grid;
+  gap: 10px;
+}
+
+.animal-soundboard-map-popout.open,
+.soundboard-mode-popout.open {
   opacity: 1;
   pointer-events: auto;
   transform: translateY(0) scale(1);
 }
 
-.animal-soundboard-map-popout .soundboard-grid {
-  margin-top: 18px;
+.soundboard-key-map-popout {
+  top: 112px;
+  right: 32px;
+  z-index: 45;
+  width: min(460px, calc(100vw - 64px));
+  max-height: min(68vh, 620px);
+  border: 1px solid var(--product-deck-line);
+  border-radius: 8px;
+  padding: 16px;
+  background: var(--product-deck-panel-bg);
+  color: var(--product-deck-ink);
+  box-shadow: var(--product-deck-shadow);
+  clip-path: var(--product-deck-cut-md);
+  backdrop-filter: blur(14px);
+  transform: translateY(-10px) scale(0.98);
+  transition:
+    opacity 150ms cubic-bezier(0.25, 1, 0.5, 1),
+    transform 150ms cubic-bezier(0.25, 1, 0.5, 1);
 }
 
-.animal-soundboard-map-popout .soundboard-clip-card {
-  min-height: 150px;
+.soundboard-key-map-popout.open {
+  transform: translateY(0) scale(1);
+}
+
+.soundboard-key-map-popout .panel-heading {
+  padding-bottom: 10px;
+}
+
+.animal-soundboard-map-popout .soundboard-grid {
+  margin-top: 12px;
+}
+
+.soundboard-key-map-popout .soundboard-grid {
+  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+  gap: 8px;
+}
+
+.soundboard-key-map-popout .soundboard-clip-card.soundboard-key-map-card {
+  min-height: 40px;
+  padding: 6px 8px;
+}
+
+.soundboard-regular-mode .soundboard-key-map-popout .soundboard-clip-card.soundboard-key-map-card {
+  min-height: 40px;
+}
+
+.soundboard-mode-toggle {
+  min-width: 96px;
+  max-width: min(180px, 28vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .animal-soundboard-keyboard .keyboard-shell {
   background: rgba(255, 251, 244, 0.94);
   border-top: 1px solid rgba(255, 255, 255, 0.7);
   box-shadow: 0 -20px 55px rgba(37, 80, 111, 0.18);
+}
+
+.soundboard-regular-mode .animal-soundboard-keyboard .keyboard-shell {
+  background:
+    linear-gradient(180deg, color-mix(in oklch, var(--product-deck-accent) 7%, transparent), transparent 44%),
+    oklch(8% 0.034 263 / 0.96);
+  border-top: 1px solid var(--product-deck-line);
+  box-shadow:
+    0 -20px 55px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .animal-soundboard-keyboard .white-key .key-caption.custom {
@@ -6325,6 +6443,11 @@ select:focus {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 18px;
+}
+
+.animal-soundboard-map-popout .soundboard-grid {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
 }
 
 .soundboard-mode-grid {
@@ -6407,6 +6530,70 @@ select:focus {
     border-color 140ms ease,
     box-shadow 140ms ease,
     background 140ms ease;
+}
+
+.soundboard-key-map-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  border-radius: 8px;
+  padding: 8px;
+  background: var(--product-deck-card-bg);
+  border-color: var(--product-deck-soft-line);
+  color: var(--product-deck-ink);
+  clip-path: var(--product-deck-cut-sm);
+}
+
+.soundboard-key-map-card-select {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.soundboard-key-map-card-select:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid color-mix(in oklch, var(--product-deck-accent) 58%, var(--product-deck-ink));
+  outline-offset: 3px;
+}
+
+.soundboard-key-map-card strong {
+  overflow: hidden;
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.soundboard-key-map-card .soundboard-card-emoji {
+  display: inline-flex;
+  width: 1.55rem;
+  height: 1.55rem;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+}
+
+.soundboard-key-map-card .soundboard-shortcut {
+  min-width: 42px;
+  border-radius: 8px;
+  padding: 5px 7px;
+  font-size: 0.68rem;
+}
+
+.soundboard-card-info-control .card-info-popover {
+  width: min(240px, 58vw);
 }
 
 .soundboard-clip-card:hover,

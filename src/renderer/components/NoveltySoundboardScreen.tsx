@@ -1,3 +1,4 @@
+import { Info, KeyboardMusic } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AudioEngine } from '../../lib/audio/audioEngine';
 import {
@@ -65,10 +66,15 @@ export function NoveltySoundboardScreen({
   const [animalBursts, setAnimalBursts] = useState<TimedAnimalBurst[]>([]);
   const [isAnimalMapPinned, setIsAnimalMapPinned] = useState(false);
   const [isAnimalMapHovered, setIsAnimalMapHovered] = useState(false);
+  const [isModeSelectorPinned, setIsModeSelectorPinned] = useState(false);
+  const [isModeSelectorHovered, setIsModeSelectorHovered] = useState(false);
+  const [openModeInfoId, setOpenModeInfoId] = useState<SoundboardModeId | null>(null);
+  const [openClipInfoId, setOpenClipInfoId] = useState<string | null>(null);
   const [keyboardOctaveShift, setKeyboardOctaveShift] = useState(keyboardInputService.getState().octaveShift);
   const effectCounterRef = useRef(0);
   const animalStageRef = useRef<HTMLDivElement | null>(null);
   const animalMapButtonRef = useRef<HTMLButtonElement | null>(null);
+  const modeSelectorButtonRef = useRef<HTMLButtonElement | null>(null);
   const menuButtonRef = useRef<HTMLButtonElement | null>(null);
   const oneShotPlaybackLockedRef = useRef(false);
   const oneShotUnlockTimeoutRef = useRef<number | null>(null);
@@ -103,6 +109,10 @@ export function NoveltySoundboardScreen({
     setAnimalBursts([]);
     setIsAnimalMapHovered(false);
     setIsAnimalMapPinned(false);
+    setIsModeSelectorHovered(false);
+    setIsModeSelectorPinned(false);
+    setOpenModeInfoId(null);
+    setOpenClipInfoId(null);
   }, [clearAllTimeouts, mode]);
 
   useEffect(() => {
@@ -135,7 +145,7 @@ export function NoveltySoundboardScreen({
   }, [overlayVisible]);
 
   useEffect(() => {
-    if (!(isAnimalMapPinned && mode.id === 'animals')) {
+    if (!(isAnimalMapPinned || isModeSelectorPinned)) {
       return;
     }
 
@@ -144,14 +154,19 @@ export function NoveltySoundboardScreen({
       if (!stage || stage.contains(event.target as Node)) {
         return;
       }
-      closeAnimalMap(true);
+      if (isAnimalMapPinned) {
+        closeAnimalMap(true);
+      }
+      if (isModeSelectorPinned) {
+        closeModeSelector(true);
+      }
     };
 
     window.addEventListener('pointerdown', handlePointerDown);
     return () => {
       window.removeEventListener('pointerdown', handlePointerDown);
     };
-  }, [isAnimalMapPinned, mode.id]);
+  }, [isAnimalMapPinned, isModeSelectorPinned]);
 
   const spawnFloatingEffect = (clip: SoundboardClip) => {
     if (!clip.visualSrc || mode.id === 'animals') {
@@ -238,12 +253,12 @@ export function NoveltySoundboardScreen({
   };
 
   const isAnimalMode = mode.id === 'animals';
-  const nextModeId: SoundboardModeId = isAnimalMode ? 'classic' : 'animals';
-  const nextMode = getSoundboardMode(nextModeId);
-  const isAnimalMapOpen = isAnimalMode && (isAnimalMapPinned || isAnimalMapHovered);
+  const isAnimalMapOpen = isAnimalMapPinned || isAnimalMapHovered;
+  const isModeSelectorOpen = isModeSelectorPinned || isModeSelectorHovered;
   const stageStatus = lastPlayedId
     ? mode.clips.find((clip) => clip.id === lastPlayedId)?.label ?? 'Ready'
     : 'Ready';
+  const lastPlayedClip = lastPlayedId ? mode.clips.find((clip) => clip.id === lastPlayedId) : null;
   const focusAfterClose = (ref: { current: HTMLButtonElement | null }) => {
     window.requestAnimationFrame(() => {
       ref.current?.focus();
@@ -258,8 +273,17 @@ export function NoveltySoundboardScreen({
   const closeAnimalMap = (returnFocus = false) => {
     setIsAnimalMapPinned(false);
     setIsAnimalMapHovered(false);
+    setOpenClipInfoId(null);
     if (returnFocus) {
       focusAfterClose(animalMapButtonRef);
+    }
+  };
+  const closeModeSelector = (returnFocus = false) => {
+    setIsModeSelectorPinned(false);
+    setIsModeSelectorHovered(false);
+    setOpenModeInfoId(null);
+    if (returnFocus) {
+      focusAfterClose(modeSelectorButtonRef);
     }
   };
   const resolvedHudNavigationItems = hudNavigationItems.map((item) => ({
@@ -267,6 +291,7 @@ export function NoveltySoundboardScreen({
     onSelect: () => {
       closeOverlay(false);
       closeAnimalMap(false);
+      closeModeSelector(false);
       item.onSelect();
     },
   }));
@@ -339,18 +364,21 @@ export function NoveltySoundboardScreen({
 
   return (
     <main
-      className="app-shell soundboard-screen app-shell-immersive animal-soundboard-shell"
+      className={`app-shell soundboard-screen app-shell-immersive animal-soundboard-shell ${isAnimalMode ? 'soundboard-animal-mode' : 'soundboard-regular-mode'}`}
       onPointerDownCapture={() => void audioEngine.prepareForPlayback()}
     >
       <ImmersiveHud
-        className="animal-soundboard-hud"
+        className={`soundboard-hud ${isAnimalMode ? 'animal-soundboard-hud' : 'regular-soundboard-hud'}`}
         currentDestination={hudCurrentDestination}
         navigationItems={resolvedHudNavigationItems}
         stats={
         <div className="immersive-hud-stats">
           <div className="immersive-hud-item">
             <span>Mode</span>
-            <strong>{mode.label}</strong>
+            <strong>
+              <span className="soundboard-card-emoji" aria-hidden="true">{isAnimalMode ? '🐾' : '🎛️'}</span>
+              {mode.label}
+            </strong>
           </div>
           <div className="immersive-hud-item">
             <span>Input</span>
@@ -362,50 +390,79 @@ export function NoveltySoundboardScreen({
           </div>
           <div className="immersive-hud-item">
             <span>Status</span>
-            <strong>{stageStatus}</strong>
+            <strong>
+              {lastPlayedClip?.emoji ? (
+                <span className="soundboard-card-emoji" aria-hidden="true">{lastPlayedClip.emoji}</span>
+              ) : null}
+              {stageStatus}
+            </strong>
           </div>
         </div>
         }
         actions={
         <div className="animal-soundboard-hud-actions">
-          {isAnimalMode ? (
+          <button
+            className="immersive-menu-btn soundboard-map-toggle"
+            ref={animalMapButtonRef}
+            aria-label={isAnimalMode ? 'Show animal key map' : 'Show sound key map'}
+            aria-controls="soundboard-key-map-popout"
+            aria-expanded={isAnimalMapOpen}
+            onClick={() => {
+              if (isAnimalMapOpen) {
+                closeAnimalMap(true);
+                return;
+              }
+              setIsAnimalMapPinned(true);
+              setIsAnimalMapHovered(false);
+            }}
+            onMouseEnter={() => setIsAnimalMapHovered(true)}
+            onMouseLeave={() => {
+              if (!isAnimalMapPinned) {
+                setIsAnimalMapHovered(false);
+              }
+            }}
+            onFocus={() => setIsAnimalMapHovered(true)}
+            onBlur={() => {
+              if (!isAnimalMapPinned) {
+                setIsAnimalMapHovered(false);
+              }
+            }}
+          >
+            <KeyboardMusic size={17} strokeWidth={2.2} aria-hidden="true" />
+          </button>
+          <div
+            className="immersive-control-wrap soundboard-mode-control"
+            onMouseEnter={() => setIsModeSelectorHovered(true)}
+            onMouseLeave={() => {
+              if (!isModeSelectorPinned) {
+                setIsModeSelectorHovered(false);
+              }
+            }}
+          >
             <button
-              className="immersive-menu-btn animal-map-toggle"
-              ref={animalMapButtonRef}
-              aria-label="Show animal key map"
-              aria-controls="animal-key-map-popout"
-              aria-expanded={isAnimalMapOpen}
+              className="immersive-menu-btn soundboard-mode-toggle"
+              ref={modeSelectorButtonRef}
+              aria-label="Show soundboard mode controls"
+              aria-controls="soundboard-mode-popout"
+              aria-expanded={isModeSelectorOpen}
               onClick={() => {
-                if (isAnimalMapOpen) {
-                  closeAnimalMap(true);
+                if (isModeSelectorOpen) {
+                  closeModeSelector(true);
                   return;
                 }
-                setIsAnimalMapPinned(true);
-                setIsAnimalMapHovered(false);
+                setIsModeSelectorPinned(true);
+                setIsModeSelectorHovered(false);
               }}
-              onMouseEnter={() => setIsAnimalMapHovered(true)}
-              onMouseLeave={() => {
-                if (!isAnimalMapPinned) {
-                  setIsAnimalMapHovered(false);
-                }
-              }}
-              onFocus={() => setIsAnimalMapHovered(true)}
+              onFocus={() => setIsModeSelectorHovered(true)}
               onBlur={() => {
-                if (!isAnimalMapPinned) {
-                  setIsAnimalMapHovered(false);
+                if (!isModeSelectorPinned) {
+                  setIsModeSelectorHovered(false);
                 }
               }}
             >
-              🐾
+              {mode.label}
             </button>
-          ) : null}
-          <button
-            className="immersive-menu-btn soundboard-mode-toggle"
-            aria-label={`Switch to ${nextMode.label} mode`}
-            onClick={() => setModeId(nextModeId)}
-          >
-            {nextMode.label}
-          </button>
+          </div>
           <button
             className="immersive-menu-btn"
             ref={menuButtonRef}
@@ -426,48 +483,136 @@ export function NoveltySoundboardScreen({
           if (!isAnimalMapPinned) {
             setIsAnimalMapHovered(false);
           }
+          if (!isModeSelectorPinned) {
+            setIsModeSelectorHovered(false);
+          }
         }}
       >
         <AnimalSoundboardCanvas clips={mode.clips} activeNotes={activeNotes} recentBursts={animalBursts} />
 
-        {isAnimalMode ? (
-          <section
-            className={`panel animal-soundboard-map-popout${isAnimalMapOpen ? ' open' : ''}`}
-            id="animal-key-map-popout"
-            aria-label="Animal key map"
-            aria-hidden={!isAnimalMapOpen}
-            data-testid="animal-key-map-popout"
-            onMouseEnter={() => setIsAnimalMapHovered(true)}
-            onMouseLeave={() => {
-              if (!isAnimalMapPinned) {
-                setIsAnimalMapHovered(false);
-              }
-            }}
-          >
-            <div className="panel-heading">
-              <div>
-                <p className="eyebrow">Animal Key Map</p>
-                <h2>Tap any animal</h2>
-              </div>
-              <p className="panel-copy">Hover the paw or pin this popout to keep it open.</p>
+        <section
+          className={`panel animal-soundboard-map-popout soundboard-key-map-popout${isAnimalMapOpen ? ' open' : ''}`}
+          id="soundboard-key-map-popout"
+          aria-label={isAnimalMode ? 'Animal key map' : 'Sound key map'}
+          aria-hidden={!isAnimalMapOpen}
+          data-testid="animal-key-map-popout"
+          onMouseEnter={() => setIsAnimalMapHovered(true)}
+          onMouseLeave={() => {
+            if (!isAnimalMapPinned) {
+              setIsAnimalMapHovered(false);
+            }
+          }}
+        >
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">{isAnimalMode ? 'Animal Key Map' : 'Sound Key Map'}</p>
+              <h2>{isAnimalMode ? 'Tap any animal' : 'Tap any sound'}</h2>
             </div>
-            <div className="soundboard-grid">
-              {mode.clips.map((clip) => (
+            <p className="panel-copy">{mode.copy}</p>
+          </div>
+          <div className="soundboard-grid">
+            {mode.clips.map((clip) => (
+              <div
+                key={`${mode.id}-${clip.id}`}
+                className={`panel soundboard-clip-card soundboard-key-map-card${lastPlayedId === clip.id ? ' active' : ''}`}
+                title={`${clip.label} (${midiToLabel(clip.midi)})`}
+              >
                 <button
-                  key={`${mode.id}-${clip.id}`}
-                  className={`panel soundboard-clip-card${lastPlayedId === clip.id ? ' active' : ''}`}
+                  className="soundboard-key-map-card-select"
                   onClick={() => void triggerClip(clip)}
-                  title={`${clip.label} (${midiToLabel(clip.midi)})`}
+                  type="button"
                 >
+                  <span className="soundboard-card-emoji" aria-hidden="true">{clip.emoji ?? clip.shortLabel}</span>
+                  <strong>{clip.label}</strong>
                   <span className="soundboard-shortcut">{midiToLabel(clip.midi)}</span>
-                  <strong>{clip.emoji ? `${clip.emoji} ${clip.label}` : clip.label}</strong>
-                  <span>{clip.category}</span>
-                  <em>{clip.source}</em>
                 </button>
-              ))}
+                <span className="card-info-control soundboard-card-info-control">
+                  <span
+                    className={`card-info-popover${openClipInfoId === clip.id ? ' open' : ''}`}
+                    role="status"
+                  >
+                    {clip.description ?? `${clip.category} · ${clip.source}`}
+                  </span>
+                  <button
+                    className="card-info-button"
+                    aria-label={`${clip.label} info`}
+                    aria-pressed={openClipInfoId === clip.id}
+                    title={clip.description ?? `${clip.category} · ${clip.source}`}
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setOpenClipInfoId((current) => (current === clip.id ? null : clip.id));
+                    }}
+                  >
+                    <Info size={13} strokeWidth={2.2} aria-hidden="true" />
+                  </button>
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section
+          className={`panel soundboard-mode-popout${isModeSelectorOpen ? ' open' : ''}`}
+          id="soundboard-mode-popout"
+          aria-label="Soundboard mode controls"
+          aria-hidden={!isModeSelectorOpen}
+          data-testid="soundboard-mode-popout"
+          onMouseEnter={() => setIsModeSelectorHovered(true)}
+          onMouseLeave={() => {
+            if (!isModeSelectorPinned) {
+              setIsModeSelectorHovered(false);
+            }
+          }}
+        >
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Soundboard Mode</p>
+              <h2>{mode.label}</h2>
             </div>
-          </section>
-        ) : null}
+            <p className="panel-copy">{mode.description}</p>
+          </div>
+          <div className="free-play-mode-grid">
+            {SOUNDBOARD_MODES.map((candidateMode) => (
+              <div
+                key={candidateMode.id}
+                className={`free-play-mode-card soundboard-mode-option${candidateMode.id === modeId ? ' active' : ''}`}
+              >
+                <button
+                  className="free-play-mode-card-select"
+                  onClick={() => {
+                    setModeId(candidateMode.id);
+                    closeModeSelector(true);
+                  }}
+                  type="button"
+                >
+                  {candidateMode.label}
+                </button>
+                <span className="card-info-control">
+                  <span
+                    className={`card-info-popover${openModeInfoId === candidateMode.id ? ' open' : ''}`}
+                    role="status"
+                  >
+                    {candidateMode.description}
+                  </span>
+                  <button
+                    className="card-info-button"
+                    aria-label={`${candidateMode.label} info`}
+                    aria-pressed={openModeInfoId === candidateMode.id}
+                    title={candidateMode.description}
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setOpenModeInfoId((current) => (current === candidateMode.id ? null : candidateMode.id));
+                    }}
+                  >
+                    <Info size={13} strokeWidth={2.2} aria-hidden="true" />
+                  </button>
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
       </div>
 
       <div className="immersive-keyboard animal-soundboard-keyboard">
