@@ -139,7 +139,7 @@ describe('NoveltySoundboardScreen', () => {
     vi.useRealTimers();
   });
 
-  it('shows the animal key map from the paw toggle and keeps it out of classic mode', () => {
+  it('shows the key map from the HUD in animal and classic modes', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(buildCanvasContextStub());
     render(
       <NoveltySoundboardScreen
@@ -162,7 +162,8 @@ describe('NoveltySoundboardScreen', () => {
     fireEvent.click(screen.getByRole('button', { name: /Show animal key map/i }));
     expect(popout).toHaveAttribute('aria-hidden', 'false');
     expect(screen.getByText('Tap any animal')).toBeInTheDocument();
-    expect(screen.getByText('🐶 Dog')).toBeInTheDocument();
+    expect(screen.getByText('🐶', { selector: '.soundboard-key-map-card .soundboard-card-emoji' })).toBeInTheDocument();
+    expect(screen.getByText('Dog', { selector: '.soundboard-key-map-card strong' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /Show animal key map/i }));
     expect(popout).toHaveAttribute('aria-hidden', 'true');
@@ -170,14 +171,18 @@ describe('NoveltySoundboardScreen', () => {
     fireEvent.click(screen.getByRole('button', { name: /Menu/i }));
     fireEvent.click(screen.getByRole('button', { name: /Classic Recorded cartoon/i }));
     fireEvent.click(screen.getByRole('button', { name: /Resume/i }));
-    expect(screen.queryByTestId('animal-key-map-popout')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Show animal key map/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Show sound key map/i })).toBeInTheDocument();
+    expect(screen.getByTestId('animal-key-map-popout')).toHaveAttribute('aria-hidden', 'true');
+    fireEvent.click(screen.getByRole('button', { name: /Show sound key map/i }));
+    expect(screen.getByTestId('animal-key-map-popout')).toHaveAttribute('aria-hidden', 'false');
+    expect(screen.getByText('Tap any sound')).toBeInTheDocument();
+    expect(screen.getByText(/Toy Whistle/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Menu/i })).toBeInTheDocument();
     expect(screen.getByText('🪈', { selector: '.key-caption.custom' })).toBeInTheDocument();
-    expect(screen.queryByText('Toy Whistle')).not.toBeInTheDocument();
   });
 
-  it('switches between classic and animals from the HUD', () => {
+  it('switches between classic and animals from the HUD mode selector', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(buildCanvasContextStub());
     render(
       <NoveltySoundboardScreen
@@ -193,17 +198,22 @@ describe('NoveltySoundboardScreen', () => {
 
     expect(screen.getByText('Classic', { selector: '.immersive-hud-item strong' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Show animal key map/i })).not.toBeInTheDocument();
+    expect(screen.getByTestId('soundboard-mode-popout')).toHaveAttribute('aria-hidden', 'true');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Switch to Animals mode' }));
+    fireEvent.click(screen.getByRole('button', { name: /Show soundboard mode controls/i }));
+    expect(screen.getByTestId('soundboard-mode-popout')).toHaveAttribute('aria-hidden', 'false');
+    fireEvent.click(screen.getByRole('button', { name: /^Animals$/i }));
 
     expect(screen.getByText('Animals', { selector: '.immersive-hud-item strong' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Show animal key map/i })).toBeInTheDocument();
     expect(screen.getByText('🐶', { selector: '.key-caption.custom' })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Switch to Classic mode' }));
+    fireEvent.click(screen.getByRole('button', { name: /Show soundboard mode controls/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Classic$/i }));
 
     expect(screen.getByText('Classic', { selector: '.immersive-hud-item strong' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Show animal key map/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Show sound key map/i })).toBeInTheDocument();
     expect(screen.getByText('🪈', { selector: '.key-caption.custom' })).toBeInTheDocument();
   });
 
@@ -253,7 +263,8 @@ describe('NoveltySoundboardScreen', () => {
 
     expect(audioEngine.playOneShot).toHaveBeenCalledTimes(1);
     expect(screen.getByText('Cat', { selector: '.immersive-hud-item strong' })).toBeInTheDocument();
-    expect(screen.getByText('🐱 Cat', { selector: '.soundboard-clip-card.active strong' })).toBeInTheDocument();
+    expect(screen.getByText('🐱', { selector: '.soundboard-clip-card.active .soundboard-card-emoji' })).toBeInTheDocument();
+    expect(screen.getByText('Cat', { selector: '.soundboard-clip-card.active strong' })).toBeInTheDocument();
 
     await act(async () => {
       vi.advanceTimersByTime(2000);
