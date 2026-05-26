@@ -7,7 +7,13 @@ import { join } from 'node:path';
 import { Hono } from 'hono';
 import { afterEach, describe, expect, it } from 'vitest';
 import { AppDatabase } from '../main/database';
-import { RPC_BRIDGE_METHODS } from '../shared/bridgeMethods';
+import {
+  APP_BRIDGE_METHODS,
+  RPC_BRIDGE_METHODS,
+  WEB_BRIDGE_METHOD_CATEGORIES,
+  WEB_SPECIAL_BRIDGE_METHODS,
+  WEB_STUB_BRIDGE_METHODS,
+} from '../shared/bridgeMethods';
 import { createBridgeRouter, getValidatedRpcBridgeMethods } from './bridgeRouter';
 
 const tempDirs: string[] = [];
@@ -38,6 +44,25 @@ describe('bridgeRouter', () => {
 
   it('keeps validator coverage aligned with exposed RPC methods', () => {
     expect(getValidatedRpcBridgeMethods()).toEqual(RPC_BRIDGE_METHODS);
+  });
+
+  it('categorizes every web bridge method exactly once', () => {
+    const categorized = [
+      ...WEB_BRIDGE_METHOD_CATEGORIES.rpc,
+      ...WEB_BRIDGE_METHOD_CATEGORIES.special,
+      ...WEB_BRIDGE_METHOD_CATEGORIES.stub,
+    ];
+    const counts = new Map<string, number>();
+
+    for (const method of categorized) {
+      counts.set(method, (counts.get(method) ?? 0) + 1);
+    }
+
+    expect([...counts.entries()].filter(([, count]) => count !== 1)).toEqual([]);
+    expect([...counts.keys()].sort()).toEqual([...APP_BRIDGE_METHODS].sort());
+    expect(WEB_BRIDGE_METHOD_CATEGORIES.rpc).toBe(RPC_BRIDGE_METHODS);
+    expect(WEB_BRIDGE_METHOD_CATEGORIES.special).toBe(WEB_SPECIAL_BRIDGE_METHODS);
+    expect(WEB_BRIDGE_METHOD_CATEGORIES.stub).toBe(WEB_STUB_BRIDGE_METHODS);
   });
 
   it('returns 404 for unknown bridge methods', async () => {
