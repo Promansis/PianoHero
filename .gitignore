@@ -9,3 +9,6 @@ plan.md
 /dist
 .playwright-images
 .playwright-mcp
+/.agents
+/.codex-audits
+/.
