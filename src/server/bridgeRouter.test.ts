@@ -17,6 +17,8 @@ import {
 import { createBridgeRouter, getValidatedRpcBridgeMethods } from './bridgeRouter';
 
 const tempDirs: string[] = [];
+const songId = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+const otherSongId = 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789';
 
 async function makeServer() {
   const dir = await mkdtemp(join(tmpdir(), 'pianohero-bridge-router-'));
@@ -95,6 +97,96 @@ describe('bridgeRouter', () => {
 
     expect(badSave.status).toBe(400);
     expect(badDelete.status).toBe(400);
+  });
+
+  it('rejects web song mutation payloads that try to persist file paths', async () => {
+    const { app, db } = await makeServer();
+    const songPayload = {
+      id: songId,
+      title: 'Etude',
+      artist: '',
+      genre: '',
+      filePath: '/tmp/foreign.mid',
+      difficulty: 1,
+      durationSec: 1,
+      bpm: 120,
+      noteCount: 1,
+      tags: [],
+      trackAssignments: {},
+    };
+
+    const addResponse = await postBridge(app, 'addSong', [songPayload]);
+    const updateResponse = await postBridge(app, 'updateSong', [songId, { filePath: '/tmp/foreign.mid' }]);
+    db.close();
+
+    expect(addResponse.status).toBe(400);
+    expect(updateResponse.status).toBe(400);
+  });
+
+  it('derives web addSong file paths from app-owned storage', async () => {
+    const { app, db, midiFilesDir } = await makeServer();
+
+    const response = await postBridge(app, 'addSong', [{
+      id: songId,
+      title: 'Etude',
+      artist: '',
+      genre: '',
+      difficulty: 1,
+      durationSec: 1,
+      bpm: 120,
+      noteCount: 1,
+      tags: [],
+      trackAssignments: {},
+    }]);
+    const payload = await response.json() as { result: { filePath: string } };
+    db.close();
+
+    expect(response.status).toBe(200);
+    expect(payload.result.filePath).toBe(join(midiFilesDir, `${songId}.mid`));
+  });
+
+  it('deletes only app-owned MIDI files for web song deletion', async () => {
+    const { app, db, midiFilesDir } = await makeServer();
+    const appOwnedPath = join(midiFilesDir, `${songId}.mid`);
+    const foreignDir = await mkdtemp(join(tmpdir(), 'pianohero-foreign-midi-'));
+    tempDirs.push(foreignDir);
+    const foreignPath = join(foreignDir, `${otherSongId}.mid`);
+
+    await writeFile(appOwnedPath, new Uint8Array([1, 2, 3]));
+    await writeFile(foreignPath, new Uint8Array([4, 5, 6]));
+    db.addSong({
+      id: songId,
+      title: 'Song A',
+      artist: '',
+      genre: '',
+      filePath: foreignPath,
+      difficulty: 1,
+      durationSec: 1,
+      bpm: 120,
+      noteCount: 1,
+      tags: [],
+      trackAssignments: {},
+    });
+    db.addSong({
+      id: otherSongId,
+      title: 'Song B',
+      artist: '',
+      genre: '',
+      filePath: foreignPath,
+      difficulty: 1,
+      durationSec: 1,
+      bpm: 120,
+      noteCount: 1,
+      tags: [],
+      trackAssignments: {},
+    });
+
+    const response = await postBridge(app, 'bulkDeleteSongs', [[songId, otherSongId]]);
+    db.close();
+
+    expect(response.status).toBe(200);
+    expect(existsSync(appOwnedPath)).toBe(false);
+    expect(existsSync(foreignPath)).toBe(true);
   });
 
   it('resets user data and recreates the MIDI directory', async () => {

@@ -9,6 +9,7 @@ import { AppDatabase } from '../main/database';
 import { createLibraryRouter } from './libraryRouter';
 
 const tempDirs: string[] = [];
+const songId = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 
 async function makeServer() {
   const dir = await mkdtemp(join(tmpdir(), 'pianohero-library-router-'));
@@ -28,7 +29,6 @@ describe('libraryRouter', () => {
 
   it('exports and imports self-contained library JSON', async () => {
     const { app, db, midiFilesDir } = await makeServer();
-    const songId = 'song-a';
     const midiPath = join(midiFilesDir, `${songId}.mid`);
     await writeFile(midiPath, new Uint8Array([77, 84, 104, 100]));
     db.addSong({

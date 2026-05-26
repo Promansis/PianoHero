@@ -1,12 +1,16 @@
-import { mkdirSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { Hono } from 'hono';
+import { getAppOwnedMidiPath, isSafeSongStorageId } from '../lib/storage/storageSafety';
 import { recomputeAllSongDifficulties } from '../shared/importSong';
 import { RPC_BRIDGE_METHODS, RPC_BRIDGE_METHOD_SET, type RpcBridgeMethod } from '../shared/bridgeMethods';
+import type { AddSongPayload } from '../shared/dbTypes';
 import type { ServerDependencies } from './types';
 
 type JsonBody = {
   args?: unknown[];
 };
+
+type WebAddSongPayload = Omit<AddSongPayload, 'filePath'> & { filePath?: undefined };
 
 function isString(value: unknown): value is string {
   return typeof value === 'string' && value.trim() !== '';
@@ -64,13 +68,14 @@ function hasOnlyKeys(value: Record<string, unknown>, allowedKeys: string[]): boo
   return Object.keys(value).every((key) => allowed.has(key));
 }
 
-function isSongPayload(value: unknown): boolean {
+function isSongPayload(value: unknown): value is WebAddSongPayload {
   return isRecord(value) &&
     isString(value.id) &&
+    isSafeSongStorageId(value.id) &&
     isString(value.title) &&
     typeof value.artist === 'string' &&
     typeof value.genre === 'string' &&
-    typeof value.filePath === 'string' &&
+    value.filePath === undefined &&
     isNumber(value.difficulty) &&
     isNumber(value.durationSec) &&
     isNumber(value.bpm) &&
@@ -88,7 +93,6 @@ function isSongUpdate(value: unknown): boolean {
     'title',
     'artist',
     'genre',
-    'filePath',
     'difficulty',
     'durationSec',
     'bpm',
@@ -104,7 +108,6 @@ function isSongUpdate(value: unknown): boolean {
   return (value.title === undefined || typeof value.title === 'string') &&
     (value.artist === undefined || typeof value.artist === 'string') &&
     (value.genre === undefined || typeof value.genre === 'string') &&
-    (value.filePath === undefined || typeof value.filePath === 'string') &&
     (value.difficulty === undefined || isNumber(value.difficulty)) &&
     (value.durationSec === undefined || isNumber(value.durationSec)) &&
     (value.bpm === undefined || isNumber(value.bpm)) &&
@@ -291,6 +294,28 @@ function validateRpcArgs(method: RpcBridgeMethod, args: unknown[], db: ServerDep
   return bridgeArgValidators[method](args, db);
 }
 
+function withAppOwnedFilePath(value: unknown, midiFilesDir: string): AddSongPayload {
+  if (!isSongPayload(value)) {
+    throw new Error('Song payload requires a safe song id.');
+  }
+
+  const filePath = getAppOwnedMidiPath(midiFilesDir, value.id);
+  if (!filePath) {
+    throw new Error('Song payload requires a safe app-owned song id.');
+  }
+
+  return { ...value, filePath };
+}
+
+function deleteAppOwnedMidiFile(midiFilesDir: string, songId: string): void {
+  const filePath = getAppOwnedMidiPath(midiFilesDir, songId);
+  if (!filePath || !existsSync(filePath)) {
+    return;
+  }
+
+  rmSync(filePath, { force: true });
+}
+
 export function createBridgeRouter({ db, midiFilesDir }: ServerDependencies) {
   const router = new Hono();
 
@@ -322,6 +347,27 @@ export function createBridgeRouter({ db, midiFilesDir }: ServerDependencies) {
       if (method === 'recomputeAllSongDifficulties') {
         const result = await recomputeAllSongDifficulties({ db, midiFilesDir });
         return c.json({ result });
+      }
+
+      if (method === 'addSong') {
+        const result = db.addSong(withAppOwnedFilePath(args[0], midiFilesDir));
+        return c.json({ result });
+      }
+
+      if (method === 'deleteSong') {
+        const [songId] = args as [string];
+        db.deleteSong(songId);
+        deleteAppOwnedMidiFile(midiFilesDir, songId);
+        return c.json({ result: null });
+      }
+
+      if (method === 'bulkDeleteSongs') {
+        const [songIds] = args as [string[]];
+        db.bulkDeleteSongs(songIds);
+        for (const songId of songIds) {
+          deleteAppOwnedMidiFile(midiFilesDir, songId);
+        }
+        return c.json({ result: null });
       }
 
       const fn = (db as unknown as Record<string, (...nextArgs: unknown[]) => unknown>)[method];

@@ -1,4 +1,4 @@
-import { isAbsolute, resolve, sep } from 'node:path';
+import { isAbsolute, join, resolve, sep } from 'node:path';
 
 export const SONG_ID_SHA256_HEX_PATTERN = /^[a-f0-9]{64}$/;
 
@@ -8,6 +8,17 @@ export function isSafeSongStorageId(songId: string): boolean {
 
 export function getSafeMidiFilename(songId: string): string | null {
   return isSafeSongStorageId(songId) ? `${songId}.mid` : null;
+}
+
+export function getAppOwnedMidiPath(root: string, songId: string): string | null {
+  const filename = getSafeMidiFilename(songId);
+  if (!filename) {
+    return null;
+  }
+
+  const resolvedRoot = resolve(root);
+  const candidatePath = join(resolvedRoot, filename);
+  return isPathContainedInRoot(resolvedRoot, candidatePath) ? candidatePath : null;
 }
 
 export function isPathContainedInRoot(root: string, candidatePath: string): boolean {
