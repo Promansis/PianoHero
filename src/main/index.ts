@@ -1,9 +1,10 @@
 import { app, BrowserWindow, dialog, ipcMain } from 'electron';
 import type { OpenDialogOptions, SaveDialogOptions } from 'electron';
-import { mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import type { Dirent } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { getAppOwnedMidiPath } from '../lib/storage/storageSafety';
 import type {
   AddSongPayload,
   FingeringRow,
@@ -43,6 +44,15 @@ function collectMidiFiles(dir: string): string[] {
     }
   }
   return results;
+}
+
+function deleteAppOwnedMidiFile(midiFilesDir: string, songId: string): void {
+  const filePath = getAppOwnedMidiPath(midiFilesDir, songId);
+  if (!filePath || !existsSync(filePath)) {
+    return;
+  }
+
+  rmSync(filePath, { force: true });
 }
 
 async function createMainWindow(): Promise<void> {
@@ -107,7 +117,10 @@ app.whenReady().then(async () => {
     (_event, songId: string, updates: Partial<Omit<Parameters<AppDatabase['updateSong']>[1], never>>) =>
       db.updateSong(songId, updates),
   );
-  ipcMain.handle('songs:delete', (_event, songId: string) => db.deleteSong(songId));
+  ipcMain.handle('songs:delete', (_event, songId: string) => {
+    db.deleteSong(songId);
+    deleteAppOwnedMidiFile(midiFilesDir, songId);
+  });
   ipcMain.handle('songs:toggle-favorite', (_event, songId: string) => db.toggleFavorite(songId));
 
   ipcMain.handle('songs:import-midi-files', async (event) => {
@@ -260,7 +273,12 @@ app.whenReady().then(async () => {
     db.reorderPlaylistSong(playlistId, songId, newOrder),
   );
 
-  ipcMain.handle('bulk:delete-songs', (_event, songIds: string[]) => db.bulkDeleteSongs(songIds));
+  ipcMain.handle('bulk:delete-songs', (_event, songIds: string[]) => {
+    db.bulkDeleteSongs(songIds);
+    for (const songId of songIds) {
+      deleteAppOwnedMidiFile(midiFilesDir, songId);
+    }
+  });
   ipcMain.handle('bulk:move-songs-to-folder', (_event, songIds: string[], folderId: string | null) =>
     db.bulkMoveSongsToFolder(songIds, folderId),
   );

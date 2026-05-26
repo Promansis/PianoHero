@@ -983,7 +983,6 @@ export function GameScreen({
       await window.appBridge.clearCustomFingerings(updatedSongRecord.id);
       await window.appBridge.updateSong(updatedSongRecord.id, {
         title: updatedSongRecord.title,
-        filePath: updatedSongRecord.filePath,
         trackAssignments: updatedSongRecord.trackAssignments,
       });
     }
