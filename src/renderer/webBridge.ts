@@ -1,4 +1,4 @@
-import { RPC_BRIDGE_METHOD_SET } from '../shared/bridgeMethods';
+import { RPC_BRIDGE_METHOD_SET, WEB_STUB_BRIDGE_METHOD_SET } from '../shared/bridgeMethods';
 import {
   buildInstrumentSamplePackStatuses,
   getInstrumentSamplePackDefinition,
@@ -257,15 +257,6 @@ async function resolveStoredWebInstrumentPack(
   };
 }
 
-const desktopStubNames = new Set<keyof AppBridge>([
-  'pickMidiFile',
-  'importMidiFolder',
-  'saveMidiFile',
-  'saveWavFile',
-  'pickAudioFile',
-  'pickSampleDirectory',
-]);
-
 export const webBridge = new Proxy({} as AppBridge, {
   get(_target, property) {
     if (typeof property !== 'string') {
@@ -361,7 +352,7 @@ export const webBridge = new Proxy({} as AppBridge, {
       return async (instrumentId: string) => resolveStoredWebInstrumentPack(instrumentId);
     }
 
-    if (desktopStubNames.has(property as keyof AppBridge)) {
+    if (WEB_STUB_BRIDGE_METHOD_SET.has(property)) {
       return async (): Promise<null> => null;
     }
 
