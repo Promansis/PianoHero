@@ -24,7 +24,7 @@ import {
   setLearningGating,
 } from '../lib/learning/learningProgress';
 import type { LearningProgress, LearningTierId } from '../lib/learning/types';
-import type { GameResult, LoopRange, ParsedSong, SessionConfig, SessionMode } from '../lib/game/types';
+import type { GameResult, LoopRange, ParsedSong, ScoredSessionMode, SessionConfig } from '../lib/game/types';
 import { ComputerKeyboardInputService } from '../lib/input/computerKeyboardInputService';
 import {
   INPUT_KEYBOARD_MAPPING_SETTING_KEY,
@@ -112,7 +112,7 @@ interface FinishedGamePayload {
 }
 
 function buildSessionConfig(
-  mode: SessionMode,
+  mode: ScoredSessionMode,
   waitModeDefault: boolean,
   metronomeDefault: boolean,
   pitchBendEnabled: boolean,
@@ -1114,7 +1114,7 @@ export function App() {
 
   const startSongSession = (
     song: SongRow,
-    mode: SessionMode,
+    mode: ScoredSessionMode,
     loopRange: LoopRange | null = null,
     playlistQueue: PlaylistQueue | null = null,
   ) => {

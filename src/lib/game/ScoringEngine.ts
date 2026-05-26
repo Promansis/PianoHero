@@ -1,4 +1,4 @@
-import type { GameResult, NoteJudgement, ScoreSnapshot, SessionMode } from './types';
+import type { GameResult, NoteJudgement, ScoreSnapshot, ScoredSessionMode } from './types';
 
 const BASE_POINTS: Record<Exclude<NoteJudgement, 'pending'>, number> = {
   perfect: 100,
@@ -96,7 +96,7 @@ export class ScoringEngine {
     };
   }
 
-  getFinalResult(songId: string, mode: SessionMode, tempo: number, durationSec: number): GameResult {
+  getFinalResult(songId: string, mode: ScoredSessionMode, tempo: number, durationSec: number): GameResult {
     const snapshot = this.getSnapshot();
     return {
       songId,

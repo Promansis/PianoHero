@@ -3,8 +3,13 @@ export type HandFilter = Hand | 'both';
 export type TrackAssignment = Hand | 'both' | 'ignore';
 export type NoteJudgement = 'pending' | 'perfect' | 'good' | 'ok' | 'miss';
 export type SessionMode = 'piano-hero' | 'learning' | 'performance' | 'free-play';
+export type ScoredSessionMode = Exclude<SessionMode, 'free-play'>;
 export type HandSize = 'small' | 'medium' | 'large';
 export type FingeringDisplayMode = 'always' | 'learning-only' | 'never';
+
+export function isScoredSessionMode(mode: SessionMode): mode is ScoredSessionMode {
+  return mode !== 'free-play';
+}
 
 export interface LoopRange {
   startMeasure: number;
@@ -12,7 +17,7 @@ export interface LoopRange {
 }
 
 export interface SessionConfig {
-  mode: SessionMode;
+  mode: ScoredSessionMode;
   tempoMultiplier: number;
   handFilter: HandFilter;
   loopRange: LoopRange | null;
@@ -100,7 +105,7 @@ export interface GameResult {
   okHits: number;
   misses: number;
   tempo: number;
-  mode: SessionMode;
+  mode: ScoredSessionMode;
   durationSec: number;
   measureAccuracy: Array<{ measure: number; accuracy: number }>;
 }

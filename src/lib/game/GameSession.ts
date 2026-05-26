@@ -4,6 +4,7 @@ import { computeFingering } from './fingeringAlgorithm';
 import { ScoringEngine } from './ScoringEngine';
 import { buildScheduledNotes, getLoopRangeSeconds, getMeasureIndexForTime } from './songUtils';
 import { getKeyPosition } from '../piano/pianoLayout';
+import { isScoredSessionMode } from './types';
 import type {
   GameResult,
   NoteJudgement,
@@ -211,6 +212,10 @@ export class GameSession {
   }
 
   getFinalResult(): GameResult {
+    if (!isScoredSessionMode(this.sessionConfig.mode)) {
+      throw new Error('Free Play sessions do not produce scored game results.');
+    }
+
     return this.scoringEngine.getFinalResult(
       this.song.id,
       this.sessionConfig.mode,

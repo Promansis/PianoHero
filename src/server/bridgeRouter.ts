@@ -3,7 +3,12 @@ import { Hono } from 'hono';
 import { getAppOwnedMidiPath, isSafeSongStorageId } from '../lib/storage/storageSafety';
 import { recomputeAllSongDifficulties } from '../shared/importSong';
 import { RPC_BRIDGE_METHODS, RPC_BRIDGE_METHOD_SET, type RpcBridgeMethod } from '../shared/bridgeMethods';
-import type { AddSongPayload } from '../shared/dbTypes';
+import type {
+  AddSongPayload,
+  PersistedGameResultMode,
+  UpdateSongPayload,
+  UpdateTroubleSpotPayload,
+} from '../shared/dbTypes';
 import type { ServerDependencies } from './types';
 
 type JsonBody = {
@@ -11,6 +16,30 @@ type JsonBody = {
 };
 
 type WebAddSongPayload = Omit<AddSongPayload, 'filePath'> & { filePath?: undefined };
+type WebUpdateSongPayload = Omit<UpdateSongPayload, 'filePath'> & { filePath?: undefined };
+
+const WEB_SONG_UPDATE_KEYS = [
+  'title',
+  'artist',
+  'genre',
+  'difficulty',
+  'durationSec',
+  'bpm',
+  'noteCount',
+  'tags',
+  'isFavorite',
+  'folderId',
+  'trackAssignments',
+] as const satisfies ReadonlyArray<keyof WebUpdateSongPayload>;
+
+const TROUBLE_SPOT_UPDATE_KEYS = [
+  'measureStart',
+  'measureEnd',
+  'firstDetected',
+  'lastPracticed',
+  'resolutionCount',
+  'isResolved',
+] as const satisfies ReadonlyArray<keyof UpdateTroubleSpotPayload>;
 
 function isString(value: unknown): value is string {
   return typeof value === 'string' && value.trim() !== '';
@@ -48,7 +77,7 @@ function isHand(value: unknown): value is 'left' | 'right' {
   return value === 'left' || value === 'right';
 }
 
-function isSessionMode(value: unknown): boolean {
+function isPersistedGameResultMode(value: unknown): value is PersistedGameResultMode {
   return value === 'piano-hero' || value === 'learning' || value === 'performance';
 }
 
@@ -63,7 +92,7 @@ function isTrackAssignmentRecord(value: unknown): boolean {
   return Object.values(value).every((assignment) => assignment === 'left' || assignment === 'right' || assignment === 'both' || assignment === 'ignore');
 }
 
-function hasOnlyKeys(value: Record<string, unknown>, allowedKeys: string[]): boolean {
+function hasOnlyKeys(value: Record<string, unknown>, allowedKeys: readonly string[]): boolean {
   const allowed = new Set(allowedKeys);
   return Object.keys(value).every((key) => allowed.has(key));
 }
@@ -85,24 +114,11 @@ function isSongPayload(value: unknown): value is WebAddSongPayload {
     isTrackAssignmentRecord(value.trackAssignments);
 }
 
-function isSongUpdate(value: unknown): boolean {
+function isSongUpdate(value: unknown): value is WebUpdateSongPayload {
   if (!isRecord(value)) {
     return false;
   }
-  if (!hasOnlyKeys(value, [
-    'title',
-    'artist',
-    'genre',
-    'difficulty',
-    'durationSec',
-    'bpm',
-    'noteCount',
-    'timesPlayed',
-    'tags',
-    'isFavorite',
-    'folderId',
-    'trackAssignments',
-  ])) {
+  if (!hasOnlyKeys(value, WEB_SONG_UPDATE_KEYS)) {
     return false;
   }
   return (value.title === undefined || typeof value.title === 'string') &&
@@ -112,7 +128,6 @@ function isSongUpdate(value: unknown): boolean {
     (value.durationSec === undefined || isNumber(value.durationSec)) &&
     (value.bpm === undefined || isNumber(value.bpm)) &&
     (value.noteCount === undefined || isNumber(value.noteCount)) &&
-    (value.timesPlayed === undefined || isNumber(value.timesPlayed)) &&
     (value.tags === undefined || isStringArray(value.tags)) &&
     (value.isFavorite === undefined || isBoolean(value.isFavorite)) &&
     (value.folderId === undefined || isNullableString(value.folderId)) &&
@@ -135,7 +150,7 @@ function isSaveGameResultPayload(value: unknown): boolean {
     isNumber(value.okHits) &&
     isNumber(value.misses) &&
     isNumber(value.tempo) &&
-    isSessionMode(value.mode) &&
+    isPersistedGameResultMode(value.mode) &&
     isNumber(value.durationSec) &&
     isMeasureAccuracyArray(value.measureAccuracy);
 }
@@ -149,11 +164,11 @@ function isSaveTheoryResultPayload(value: unknown): boolean {
     (value.details === undefined || isRecord(value.details));
 }
 
-function isTroubleSpotUpdate(value: unknown): boolean {
+function isTroubleSpotUpdate(value: unknown): value is UpdateTroubleSpotPayload {
   if (!isRecord(value)) {
     return false;
   }
-  if (!hasOnlyKeys(value, ['measureStart', 'measureEnd', 'firstDetected', 'lastPracticed', 'resolutionCount', 'isResolved'])) {
+  if (!hasOnlyKeys(value, TROUBLE_SPOT_UPDATE_KEYS)) {
     return false;
   }
   return (value.measureStart === undefined || isNonNegativeInteger(value.measureStart)) &&

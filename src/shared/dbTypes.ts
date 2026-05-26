@@ -1,5 +1,7 @@
 import type { SessionMode, TrackAssignment } from '../lib/game/types';
 
+export type PersistedGameResultMode = Exclude<SessionMode, 'free-play'>;
+
 export interface SongRow {
   id: string;
   title: string;
@@ -119,7 +121,7 @@ export interface GameResultRow {
   misses: number;
   timestamp: string;
   tempo: number;
-  mode: SessionMode;
+  mode: PersistedGameResultMode;
   durationSec: number;
 }
 
@@ -163,6 +165,21 @@ export interface AddSongPayload {
   trackAssignments: Record<string, TrackAssignment>;
 }
 
+export interface UpdateSongPayload {
+  title?: string;
+  artist?: string;
+  genre?: string;
+  filePath?: string;
+  difficulty?: number;
+  durationSec?: number;
+  bpm?: number;
+  noteCount?: number;
+  tags?: string[];
+  isFavorite?: boolean;
+  folderId?: string | null;
+  trackAssignments?: Record<string, TrackAssignment>;
+}
+
 export interface SaveGameResultPayload {
   songId: string;
   score: number;
@@ -173,7 +190,7 @@ export interface SaveGameResultPayload {
   okHits: number;
   misses: number;
   tempo: number;
-  mode: SessionMode;
+  mode: PersistedGameResultMode;
   durationSec: number;
   measureAccuracy: MeasureAccuracyEntry[];
 }
@@ -222,6 +239,15 @@ export interface TroubleSpotRow {
   struggleCount: number;
   lowestAccuracy: number | null;
   latestAccuracy: number | null;
+}
+
+export interface UpdateTroubleSpotPayload {
+  measureStart?: number;
+  measureEnd?: number;
+  firstDetected?: string;
+  lastPracticed?: string | null;
+  resolutionCount?: number;
+  isResolved?: boolean;
 }
 
 export interface MeasureAccuracyHistoryRow {
