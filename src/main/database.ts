@@ -32,6 +32,8 @@ import type {
   TheoryStatsRow,
   TopSongStat,
   TroubleSpotRow,
+  UpdateSongPayload,
+  UpdateTroubleSpotPayload,
   UserStatsRow,
 } from '../shared/dbTypes';
 
@@ -303,7 +305,7 @@ export class AppDatabase {
     return this.getSong(payload.id)!;
   }
 
-  updateSong(id: string, updates: Partial<Omit<SongRow, 'id' | 'dateAdded'>>): void {
+  updateSong(id: string, updates: UpdateSongPayload): void {
     const fields: string[] = [];
     const params: Record<string, unknown> = { id };
 
@@ -950,7 +952,7 @@ export class AppDatabase {
     return rows.map(rowToTroubleSpot);
   }
 
-  updateTroubleSpot(spotId: string, updates: Partial<Omit<TroubleSpotRow, 'id' | 'songId'>>): void {
+  updateTroubleSpot(spotId: string, updates: UpdateTroubleSpotPayload): void {
     const fields: string[] = [];
     const params: Record<string, unknown> = { id: spotId };
 
@@ -1384,7 +1386,7 @@ export class AppDatabase {
       this.db.prepare('DELETE FROM user_stats').run();
       this.db.prepare('DELETE FROM practice_days').run();
       this.db.prepare('DELETE FROM achievements').run();
-      this.db.prepare("DELETE FROM settings WHERE category = 'learning'").run();
+      this.db.prepare("DELETE FROM settings WHERE category IN ('learning', 'progress')").run();
       this.db.prepare('UPDATE songs SET times_played = 0').run();
       this.seedAchievements();
     })();

@@ -22,6 +22,8 @@ import type {
   TheoryStatsRow,
   TopSongStat,
   TroubleSpotRow,
+  UpdateSongPayload,
+  UpdateTroubleSpotPayload,
   UserStatsRow,
 } from './dbTypes';
 
@@ -115,7 +117,7 @@ export interface AppBridge {
   getAllSongs: () => Promise<SongRow[]>;
   getSong: (songId: string) => Promise<SongRow | null>;
   addSong: (song: AddSongPayload) => Promise<SongRow>;
-  updateSong: (songId: string, updates: Partial<Omit<SongRow, 'id' | 'dateAdded'>>) => Promise<void>;
+  updateSong: (songId: string, updates: UpdateSongPayload) => Promise<void>;
   deleteSong: (songId: string) => Promise<void>;
   toggleFavorite: (songId: string) => Promise<void>;
   importMidiFiles: () => Promise<ImportResult>;
@@ -140,7 +142,7 @@ export interface AppBridge {
   getTroubleSpots: (songId: string) => Promise<TroubleSpotRow[]>;
   updateTroubleSpot: (
     spotId: string,
-    updates: Partial<Omit<TroubleSpotRow, 'id' | 'songId'>>,
+    updates: UpdateTroubleSpotPayload,
   ) => Promise<void>;
   getMeasureAccuracyHistory: (songId: string) => Promise<MeasureAccuracyHistoryRow[]>;
 

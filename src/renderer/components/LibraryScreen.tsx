@@ -1,7 +1,7 @@
 import type { ChangeEvent } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AudioEngine } from '../../lib/audio/audioEngine';
-import type { SessionMode } from '../../lib/game/types';
+import type { ScoredSessionMode } from '../../lib/game/types';
 import { parseMidiFile } from '../../lib/midi/midiFileParser';
 import type { ImportResult } from '../../shared/ipc';
 import type { FolderRow, LibrarySnapshot, PlaylistRow, RecommendationResult, SongRow, UserStatsRow } from '../../shared/dbTypes';
@@ -14,7 +14,7 @@ import { TagChips } from './TagChips';
 
 interface LibraryScreenProps {
   audioEngine: AudioEngine;
-  onStartSession: (song: SongRow, mode: SessionMode) => void;
+  onStartSession: (song: SongRow, mode: ScoredSessionMode) => void;
   onStartPlaylistQueue: (songs: SongRow[]) => void;
   onStartTheoryPractice: () => void;
 }

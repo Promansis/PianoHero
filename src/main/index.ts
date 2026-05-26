@@ -10,8 +10,9 @@ import type {
   FingeringRow,
   SaveGameResultPayload,
   SaveTheoryResultPayload,
-  TroubleSpotRow,
   TheoryResultRow,
+  UpdateSongPayload,
+  UpdateTroubleSpotPayload,
 } from '../shared/dbTypes';
 import { createSongId, importSongFromBuffer, recomputeAllSongDifficulties } from '../shared/importSong';
 import { buildLibraryBackup, importLibraryBackup, isLibraryBackup } from '../shared/libraryBackup';
@@ -114,8 +115,7 @@ app.whenReady().then(async () => {
   ipcMain.handle('songs:add', (_event, payload: AddSongPayload) => db.addSong(payload));
   ipcMain.handle(
     'songs:update',
-    (_event, songId: string, updates: Partial<Omit<Parameters<AppDatabase['updateSong']>[1], never>>) =>
-      db.updateSong(songId, updates),
+    (_event, songId: string, updates: UpdateSongPayload) => db.updateSong(songId, updates),
   );
   ipcMain.handle('songs:delete', (_event, songId: string) => {
     db.deleteSong(songId);
@@ -225,8 +225,7 @@ app.whenReady().then(async () => {
   ipcMain.handle('trouble-spots:get', (_event, songId: string) => db.getTroubleSpots(songId));
   ipcMain.handle(
     'trouble-spots:update',
-    (_event, spotId: string, updates: Partial<Omit<TroubleSpotRow, 'id' | 'songId'>>) =>
-      db.updateTroubleSpot(spotId, updates),
+    (_event, spotId: string, updates: UpdateTroubleSpotPayload) => db.updateTroubleSpot(spotId, updates),
   );
   ipcMain.handle('measure-accuracy:get-history', (_event, songId: string) => db.getMeasureAccuracyHistory(songId));
 

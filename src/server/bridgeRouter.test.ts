@@ -99,6 +99,47 @@ describe('bridgeRouter', () => {
     expect(badDelete.status).toBe(400);
   });
 
+  it('accepts only persisted game result modes', async () => {
+    const { app, db } = await makeServer();
+    db.addSong({
+      id: songId,
+      title: 'Etude',
+      artist: '',
+      genre: '',
+      filePath: '',
+      difficulty: 1,
+      durationSec: 1,
+      bpm: 120,
+      noteCount: 1,
+      tags: [],
+      trackAssignments: {},
+    });
+    const basePayload = {
+      songId,
+      score: 100,
+      accuracy: 95,
+      maxCombo: 5,
+      perfectHits: 5,
+      goodHits: 0,
+      okHits: 0,
+      misses: 0,
+      tempo: 1,
+      durationSec: 30,
+      measureAccuracy: [],
+    };
+
+    const pianoHero = await postBridge(app, 'saveGameResult', [{ ...basePayload, mode: 'piano-hero' }]);
+    const learning = await postBridge(app, 'saveGameResult', [{ ...basePayload, mode: 'learning' }]);
+    const performanceMode = await postBridge(app, 'saveGameResult', [{ ...basePayload, mode: 'performance' }]);
+    const freePlay = await postBridge(app, 'saveGameResult', [{ ...basePayload, mode: 'free-play' }]);
+    db.close();
+
+    expect(pianoHero.status).toBe(200);
+    expect(learning.status).toBe(200);
+    expect(performanceMode.status).toBe(200);
+    expect(freePlay.status).toBe(400);
+  });
+
   it('rejects web song mutation payloads that try to persist file paths', async () => {
     const { app, db } = await makeServer();
     const songPayload = {
@@ -121,6 +162,19 @@ describe('bridgeRouter', () => {
 
     expect(addResponse.status).toBe(400);
     expect(updateResponse.status).toBe(400);
+  });
+
+  it('rejects row-only song and trouble spot mutation fields', async () => {
+    const { app, db } = await makeServer();
+
+    const timesPlayed = await postBridge(app, 'updateSong', [songId, { timesPlayed: 4 }]);
+    const troubleSpotId = await postBridge(app, 'updateTroubleSpot', ['spot-1', { songId }]);
+    const troubleSpotDerivedField = await postBridge(app, 'updateTroubleSpot', ['spot-1', { struggleCount: 2 }]);
+    db.close();
+
+    expect(timesPlayed.status).toBe(400);
+    expect(troubleSpotId.status).toBe(400);
+    expect(troubleSpotDerivedField.status).toBe(400);
   });
 
   it('derives web addSong file paths from app-owned storage', async () => {
