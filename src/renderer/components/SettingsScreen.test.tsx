@@ -44,6 +44,7 @@ describe('SettingsScreen', () => {
   afterEach(() => {
     cleanup();
     localStorage.clear();
+    vi.unstubAllEnvs();
     vi.restoreAllMocks();
     resetLearningProgress.mockClear();
     resetUserData.mockClear();
@@ -199,6 +200,7 @@ describe('SettingsScreen', () => {
   });
 
   it('unlocks developer content only after confirmation', async () => {
+    vi.stubEnv('DEV', true);
     renderSettingsScreen();
 
     fireEvent.click(await screen.findByText('Practice'));
@@ -212,6 +214,41 @@ describe('SettingsScreen', () => {
     await waitFor(() => {
       expect(developerUnlockAll).toHaveBeenCalledOnce();
     });
+  });
+
+  it('hides developer unlock controls outside dev mode', async () => {
+    vi.stubEnv('DEV', false);
+
+    renderSettingsScreen();
+
+    fireEvent.click(await screen.findByText('Practice'));
+
+    expect(screen.queryByText('Test Content')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Unlock Test Content' })).not.toBeInTheDocument();
+  });
+
+  it('shows unset practice reminder defaults as off', async () => {
+    renderSettingsScreen();
+
+    fireEvent.click(await screen.findByText('Practice'));
+
+    expect(screen.getByLabelText('Daily Goal (minutes)')).toHaveValue(0);
+    expect(screen.getByLabelText('Posture Reminder (minutes)')).toHaveValue(0);
+    expect(screen.getByLabelText('Break Reminder (minutes)')).toHaveValue(0);
+  });
+
+  it('delegates input mode persistence to the parent app shell', async () => {
+    const onInputModeChange = vi.fn();
+    const onSettingChange = vi.fn();
+
+    renderSettingsScreen({ onInputModeChange, onSettingChange });
+
+    fireEvent.click(await screen.findByText('Input'));
+    fireEvent.change(screen.getByLabelText('Play Notes With'), { target: { value: 'midi' } });
+
+    expect(onInputModeChange).toHaveBeenCalledWith('midi');
+    expect(onSettingChange).toHaveBeenCalledWith('input', 'mode', 'midi');
+    expect(window.appBridge?.setSetting).not.toHaveBeenCalledWith('input', 'mode', 'midi');
   });
 
   it('keeps settings usable when saved settings fail to load', async () => {
@@ -259,8 +296,8 @@ describe('SettingsScreen', () => {
     fireEvent.change(screen.getByLabelText('Posture Reminder (minutes)'), { target: { value: '-12' } });
 
     await waitFor(() => {
-      expect(onSettingChange).toHaveBeenCalledWith('practice', 'postureReminderMinutes', '1');
-      expect(window.appBridge?.setSetting).toHaveBeenCalledWith('practice', 'postureReminderMinutes', '1');
+      expect(onSettingChange).toHaveBeenCalledWith('practice', 'postureReminderMinutes', '0');
+      expect(window.appBridge?.setSetting).toHaveBeenCalledWith('practice', 'postureReminderMinutes', '0');
     });
   });
 
