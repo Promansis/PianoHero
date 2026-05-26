@@ -35,6 +35,7 @@ import {
   stringifyKeyboardMapping,
 } from '../lib/input/settings';
 import type { InputMode } from '../lib/input/types';
+import { parseBooleanSetting, parsePositiveIntegerSetting } from '../lib/settings/registry';
 import { parseMidiFile } from '../lib/midi/midiFileParser';
 import { MidiInputService } from '../lib/midi/midiInputService';
 import type { MidiInputDevice } from '../lib/midi/types';
@@ -536,12 +537,7 @@ export function App() {
 
         setStartupError(null);
 
-        if (reminder) {
-          const parsed = Number(reminder);
-          if (Number.isFinite(parsed) && parsed > 0) {
-            setPostureReminderMinutes(parsed);
-          }
-        }
+        setPostureReminderMinutes(parsePositiveIntegerSetting(reminder));
         if (savedHandSize === 'small' || savedHandSize === 'medium' || savedHandSize === 'large') {
           setHandSize(savedHandSize);
         }
@@ -578,13 +574,9 @@ export function App() {
         }
 
         setWaitModeDefault(rawWaitMode === 'true');
-        setMetronomeDefault(rawMetronomeDefault === 'true');
-        setPitchBendEnabled(rawPitchBendEnabled !== 'false');
-
-        const parsedBreak = Number(rawBreakReminder);
-        if (Number.isFinite(parsedBreak) && parsedBreak > 0) {
-          setBreakReminderMinutes(parsedBreak);
-        }
+        setMetronomeDefault(parseBooleanSetting(rawMetronomeDefault, false));
+        setPitchBendEnabled(parseBooleanSetting(rawPitchBendEnabled, true));
+        setBreakReminderMinutes(parsePositiveIntegerSetting(rawBreakReminder));
 
         if (rawMidiDeviceId && midiServiceRef.current) {
           midiServiceRef.current.setDeviceFilter(rawMidiDeviceId);
@@ -926,6 +918,7 @@ export function App() {
     setLeadInBeats(2);
     setInstrumentId(defaultInstrumentId);
     setInstrumentReverbPresets({});
+    setCustomSamplePackPath('');
     setPostureReminderMinutes(null);
     setBreakReminderMinutes(null);
     setHandSize('medium');
@@ -938,6 +931,7 @@ export function App() {
     audioEngineRef.current.setMetronomeVolume(65);
     audioEngineRef.current.setReverbLevel(20);
     audioEngineRef.current.setMetronomeSound('classic');
+    void audioEngineRef.current.clearCustomSampler();
     void audioEngineRef.current.setInstrument(defaultInstrumentId);
     audioEngineRef.current.setInstrumentReverbPreset(getInstrumentEffectiveReverbPreset(defaultInstrumentId));
     midiServiceRef.current?.setDeviceFilter(null);

@@ -9,6 +9,7 @@ const unlockSpy = vi.fn(() => Promise.resolve());
 const prepareForPlaybackSpy = vi.fn(() => Promise.resolve());
 const setInstrumentSpy = vi.fn(() => Promise.resolve());
 const setInstrumentReverbPresetSpy = vi.fn();
+const clearCustomSamplerSpy = vi.fn(() => Promise.resolve());
 const unlockAchievementSpy = vi.fn((_achievementId: string) => Promise.resolve());
 const setSettingSpy = vi.fn().mockResolvedValue(undefined);
 
@@ -154,14 +155,17 @@ vi.mock('./components/SettingsScreen', () => ({
   SettingsScreen: ({
     onSettingChange,
     onDeveloperUnlockAll,
+    onUserDataReset,
   }: {
     onSettingChange: (category: string, key: string, value: string) => void;
     onDeveloperUnlockAll: () => Promise<void>;
+    onUserDataReset: () => void;
   }) => (
     <>
       <div>Settings</div>
       <button onClick={() => onSettingChange('visual', 'theme', 'neon')}>Select Neon</button>
       <button onClick={() => void onDeveloperUnlockAll()}>Unlock All Developer Content</button>
+      <button onClick={onUserDataReset}>Trigger User Data Reset</button>
     </>
   ),
 }));
@@ -198,9 +202,7 @@ vi.mock('../lib/audio/audioEngine', () => ({
     setCustomSampler() {
       return Promise.resolve();
     }
-    clearCustomSampler() {
-      return Promise.resolve();
-    }
+    clearCustomSampler = clearCustomSamplerSpy;
     playOneShot() {
       return Promise.resolve();
     }
@@ -253,6 +255,7 @@ describe('App', () => {
     prepareForPlaybackSpy.mockClear();
     setInstrumentSpy.mockClear();
     setInstrumentReverbPresetSpy.mockClear();
+    clearCustomSamplerSpy.mockClear();
     unlockAchievementSpy.mockClear();
     setSettingSpy.mockClear();
     const achievements: AchievementRow[] = ACHIEVEMENTS.map((achievement) => ({
@@ -454,6 +457,29 @@ describe('App', () => {
       expect(setSettingSpy).toHaveBeenCalledWith('learning', 'completedSteps', expect.any(String));
       expect(setSettingSpy).toHaveBeenCalledWith('learning', 'gatingEnabled', 'false');
       expect(setSettingSpy).toHaveBeenCalledWith('learning', 'capstoneResults', expect.any(String));
+    });
+  });
+
+  it('clears the active custom sampler when user data resets', async () => {
+    vi.mocked(window.appBridge!.getSetting).mockImplementation(async (category: string, key: string) => {
+      if (category === 'onboarding' && key === 'setupComplete') {
+        return 'true';
+      }
+      if (category === 'audio' && key === 'customSamplePackPath') {
+        return '/samples/custom';
+      }
+      return null;
+    });
+
+    render(<App />);
+
+    const settingsButtons = await screen.findAllByText('Open Settings');
+    fireEvent.click(settingsButtons[settingsButtons.length - 1]);
+    fireEvent.click(screen.getByText('Trigger User Data Reset'));
+
+    await waitFor(() => {
+      expect(clearCustomSamplerSpy).toHaveBeenCalled();
+      expect(setInstrumentSpy).toHaveBeenCalledWith('acoustic-piano');
     });
   });
 });

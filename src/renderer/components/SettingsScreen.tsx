@@ -9,6 +9,10 @@ import {
 } from '../../lib/audio/instrumentCatalog';
 import type { AudioEngine } from '../../lib/audio/audioEngine';
 import { isRewardUnlocked, REWARD_CATALOG } from '../../lib/rewards/rewardCatalog';
+import {
+  getSettingCompositeKey,
+  getSettingDefault,
+} from '../../lib/settings/registry';
 import type { InstrumentSamplePackStatus } from '../../shared/ipc';
 import { LatencyWizard } from './LatencyWizard';
 import { LoadingPanel } from './LoadingPanel';
@@ -318,15 +322,15 @@ const DEFAULT_SETTINGS: SettingsValues = {
   'visual.beatsVisible': '8',
   'visual.leftHandColor': '',
   'visual.rightHandColor': '',
-  'fingering.displayMode': 'learning-only',
+  'fingering.displayMode': getSettingDefault('fingering', 'displayMode') ?? 'learning-only',
   'gameplay.waitModeDefault': 'false',
-  'gameplay.metronomeDefault': 'false',
+  'gameplay.metronomeDefault': getSettingDefault('gameplay', 'metronomeDefault') ?? 'false',
   'gameplay.hitWindowMs': '100',
   'gameplay.leadInBeats': '2',
-  'practice.postureReminderMinutes': '20',
+  'practice.postureReminderMinutes': getSettingDefault('practice', 'postureReminderMinutes') ?? '0',
   'input.midiDeviceId': '',
-  'practice.dailyGoalMinutes': '20',
-  'practice.breakReminderMinutes': '30',
+  'practice.dailyGoalMinutes': getSettingDefault('practice', 'dailyGoalMinutes') ?? '0',
+  'practice.breakReminderMinutes': getSettingDefault('practice', 'breakReminderMinutes') ?? '0',
 };
 
 const HIGH_FREQUENCY_SETTING_SAVE_DELAY_MS = 220;
@@ -351,7 +355,7 @@ interface SettingsRangeFieldProps {
 }
 
 function getSettingKey(category: string, key: string): string {
-  return `${category}.${key}`;
+  return getSettingCompositeKey(category, key);
 }
 
 function getRangeFillPercent(value: string, min: number, max: number): string {
@@ -1691,7 +1695,8 @@ export function SettingsScreen({
                     onChange={(event) => {
                       const nextMode = event.target.value as InputMode;
                       onInputModeChange(nextMode);
-                      void persistSetting('input', 'mode', nextMode);
+                      updateSettingValue('input', 'mode', nextMode);
+                      setStatusMessage('Input mode updated.');
                     }}
                   >
                     <option value="both">MIDI or Computer Keyboard</option>
@@ -1767,22 +1772,22 @@ export function SettingsScreen({
                   <span>Posture Reminder (minutes)</span>
                   <input
                     type="number"
-                    min={1}
+                    min={0}
                     max={120}
                     inputMode="numeric"
                     value={values['practice.postureReminderMinutes']}
-                    onChange={(event) => persistNumericSetting('practice', 'postureReminderMinutes', event.target.value, 1, 120)}
+                    onChange={(event) => persistNumericSetting('practice', 'postureReminderMinutes', event.target.value, 0, 120)}
                   />
                 </label>
                 <label>
                   <span>Break Reminder (minutes)</span>
                   <input
                     type="number"
-                    min={1}
+                    min={0}
                     max={120}
                     inputMode="numeric"
                     value={values['practice.breakReminderMinutes']}
-                    onChange={(event) => persistNumericSetting('practice', 'breakReminderMinutes', event.target.value, 1, 120)}
+                    onChange={(event) => persistNumericSetting('practice', 'breakReminderMinutes', event.target.value, 0, 120)}
                   />
                 </label>
               </div>
@@ -1829,23 +1834,25 @@ export function SettingsScreen({
                     Delete User Data
                   </button>
                 </article>
-                <article className="settings-note-card settings-danger-card">
-                  <svg className="settings-warning-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
-                    <path d="M12 3 22 20H2z" />
-                    <path d="M12 9v5" />
-                    <path d="M12 17h.01" />
-                  </svg>
-                  <span>Test Content</span>
-                  <strong>Opens all achievements, rewards, lessons, and capstones for testing. Clear learning progress to lock them again.</strong>
-                  <button
-                    className="secondary-button"
-                    disabled={isUnlockingDeveloperContent || resetTarget !== null}
-                    onClick={() => setResetTarget('developer-unlock')}
-                  >
-                    <SettingsActionIcon icon="unlock" />
-                    Unlock Test Content
-                  </button>
-                </article>
+                {import.meta.env.DEV ? (
+                  <article className="settings-note-card settings-danger-card">
+                    <svg className="settings-warning-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+                      <path d="M12 3 22 20H2z" />
+                      <path d="M12 9v5" />
+                      <path d="M12 17h.01" />
+                    </svg>
+                    <span>Test Content</span>
+                    <strong>Opens all achievements, rewards, lessons, and capstones for testing. Clear learning progress to lock them again.</strong>
+                    <button
+                      className="secondary-button"
+                      disabled={isUnlockingDeveloperContent || resetTarget !== null}
+                      onClick={() => setResetTarget('developer-unlock')}
+                    >
+                      <SettingsActionIcon icon="unlock" />
+                      Unlock Test Content
+                    </button>
+                  </article>
+                ) : null}
               </div>
             </SettingsGroupCard>
           </div>
