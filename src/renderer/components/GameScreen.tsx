@@ -2,6 +2,7 @@ import { startTransition, useEffect, useMemo, useRef, useState } from 'react';
 import { AudioEngine } from '../../lib/audio/audioEngine';
 import { GameSession } from '../../lib/game/GameSession';
 import { ComputerKeyboardInputService } from '../../lib/input/computerKeyboardInputService';
+import { HeldNoteTracker } from '../../lib/input/heldNotes';
 import type { InputEvent, InputMode } from '../../lib/input/types';
 import {
   applyTrackAssignments,
@@ -77,7 +78,7 @@ interface LessonDrillFinishedPayload {
 
 type GameScreenSource =
   | { kind: 'library-song'; song: SongRow; playlistQueue: { songs: SongRow[]; index: number } | null }
-  | { kind: 'lesson-drill'; lessonId: string; stepIndex: number; parsedSong: ParsedSong };
+  | { kind: 'lesson-drill'; lessonId: string; stepIndex: number; parsedSong: ParsedSong; isRhythmClapping?: boolean };
 
 interface GameScreenProps {
   audioEngine: AudioEngine;
@@ -126,6 +127,14 @@ function shouldAutoplayMode(mode: SessionMode): boolean {
 
 function isWaitingMode(mode: SessionMode): boolean {
   return mode === 'learning';
+}
+
+function isTypingTarget(target: EventTarget | null): boolean {
+  const element = target as HTMLElement | null;
+  return Boolean(
+    element &&
+      (element.isContentEditable || ['INPUT', 'SELECT', 'TEXTAREA'].includes(element.tagName)),
+  );
 }
 
 function loopStartForSong(song: ParsedSong | null, sessionConfig: SessionConfig): number {
@@ -374,6 +383,8 @@ export function GameScreen({
   const currentSongRef = useRef(initialSong);
   const baselineStatsRef = useRef<UserStatsRow | null>(null);
   const countdownCancelRef = useRef(false);
+  const metronomeLastBeatRef = useRef<number | null>(null);
+  const rhythmClapTimeoutsRef = useRef<number[]>([]);
 
   const [sourceSong, setSourceSong] = useState<ParsedSong | null>(null);
   const [sessionSong, setSessionSong] = useState<ParsedSong | null>(null);
@@ -423,6 +434,8 @@ export function GameScreen({
       return event.source === 'computer-keyboard';
     };
 
+    const heldNotes = new HeldNoteTracker();
+
     const handleInputEvent = async (event: InputEvent) => {
       if (!shouldHandleEvent(event)) {
         return;
@@ -448,10 +461,16 @@ export function GameScreen({
       }
       game.ingestInputEvent(event);
       if (event.type === 'noteon' && typeof event.note === 'number') {
-        await audioEngine.noteOn(event.note, event.velocity ?? 0.8);
+        const change = heldNotes.press(event.note, event.sourceId);
+        if (change.shouldStartAudio) {
+          await audioEngine.noteOn(event.note, event.velocity ?? 0.8);
+        }
       }
       if (event.type === 'noteoff' && typeof event.note === 'number') {
-        audioEngine.noteOff(event.note);
+        const change = heldNotes.release(event.note, event.sourceId);
+        if (change.shouldStopAudio) {
+          audioEngine.noteOff(event.note);
+        }
       }
       if (event.type === 'sustain') {
         audioEngine.setSustain((event.sustainValue ?? 0) >= 64);
@@ -476,11 +495,12 @@ export function GameScreen({
       unsubscribeMidi();
       unsubscribeKeyboard();
       unsubscribeKeyboardState();
+      heldNotes.clear();
       audioEngine.setSustain(false);
       audioEngine.setPitchBend(0);
       audioEngine.allNotesOff();
     };
-  }, [audioEngine, inputMode, keyboardInputService, midiInputService]);
+  }, [audioEngine, inputMode, keyboardInputService, midiInputService, pitchBendEnabled]);
 
   useEffect(() => {
     const frame = () => {
@@ -543,6 +563,54 @@ export function GameScreen({
       window.clearTimeout(timeout);
     };
   }, [snapshot.activeInputNotes]);
+
+  useEffect(() => {
+    return () => {
+      rhythmClapTimeoutsRef.current.forEach((timeout) => window.clearTimeout(timeout));
+      rhythmClapTimeoutsRef.current = [];
+    };
+  }, []);
+
+  useEffect(() => {
+    metronomeLastBeatRef.current = null;
+
+    if (!sessionConfig.metronomeEnabled || !sessionSong) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      const game = gameSessionRef.current;
+      if (!game || !game.isTransportPlaying()) {
+        metronomeLastBeatRef.current = null;
+        return;
+      }
+
+      const now = performance.now();
+      const currentTimeSec = game.getCurrentTimeSec(now);
+      const beatsPerSecond = (sessionSong.bpm * Math.max(sessionConfig.tempoMultiplier, 0.01)) / 60;
+      const beatIndex = Math.floor(currentTimeSec * beatsPerSecond);
+
+      if (metronomeLastBeatRef.current === null) {
+        metronomeLastBeatRef.current = beatIndex;
+        return;
+      }
+
+      if (beatIndex < metronomeLastBeatRef.current) {
+        metronomeLastBeatRef.current = beatIndex;
+        return;
+      }
+
+      if (beatIndex > metronomeLastBeatRef.current) {
+        metronomeLastBeatRef.current = beatIndex;
+        void audioEngine.playMetronomeClick(beatIndex % 4 === 0);
+      }
+    }, 25);
+
+    return () => {
+      window.clearInterval(interval);
+      metronomeLastBeatRef.current = null;
+    };
+  }, [audioEngine, sessionConfig.metronomeEnabled, sessionConfig.tempoMultiplier, sessionSong]);
 
   useEffect(() => {
     const loadSelectedSong = async () => {
@@ -1006,16 +1074,53 @@ export function GameScreen({
     const handleSpacePlay = (event: KeyboardEvent) => {
       if (event.code !== 'Space') return;
       if (overlayVisible) return;
-      const tag = (event.target as HTMLElement).tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      if (isTypingTarget(event.target)) return;
       event.preventDefault();
+      event.stopPropagation();
+
+      if (source.kind === 'lesson-drill' && source.isRhythmClapping) {
+        if (event.repeat) {
+          return;
+        }
+        const game = gameSessionRef.current;
+        if (!game) {
+          return;
+        }
+        const timestamp = event.timeStamp;
+        const note = 60;
+        const clapSourceId = 'computer-keyboard:space-clap';
+        const noteOn: InputEvent = {
+          type: 'noteon',
+          source: 'computer-keyboard',
+          sourceId: clapSourceId,
+          timestamp,
+          note,
+          velocity: 0.9,
+        };
+        game.ingestInputEvent(noteOn);
+        void audioEngine.noteOn(note, 0.9);
+        const timeout = window.setTimeout(() => {
+          rhythmClapTimeoutsRef.current = rhythmClapTimeoutsRef.current.filter((id) => id !== timeout);
+          game.ingestInputEvent({
+            type: 'noteoff',
+            source: 'computer-keyboard',
+            sourceId: clapSourceId,
+            timestamp: performance.now(),
+            note,
+          });
+          audioEngine.noteOff(note);
+        }, 80);
+        rhythmClapTimeoutsRef.current.push(timeout);
+        return;
+      }
+
       void handlePlayPause();
     };
     window.addEventListener('keydown', handleSpacePlay, true);
     return () => {
       window.removeEventListener('keydown', handleSpacePlay, true);
     };
-  }, [handlePlayPause, overlayVisible]);
+  }, [audioEngine, handlePlayPause, overlayVisible, source]);
 
   const handleSelectFingeringNote = (
     note: PlaybackSnapshot['visibleNotes'][number],

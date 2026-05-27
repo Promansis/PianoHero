@@ -88,7 +88,7 @@ type AppScreen =
   | { screen: 'theory-quiz'; preset?: { quizType: string }; returnTo?: LessonReturnTarget }
   | { screen: 'keyboard-setup'; returnTo: KeyboardSetupReturnTarget }
   | { screen: 'game'; song: SongRow; sessionConfig: SessionConfig; playlistQueue: PlaylistQueue | null }
-  | { screen: 'lesson-drill'; lessonId: string; stepIndex: number; parsedSong: ParsedSong; sessionConfig: SessionConfig }
+  | { screen: 'lesson-drill'; lessonId: string; stepIndex: number; parsedSong: ParsedSong; sessionConfig: SessionConfig; isRhythmClapping?: boolean }
   | { screen: 'capstone'; tierId: string; parsedSong: ParsedSong; sessionConfig: SessionConfig }
   | {
       screen: 'results';
@@ -1075,6 +1075,7 @@ export function App() {
       lessonId,
       stepIndex,
       parsedSong,
+      isRhythmClapping: step.kind === 'rhythm-clapping',
       sessionConfig: buildSessionConfig('piano-hero', false, false, pitchBendEnabled, latencyCompMs, hitWindowMs, beatsVisible, leadInBeats, {
         handSize,
         tempoMultiplier: step.kind === 'drill' ? step.tempoMultiplier ?? 1 : 1,
@@ -1269,10 +1270,6 @@ export function App() {
         return;
       }
 
-      if (event.key === ' ' && currentScreen.screen === 'game') {
-        event.preventDefault();
-        window.dispatchEvent(new CustomEvent('pianohero-shortcut', { detail: { action: 'play-pause' } }));
-      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -1676,6 +1673,7 @@ export function App() {
             lessonId: currentScreen.lessonId,
             stepIndex: currentScreen.stepIndex,
             parsedSong: currentScreen.parsedSong,
+            isRhythmClapping: currentScreen.isRhythmClapping,
           }}
           initialSessionConfig={currentScreen.sessionConfig}
           colorBlindMode={colorBlindMode}
