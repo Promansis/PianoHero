@@ -2,8 +2,9 @@ import Database from 'better-sqlite3';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ACHIEVEMENTS } from '../lib/achievements/achievementDefinitions';
+import type { AddSongPayload, SaveGameResultPayload, SaveTheoryResultPayload } from '../shared/dbTypes';
 import {
   AppDatabase,
   calculatePracticeStreak,
@@ -20,20 +21,39 @@ async function makeDbPath(): Promise<string> {
   return join(dir, 'test.db');
 }
 
-function addSong(db: AppDatabase, id = songId): void {
+function addSong(db: AppDatabase, id = songId, overrides: Partial<AddSongPayload> = {}): void {
   db.addSong({
     id,
-    title: 'Etude',
-    artist: '',
-    genre: '',
-    filePath: `/tmp/${id}.mid`,
-    difficulty: 2,
-    durationSec: 60,
-    bpm: 120,
-    noteCount: 8,
-    tags: ['study'],
-    trackAssignments: { piano: 'both' },
+    title: overrides.title ?? 'Etude',
+    artist: overrides.artist ?? '',
+    genre: overrides.genre ?? '',
+    filePath: overrides.filePath ?? `/tmp/${id}.mid`,
+    difficulty: overrides.difficulty ?? 2,
+    durationSec: overrides.durationSec ?? 60,
+    bpm: overrides.bpm ?? 120,
+    noteCount: overrides.noteCount ?? 8,
+    tags: overrides.tags ?? ['study'],
+    folderId: overrides.folderId,
+    trackAssignments: overrides.trackAssignments ?? { left: 'left', right: 'right' },
   });
+}
+
+function buildGameResult(overrides: Partial<SaveGameResultPayload> = {}): SaveGameResultPayload {
+  return {
+    songId,
+    score: 800,
+    accuracy: 82,
+    maxCombo: 4,
+    perfectHits: 4,
+    goodHits: 2,
+    okHits: 1,
+    misses: 1,
+    tempo: 1,
+    mode: 'piano-hero',
+    durationSec: 45,
+    measureAccuracy: [],
+    ...overrides,
+  };
 }
 
 function saveResult(db: AppDatabase, id = songId): void {
@@ -54,6 +74,7 @@ function saveResult(db: AppDatabase, id = songId): void {
 }
 
 afterEach(async () => {
+  vi.useRealTimers();
   await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
 });
 
@@ -70,6 +91,28 @@ function buildPracticeDates(startDate: string, days: number): string[] {
     cursor.setUTCDate(cursor.getUTCDate() + 1);
   }
   return dates;
+}
+
+function toLocalDateString(date: Date): string {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('-');
+}
+
+function toWeekStartDateString(date: Date): string {
+  const cursor = new Date(date);
+  const day = cursor.getDay();
+  const diff = (day + 6) % 7;
+  cursor.setDate(cursor.getDate() - diff);
+  return toLocalDateString(cursor);
+}
+
+function buildTodayNoonFixture(): { date: Date; dateString: string; weekStart: string } {
+  const dateString = toLocalDateString(new Date());
+  const date = new Date(`${dateString}T12:00:00`);
+  return { date, dateString, weekStart: toWeekStartDateString(date) };
 }
 
 describe('database streak freeze helpers', () => {
@@ -121,6 +164,189 @@ describe('database streak freeze helpers', () => {
     expect(consumption.consumedDate).toBeNull();
     expect(consumption.freezeCount).toBe(1);
     expect(streak.currentStreak).toBe(1);
+  });
+});
+
+describe('AppDatabase result and progress fixtures', () => {
+  it('keeps saved result side effects aligned across stats, progress, achievements, recommendations, and trouble spots', async () => {
+    const fixture = buildTodayNoonFixture();
+    vi.useFakeTimers();
+    vi.setSystemTime(fixture.date);
+
+    const db = new AppDatabase(await makeDbPath());
+    addSong(db, songId, {
+      title: 'Practice Song',
+      genre: 'Classical',
+      difficulty: 3,
+      trackAssignments: { melody: 'right' },
+    });
+    addSong(db, 'challenge', { title: 'Challenge Study', genre: 'Jazz', difficulty: 5 });
+    addSong(db, 'builder', { title: 'Coordination Builder', genre: 'Etude', difficulty: 3 });
+    addSong(db, 'genre-pick', { title: 'Classical Echo', genre: 'Classical', difficulty: 1 });
+    db.setSetting('practice', 'dailyGoalMinutes', '1');
+    db.setSetting('song-goal', songId, '90');
+
+    const firstOutcome = db.saveGameResult(buildGameResult({
+      score: 680,
+      accuracy: 68,
+      maxCombo: 3,
+      perfectHits: 2,
+      goodHits: 1,
+      okHits: 1,
+      misses: 2,
+      durationSec: 30,
+      measureAccuracy: [{ measure: 2, accuracy: 52 }],
+    }));
+    const secondOutcome = db.saveGameResult(buildGameResult({
+      score: 1200,
+      accuracy: 100,
+      maxCombo: 8,
+      perfectHits: 8,
+      goodHits: 0,
+      okHits: 0,
+      misses: 0,
+      durationSec: 45,
+      measureAccuracy: [{ measure: 2, accuracy: 88 }],
+    }));
+
+    expect(firstOutcome).toMatchObject({
+      unlockedAchievementIds: ['first-song'],
+      dailyGoalReached: false,
+      songGoalReached: false,
+    });
+    expect(secondOutcome).toMatchObject({
+      unlockedAchievementIds: ['perfect-score'],
+      dailyGoalReached: true,
+      songGoalReached: true,
+    });
+
+    expect(db.getSong(songId)?.timesPlayed).toBe(2);
+    expect(db.getUserStats(songId)).toMatchObject({
+      playCount: 2,
+      bestScore: 1200,
+      averageScore: 940,
+      bestAccuracy: 100,
+      totalPracticeTimeSec: 75,
+    });
+    expect(
+      db.getAllAchievements()
+        .filter((achievement) => achievement.unlockedAt !== null)
+        .map((achievement) => achievement.id),
+    ).toEqual(['first-song', 'perfect-score']);
+
+    const progress = db.getProgressStats(fixture.dateString, fixture.dateString);
+    expect(progress.practiceTimeByDay).toEqual([{ date: fixture.dateString, minutes: 1.3 }]);
+    expect(progress.songsPlayedByWeek).toEqual([{ weekStart: fixture.weekStart, count: 2 }]);
+    expect(progress.accuracyTrend).toEqual([{ date: fixture.dateString, avgAccuracy: 84 }]);
+    expect(progress.hitQuality).toEqual({ perfect: 10, good: 1, ok: 1, misses: 2 });
+    expect(progress.totalStats).toMatchObject({
+      totalSongs: 4,
+      songsMastered: 1,
+      totalPracticeTimeSec: 75,
+      favoriteGenre: 'Classical',
+    });
+
+    expect(db.getProgressTopSongs()).toEqual([
+      {
+        songId,
+        title: 'Practice Song',
+        playCount: 2,
+        bestAccuracy: 100,
+        totalPracticeTimeSec: 75,
+      },
+    ]);
+    expect(db.getAllUnresolvedTroubleSpots()).toMatchObject([
+      {
+        songId,
+        songTitle: 'Practice Song',
+        measureStart: 2,
+        measureEnd: 2,
+        struggleCount: 1,
+        lowestAccuracy: 52,
+        latestAccuracy: 88,
+      },
+    ]);
+
+    const recommendations = db.getRecommendations();
+    expect(recommendations.nextChallenge[0]?.song.id).toBe('challenge');
+    expect(recommendations.skillBuilder[0]?.song.id).toBe('builder');
+    expect(recommendations.youMightLike[0]?.song.id).toBe('genre-pick');
+    expect(recommendations.revisit[0]?.song.id).toBe(songId);
+
+    db.close();
+  });
+
+  it('keeps theory payloads, stats, practice progress, and result filters aligned', async () => {
+    const fixture = buildTodayNoonFixture();
+    vi.useFakeTimers();
+    vi.setSystemTime(fixture.date);
+
+    const db = new AppDatabase(await makeDbPath());
+    const results: SaveTheoryResultPayload[] = [
+      {
+        type: 'quiz',
+        score: 8,
+        totalQuestions: 10,
+        accuracy: 80,
+        details: { quizType: 'mixed', answers: ['C', 'G'] },
+      },
+      {
+        type: 'interval-trainer',
+        score: 9,
+        totalQuestions: 10,
+        accuracy: 90,
+        details: { difficulty: 'medium', maxStreak: 5 },
+      },
+      {
+        type: 'scale-practice',
+        score: 7,
+        totalQuestions: 8,
+        accuracy: 87.5,
+        details: { root: 0, scaleName: 'Major', direction: 'ascending', octaves: 1 },
+      },
+    ];
+
+    for (const payload of results) {
+      expect(db.saveTheoryResult(payload)).toMatchObject({
+        dailyGoalReached: false,
+        songGoalReached: false,
+      });
+    }
+
+    expect(db.getTheoryResults('quiz')).toMatchObject([
+      {
+        type: 'quiz',
+        score: 8,
+        totalQuestions: 10,
+        accuracy: 80,
+        details: { quizType: 'mixed', answers: ['C', 'G'] },
+      },
+    ]);
+    expect(db.getTheoryStats('interval-trainer')).toMatchObject({
+      type: 'interval-trainer',
+      sessionCount: 1,
+      bestScore: 9,
+      averageAccuracy: 90,
+    });
+    expect(db.getTheoryStats('scale-practice')).toMatchObject({
+      type: 'scale-practice',
+      sessionCount: 1,
+      bestScore: 7,
+      averageAccuracy: 87.5,
+    });
+    expect(db.getPracticeDays(fixture.dateString, fixture.dateString)).toEqual([
+      {
+        date: fixture.dateString,
+        totalPracticeTimeSec: 0,
+        songsPlayed: 0,
+        theorySessions: 3,
+      },
+    ]);
+    expect(db.getProgressStats(fixture.dateString, fixture.dateString).theorySessionsByDay).toEqual([
+      { date: fixture.dateString, sessions: 3 },
+    ]);
+
+    db.close();
   });
 });
 
