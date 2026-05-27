@@ -4,8 +4,9 @@ import { Hono } from 'hono';
 import { createSongId, importSongFromBuffer, reattachSongFromBuffer } from '../shared/importSong';
 import type { ImportError, ImportedSong } from '../shared/ipc';
 import type { ServerDependencies } from './types';
+import { MIDI_FILE_LIMIT_BYTES, midiUploadBodyLimit } from './webSecurity';
 
-const MAX_MIDI_UPLOAD_BYTES = 10 * 1024 * 1024;
+const MAX_MIDI_UPLOAD_BYTES = MIDI_FILE_LIMIT_BYTES;
 
 function isMidiFilename(name: string): boolean {
   return /\.(mid|midi)$/i.test(name);
@@ -14,7 +15,7 @@ function isMidiFilename(name: string): boolean {
 export function createMidiRouter({ db, midiFilesDir }: ServerDependencies) {
   const router = new Hono();
 
-  router.post('/upload', async (c) => {
+  router.post('/upload', midiUploadBodyLimit(), async (c) => {
     try {
       const formData = await c.req.formData();
       const files = formData.getAll('files');
@@ -69,7 +70,7 @@ export function createMidiRouter({ db, midiFilesDir }: ServerDependencies) {
     }
   });
 
-  router.post('/:songId/reattach', async (c) => {
+  router.post('/:songId/reattach', midiUploadBodyLimit(), async (c) => {
     const songId = c.req.param('songId');
     const song = db.getSong(songId);
     if (!song) {

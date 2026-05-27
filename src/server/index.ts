@@ -7,6 +7,7 @@ import { AppDatabase } from '../main/database';
 import { createBridgeRouter } from './bridgeRouter';
 import { createLibraryRouter } from './libraryRouter';
 import { createMidiRouter } from './midiRouter';
+import { createApiAccessGate } from './webSecurity';
 
 const port = Number(process.env.PORT ?? 3100);
 const dataDir = resolve(process.env.PIANOHERO_DATA_DIR ?? join(process.cwd(), '.pianohero-data'));
@@ -26,6 +27,9 @@ app.use('*', async (c, next) => {
   c.header('Permissions-Policy', 'midi=(self)');
   await next();
 });
+
+app.use('/api/*', createApiAccessGate(process.env.PIANOHERO_WEB_ACCESS_TOKEN));
+app.get('/api/access', (c) => c.json({ ok: true }));
 
 app.route('/api/bridge', createBridgeRouter({ db, midiFilesDir }));
 app.route('/api/library', createLibraryRouter({ db, midiFilesDir }));

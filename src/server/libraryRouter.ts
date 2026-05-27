@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { buildLibraryBackup, importLibraryBackup, isLibraryBackup } from '../shared/libraryBackup';
 import type { ServerDependencies } from './types';
+import { libraryImportBodyLimit } from './webSecurity';
 
 export function createLibraryRouter({ db, midiFilesDir }: ServerDependencies) {
   const router = new Hono();
@@ -17,7 +18,7 @@ export function createLibraryRouter({ db, midiFilesDir }: ServerDependencies) {
     });
   });
 
-  router.post('/import', async (c) => {
+  router.post('/import', libraryImportBodyLimit(), async (c) => {
     const body = await c.req.json().catch(() => null);
     if (!isLibraryBackup(body)) {
       return c.json({ error: 'Invalid library backup file.' }, 400);
