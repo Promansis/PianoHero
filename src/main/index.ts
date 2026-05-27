@@ -5,13 +5,13 @@ import type { Dirent } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type {
-  AddSongPayload,
+  BridgeAddSongPayload,
+  BridgeUpdateSongPayload,
   FingeringRow,
   SaveGameResultPayload,
   SaveTheoryResultPayload,
   SongRow,
   TheoryResultRow,
-  UpdateSongPayload,
   UpdateTroubleSpotPayload,
 } from '../shared/dbTypes';
 import { createSongId, importSongFromBuffer, reattachSongFromBuffer, recomputeAllSongDifficulties } from '../persistence/importSong';
@@ -30,6 +30,14 @@ import {
 let mainWindow: BrowserWindow | null = null;
 let db: AppDatabase;
 let midiStorage: FileSystemMidiStorageAdapter;
+
+function withoutBridgeFilePath(
+  updates: BridgeUpdateSongPayload & { filePath?: unknown },
+): BridgeUpdateSongPayload {
+  const { filePath, ...safeUpdates } = updates;
+  void filePath;
+  return safeUpdates;
+}
 
 function readDesktopSongMidiBytes(song: SongRow): Promise<Uint8Array> {
   return midiStorage.read(song.id).catch(async () => new Uint8Array(await readFile(song.filePath)));
@@ -111,10 +119,16 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('songs:get-all', () => db.getAllSongs());
   ipcMain.handle('songs:get', (_event, songId: string) => db.getSong(songId));
-  ipcMain.handle('songs:add', (_event, payload: AddSongPayload) => db.addSong(payload));
+  ipcMain.handle('songs:add', (_event, payload: BridgeAddSongPayload) =>
+    db.addSong({
+      ...payload,
+      filePath: midiStorage.getPathForSong(payload.id),
+    }),
+  );
   ipcMain.handle(
     'songs:update',
-    (_event, songId: string, updates: UpdateSongPayload) => db.updateSong(songId, updates),
+    (_event, songId: string, updates: BridgeUpdateSongPayload & { filePath?: unknown }) =>
+      db.updateSong(songId, withoutBridgeFilePath(updates)),
   );
   ipcMain.handle('songs:delete', (_event, songId: string) => {
     db.deleteSong(songId);

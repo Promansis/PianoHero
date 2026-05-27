@@ -7,6 +7,7 @@ import {
 } from '../lib/storage/storageSafety';
 
 export interface MidiStorageStagedFile {
+  finalPath: string;
   commit: () => Promise<void>;
   discard: () => Promise<void>;
 }
@@ -59,9 +60,9 @@ export class FileSystemMidiStorageAdapter implements MidiStorageAdapter {
     await writeFile(stagingPath, data);
 
     return {
+      finalPath,
       commit: async () => {
         await rename(stagingPath, finalPath);
-        await rm(stagingDir, { recursive: true, force: true });
       },
       discard: async () => {
         await rm(stagingDir, { recursive: true, force: true });

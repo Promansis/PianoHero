@@ -220,6 +220,26 @@ describe('bridgeRouter', () => {
     expect(payload.result.filePath).toBe(join(midiFilesDir, `${songId}.mid`));
   });
 
+  it('rejects unsafe web addSong ids before deriving file paths', async () => {
+    const { app, db } = await makeServer();
+
+    const response = await postBridge(app, 'addSong', [{
+      id: '../escape',
+      title: 'Unsafe',
+      artist: '',
+      genre: '',
+      difficulty: 1,
+      durationSec: 1,
+      bpm: 120,
+      noteCount: 1,
+      tags: [],
+      trackAssignments: {},
+    }]);
+    db.close();
+
+    expect(response.status).toBe(400);
+  });
+
   it('deletes only app-owned MIDI files for web song deletion', async () => {
     const { app, db, midiFilesDir } = await makeServer();
     const appOwnedPath = join(midiFilesDir, `${songId}.mid`);

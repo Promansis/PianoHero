@@ -1,6 +1,7 @@
 import type {
-  AddSongPayload,
   AchievementRow,
+  BridgeAddSongPayload,
+  BridgeUpdateSongPayload,
   FingeringRow,
   FolderRow,
   GameResultRow,
@@ -22,7 +23,6 @@ import type {
   TheoryStatsRow,
   TopSongStat,
   TroubleSpotRow,
-  UpdateSongPayload,
   UpdateTroubleSpotPayload,
   UserStatsRow,
 } from './dbTypes';
@@ -122,8 +122,8 @@ export interface AppBridge {
 
   getAllSongs: () => Promise<SongRow[]>;
   getSong: (songId: string) => Promise<SongRow | null>;
-  addSong: (song: AddSongPayload) => Promise<SongRow>;
-  updateSong: (songId: string, updates: UpdateSongPayload) => Promise<void>;
+  addSong: (song: BridgeAddSongPayload) => Promise<SongRow>;
+  updateSong: (songId: string, updates: BridgeUpdateSongPayload) => Promise<void>;
   deleteSong: (songId: string) => Promise<void>;
   toggleFavorite: (songId: string) => Promise<void>;
   importMidiFiles: () => Promise<ImportResult>;

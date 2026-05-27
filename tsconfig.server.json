@@ -17,11 +17,17 @@
   },
   "include": [
     "src/server/**/*.ts",
+    "src/persistence/**/*.ts",
+    "src/storage/**/*.ts",
     "src/shared/**/*.ts",
-    "src/main/database.ts",
     "src/lib/achievements/**/*.ts",
     "src/lib/game/**/*.ts",
     "src/lib/midi/midiFileParser.ts",
+    "src/lib/midi/importMetadata.ts",
     "src/lib/recommendations/**/*.ts"
+  ],
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx"
   ]
 }
