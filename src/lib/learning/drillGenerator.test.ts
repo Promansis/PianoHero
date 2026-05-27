@@ -1,5 +1,23 @@
 import { describe, expect, it } from 'vitest';
-import { buildLessonDrill } from './drillGenerator';
+import { GameSession } from '../game/GameSession';
+import type { SessionConfig } from '../game/types';
+import { buildLessonDrill, buildRhythmClappingDrill } from './drillGenerator';
+
+const SCORING_SESSION: SessionConfig = {
+  mode: 'piano-hero',
+  tempoMultiplier: 1,
+  handFilter: 'both',
+  loopRange: null,
+  waitForInput: false,
+  metronomeEnabled: false,
+  handSize: 'medium',
+  fingeringDisplayMode: 'always',
+  pitchBendEnabled: true,
+  latencyCompMs: 0,
+  hitWindowMs: 100,
+  beatsVisible: 8,
+  leadInBeats: 2,
+};
 
 describe('buildLessonDrill', () => {
   it('uses white-key scale tones for five-finger drills', () => {
@@ -59,5 +77,80 @@ describe('buildLessonDrill', () => {
     expect(song.notes.some((note) => note.hand === 'left')).toBe(true);
     expect(song.notes.some((note) => note.hand === 'right')).toBe(true);
     expect(song.notes.every((note) => note.trackId === 'left-track' || note.trackId === 'right-track')).toBe(true);
+  });
+
+  it('hands generated drills to GameSession as scoreable scheduled notes', () => {
+    const song = buildLessonDrill('Right Hand Walk Contract', {
+      kind: 'five-finger-pattern',
+      bpm: 80,
+      startMidi: 60,
+      handMode: 'right',
+      direction: 'ascending',
+      repetitions: 1,
+    });
+    const session = new GameSession(song, SCORING_SESSION);
+
+    session.play(0);
+    for (const note of song.notes) {
+      session.ingestInputEvent({
+        type: 'noteon',
+        source: 'midi',
+        sourceId: 'contract-keyboard',
+        timestamp: note.startSec * 1000,
+        note: note.midi,
+        velocity: 0.9,
+      });
+    }
+
+    const result = session.getFinalResult();
+    expect(result).toMatchObject({
+      songId: song.id,
+      mode: 'piano-hero',
+      perfectHits: song.notes.length,
+      misses: 0,
+      accuracy: 100,
+    });
+    expect(result.measureAccuracy.every((entry) => entry.accuracy === 100)).toBe(true);
+  });
+
+  it('turns rhythm-clapping steps into Space-compatible middle-C scoring events', () => {
+    const song = buildRhythmClappingDrill({
+      kind: 'rhythm-clapping',
+      title: 'Quarter And Half Clap',
+      bpm: 60,
+      patternBeats: [1, 0.5, 1.5],
+      measures: 2,
+    });
+    const session = new GameSession(song, SCORING_SESSION);
+
+    expect(song.tracks).toMatchObject([{ id: 'right-track', assignment: 'right' }]);
+    expect(new Set(song.notes.map((note) => note.midi))).toEqual(new Set([60]));
+    expect(song.notes.map((note) => note.startSec)).toEqual([0, 1, 1.5, 3, 4, 4.5]);
+
+    session.play(0);
+    for (const note of song.notes) {
+      session.ingestInputEvent({
+        type: 'noteon',
+        source: 'computer-keyboard',
+        sourceId: 'computer-keyboard:space-clap',
+        timestamp: note.startSec * 1000,
+        note: 60,
+        velocity: 0.9,
+      });
+      session.ingestInputEvent({
+        type: 'noteoff',
+        source: 'computer-keyboard',
+        sourceId: 'computer-keyboard:space-clap',
+        timestamp: note.startSec * 1000 + 80,
+        note: 60,
+      });
+    }
+
+    const result = session.getFinalResult();
+    expect(result).toMatchObject({
+      perfectHits: song.notes.length,
+      misses: 0,
+      accuracy: 100,
+    });
   });
 });
