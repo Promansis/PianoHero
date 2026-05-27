@@ -1,7 +1,6 @@
-import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { Hono } from 'hono';
-import { getAppOwnedMidiPath, isSafeSongStorageId } from '../lib/storage/storageSafety';
-import { recomputeAllSongDifficulties } from '../shared/importSong';
+import { isSafeSongStorageId } from '../lib/storage/storageSafety';
+import { recomputeAllSongDifficulties } from '../persistence/importSong';
 import { RPC_BRIDGE_METHODS, RPC_BRIDGE_METHOD_SET, type RpcBridgeMethod } from '../shared/bridgeMethods';
 import { bridgeRpcBodyLimit } from './webSecurity';
 import type {
@@ -310,29 +309,16 @@ function validateRpcArgs(method: RpcBridgeMethod, args: unknown[], db: ServerDep
   return bridgeArgValidators[method](args, db);
 }
 
-function withAppOwnedFilePath(value: unknown, midiFilesDir: string): AddSongPayload {
+function withAppOwnedFilePath(value: unknown, dependencies: ServerDependencies): AddSongPayload {
   if (!isSongPayload(value)) {
     throw new Error('Song payload requires a safe song id.');
   }
 
-  const filePath = getAppOwnedMidiPath(midiFilesDir, value.id);
-  if (!filePath) {
-    throw new Error('Song payload requires a safe app-owned song id.');
-  }
-
-  return { ...value, filePath };
+  return { ...value, filePath: dependencies.midiStorage.getPathForSong(value.id) };
 }
 
-function deleteAppOwnedMidiFile(midiFilesDir: string, songId: string): void {
-  const filePath = getAppOwnedMidiPath(midiFilesDir, songId);
-  if (!filePath || !existsSync(filePath)) {
-    return;
-  }
-
-  rmSync(filePath, { force: true });
-}
-
-export function createBridgeRouter({ db, midiFilesDir }: ServerDependencies) {
+export function createBridgeRouter(dependencies: ServerDependencies) {
+  const { db, midiStorage } = dependencies;
   const router = new Hono();
 
   router.post('/:method', bridgeRpcBodyLimit(), async (c) => {
@@ -355,25 +341,24 @@ export function createBridgeRouter({ db, midiFilesDir }: ServerDependencies) {
     try {
       if (method === 'resetUserData') {
         db.resetUserData();
-        rmSync(midiFilesDir, { recursive: true, force: true });
-        mkdirSync(midiFilesDir, { recursive: true });
+        await midiStorage.reset();
         return c.json({ result: null });
       }
 
       if (method === 'recomputeAllSongDifficulties') {
-        const result = await recomputeAllSongDifficulties({ db, midiFilesDir });
+        const result = await recomputeAllSongDifficulties({ db, midiStorage });
         return c.json({ result });
       }
 
       if (method === 'addSong') {
-        const result = db.addSong(withAppOwnedFilePath(args[0], midiFilesDir));
+        const result = db.addSong(withAppOwnedFilePath(args[0], dependencies));
         return c.json({ result });
       }
 
       if (method === 'deleteSong') {
         const [songId] = args as [string];
         db.deleteSong(songId);
-        deleteAppOwnedMidiFile(midiFilesDir, songId);
+        await midiStorage.delete(songId);
         return c.json({ result: null });
       }
 
@@ -381,7 +366,7 @@ export function createBridgeRouter({ db, midiFilesDir }: ServerDependencies) {
         const [songIds] = args as [string[]];
         db.bulkDeleteSongs(songIds);
         for (const songId of songIds) {
-          deleteAppOwnedMidiFile(midiFilesDir, songId);
+          await midiStorage.delete(songId);
         }
         return c.json({ result: null });
       }

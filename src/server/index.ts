@@ -3,7 +3,8 @@ import { mkdirSync } from 'node:fs';
 import { readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize, resolve } from 'node:path';
 import { Hono } from 'hono';
-import { AppDatabase } from '../main/database';
+import { AppDatabase } from '../persistence/database';
+import { FileSystemMidiStorageAdapter } from '../storage/midiStorage';
 import { createBridgeRouter } from './bridgeRouter';
 import { createLibraryRouter } from './libraryRouter';
 import { createMidiRouter } from './midiRouter';
@@ -19,6 +20,7 @@ mkdirSync(dataDir, { recursive: true });
 mkdirSync(midiFilesDir, { recursive: true });
 
 const db = new AppDatabase(dbPath);
+const midiStorage = new FileSystemMidiStorageAdapter(midiFilesDir);
 const app = new Hono();
 
 app.onError((error, c) => c.json({ error: error.message }, 500));
@@ -31,9 +33,9 @@ app.use('*', async (c, next) => {
 app.use('/api/*', createApiAccessGate(process.env.PIANOHERO_WEB_ACCESS_TOKEN));
 app.get('/api/access', (c) => c.json({ ok: true }));
 
-app.route('/api/bridge', createBridgeRouter({ db, midiFilesDir }));
-app.route('/api/library', createLibraryRouter({ db, midiFilesDir }));
-app.route('/api/midi', createMidiRouter({ db, midiFilesDir }));
+app.route('/api/bridge', createBridgeRouter({ db, midiFilesDir, midiStorage }));
+app.route('/api/library', createLibraryRouter({ db, midiFilesDir, midiStorage }));
+app.route('/api/midi', createMidiRouter({ db, midiFilesDir, midiStorage }));
 
 const CONTENT_TYPES: Record<string, string> = {
   '.css': 'text/css; charset=utf-8',

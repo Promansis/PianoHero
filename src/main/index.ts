@@ -1,23 +1,25 @@
 import { app, BrowserWindow, dialog, ipcMain } from 'electron';
 import type { OpenDialogOptions, SaveDialogOptions } from 'electron';
-import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import type { Dirent } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { getAppOwnedMidiPath } from '../lib/storage/storageSafety';
 import type {
   AddSongPayload,
   FingeringRow,
   SaveGameResultPayload,
   SaveTheoryResultPayload,
+  SongRow,
   TheoryResultRow,
   UpdateSongPayload,
   UpdateTroubleSpotPayload,
 } from '../shared/dbTypes';
-import { createSongId, importSongFromBuffer, reattachSongFromBuffer, recomputeAllSongDifficulties } from '../shared/importSong';
-import { buildLibraryBackup, importLibraryBackup, isLibraryBackup } from '../shared/libraryBackup';
+import { createSongId, importSongFromBuffer, reattachSongFromBuffer, recomputeAllSongDifficulties } from '../persistence/importSong';
+import { buildLibraryBackup, importLibraryBackup } from '../persistence/libraryBackup';
+import { isLibraryBackup } from '../shared/libraryBackup';
 import { getInstrumentSamplePackDefinition } from '../lib/audio/instrumentSamplePacks';
-import { AppDatabase } from './database';
+import { AppDatabase } from '../persistence/database';
+import { FileSystemMidiStorageAdapter } from '../storage/midiStorage';
 import {
   getDesktopInstrumentSamplePackStatuses,
   installDesktopInstrumentSamplePack,
@@ -27,6 +29,11 @@ import {
 
 let mainWindow: BrowserWindow | null = null;
 let db: AppDatabase;
+let midiStorage: FileSystemMidiStorageAdapter;
+
+function readDesktopSongMidiBytes(song: SongRow): Promise<Uint8Array> {
+  return midiStorage.read(song.id).catch(async () => new Uint8Array(await readFile(song.filePath)));
+}
 
 function collectMidiFiles(dir: string): string[] {
   const results: string[] = [];
@@ -45,15 +52,6 @@ function collectMidiFiles(dir: string): string[] {
     }
   }
   return results;
-}
-
-function deleteAppOwnedMidiFile(midiFilesDir: string, songId: string): void {
-  const filePath = getAppOwnedMidiPath(midiFilesDir, songId);
-  if (!filePath || !existsSync(filePath)) {
-    return;
-  }
-
-  rmSync(filePath, { force: true });
 }
 
 async function createMainWindow(): Promise<void> {
@@ -84,6 +82,7 @@ app.whenReady().then(async () => {
   const userDataPath = app.getPath('userData');
   const midiFilesDir = join(userDataPath, 'midi-files');
   mkdirSync(midiFilesDir, { recursive: true });
+  midiStorage = new FileSystemMidiStorageAdapter(midiFilesDir);
 
   db = new AppDatabase(join(userDataPath, 'pianohero.db'));
   db.migrateFromJson(userDataPath);
@@ -119,7 +118,7 @@ app.whenReady().then(async () => {
   );
   ipcMain.handle('songs:delete', (_event, songId: string) => {
     db.deleteSong(songId);
-    deleteAppOwnedMidiFile(midiFilesDir, songId);
+    return midiStorage.delete(songId);
   });
   ipcMain.handle('songs:toggle-favorite', (_event, songId: string) => db.toggleFavorite(songId));
 
@@ -152,7 +151,7 @@ app.whenReady().then(async () => {
           skipped++;
           continue;
         }
-        songs.push(await importSongFromBuffer(buffer, title, { db, midiFilesDir }));
+        songs.push(await importSongFromBuffer(buffer, title, { db, midiStorage }));
       } catch (err) {
         errors.push({ filename: title, message: (err as Error).message });
       }
@@ -190,7 +189,7 @@ app.whenReady().then(async () => {
           skipped++;
           continue;
         }
-        importedSongs.push(await importSongFromBuffer(buffer, title, { db, midiFilesDir }));
+        importedSongs.push(await importSongFromBuffer(buffer, title, { db, midiStorage }));
       } catch (err) {
         errors.push({ filename: title, message: (err as Error).message });
       }
@@ -221,7 +220,7 @@ app.whenReady().then(async () => {
     const title = selectedPath.split(/[\\/]/).pop()?.replace(/\.(mid|midi)$/i, '') ?? song.title;
     try {
       const buffer = await readFile(selectedPath);
-      const reattached = await reattachSongFromBuffer(songId, buffer, title, { db, midiFilesDir });
+      const reattached = await reattachSongFromBuffer(songId, buffer, title, { db, midiStorage });
       return { reattached: [reattached], errors: [], skipped: 0 };
     } catch (error) {
       return { reattached: [], errors: [{ filename: title, message: (error as Error).message }], skipped: 0 };
@@ -229,7 +228,7 @@ app.whenReady().then(async () => {
   });
 
   ipcMain.handle('songs:recompute-difficulties', () =>
-    recomputeAllSongDifficulties({ db, midiFilesDir }),
+    recomputeAllSongDifficulties({ db, midiStorage, readSongBytes: readDesktopSongMidiBytes }),
   );
 
   ipcMain.handle('results:save', (_event, payload: SaveGameResultPayload) => db.saveGameResult(payload));
@@ -303,9 +302,7 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('bulk:delete-songs', (_event, songIds: string[]) => {
     db.bulkDeleteSongs(songIds);
-    for (const songId of songIds) {
-      deleteAppOwnedMidiFile(midiFilesDir, songId);
-    }
+    return Promise.all(songIds.map((songId) => midiStorage.delete(songId))).then(() => undefined);
   });
   ipcMain.handle('bulk:move-songs-to-folder', (_event, songIds: string[], folderId: string | null) =>
     db.bulkMoveSongsToFolder(songIds, folderId),
@@ -327,8 +324,7 @@ app.whenReady().then(async () => {
   });
   ipcMain.handle('settings:reset-user-data', () => {
     db.resetUserData();
-    rmSync(midiFilesDir, { recursive: true, force: true });
-    mkdirSync(midiFilesDir, { recursive: true });
+    return midiStorage.reset();
   });
 
   ipcMain.handle('library:export', async () => {
@@ -344,7 +340,7 @@ app.whenReady().then(async () => {
       return null;
     }
 
-    const { backup, exportResult } = await buildLibraryBackup(db, midiFilesDir);
+    const { backup, exportResult } = await buildLibraryBackup(db, midiStorage);
     writeFileSync(result.filePath, JSON.stringify(backup, null, 2), 'utf8');
     return {
       ...exportResult,
@@ -372,7 +368,7 @@ app.whenReady().then(async () => {
       throw new Error('Invalid library backup file.');
     }
 
-    return importLibraryBackup(db, raw, midiFilesDir);
+    return importLibraryBackup(db, raw, midiStorage);
   });
 
   ipcMain.handle('file:load-midi', async (_event, songId: string) => {
@@ -381,7 +377,7 @@ app.whenReady().then(async () => {
       throw new Error(`Song not found: ${songId}`);
     }
 
-    const data = await readFile(song.filePath).catch(() => readFile(join(midiFilesDir, `${songId}.mid`)));
+    const data = await readDesktopSongMidiBytes(song);
     return new Uint8Array(data);
   });
 

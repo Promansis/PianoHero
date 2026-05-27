@@ -36,14 +36,17 @@ import type {
   UpdateTroubleSpotPayload,
   UserStatsRow,
 } from '../shared/dbTypes';
+import { SettingsRepository } from './settingsRepository';
 
 type DbRow = Record<string, unknown>;
 
 export class AppDatabase {
   private db: Database.Database;
+  private settings: SettingsRepository;
 
   constructor(dbPath: string) {
     this.db = new Database(dbPath);
+    this.settings = new SettingsRepository(this.db);
     this.db.pragma('journal_mode = WAL');
     this.db.pragma('foreign_keys = ON');
     this.initialize();
@@ -1363,18 +1366,15 @@ export class AppDatabase {
   }
 
   getSetting(category: string, key: string): string | null {
-    const row = this.db
-      .prepare('SELECT value FROM settings WHERE category = ? AND key = ?')
-      .get(category, key) as { value: string } | undefined;
-    return row?.value ?? null;
+    return this.settings.get(category, key);
   }
 
   getAllSettings(): SettingRow[] {
-    return this.db.prepare('SELECT category, key, value FROM settings ORDER BY category, key').all() as SettingRow[];
+    return this.settings.getAll();
   }
 
   setSetting(category: string, key: string, value: string): void {
-    this.db.prepare('INSERT OR REPLACE INTO settings (category, key, value) VALUES (?, ?, ?)').run(category, key, value);
+    this.settings.set(category, key, value);
   }
 
   resetLearningProgress(): void {
@@ -1386,7 +1386,7 @@ export class AppDatabase {
       this.db.prepare('DELETE FROM user_stats').run();
       this.db.prepare('DELETE FROM practice_days').run();
       this.db.prepare('DELETE FROM achievements').run();
-      this.db.prepare("DELETE FROM settings WHERE category IN ('learning', 'progress')").run();
+      this.settings.deleteLearningProgress();
       this.db.prepare('UPDATE songs SET times_played = 0').run();
       this.seedAchievements();
     })();
@@ -1405,7 +1405,7 @@ export class AppDatabase {
       this.db.prepare('DELETE FROM playlists').run();
       this.db.prepare('DELETE FROM folders').run();
       this.db.prepare('DELETE FROM songs').run();
-      this.db.prepare('DELETE FROM settings').run();
+      this.settings.deleteAll();
       this.db.prepare('DELETE FROM achievements').run();
       this.seedAchievements();
     })();

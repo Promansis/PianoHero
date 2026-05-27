@@ -1,13 +1,14 @@
 import { Hono } from 'hono';
-import { buildLibraryBackup, importLibraryBackup, isLibraryBackup } from '../shared/libraryBackup';
+import { buildLibraryBackup, importLibraryBackup } from '../persistence/libraryBackup';
+import { isLibraryBackup } from '../shared/libraryBackup';
 import type { ServerDependencies } from './types';
 import { libraryImportBodyLimit } from './webSecurity';
 
-export function createLibraryRouter({ db, midiFilesDir }: ServerDependencies) {
+export function createLibraryRouter({ db, midiStorage }: ServerDependencies) {
   const router = new Hono();
 
   router.get('/export', async (c) => {
-    const { backup, exportResult } = await buildLibraryBackup(db, midiFilesDir);
+    const { backup, exportResult } = await buildLibraryBackup(db, midiStorage);
     return c.json({
       backup,
       result: {
@@ -24,7 +25,7 @@ export function createLibraryRouter({ db, midiFilesDir }: ServerDependencies) {
       return c.json({ error: 'Invalid library backup file.' }, 400);
     }
 
-    const result = await importLibraryBackup(db, body, midiFilesDir);
+    const result = await importLibraryBackup(db, body, midiStorage);
     return c.json({ result });
   });
 
