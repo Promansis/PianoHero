@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { isPathContainedInRoot, isSafeSongStorageId } from '../lib/storage/storageSafety';
 import type { TrackAssignment } from '../lib/game/types';
 import type { ParsedSong } from '../lib/game/types';
 import { getTrackAssignments } from '../lib/game/songUtils';
@@ -121,6 +122,18 @@ function resolveStoredMidiPath(song: SongRow, midiFilesDir: string): string {
   return song.filePath?.trim() ? song.filePath : join(midiFilesDir, `${song.id}.mid`);
 }
 
+function resolveReattachedMidiPath(songId: string, midiFilesDir: string): string {
+  if (songId.trim() === '') {
+    throw new Error('Song id is required.');
+  }
+
+  const destPath = join(midiFilesDir, `${songId}.mid`);
+  if (!isPathContainedInRoot(midiFilesDir, destPath)) {
+    throw new Error(`Unsafe song id: ${songId}`);
+  }
+  return destPath;
+}
+
 export async function importSongFromBuffer(
   buffer: Uint8Array,
   title: string,
@@ -128,7 +141,7 @@ export async function importSongFromBuffer(
 ): Promise<ImportedSong> {
   const fileData = Uint8Array.from(buffer);
   const songId = await createSongId(fileData);
-  const destPath = join(midiFilesDir, `${songId}.mid`);
+  const destPath = resolveReattachedMidiPath(songId, midiFilesDir);
   const existingSong = db.getSong(songId);
   const metadata = computeSongMetadata(fileData, title, existingSong?.trackAssignments);
 
@@ -165,6 +178,53 @@ export async function importSongFromBuffer(
 
   const row = db.getSong(songId)!;
 
+  return {
+    songId,
+    destPath,
+    fileData,
+    title: row.title,
+    durationSec: row.durationSec,
+    bpm: row.bpm,
+    noteCount: row.noteCount,
+    difficulty: row.difficulty,
+  };
+}
+
+export async function reattachSongFromBuffer(
+  songId: string,
+  buffer: Uint8Array,
+  title: string,
+  { db, midiFilesDir }: ImportSongOptions,
+): Promise<ImportedSong> {
+  const existingSong = db.getSong(songId);
+  if (!existingSong) {
+    throw new Error(`Song not found: ${songId}`);
+  }
+
+  const fileData = Uint8Array.from(buffer);
+  const fileHash = await createSongId(fileData);
+  if (isSafeSongStorageId(songId) && fileHash !== songId) {
+    throw new Error('Selected MIDI does not match this song.');
+  }
+
+  const destPath = resolveReattachedMidiPath(songId, midiFilesDir);
+  const shouldRefreshDescriptiveMetadata =
+    existingSong.filePath.trim() === '' && existingSong.noteCount === 0;
+  const metadata = computeSongMetadata(fileData, title, existingSong.trackAssignments);
+
+  await writeFile(destPath, fileData);
+  db.updateSong(songId, {
+    artist: shouldRefreshDescriptiveMetadata ? metadata.artist : existingSong.artist,
+    bpm: metadata.bpm,
+    difficulty: metadata.difficulty,
+    durationSec: metadata.durationSec,
+    filePath: destPath,
+    noteCount: metadata.noteCount,
+    title: shouldRefreshDescriptiveMetadata ? metadata.title : existingSong.title,
+    trackAssignments: metadata.trackAssignments,
+  });
+
+  const row = db.getSong(songId)!;
   return {
     songId,
     destPath,

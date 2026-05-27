@@ -12,6 +12,7 @@ const appBridge: AppBridge = {
   toggleFavorite: (songId) => ipcRenderer.invoke('songs:toggle-favorite', songId),
   importMidiFiles: () => ipcRenderer.invoke('songs:import-midi-files'),
   importMidiFolder: () => ipcRenderer.invoke('songs:import-folder'),
+  reattachMidiFile: (songId) => ipcRenderer.invoke('songs:reattach-midi-file', songId),
   recomputeAllSongDifficulties: () => ipcRenderer.invoke('songs:recompute-difficulties'),
   onImportProgress: (cb: (ev: ImportProgressEvent) => void) => {
     const handler = (_: Electron.IpcRendererEvent, ev: ImportProgressEvent) => cb(ev);

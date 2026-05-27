@@ -3,6 +3,7 @@
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { Midi } from '@tonejs/midi';
 import { Hono } from 'hono';
 import { afterEach, describe, expect, it } from 'vitest';
 import { AppDatabase } from '../main/database';
@@ -10,6 +11,24 @@ import { createSongId } from '../shared/importSong';
 import { createMidiRouter } from './midiRouter';
 
 const tempDirs: string[] = [];
+
+function makeMidiBytes(): Uint8Array {
+  const midi = new Midi();
+  midi.header.setTempo(100);
+  midi.addTrack().addNote({
+    midi: 60,
+    time: 0,
+    duration: 0.5,
+    velocity: 0.8,
+  });
+  return midi.toArray();
+}
+
+function toBlob(bytes: Uint8Array): Blob {
+  return new Blob([bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer], {
+    type: 'audio/midi',
+  });
+}
 
 async function makeServer() {
   const dir = await mkdtemp(join(tmpdir(), 'pianohero-midi-router-'));
@@ -84,5 +103,107 @@ describe('midiRouter', () => {
     expect(payload.songs).toEqual([]);
     expect(payload.errors).toEqual([]);
     expect(payload.skipped).toBe(1);
+  });
+
+  it('reattaches a missing hash-id MIDI without creating a duplicate song', async () => {
+    const { app, db, midiFilesDir } = await makeServer();
+    const midiBytes = makeMidiBytes();
+    const songId = await createSongId(midiBytes);
+    db.addSong({
+      id: songId,
+      title: 'Missing MIDI',
+      artist: '',
+      genre: '',
+      filePath: '',
+      difficulty: 0,
+      durationSec: 0,
+      bpm: 0,
+      noteCount: 0,
+      tags: [],
+      trackAssignments: {},
+    });
+
+    const formData = new FormData();
+    formData.append('files', new File([toBlob(midiBytes)], 'missing.mid', { type: 'audio/midi' }));
+
+    const response = await app.request(`/api/midi/${songId}/reattach`, { method: 'POST', body: formData });
+    const payload = await response.json() as { reattached: Array<{ songId: string }>; errors: unknown[]; skipped: number };
+    const loadResponse = await app.request(`/api/midi/${songId}`);
+    const loadedBytes = new Uint8Array(await loadResponse.arrayBuffer());
+    const row = db.getSong(songId);
+    db.close();
+
+    expect(response.status).toBe(200);
+    expect(payload.reattached).toEqual([expect.objectContaining({ songId })]);
+    expect(payload.errors).toEqual([]);
+    expect(payload.skipped).toBe(0);
+    expect(loadResponse.status).toBe(200);
+    expect(loadedBytes).toEqual(midiBytes);
+    expect(row?.filePath).toBe(join(midiFilesDir, `${songId}.mid`));
+  });
+
+  it('rejects hash-id reattach when the selected MIDI hash differs', async () => {
+    const { app, db, midiFilesDir } = await makeServer();
+    const originalBytes = makeMidiBytes();
+    const songId = await createSongId(originalBytes);
+    await writeFile(join(midiFilesDir, `${songId}.mid`), originalBytes);
+    db.addSong({
+      id: songId,
+      title: 'Original MIDI',
+      artist: '',
+      genre: '',
+      filePath: '',
+      difficulty: 0,
+      durationSec: 0,
+      bpm: 0,
+      noteCount: 0,
+      tags: [],
+      trackAssignments: {},
+    });
+
+    const otherMidi = new Midi();
+    otherMidi.addTrack().addNote({ midi: 67, time: 0, duration: 0.5, velocity: 0.8 });
+    const formData = new FormData();
+    formData.append('files', new File([toBlob(otherMidi.toArray())], 'other.mid', { type: 'audio/midi' }));
+
+    const response = await app.request(`/api/midi/${songId}/reattach`, { method: 'POST', body: formData });
+    const payload = await response.json() as { reattached: unknown[]; errors: Array<{ message: string }>; skipped: number };
+    db.close();
+
+    expect(response.status).toBe(200);
+    expect(payload.reattached).toEqual([]);
+    expect(payload.errors[0].message).toMatch(/does not match/);
+  });
+
+  it('reattaches a legacy non-hash song id under app-owned storage', async () => {
+    const { app, db, midiFilesDir } = await makeServer();
+    const songId = 'legacy-song-1';
+    const midiBytes = makeMidiBytes();
+    db.addSong({
+      id: songId,
+      title: 'Legacy Song',
+      artist: '',
+      genre: '',
+      filePath: '',
+      difficulty: 0,
+      durationSec: 0,
+      bpm: 0,
+      noteCount: 0,
+      tags: [],
+      trackAssignments: {},
+    });
+
+    const formData = new FormData();
+    formData.append('files', new File([toBlob(midiBytes)], 'legacy.mid', { type: 'audio/midi' }));
+
+    const response = await app.request(`/api/midi/${songId}/reattach`, { method: 'POST', body: formData });
+    const payload = await response.json() as { reattached: Array<{ songId: string }>; errors: unknown[] };
+    const row = db.getSong(songId);
+    db.close();
+
+    expect(response.status).toBe(200);
+    expect(payload.reattached).toEqual([expect.objectContaining({ songId })]);
+    expect(payload.errors).toEqual([]);
+    expect(row?.filePath).toBe(join(midiFilesDir, `${songId}.mid`));
   });
 });

@@ -60,6 +60,12 @@ export interface RecomputeDifficultiesResult {
   errors: ImportError[];
 }
 
+export interface ReattachMidiResult {
+  reattached: ImportedSong[];
+  skipped: number;
+  errors: ImportError[];
+}
+
 export interface ImportProgressEvent {
   current: number;
   total: number;
@@ -122,6 +128,7 @@ export interface AppBridge {
   toggleFavorite: (songId: string) => Promise<void>;
   importMidiFiles: () => Promise<ImportResult>;
   importMidiFolder: () => Promise<{ imported: ImportedSong[]; skipped: number; errors: ImportError[] } | null>;
+  reattachMidiFile: (songId: string) => Promise<ReattachMidiResult>;
   recomputeAllSongDifficulties: () => Promise<RecomputeDifficultiesResult>;
   onImportProgress: (cb: (ev: ImportProgressEvent) => void) => () => void;
 
