@@ -6,7 +6,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Hono } from 'hono';
 import { afterEach, describe, expect, it } from 'vitest';
-import { AppDatabase } from '../main/database';
+import { AppDatabase } from '../persistence/database';
+import { FileSystemMidiStorageAdapter } from '../storage/midiStorage';
 import {
   APP_BRIDGE_METHODS,
   RPC_BRIDGE_METHODS,
@@ -27,8 +28,9 @@ async function makeServer() {
   const midiFilesDir = join(dir, 'midi-files');
   await mkdir(midiFilesDir, { recursive: true });
   const db = new AppDatabase(join(dir, 'test.db'));
+  const midiStorage = new FileSystemMidiStorageAdapter(midiFilesDir);
   const app = new Hono();
-  app.route('/api/bridge', createBridgeRouter({ db, midiFilesDir }));
+  app.route('/api/bridge', createBridgeRouter({ db, midiFilesDir, midiStorage }));
   return { app, db, midiFilesDir };
 }
 

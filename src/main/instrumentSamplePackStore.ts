@@ -1,6 +1,6 @@
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import type { AppDatabase } from './database';
+import type { AppDatabase } from '../persistence/database';
 import type {
   InstalledInstrumentSamplePackRecord,
   InstrumentSamplePackManifest,

@@ -1,7 +1,5 @@
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import { Hono } from 'hono';
-import { createSongId, importSongFromBuffer, reattachSongFromBuffer } from '../shared/importSong';
+import { createSongId, importSongFromBuffer, reattachSongFromBuffer } from '../persistence/importSong';
 import type { ImportError, ImportedSong } from '../shared/ipc';
 import type { ServerDependencies } from './types';
 import { MIDI_FILE_LIMIT_BYTES, midiUploadBodyLimit } from './webSecurity';
@@ -12,7 +10,7 @@ function isMidiFilename(name: string): boolean {
   return /\.(mid|midi)$/i.test(name);
 }
 
-export function createMidiRouter({ db, midiFilesDir }: ServerDependencies) {
+export function createMidiRouter({ db, midiStorage }: ServerDependencies) {
   const router = new Hono();
 
   router.post('/upload', midiUploadBodyLimit(), async (c) => {
@@ -56,7 +54,7 @@ export function createMidiRouter({ db, midiFilesDir }: ServerDependencies) {
           songs.push(
             await importSongFromBuffer(bytes, title, {
               db,
-              midiFilesDir,
+              midiStorage,
             }),
           );
         } catch (err) {
@@ -111,7 +109,7 @@ export function createMidiRouter({ db, midiFilesDir }: ServerDependencies) {
           reattached.push(
             await reattachSongFromBuffer(songId, new Uint8Array(await entry.arrayBuffer()), title, {
               db,
-              midiFilesDir,
+              midiStorage,
             }),
           );
         } catch (err) {
@@ -134,10 +132,11 @@ export function createMidiRouter({ db, midiFilesDir }: ServerDependencies) {
     }
 
     try {
-      const bytes = await readFile(join(midiFilesDir, `${songId}.mid`));
+      const bytes = await midiStorage.read(songId);
+      const body = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
       c.header('Content-Type', 'audio/midi');
       c.header('Cache-Control', 'private, max-age=3600');
-      return c.body(bytes);
+      return c.body(body);
     } catch (error) {
       return c.json({ error: (error as Error).message }, 404);
     }

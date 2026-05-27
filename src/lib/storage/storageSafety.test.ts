@@ -2,9 +2,12 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   getAppOwnedMidiPath,
+  getAppOwnedMidiStoragePath,
   getSafeMidiFilename,
+  getSafeMidiStorageFilename,
   isPathContainedInRoot,
   isRelativePathContainedInRoot,
+  isSafeMidiStorageKey,
   isSafeSongStorageId,
 } from './storageSafety';
 
@@ -26,6 +29,15 @@ describe('storageSafety', () => {
     expect(isSafeSongStorageId(`../${hashSongId}`)).toBe(false);
     expect(getSafeMidiFilename(`../${hashSongId}`)).toBeNull();
     expect(getAppOwnedMidiPath('/data/midi-files', `../${hashSongId}`)).toBeNull();
+  });
+
+  it('accepts legacy filename-safe MIDI storage keys without relaxing backup-safe hash ids', () => {
+    expect(isSafeSongStorageId('legacy-song-1')).toBe(false);
+    expect(isSafeMidiStorageKey('legacy-song-1')).toBe(true);
+    expect(getSafeMidiStorageFilename('legacy-song-1')).toBe('legacy-song-1.mid');
+    expect(getAppOwnedMidiStoragePath('/data/midi-files', 'legacy-song-1')).toBe(
+      resolve('/data/midi-files', 'legacy-song-1.mid'),
+    );
   });
 
   it('reports whether resolved paths remain inside the storage root', () => {

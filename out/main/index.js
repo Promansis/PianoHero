@@ -1,6 +1,6 @@
 import { app, ipcMain, dialog, BrowserWindow } from "electron";
 import { existsSync, readFileSync, renameSync, rmSync, mkdirSync, copyFileSync, readdirSync, writeFileSync } from "node:fs";
-import { writeFile, readFile, mkdir, rename, rm } from "node:fs/promises";
+import { readFile, mkdir, writeFile, rm, rename } from "node:fs/promises";
 import { resolve, join, sep, basename } from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import * as MidiPackage from "@tonejs/midi";
@@ -9,33 +9,6 @@ import __cjs_mod__ from "node:module";
 const __filename = import.meta.filename;
 const __dirname = import.meta.dirname;
 const require2 = __cjs_mod__.createRequire(import.meta.url);
-const SONG_ID_SHA256_HEX_PATTERN = /^[a-f0-9]{64}$/;
-function isSafeSongStorageId(songId) {
-  return SONG_ID_SHA256_HEX_PATTERN.test(songId);
-}
-function getSafeMidiFilename(songId) {
-  return isSafeSongStorageId(songId) ? `${songId}.mid` : null;
-}
-function getAppOwnedMidiPath(root, songId) {
-  const filename = getSafeMidiFilename(songId);
-  if (!filename) {
-    return null;
-  }
-  const resolvedRoot = resolve(root);
-  const candidatePath = join(resolvedRoot, filename);
-  return isPathContainedInRoot(resolvedRoot, candidatePath) ? candidatePath : null;
-}
-function isPathContainedInRoot(root, candidatePath) {
-  if (root.trim() === "" || candidatePath.trim() === "") {
-    return false;
-  }
-  const resolvedRoot = resolve(root);
-  const resolvedCandidate = resolve(root, candidatePath);
-  if (resolvedCandidate === resolvedRoot) {
-    return true;
-  }
-  return resolvedCandidate.startsWith(`${resolvedRoot}${sep}`);
-}
 const MIDI_NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 function noteNumberToName(midi) {
   const octave = Math.floor(midi / 12) - 1;
@@ -198,16 +171,46 @@ function computeSongMetadata(buffer, title, existingTrackAssignments = {}) {
     }
   };
 }
-function resolveStoredMidiPath(song, midiFilesDir) {
-  return song.filePath?.trim() ? song.filePath : join(midiFilesDir, `${song.id}.mid`);
+const SONG_ID_SHA256_HEX_PATTERN = /^[a-f0-9]{64}$/;
+const MIDI_STORAGE_KEY_PATTERN = /^[A-Za-z0-9_-]+$/;
+function isSafeSongStorageId(songId) {
+  return SONG_ID_SHA256_HEX_PATTERN.test(songId);
 }
-async function importSongFromBuffer(buffer, title, { db: db2, midiFilesDir }) {
+function getSafeMidiFilename(songId) {
+  return isSafeSongStorageId(songId) ? `${songId}.mid` : null;
+}
+function isSafeMidiStorageKey(songId) {
+  return MIDI_STORAGE_KEY_PATTERN.test(songId);
+}
+function getSafeMidiStorageFilename(songId) {
+  return isSafeMidiStorageKey(songId) ? `${songId}.mid` : null;
+}
+function getAppOwnedMidiStoragePath(root, songId) {
+  const filename = getSafeMidiStorageFilename(songId);
+  if (!filename) {
+    return null;
+  }
+  const resolvedRoot = resolve(root);
+  const candidatePath = join(resolvedRoot, filename);
+  return isPathContainedInRoot(resolvedRoot, candidatePath) ? candidatePath : null;
+}
+function isPathContainedInRoot(root, candidatePath) {
+  if (root.trim() === "" || candidatePath.trim() === "") {
+    return false;
+  }
+  const resolvedRoot = resolve(root);
+  const resolvedCandidate = resolve(root, candidatePath);
+  if (resolvedCandidate === resolvedRoot) {
+    return true;
+  }
+  return resolvedCandidate.startsWith(`${resolvedRoot}${sep}`);
+}
+async function importSongFromBuffer(buffer, title, { db: db2, midiStorage: midiStorage2 }) {
   const fileData = Uint8Array.from(buffer);
   const songId = await createSongId(fileData);
-  const destPath = join(midiFilesDir, `${songId}.mid`);
   const existingSong = db2.getSong(songId);
   const metadata = computeSongMetadata(fileData, title, existingSong?.trackAssignments);
-  await writeFile(destPath, fileData);
+  const destPath = await midiStorage2.write(songId, fileData);
   if (existingSong) {
     const shouldRefreshDescriptiveMetadata = existingSong.filePath.trim() === "" && existingSong.noteCount === 0;
     db2.updateSong(songId, {
@@ -247,13 +250,48 @@ async function importSongFromBuffer(buffer, title, { db: db2, midiFilesDir }) {
     difficulty: row.difficulty
   };
 }
-async function recomputeAllSongDifficulties({ db: db2, midiFilesDir }) {
+async function reattachSongFromBuffer(songId, buffer, title, { db: db2, midiStorage: midiStorage2 }) {
+  const existingSong = db2.getSong(songId);
+  if (!existingSong) {
+    throw new Error(`Song not found: ${songId}`);
+  }
+  const fileData = Uint8Array.from(buffer);
+  const fileHash = await createSongId(fileData);
+  if (isSafeSongStorageId(songId) && fileHash !== songId) {
+    throw new Error("Selected MIDI does not match this song.");
+  }
+  const shouldRefreshDescriptiveMetadata = existingSong.filePath.trim() === "" && existingSong.noteCount === 0;
+  const metadata = computeSongMetadata(fileData, title, existingSong.trackAssignments);
+  const destPath = await midiStorage2.write(songId, fileData);
+  db2.updateSong(songId, {
+    artist: shouldRefreshDescriptiveMetadata ? metadata.artist : existingSong.artist,
+    bpm: metadata.bpm,
+    difficulty: metadata.difficulty,
+    durationSec: metadata.durationSec,
+    filePath: destPath,
+    noteCount: metadata.noteCount,
+    title: shouldRefreshDescriptiveMetadata ? metadata.title : existingSong.title,
+    trackAssignments: metadata.trackAssignments
+  });
+  const row = db2.getSong(songId);
+  return {
+    songId,
+    destPath,
+    fileData,
+    title: row.title,
+    durationSec: row.durationSec,
+    bpm: row.bpm,
+    noteCount: row.noteCount,
+    difficulty: row.difficulty
+  };
+}
+async function recomputeAllSongDifficulties({ db: db2, midiStorage: midiStorage2, readSongBytes }) {
   const songs = db2.getAllSongs();
   const errors = [];
   let updated = 0;
   for (const song of songs) {
     try {
-      const buffer = await readFile(resolveStoredMidiPath(song, midiFilesDir));
+      const buffer = readSongBytes ? await readSongBytes(song) : await midiStorage2.read(song.id);
       const metadata = computeSongMetadata(buffer, song.title, song.trackAssignments);
       db2.updateSong(song.id, {
         bpm: metadata.bpm,
@@ -271,6 +309,108 @@ async function recomputeAllSongDifficulties({ db: db2, midiFilesDir }) {
     }
   }
   return { updated, errors };
+}
+function getStoredMidiPath(songId, midiStorage2) {
+  return midiStorage2.getPathForSong(songId);
+}
+function assertBackupMidiFileIsSafe(file) {
+  if (!isSafeSongStorageId(file.songId)) {
+    throw new Error(`Unsafe MIDI backup song id: ${file.songId}.`);
+  }
+  if (file.filename !== `${file.songId}.mid`) {
+    throw new Error(`Invalid MIDI backup filename for ${file.songId}.`);
+  }
+  if (!Number.isSafeInteger(file.byteLength) || file.byteLength < 0) {
+    throw new Error(`Invalid MIDI backup byte length for ${file.songId}.`);
+  }
+}
+function assertBackupSongIdIsSafe(song) {
+  if (!isSafeSongStorageId(song.id)) {
+    throw new Error(`Unsafe backup song id: ${song.id}.`);
+  }
+}
+async function buildLibraryBackup(db2, midiStorage2) {
+  const baseBackup = db2.exportLibraryData();
+  const midiFiles = [];
+  const missingMidiFiles = [];
+  for (const song of baseBackup.songs) {
+    const filename = getSafeMidiFilename(song.id);
+    if (!filename) {
+      missingMidiFiles.push(song.title || song.id);
+      continue;
+    }
+    try {
+      const bytes = await midiStorage2.read(song.id);
+      midiFiles.push({
+        songId: song.id,
+        filename,
+        dataBase64: Buffer.from(bytes).toString("base64"),
+        byteLength: bytes.byteLength
+      });
+    } catch {
+      missingMidiFiles.push(song.title || song.id);
+    }
+  }
+  return {
+    backup: {
+      ...baseBackup,
+      version: 2,
+      midiFiles
+    },
+    exportResult: {
+      songsExported: baseBackup.songs.length,
+      midiFilesIncluded: midiFiles.length,
+      missingMidiFiles
+    }
+  };
+}
+function normalizeImportedBackup(backup, restoredSongIds, midiStorage2) {
+  return {
+    ...backup,
+    version: 1,
+    songs: backup.songs.map((song) => ({
+      ...song,
+      filePath: restoredSongIds.has(song.id) ? getStoredMidiPath(song.id, midiStorage2) : ""
+    }))
+  };
+}
+async function importLibraryBackup(db2, backup, midiStorage2) {
+  const restoredSongIds = /* @__PURE__ */ new Set();
+  const missingMidiFiles = [];
+  const stagedFiles = [];
+  try {
+    if (backup.version === 2) {
+      const midiFilesBySongId = new Map(backup.midiFiles.map((file) => [file.songId, file]));
+      backup.songs.forEach(assertBackupSongIdIsSafe);
+      backup.midiFiles.forEach(assertBackupMidiFileIsSafe);
+      for (const song of backup.songs) {
+        const midiFile = midiFilesBySongId.get(song.id);
+        if (!midiFile) {
+          missingMidiFiles.push(song.title || song.id);
+          continue;
+        }
+        const bytes = Buffer.from(midiFile.dataBase64, "base64");
+        if (bytes.byteLength !== midiFile.byteLength) {
+          throw new Error(`Invalid MIDI backup data for ${song.title || song.id}.`);
+        }
+        stagedFiles.push(await midiStorage2.stage(song.id, bytes));
+        restoredSongIds.add(song.id);
+      }
+    } else {
+      missingMidiFiles.push(...backup.songs.map((song) => song.title || basename(song.filePath) || song.id));
+    }
+    const result = db2.importLibraryData(normalizeImportedBackup(backup, restoredSongIds, midiStorage2));
+    for (const stagedFile of stagedFiles) {
+      await stagedFile.commit();
+    }
+    return {
+      ...result,
+      midiFilesRestored: restoredSongIds.size,
+      missingMidiFiles
+    };
+  } finally {
+    await Promise.allSettled(stagedFiles.map((stagedFile) => stagedFile.discard()));
+  }
 }
 function isRecord(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -297,133 +437,6 @@ function isLibraryBackup(value) {
     return hasBaseShape && Array.isArray(value.midiFiles) && value.midiFiles.every(isLibraryBackupMidiFile);
   }
   return false;
-}
-function getStoredMidiPath(songId, midiFilesDir) {
-  const midiPath = getAppOwnedMidiPath(midiFilesDir, songId);
-  if (!midiPath) {
-    throw new Error(`Unsafe song id in library backup: ${songId}.`);
-  }
-  return midiPath;
-}
-function getStagingPath(stagingDir, songId) {
-  const filename = getSafeMidiFilename(songId);
-  if (!filename) {
-    throw new Error(`Unsafe song id in library backup: ${songId}.`);
-  }
-  const stagingPath = join(stagingDir, filename);
-  if (!isPathContainedInRoot(stagingDir, stagingPath)) {
-    throw new Error(`Unsafe MIDI staging path for ${songId}.`);
-  }
-  return stagingPath;
-}
-function assertBackupMidiFileIsSafe(file) {
-  if (!isSafeSongStorageId(file.songId)) {
-    throw new Error(`Unsafe MIDI backup song id: ${file.songId}.`);
-  }
-  if (file.filename !== `${file.songId}.mid`) {
-    throw new Error(`Invalid MIDI backup filename for ${file.songId}.`);
-  }
-  if (!Number.isSafeInteger(file.byteLength) || file.byteLength < 0) {
-    throw new Error(`Invalid MIDI backup byte length for ${file.songId}.`);
-  }
-}
-function assertBackupSongIdIsSafe(song) {
-  if (!isSafeSongStorageId(song.id)) {
-    throw new Error(`Unsafe backup song id: ${song.id}.`);
-  }
-}
-async function buildLibraryBackup(db2, midiFilesDir) {
-  const baseBackup = db2.exportLibraryData();
-  const midiFiles = [];
-  const missingMidiFiles = [];
-  for (const song of baseBackup.songs) {
-    const midiPath = getAppOwnedMidiPath(midiFilesDir, song.id);
-    const filename = getSafeMidiFilename(song.id);
-    if (!midiPath || !filename) {
-      missingMidiFiles.push(song.title || song.id);
-      continue;
-    }
-    try {
-      const bytes = await readFile(midiPath);
-      midiFiles.push({
-        songId: song.id,
-        filename,
-        dataBase64: bytes.toString("base64"),
-        byteLength: bytes.byteLength
-      });
-    } catch {
-      missingMidiFiles.push(song.title || song.id);
-    }
-  }
-  return {
-    backup: {
-      ...baseBackup,
-      version: 2,
-      midiFiles
-    },
-    exportResult: {
-      songsExported: baseBackup.songs.length,
-      midiFilesIncluded: midiFiles.length,
-      missingMidiFiles
-    }
-  };
-}
-function normalizeImportedBackup(backup, restoredSongIds, midiFilesDir) {
-  return {
-    ...backup,
-    version: 1,
-    songs: backup.songs.map((song) => ({
-      ...song,
-      filePath: restoredSongIds.has(song.id) ? getStoredMidiPath(song.id, midiFilesDir) : ""
-    }))
-  };
-}
-function createStagingDir(midiFilesDir) {
-  return join(midiFilesDir, `.import-${Date.now()}-${process.pid}-${Math.random().toString(16).slice(2)}`);
-}
-async function importLibraryBackup(db2, backup, midiFilesDir) {
-  await mkdir(midiFilesDir, { recursive: true });
-  const restoredSongIds = /* @__PURE__ */ new Set();
-  const missingMidiFiles = [];
-  const stagedFiles = [];
-  const stagingDir = createStagingDir(midiFilesDir);
-  try {
-    if (backup.version === 2) {
-      const midiFilesBySongId = new Map(backup.midiFiles.map((file) => [file.songId, file]));
-      backup.songs.forEach(assertBackupSongIdIsSafe);
-      backup.midiFiles.forEach(assertBackupMidiFileIsSafe);
-      await mkdir(stagingDir, { recursive: true });
-      for (const song of backup.songs) {
-        const midiFile = midiFilesBySongId.get(song.id);
-        if (!midiFile) {
-          missingMidiFiles.push(song.title || song.id);
-          continue;
-        }
-        const finalPath = getStoredMidiPath(song.id, midiFilesDir);
-        const stagingPath = getStagingPath(stagingDir, song.id);
-        const bytes = Buffer.from(midiFile.dataBase64, "base64");
-        if (bytes.byteLength !== midiFile.byteLength) {
-          throw new Error(`Invalid MIDI backup data for ${song.title || song.id}.`);
-        }
-        await writeFile(stagingPath, bytes);
-        stagedFiles.push({ stagingPath, finalPath });
-        restoredSongIds.add(song.id);
-      }
-    } else {
-      missingMidiFiles.push(...backup.songs.map((song) => song.title || basename(song.filePath) || song.id));
-    }
-    const result = db2.importLibraryData(normalizeImportedBackup(backup, restoredSongIds, midiFilesDir));
-    for (const stagedFile of stagedFiles) {
-      await rename(stagedFile.stagingPath, stagedFile.finalPath);
-    }
-    return {
-      ...result,
-      midiFilesRestored: restoredSongIds.size,
-      missingMidiFiles
-    };
-  } finally {
-    await rm(stagingDir, { recursive: true, force: true });
-  }
 }
 const INSTALLED_INSTRUMENT_SAMPLE_PACKS_SETTING_KEY = "installedInstrumentSamplePacks";
 const INSTRUMENT_SAMPLE_PACK_DEFINITIONS = {
@@ -782,10 +795,33 @@ function generateRecommendations({
     )
   };
 }
+class SettingsRepository {
+  constructor(db2) {
+    this.db = db2;
+  }
+  get(category, key) {
+    const row = this.db.prepare("SELECT value FROM settings WHERE category = ? AND key = ?").get(category, key);
+    return row?.value ?? null;
+  }
+  getAll() {
+    return this.db.prepare("SELECT category, key, value FROM settings ORDER BY category, key").all();
+  }
+  set(category, key, value) {
+    this.db.prepare("INSERT OR REPLACE INTO settings (category, key, value) VALUES (?, ?, ?)").run(category, key, value);
+  }
+  deleteLearningProgress() {
+    this.db.prepare("DELETE FROM settings WHERE category IN ('learning', 'progress')").run();
+  }
+  deleteAll() {
+    this.db.prepare("DELETE FROM settings").run();
+  }
+}
 class AppDatabase {
   db;
+  settings;
   constructor(dbPath) {
     this.db = new Database(dbPath);
+    this.settings = new SettingsRepository(this.db);
     this.db.pragma("journal_mode = WAL");
     this.db.pragma("foreign_keys = ON");
     this.initialize();
@@ -1866,14 +1902,13 @@ class AppDatabase {
     };
   }
   getSetting(category, key) {
-    const row = this.db.prepare("SELECT value FROM settings WHERE category = ? AND key = ?").get(category, key);
-    return row?.value ?? null;
+    return this.settings.get(category, key);
   }
   getAllSettings() {
-    return this.db.prepare("SELECT category, key, value FROM settings ORDER BY category, key").all();
+    return this.settings.getAll();
   }
   setSetting(category, key, value) {
-    this.db.prepare("INSERT OR REPLACE INTO settings (category, key, value) VALUES (?, ?, ?)").run(category, key, value);
+    this.settings.set(category, key, value);
   }
   resetLearningProgress() {
     this.db.transaction(() => {
@@ -1884,7 +1919,7 @@ class AppDatabase {
       this.db.prepare("DELETE FROM user_stats").run();
       this.db.prepare("DELETE FROM practice_days").run();
       this.db.prepare("DELETE FROM achievements").run();
-      this.db.prepare("DELETE FROM settings WHERE category = 'learning'").run();
+      this.settings.deleteLearningProgress();
       this.db.prepare("UPDATE songs SET times_played = 0").run();
       this.seedAchievements();
     })();
@@ -1902,7 +1937,7 @@ class AppDatabase {
       this.db.prepare("DELETE FROM playlists").run();
       this.db.prepare("DELETE FROM folders").run();
       this.db.prepare("DELETE FROM songs").run();
-      this.db.prepare("DELETE FROM settings").run();
+      this.settings.deleteAll();
       this.db.prepare("DELETE FROM achievements").run();
       this.seedAchievements();
     })();
@@ -2368,6 +2403,69 @@ function buildTheorySessionSeries(fromDate, toDate, rowsByDate) {
   }
   return series;
 }
+class FileSystemMidiStorageAdapter {
+  constructor(rootDir) {
+    this.rootDir = rootDir;
+  }
+  getPathForSong(songId) {
+    const path = getAppOwnedMidiStoragePath(this.rootDir, songId);
+    if (!path) {
+      throw new Error(`Unsafe song id: ${songId}`);
+    }
+    return path;
+  }
+  async read(songId) {
+    return new Uint8Array(await readFile(this.getPathForSong(songId)));
+  }
+  async write(songId, data) {
+    await mkdir(this.rootDir, { recursive: true });
+    const path = this.getPathForSong(songId);
+    await writeFile(path, data);
+    return path;
+  }
+  async delete(songId) {
+    const path = getAppOwnedMidiStoragePath(this.rootDir, songId);
+    if (!path) {
+      return;
+    }
+    await rm(path, { force: true });
+  }
+  async stage(songId, data) {
+    await mkdir(this.rootDir, { recursive: true });
+    const finalPath = this.getPathForSong(songId);
+    const stagingDir = this.createStagingDir();
+    await mkdir(stagingDir, { recursive: true });
+    const stagingPath = this.getStagingPath(stagingDir, songId);
+    await writeFile(stagingPath, data);
+    return {
+      commit: async () => {
+        await rename(stagingPath, finalPath);
+        await rm(stagingDir, { recursive: true, force: true });
+      },
+      discard: async () => {
+        await rm(stagingDir, { recursive: true, force: true });
+      }
+    };
+  }
+  async reset() {
+    await rm(this.rootDir, { recursive: true, force: true });
+    await mkdir(this.rootDir, { recursive: true });
+  }
+  createStagingDir() {
+    return join(this.rootDir, `.import-${Date.now()}-${process.pid}-${Math.random().toString(16).slice(2)}`);
+  }
+  getStagingPath(stagingDir, songId) {
+    const filename = getSafeMidiStorageFilename(songId);
+    if (!filename) {
+      throw new Error(`Unsafe song id: ${songId}`);
+    }
+    const stagingPath = join(stagingDir, basename(filename));
+    if (!isPathContainedInRoot(stagingDir, stagingPath)) {
+      throw new Error(`Unsafe MIDI staging path for ${songId}.`);
+    }
+    return stagingPath;
+  }
+}
 const AUDIO_EXTENSIONS = /* @__PURE__ */ new Set([".mp3", ".wav", ".ogg", ".flac", ".m4a"]);
 function listAudioFiles(dir) {
   try {
@@ -2493,6 +2591,10 @@ function removeDesktopInstrumentSamplePack(db2, userDataPath, instrumentId) {
 }
 let mainWindow = null;
 let db;
+let midiStorage;
+function readDesktopSongMidiBytes(song) {
+  return midiStorage.read(song.id).catch(async () => new Uint8Array(await readFile(song.filePath)));
+}
 function collectMidiFiles(dir) {
   const results = [];
   let entries;
@@ -2510,13 +2612,6 @@ function collectMidiFiles(dir) {
     }
   }
   return results;
-}
-function deleteAppOwnedMidiFile(midiFilesDir, songId) {
-  const filePath = getAppOwnedMidiPath(midiFilesDir, songId);
-  if (!filePath || !existsSync(filePath)) {
-    return;
-  }
-  rmSync(filePath, { force: true });
 }
 async function createMainWindow() {
   mainWindow = new BrowserWindow({
@@ -2542,6 +2637,7 @@ app.whenReady().then(async () => {
   const userDataPath = app.getPath("userData");
   const midiFilesDir = join(userDataPath, "midi-files");
   mkdirSync(midiFilesDir, { recursive: true });
+  midiStorage = new FileSystemMidiStorageAdapter(midiFilesDir);
   db = new AppDatabase(join(userDataPath, "pianohero.db"));
   db.migrateFromJson(userDataPath);
   ipcMain.handle("dialog:pick-midi-file", async () => {
@@ -2570,7 +2666,7 @@ app.whenReady().then(async () => {
   );
   ipcMain.handle("songs:delete", (_event, songId) => {
     db.deleteSong(songId);
-    deleteAppOwnedMidiFile(midiFilesDir, songId);
+    return midiStorage.delete(songId);
   });
   ipcMain.handle("songs:toggle-favorite", (_event, songId) => db.toggleFavorite(songId));
   ipcMain.handle("songs:import-midi-files", async (event) => {
@@ -2597,7 +2693,7 @@ app.whenReady().then(async () => {
           skipped++;
           continue;
         }
-        songs.push(await importSongFromBuffer(buffer, title, { db, midiFilesDir }));
+        songs.push(await importSongFromBuffer(buffer, title, { db, midiStorage }));
       } catch (err) {
         errors.push({ filename: title, message: err.message });
       }
@@ -2628,16 +2724,39 @@ app.whenReady().then(async () => {
           skipped++;
           continue;
         }
-        importedSongs.push(await importSongFromBuffer(buffer, title, { db, midiFilesDir }));
+        importedSongs.push(await importSongFromBuffer(buffer, title, { db, midiStorage }));
       } catch (err) {
         errors.push({ filename: title, message: err.message });
       }
     }
     return { imported: importedSongs, skipped, errors };
   });
+  ipcMain.handle("songs:reattach-midi-file", async (_event, songId) => {
+    const song = db.getSong(songId);
+    if (!song) {
+      throw new Error(`Song not found: ${songId}`);
+    }
+    const options = {
+      properties: ["openFile"],
+      filters: [{ name: "MIDI Files", extensions: ["mid", "midi"] }]
+    };
+    const result = mainWindow ? await dialog.showOpenDialog(mainWindow, options) : await dialog.showOpenDialog(options);
+    if (result.canceled || result.filePaths.length === 0) {
+      return { reattached: [], errors: [], skipped: 0 };
+    }
+    const selectedPath = result.filePaths[0];
+    const title = selectedPath.split(/[\\/]/).pop()?.replace(/\.(mid|midi)$/i, "") ?? song.title;
+    try {
+      const buffer = await readFile(selectedPath);
+      const reattached = await reattachSongFromBuffer(songId, buffer, title, { db, midiStorage });
+      return { reattached: [reattached], errors: [], skipped: 0 };
+    } catch (error) {
+      return { reattached: [], errors: [{ filename: title, message: error.message }], skipped: 0 };
+    }
+  });
   ipcMain.handle(
     "songs:recompute-difficulties",
-    () => recomputeAllSongDifficulties({ db, midiFilesDir })
+    () => recomputeAllSongDifficulties({ db, midiStorage, readSongBytes: readDesktopSongMidiBytes })
   );
   ipcMain.handle("results:save", (_event, payload) => db.saveGameResult(payload));
   ipcMain.handle("results:for-song", (_event, songId) => db.getGameResults(songId));
@@ -2709,9 +2828,7 @@ app.whenReady().then(async () => {
   );
   ipcMain.handle("bulk:delete-songs", (_event, songIds) => {
     db.bulkDeleteSongs(songIds);
-    for (const songId of songIds) {
-      deleteAppOwnedMidiFile(midiFilesDir, songId);
-    }
+    return Promise.all(songIds.map((songId) => midiStorage.delete(songId))).then(() => void 0);
   });
   ipcMain.handle(
     "bulk:move-songs-to-folder",
@@ -2736,8 +2853,7 @@ app.whenReady().then(async () => {
   });
   ipcMain.handle("settings:reset-user-data", () => {
     db.resetUserData();
-    rmSync(midiFilesDir, { recursive: true, force: true });
-    mkdirSync(midiFilesDir, { recursive: true });
+    return midiStorage.reset();
   });
   ipcMain.handle("library:export", async () => {
     const options = {
@@ -2748,7 +2864,7 @@ app.whenReady().then(async () => {
     if (result.canceled || !result.filePath) {
       return null;
     }
-    const { backup, exportResult } = await buildLibraryBackup(db, midiFilesDir);
+    const { backup, exportResult } = await buildLibraryBackup(db, midiStorage);
     writeFileSync(result.filePath, JSON.stringify(backup, null, 2), "utf8");
     return {
       ...exportResult,
@@ -2770,14 +2886,14 @@ app.whenReady().then(async () => {
     if (!isLibraryBackup(raw)) {
       throw new Error("Invalid library backup file.");
     }
-    return importLibraryBackup(db, raw, midiFilesDir);
+    return importLibraryBackup(db, raw, midiStorage);
   });
   ipcMain.handle("file:load-midi", async (_event, songId) => {
     const song = db.getSong(songId);
     if (!song) {
       throw new Error(`Song not found: ${songId}`);
     }
-    const data = await readFile(song.filePath).catch(() => readFile(join(midiFilesDir, `${songId}.mid`)));
+    const data = await readDesktopSongMidiBytes(song);
     return new Uint8Array(data);
   });
   ipcMain.handle("file:load-curriculum-midi", async (_event, filename) => {

@@ -5,7 +5,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Hono } from 'hono';
 import { afterEach, describe, expect, it } from 'vitest';
-import { AppDatabase } from '../main/database';
+import { AppDatabase } from '../persistence/database';
+import { FileSystemMidiStorageAdapter } from '../storage/midiStorage';
 import { createLibraryRouter } from './libraryRouter';
 import { LIBRARY_IMPORT_BODY_LIMIT_BYTES } from './webSecurity';
 
@@ -18,8 +19,9 @@ async function makeServer() {
   const midiFilesDir = join(dir, 'midi-files');
   await mkdir(midiFilesDir, { recursive: true });
   const db = new AppDatabase(join(dir, 'test.db'));
+  const midiStorage = new FileSystemMidiStorageAdapter(midiFilesDir);
   const app = new Hono();
-  app.route('/api/library', createLibraryRouter({ db, midiFilesDir }));
+  app.route('/api/library', createLibraryRouter({ db, midiFilesDir, midiStorage }));
   return { app, db, midiFilesDir };
 }
 
