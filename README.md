@@ -7,6 +7,7 @@ The app will:
 - serve the web UI on port `3001`
 - store the database and uploaded MIDI files in `/media/storage/pianohero`
 - work behind your existing Cloudflare Tunnel
+- protect API routes with Cloudflare Access or `PIANOHERO_WEB_ACCESS_TOKEN`
 
 ## What This Setup Uses
 
@@ -108,6 +109,38 @@ Then restart Cloudflare:
 
 ```bash
 sudo systemctl restart cloudflared
+```
+
+## 5a. Protect the Web APIs
+
+PianoHero web is a single-user deployment. Anyone who can reach `/api/*` can import songs, reset data, and mutate the shared library. Put the hostname behind Cloudflare Access before exposing it publicly.
+
+Minimum Cloudflare Access smoke checklist:
+
+- Add an Access application for `https://piano.a173d20e27.com/*`.
+- Require your email or identity provider group.
+- Confirm a private browser window redirects to Cloudflare login before the app loads.
+- Confirm these API paths are not reachable without Access: `/api/bridge/getAllSongs`, `/api/midi/upload`, `/api/library/import`.
+
+Optional app-level gate:
+
+Set `PIANOHERO_WEB_ACCESS_TOKEN` in `docker-compose.yml`. API requests must include `x-pianohero-access-token: <token>` once; successful token requests set an HttpOnly cookie scoped to `/api`.
+
+Browser login check:
+
+```text
+https://piano.a173d20e27.com/api/access?access_token=change-this-long-random-token
+```
+
+After that returns `{"ok":true}`, reload the app in the same browser.
+
+Example:
+
+```yml
+environment:
+  PORT: 3001
+  PIANOHERO_DATA_DIR: /data
+  PIANOHERO_WEB_ACCESS_TOKEN: "change-this-long-random-token"
 ```
 
 ## 6. Open the Site

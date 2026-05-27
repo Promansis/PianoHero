@@ -8,6 +8,8 @@ services:
     environment:
       PORT: 3001
       PIANOHERO_DATA_DIR: /data
+      # Optional: require this token for /api/* until browser receives a scoped access cookie.
+      # PIANOHERO_WEB_ACCESS_TOKEN: "change-this-long-random-token"
     volumes:
       - /media/storage/pianohero:/data
     ports:

@@ -15,6 +15,7 @@ import {
   WEB_STUB_BRIDGE_METHODS,
 } from '../shared/bridgeMethods';
 import { createBridgeRouter, getValidatedRpcBridgeMethods } from './bridgeRouter';
+import { BRIDGE_RPC_BODY_LIMIT_BYTES } from './webSecurity';
 
 const tempDirs: string[] = [];
 const songId = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
@@ -86,6 +87,24 @@ describe('bridgeRouter', () => {
     expect(malformed.status).toBe(400);
     expect(resetUserDataWithArgs.status).toBe(400);
     expect(resetLearningWithArgs.status).toBe(400);
+  });
+
+  it('returns 413 for oversized bridge RPC bodies', async () => {
+    const { app, db } = await makeServer();
+
+    const response = await app.request('/api/bridge/setSetting', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': String(BRIDGE_RPC_BODY_LIMIT_BYTES + 1),
+      },
+      body: JSON.stringify({ args: ['ui', 'large', 'x'.repeat(BRIDGE_RPC_BODY_LIMIT_BYTES)] }),
+    });
+    const payload = await response.json() as { error: string };
+    db.close();
+
+    expect(response.status).toBe(413);
+    expect(payload.error).toMatch(/Bridge request/);
   });
 
   it('validates payload shape before dispatching to the database', async () => {

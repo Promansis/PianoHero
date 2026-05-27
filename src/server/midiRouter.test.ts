@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { AppDatabase } from '../main/database';
 import { createSongId } from '../shared/importSong';
 import { createMidiRouter } from './midiRouter';
+import { MIDI_UPLOAD_BODY_LIMIT_BYTES } from './webSecurity';
 
 const tempDirs: string[] = [];
 
@@ -71,6 +72,24 @@ describe('midiRouter', () => {
 
     expect(response.status).toBe(400);
     expect(payload.error).toMatch(/No files/);
+  });
+
+  it('returns 413 for oversized MIDI upload requests', async () => {
+    const { app, db } = await makeServer();
+
+    const response = await app.request('/api/midi/upload', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'Content-Length': String(MIDI_UPLOAD_BODY_LIMIT_BYTES + 1),
+      },
+      body: new Uint8Array(MIDI_UPLOAD_BODY_LIMIT_BYTES + 1),
+    });
+    const payload = await response.json() as { error: string };
+    db.close();
+
+    expect(response.status).toBe(413);
+    expect(payload.error).toMatch(/MIDI upload/);
   });
 
   it('reports duplicate uploads as skipped', async () => {

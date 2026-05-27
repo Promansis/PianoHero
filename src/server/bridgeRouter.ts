@@ -3,6 +3,7 @@ import { Hono } from 'hono';
 import { getAppOwnedMidiPath, isSafeSongStorageId } from '../lib/storage/storageSafety';
 import { recomputeAllSongDifficulties } from '../shared/importSong';
 import { RPC_BRIDGE_METHODS, RPC_BRIDGE_METHOD_SET, type RpcBridgeMethod } from '../shared/bridgeMethods';
+import { bridgeRpcBodyLimit } from './webSecurity';
 import type {
   AddSongPayload,
   PersistedGameResultMode,
@@ -334,7 +335,7 @@ function deleteAppOwnedMidiFile(midiFilesDir: string, songId: string): void {
 export function createBridgeRouter({ db, midiFilesDir }: ServerDependencies) {
   const router = new Hono();
 
-  router.post('/:method', async (c) => {
+  router.post('/:method', bridgeRpcBodyLimit(), async (c) => {
     const method = c.req.param('method');
     if (!RPC_BRIDGE_METHOD_SET.has(method)) {
       return c.json({ error: `Unknown bridge method: ${method}` }, 404);

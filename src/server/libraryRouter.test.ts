@@ -7,6 +7,7 @@ import { Hono } from 'hono';
 import { afterEach, describe, expect, it } from 'vitest';
 import { AppDatabase } from '../main/database';
 import { createLibraryRouter } from './libraryRouter';
+import { LIBRARY_IMPORT_BODY_LIMIT_BYTES } from './webSecurity';
 
 const tempDirs: string[] = [];
 const songId = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
@@ -75,5 +76,23 @@ describe('libraryRouter', () => {
 
     expect(response.status).toBe(400);
     expect(payload.error).toMatch(/Invalid library backup/);
+  });
+
+  it('returns 413 for oversized library imports', async () => {
+    const { app, db } = await makeServer();
+
+    const response = await app.request('/api/library/import', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': String(LIBRARY_IMPORT_BODY_LIMIT_BYTES + 1),
+      },
+      body: JSON.stringify({ version: 2, songs: [], midiFiles: 'x'.repeat(LIBRARY_IMPORT_BODY_LIMIT_BYTES) }),
+    });
+    const payload = await response.json() as { error: string };
+    db.close();
+
+    expect(response.status).toBe(413);
+    expect(payload.error).toMatch(/Library import/);
   });
 });
