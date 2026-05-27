@@ -1,7 +1,8 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { Hono } from 'hono';
-import { createSongId, importSongFromBuffer } from '../shared/importSong';
+import { createSongId, importSongFromBuffer, reattachSongFromBuffer } from '../shared/importSong';
+import type { ImportError, ImportedSong } from '../shared/ipc';
 import type { ServerDependencies } from './types';
 
 const MAX_MIDI_UPLOAD_BYTES = 10 * 1024 * 1024;
@@ -12,23 +13,6 @@ function isMidiFilename(name: string): boolean {
 
 export function createMidiRouter({ db, midiFilesDir }: ServerDependencies) {
   const router = new Hono();
-
-  router.get('/:songId', async (c) => {
-    const songId = c.req.param('songId');
-    const song = db.getSong(songId);
-    if (!song) {
-      return c.json({ error: `Song not found: ${songId}` }, 404);
-    }
-
-    try {
-      const bytes = await readFile(join(midiFilesDir, `${songId}.mid`));
-      c.header('Content-Type', 'audio/midi');
-      c.header('Cache-Control', 'private, max-age=3600');
-      return c.body(bytes);
-    } catch (error) {
-      return c.json({ error: (error as Error).message }, 404);
-    }
-  });
 
   router.post('/upload', async (c) => {
     try {
@@ -82,6 +66,79 @@ export function createMidiRouter({ db, midiFilesDir }: ServerDependencies) {
       return c.json({ songs, errors, skipped });
     } catch (error) {
       return c.json({ error: (error as Error).message }, 500);
+    }
+  });
+
+  router.post('/:songId/reattach', async (c) => {
+    const songId = c.req.param('songId');
+    const song = db.getSong(songId);
+    if (!song) {
+      return c.json({ error: `Song not found: ${songId}` }, 404);
+    }
+
+    try {
+      const formData = await c.req.formData();
+      const files = formData.getAll('files');
+      const reattached: ImportedSong[] = [];
+      const errors: ImportError[] = [];
+      let skipped = 0;
+
+      if (files.length === 0) {
+        return c.json({ error: 'No files were uploaded.' }, 400);
+      }
+
+      let entry: File | null = null;
+      for (const file of files) {
+        if (file instanceof File) {
+          entry = file;
+          break;
+        }
+      }
+      if (!entry) {
+        return c.json({ error: 'No files were uploaded.' }, 400);
+      }
+
+      const title = entry.name.replace(/\.(mid|midi)$/i, '') || song.title || 'Untitled';
+      if (!isMidiFilename(entry.name)) {
+        errors.push({ filename: entry.name || title, message: 'Only .mid and .midi files can be uploaded.' });
+      } else if (entry.size <= 0) {
+        errors.push({ filename: title, message: 'The file is empty.' });
+      } else if (entry.size > MAX_MIDI_UPLOAD_BYTES) {
+        errors.push({ filename: title, message: 'The file is larger than the 10 MB upload limit.' });
+      } else {
+        try {
+          reattached.push(
+            await reattachSongFromBuffer(songId, new Uint8Array(await entry.arrayBuffer()), title, {
+              db,
+              midiFilesDir,
+            }),
+          );
+        } catch (err) {
+          errors.push({ filename: title, message: (err as Error).message });
+        }
+      }
+
+      skipped = Math.max(0, files.filter((file) => file instanceof File).length - 1);
+      return c.json({ reattached, skipped, errors });
+    } catch (error) {
+      return c.json({ error: (error as Error).message }, 500);
+    }
+  });
+
+  router.get('/:songId', async (c) => {
+    const songId = c.req.param('songId');
+    const song = db.getSong(songId);
+    if (!song) {
+      return c.json({ error: `Song not found: ${songId}` }, 404);
+    }
+
+    try {
+      const bytes = await readFile(join(midiFilesDir, `${songId}.mid`));
+      c.header('Content-Type', 'audio/midi');
+      c.header('Cache-Control', 'private, max-age=3600');
+      return c.body(bytes);
+    } catch (error) {
+      return c.json({ error: (error as Error).message }, 404);
     }
   });
 

@@ -66,6 +66,8 @@ describe('LibraryScreen', () => {
       getRecommendations: vi.fn().mockResolvedValue(null),
       getUserStats: vi.fn().mockResolvedValue(null),
       getSetting: vi.fn().mockResolvedValue(null),
+      importMidiFiles: vi.fn().mockResolvedValue({ songs: [], errors: [], skipped: 0 }),
+      onImportProgress: vi.fn().mockReturnValue(() => undefined),
     } as unknown as typeof window.appBridge;
   });
 
@@ -78,7 +80,16 @@ describe('LibraryScreen', () => {
   });
 
   it('shows actual web import error messages in the library feedback', async () => {
-    const { container } = render(
+    window.appBridge = {
+      ...window.appBridge,
+      importMidiFiles: vi.fn().mockResolvedValue({
+        songs: [],
+        errors: [{ filename: 'Broken', message: 'Bad header' }],
+        skipped: 0,
+      }),
+    } as unknown as typeof window.appBridge;
+
+    render(
       <LibraryScreen
         audioEngine={createAudioEngineStub() as unknown as import('../../lib/audio/audioEngine').AudioEngine}
         onStartSession={vi.fn()}
@@ -89,14 +100,7 @@ describe('LibraryScreen', () => {
 
     await screen.findByText('Build your library by importing MIDI files.');
 
-    const input = container.querySelector('input[type="file"]');
-    expect(input).not.toBeNull();
-
-    fireEvent.change(input!, {
-      target: {
-        files: [new File(['bad-midi'], 'Broken.mid', { type: 'audio/midi' })],
-      },
-    });
+    fireEvent.click(screen.getByRole('button', { name: 'Upload MIDI' }));
 
     await waitFor(() => {
       expect(screen.getByText(/Broken: Bad header/)).toBeInTheDocument();
@@ -126,17 +130,19 @@ describe('LibraryScreen', () => {
     expect(screen.queryByText('Loading library')).not.toBeInTheDocument();
   });
 
-  it('uploads selected files even after the input value is cleared', async () => {
+  it('uses the typed bridge for web MIDI imports', async () => {
     const fetchMock = vi.mocked(fetch);
-    fetchMock.mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        songs: [{ songId: 'song-1' }],
-        errors: [],
-      }),
-    } as Response);
+    const importMidiFiles = vi.fn().mockResolvedValue({
+      songs: [{ songId: 'song-1' }],
+      errors: [],
+      skipped: 0,
+    });
+    window.appBridge = {
+      ...window.appBridge,
+      importMidiFiles,
+    } as unknown as typeof window.appBridge;
 
-    const { container } = render(
+    render(
       <LibraryScreen
         audioEngine={createAudioEngineStub() as unknown as import('../../lib/audio/audioEngine').AudioEngine}
         onStartSession={vi.fn()}
@@ -147,31 +153,12 @@ describe('LibraryScreen', () => {
 
     await screen.findByText('Build your library by importing MIDI files.');
 
-    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
-    const selectedFiles = [new File(['midi-data'], 'Etude.mid', { type: 'audio/midi' })];
-    let currentFiles = selectedFiles;
-
-    Object.defineProperty(input, 'files', {
-      configurable: true,
-      get: () => currentFiles,
-    });
-
-    Object.defineProperty(input, 'value', {
-      configurable: true,
-      get: () => '',
-      set: () => {
-        currentFiles = [];
-      },
-    });
-
-    fireEvent.change(input);
+    fireEvent.click(screen.getByRole('button', { name: 'Upload MIDI' }));
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(
-        '/api/midi/upload',
-        expect.objectContaining({ method: 'POST', body: expect.any(FormData) }),
-      );
+      expect(importMidiFiles).toHaveBeenCalled();
     });
+    expect(fetchMock).not.toHaveBeenCalledWith('/api/midi/upload', expect.anything());
   });
 
   it('deletes a song from the metadata editor', async () => {
@@ -228,6 +215,61 @@ describe('LibraryScreen', () => {
       expect(screen.queryByText('Metadata Review')).not.toBeInTheDocument();
       expect(screen.getByText('Deleted 1 song from the library.')).toBeInTheDocument();
     });
+  });
+
+  it('reattaches MIDI for the selected song through the bridge', async () => {
+    const reattachMidiFile = vi.fn().mockResolvedValue({
+      reattached: [{ songId: 'song-1' }],
+      errors: [],
+      skipped: 0,
+    });
+    const song = {
+      id: 'song-1',
+      title: 'Etude',
+      artist: 'Composer',
+      genre: 'Classical',
+      difficulty: 4,
+      durationSec: 120,
+      bpm: 120,
+      noteCount: 240,
+      filePath: '',
+      dateAdded: '2026-04-18T00:00:00.000Z',
+      lastPlayed: null,
+      timesPlayed: 0,
+      isFavorite: false,
+      folderId: null,
+      tags: [],
+      trackAssignments: {},
+    };
+
+    window.appBridge = {
+      getAllSongs: vi.fn().mockResolvedValue([song]),
+      getAllFolders: vi.fn().mockResolvedValue([]),
+      getAllPlaylists: vi.fn().mockResolvedValue([]),
+      getRecommendations: vi.fn().mockResolvedValue(null),
+      getUserStats: vi.fn().mockResolvedValue(null),
+      getSetting: vi.fn().mockResolvedValue(null),
+      reattachMidiFile,
+    } as unknown as typeof window.appBridge;
+
+    render(
+      <LibraryScreen
+        audioEngine={createAudioEngineStub() as unknown as import('../../lib/audio/audioEngine').AudioEngine}
+        onStartSession={vi.fn()}
+        onStartPlaylistQueue={vi.fn()}
+        onStartTheoryPractice={vi.fn()}
+      />,
+    );
+
+    await screen.findByText('1 song ready to play.');
+    fireEvent.click(screen.getByRole('button', { name: 'More' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Metadata' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Reattach MIDI' }));
+
+    await waitFor(() => {
+      expect(reattachMidiFile).toHaveBeenCalledWith('song-1');
+    });
+    expect(await screen.findByText('Reattached 1 MIDI file.')).toBeInTheDocument();
   });
 
   it('removes a tag from selected songs through bulk actions', async () => {

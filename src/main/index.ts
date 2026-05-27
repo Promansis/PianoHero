@@ -14,7 +14,7 @@ import type {
   UpdateSongPayload,
   UpdateTroubleSpotPayload,
 } from '../shared/dbTypes';
-import { createSongId, importSongFromBuffer, recomputeAllSongDifficulties } from '../shared/importSong';
+import { createSongId, importSongFromBuffer, reattachSongFromBuffer, recomputeAllSongDifficulties } from '../shared/importSong';
 import { buildLibraryBackup, importLibraryBackup, isLibraryBackup } from '../shared/libraryBackup';
 import { getInstrumentSamplePackDefinition } from '../lib/audio/instrumentSamplePacks';
 import { AppDatabase } from './database';
@@ -197,6 +197,35 @@ app.whenReady().then(async () => {
     }
 
     return { imported: importedSongs, skipped, errors };
+  });
+
+  ipcMain.handle('songs:reattach-midi-file', async (_event, songId: string) => {
+    const song = db.getSong(songId);
+    if (!song) {
+      throw new Error(`Song not found: ${songId}`);
+    }
+
+    const options: OpenDialogOptions = {
+      properties: ['openFile'],
+      filters: [{ name: 'MIDI Files', extensions: ['mid', 'midi'] }],
+    };
+    const result = mainWindow
+      ? await dialog.showOpenDialog(mainWindow, options)
+      : await dialog.showOpenDialog(options);
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return { reattached: [], errors: [], skipped: 0 };
+    }
+
+    const selectedPath = result.filePaths[0];
+    const title = selectedPath.split(/[\\/]/).pop()?.replace(/\.(mid|midi)$/i, '') ?? song.title;
+    try {
+      const buffer = await readFile(selectedPath);
+      const reattached = await reattachSongFromBuffer(songId, buffer, title, { db, midiFilesDir });
+      return { reattached: [reattached], errors: [], skipped: 0 };
+    } catch (error) {
+      return { reattached: [], errors: [{ filename: title, message: (error as Error).message }], skipped: 0 };
+    }
   });
 
   ipcMain.handle('songs:recompute-difficulties', () =>

@@ -6,9 +6,11 @@ import {
 } from '../lib/audio/instrumentSamplePacks';
 import type {
   AppBridge,
+  ImportProgressEvent,
   ImportResult,
   InstalledInstrumentSamplePackRecord,
   InstrumentSamplePackManifest,
+  ReattachMidiResult,
   ResolvedInstrumentSampleSource,
 } from '../shared/ipc';
 import type { LibraryBackup, LibraryExportResult, LibraryImportResult } from '../shared/dbTypes';
@@ -33,6 +35,7 @@ interface StoredWebInstrumentPack {
 }
 
 const objectUrlCache = new Map<string, string[]>();
+const importProgressListeners = new Set<(event: ImportProgressEvent) => void>();
 
 async function parseRpcResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
@@ -89,6 +92,58 @@ function pickJsonFile(): Promise<File | null> {
     document.body.append(input);
     input.click();
   });
+}
+
+function pickMidiFiles(options: { multiple: boolean } = { multiple: true }): Promise<File[]> {
+  return new Promise((resolve) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.mid,.midi';
+    input.multiple = options.multiple;
+    input.style.display = 'none';
+    input.onchange = () => {
+      resolve(Array.from(input.files ?? []));
+      input.remove();
+    };
+    document.body.append(input);
+    input.click();
+  });
+}
+
+async function uploadMidiFiles(
+  files: File[],
+  url: string,
+  onProgress?: (current: number, total: number, filename: string) => void,
+): Promise<ImportResult> {
+  const songs: ImportResult['songs'] = [];
+  const errors: ImportResult['errors'] = [];
+  let skipped = 0;
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    const filename = file.name.replace(/\.(mid|midi)$/i, '') || 'Untitled';
+    const event = { current: i + 1, total: files.length, filename };
+    onProgress?.(event.current, event.total, event.filename);
+    importProgressListeners.forEach((listener) => listener(event));
+
+    const formData = new FormData();
+    formData.append('files', file);
+    try {
+      const response = await fetch(url, { method: 'POST', body: formData });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({ error: `Status ${response.status}` }));
+        throw new Error(typeof payload.error === 'string' ? payload.error : 'Upload failed.');
+      }
+      const batch = await response.json() as ImportResult;
+      songs.push(...batch.songs);
+      errors.push(...batch.errors);
+      skipped += batch.skipped ?? 0;
+    } catch (error) {
+      errors.push({ filename, message: (error as Error).message });
+    }
+  }
+
+  return { songs, errors, skipped };
 }
 
 function revokeObjectUrls(instrumentId: string): void {
@@ -284,7 +339,32 @@ export const webBridge = new Proxy({} as AppBridge, {
     }
 
     if (property === 'importMidiFiles') {
-      return async (): Promise<ImportResult> => ({ songs: [], errors: [], skipped: 0 });
+      return async (): Promise<ImportResult> => {
+        const files = await pickMidiFiles({ multiple: true });
+        if (files.length === 0) {
+          return { songs: [], errors: [], skipped: 0 };
+        }
+        return uploadMidiFiles(files, '/api/midi/upload');
+      };
+    }
+
+    if (property === 'reattachMidiFile') {
+      return async (songId: string): Promise<ReattachMidiResult> => {
+        const files = await pickMidiFiles({ multiple: false });
+        if (files.length === 0) {
+          return { reattached: [], errors: [], skipped: 0 };
+        }
+
+        const result = await uploadMidiFiles(
+          files.slice(0, 1),
+          `/api/midi/${encodeURIComponent(songId)}/reattach`,
+        );
+        return {
+          reattached: result.songs,
+          skipped: result.skipped,
+          errors: result.errors,
+        };
+      };
     }
 
     if (property === 'exportLibrary') {
@@ -324,7 +404,10 @@ export const webBridge = new Proxy({} as AppBridge, {
     }
 
     if (property === 'onImportProgress') {
-      return () => () => undefined;
+      return (cb: (event: ImportProgressEvent) => void) => {
+        importProgressListeners.add(cb);
+        return () => importProgressListeners.delete(cb);
+      };
     }
 
     if (property === 'listAudioFiles') {

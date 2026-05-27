@@ -1,9 +1,7 @@
-import type { ChangeEvent } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AudioEngine } from '../../lib/audio/audioEngine';
 import type { ScoredSessionMode } from '../../lib/game/types';
 import { parseMidiFile } from '../../lib/midi/midiFileParser';
-import type { ImportResult } from '../../shared/ipc';
 import type { FolderRow, LibrarySnapshot, PlaylistRow, RecommendationResult, SongRow, UserStatsRow } from '../../shared/dbTypes';
 import { AdvancedFilters, type LibraryAdvancedFilters } from './AdvancedFilters';
 import { BulkActionBar } from './BulkActionBar';
@@ -11,6 +9,15 @@ import { LibrarySidebar, type LibraryActiveView } from './LibrarySidebar';
 import { LoadingPanel } from './LoadingPanel';
 import { PlaylistView } from './PlaylistView';
 import { TagChips } from './TagChips';
+import {
+  formatFolderImportResult,
+  formatLibraryExportResult,
+  formatLibraryImportResult,
+  formatMidiImportResult,
+  formatReattachMidiResult,
+  runFolderImport,
+  runMidiImport,
+} from '../services/libraryService';
 
 interface LibraryScreenProps {
   audioEngine: AudioEngine;
@@ -145,7 +152,6 @@ export function LibraryScreen({
   onStartPlaylistQueue,
   onStartTheoryPractice,
 }: LibraryScreenProps) {
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [songs, setSongs] = useState<SongRow[]>([]);
   const [statsBySongId, setStatsBySongId] = useState<Record<string, UserStatsRow | null>>({});
   const [songGoals, setSongGoals] = useState<Record<string, number>>({});
@@ -354,94 +360,18 @@ export function LibraryScreen({
   );
 
   const handleImport = async () => {
-    if (IS_WEB) {
-      fileInputRef.current?.click();
-      return;
-    }
-
     if (!window.appBridge) {
       return;
     }
 
     setIsImporting(true);
     setImportProgress(null);
-    const unsubscribe = window.appBridge.onImportProgress((ev) => setImportProgress(ev));
     try {
-      const result = await window.appBridge.importMidiFiles();
-      const { songs, errors, skipped } = result;
-      if (songs.length === 0 && errors.length === 0 && skipped === 0) {
-        setStatusMessage('Import canceled.');
-      } else {
-        const parts: string[] = [];
-        if (songs.length > 0) parts.push(`Imported ${songs.length} song${songs.length === 1 ? '' : 's'}`);
-        if (skipped > 0) parts.push(`${skipped} already in library`);
-        if (errors.length > 0) parts.push(`${errors.length} failed (${errors.map((e) => `${e.filename}: ${e.message}`).join('; ')})`);
-        setStatusMessage(parts.join('. ') + '. Review the metadata before playing.');
-        if (songs.length > 0) {
-          await refreshLibrary({ preserveStatus: true });
-          setEditingSongId(songs[0].songId);
-        }
-      }
-    } catch (error) {
-      setStatusMessage(`Import failed: ${(error as Error).message}`);
-    } finally {
-      unsubscribe();
-      setIsImporting(false);
-      setImportProgress(null);
-    }
-  };
-
-  const handleFileInputChange = async (event: ChangeEvent<HTMLInputElement>) => {
-    const fileArray = Array.from(event.target.files ?? []);
-    event.target.value = '';
-
-    if (fileArray.length === 0) {
-      return;
-    }
-
-    setIsImporting(true);
-    setImportProgress(null);
-    const total = fileArray.length;
-    const songs: Array<{ songId: string }> = [];
-    const errors: Array<{ filename: string; message: string }> = [];
-    let skipped = 0;
-
-    try {
-      for (let i = 0; i < fileArray.length; i++) {
-        const file = fileArray[i];
-        const filename = file.name.replace(/\.(mid|midi)$/i, '') || 'Untitled';
-        setImportProgress({ current: i + 1, total, filename });
-
-        const formData = new FormData();
-        formData.append('files', file);
-
-        try {
-          const response = await fetch('/api/midi/upload', { method: 'POST', body: formData });
-          if (!response.ok) {
-            const payload = await response.json().catch(() => ({ error: `Status ${response.status}` }));
-            throw new Error(typeof payload.error === 'string' ? payload.error : 'Upload failed.');
-          }
-          const batch = await response.json() as ImportResult;
-          songs.push(...batch.songs);
-          errors.push(...batch.errors);
-          skipped += batch.skipped ?? 0;
-        } catch (err) {
-          errors.push({ filename, message: (err as Error).message });
-        }
-      }
-
-      if (songs.length === 0 && errors.length === 0 && skipped === 0) {
-        setStatusMessage('No files imported.');
-      } else {
-        const parts: string[] = [];
-        if (songs.length > 0) parts.push(`Imported ${songs.length} song${songs.length === 1 ? '' : 's'}`);
-        if (skipped > 0) parts.push(`${skipped} already in library`);
-        if (errors.length > 0) parts.push(`${errors.length} failed (${errors.map((e) => `${e.filename}: ${e.message}`).join('; ')})`);
-        setStatusMessage(parts.join('. ') + '. Review the metadata before playing.');
-        if (songs.length > 0) {
-          await refreshLibrary({ preserveStatus: true });
-          setEditingSongId(songs[0].songId);
-        }
+      const result = await runMidiImport(window.appBridge, (ev) => setImportProgress(ev));
+      setStatusMessage(formatMidiImportResult(result, IS_WEB ? 'No files imported.' : 'Import canceled.'));
+      if (result.songs.length > 0) {
+        await refreshLibrary({ preserveStatus: true });
+        setEditingSongId(result.songs[0].songId);
       }
     } catch (error) {
       setStatusMessage(`Import failed: ${(error as Error).message}`);
@@ -458,19 +388,12 @@ export function LibraryScreen({
 
     setIsImporting(true);
     setImportProgress(null);
-    const unsubscribe = window.appBridge.onImportProgress((ev) => setImportProgress(ev));
     try {
-      const result = await window.appBridge.importMidiFolder();
+      const result = await runFolderImport(window.appBridge, (ev) => setImportProgress(ev));
       if (!result) {
         setStatusMessage('Import canceled.');
-      } else if (result.imported.length === 0 && result.skipped === 0 && result.errors.length === 0) {
-        setStatusMessage('No MIDI files found in that folder.');
       } else {
-        const parts: string[] = [];
-        if (result.imported.length > 0) parts.push(`${result.imported.length} song${result.imported.length === 1 ? '' : 's'} imported`);
-        if (result.skipped > 0) parts.push(`${result.skipped} already in library`);
-        if (result.errors.length > 0) parts.push(`${result.errors.length} failed (${result.errors.map((e) => `${e.filename}: ${e.message}`).join('; ')})`);
-        setStatusMessage(parts.join(', ') + '.');
+        setStatusMessage(formatFolderImportResult(result));
         if (result.imported.length > 0) {
           await refreshLibrary({ preserveStatus: true });
         }
@@ -478,7 +401,6 @@ export function LibraryScreen({
     } catch (error) {
       setStatusMessage(`Import failed: ${(error as Error).message}`);
     } finally {
-      unsubscribe();
       setIsImporting(false);
       setImportProgress(null);
     }
@@ -505,10 +427,7 @@ export function LibraryScreen({
     try {
       const result = await window.appBridge.exportLibrary();
       if (result) {
-        const missing = result.missingMidiFiles.length > 0
-          ? ` ${result.missingMidiFiles.length} MIDI file${result.missingMidiFiles.length === 1 ? '' : 's'} could not be included.`
-          : '';
-        setStatusMessage(`Exported ${result.songsExported} song${result.songsExported === 1 ? '' : 's'} to ${result.location ?? result.filename}.${missing}`);
+        setStatusMessage(formatLibraryExportResult(result));
       }
     } catch (error) {
       setStatusMessage(`Export failed: ${(error as Error).message}`);
@@ -527,14 +446,30 @@ export function LibraryScreen({
       }
 
       await refreshLibrary({ preserveStatus: true });
-      const missing = result.missingMidiFiles.length > 0
-        ? ` ${result.missingMidiFiles.length} song${result.missingMidiFiles.length === 1 ? '' : 's'} may need MIDI files reattached.`
-        : '';
-      setStatusMessage(
-        `Imported ${result.songsImported} songs, ${result.foldersImported} folders, ${result.playlistsImported} playlists, and ${result.midiFilesRestored} MIDI files.${missing}`,
-      );
+      setStatusMessage(formatLibraryImportResult(result));
     } catch (error) {
       setStatusMessage(`Import failed: ${(error as Error).message}`);
+    }
+  };
+
+  const handleReattachMidi = async (songId: string) => {
+    if (!window.appBridge) {
+      return;
+    }
+
+    setIsImporting(true);
+    setImportProgress(null);
+    try {
+      const result = await window.appBridge.reattachMidiFile(songId);
+      setStatusMessage(formatReattachMidiResult(result));
+      if (result.reattached.length > 0) {
+        await refreshLibrary({ preserveStatus: true });
+      }
+    } catch (error) {
+      setStatusMessage(`Reattach failed: ${(error as Error).message}`);
+    } finally {
+      setIsImporting(false);
+      setImportProgress(null);
     }
   };
 
@@ -1064,16 +999,6 @@ export function LibraryScreen({
             </div>
           )}
         </div>
-        {IS_WEB ? (
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".mid,.midi"
-            multiple
-            hidden
-            onChange={(event) => void handleFileInputChange(event)}
-          />
-        ) : null}
         <div className="transport-buttons">
           <button className="secondary-button" onClick={() => void handleExportLibrary()}>
             Export Library
@@ -1525,6 +1450,13 @@ export function LibraryScreen({
                 <div className="transport-buttons">
                   <button className="secondary-button" onClick={() => void handleDeleteSongs([selectedSong.id])}>
                     Delete Song
+                  </button>
+                  <button
+                    className="secondary-button"
+                    onClick={() => void handleReattachMidi(selectedSong.id)}
+                    disabled={isImporting}
+                  >
+                    Reattach MIDI
                   </button>
                   <button className="secondary-button" onClick={() => setEditingSongId(null)}>
                     Close
