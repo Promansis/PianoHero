@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AudioEngine } from '../../lib/audio/audioEngine';
 import { ComputerKeyboardInputService } from '../../lib/input/computerKeyboardInputService';
+import { HeldNoteTracker } from '../../lib/input/heldNotes';
 import type { InputEvent, InputMode } from '../../lib/input/types';
 import { MidiInputService } from '../../lib/midi/midiInputService';
 import { PITCH_CLASS_NAMES } from '../../lib/theory/chords';
@@ -122,7 +123,7 @@ export function ScalePracticeScreen({
       return event.source === 'computer-keyboard';
     };
 
-    const heldByNote = new Map<number, Set<string>>();
+    const heldNotes = new HeldNoteTracker();
 
     const handleInputEvent = async (event: InputEvent) => {
       if (!shouldHandleEvent(event)) {
@@ -131,11 +132,9 @@ export function ScalePracticeScreen({
 
       if (event.type === 'noteon' && typeof event.note === 'number') {
         const midi = event.note;
-        const heldSources = heldByNote.get(midi) ?? new Set<string>();
-        heldSources.add(event.sourceId);
-        heldByNote.set(midi, heldSources);
-        setActiveNotes([...heldByNote.keys()].sort((left, right) => left - right));
-        if (heldSources.size === 1) {
+        const change = heldNotes.press(midi, event.sourceId);
+        setActiveNotes(change.activeNotes);
+        if (change.shouldStartAudio) {
           await audioEngine.noteOn(midi, event.velocity ?? 0.8);
         }
 
@@ -158,16 +157,11 @@ export function ScalePracticeScreen({
       }
 
       if (event.type === 'noteoff' && typeof event.note === 'number') {
-        const heldSources = heldByNote.get(event.note);
-        if (!heldSources) {
-          return;
-        }
-        heldSources.delete(event.sourceId);
-        if (heldSources.size === 0) {
-          heldByNote.delete(event.note);
+        const change = heldNotes.release(event.note, event.sourceId);
+        if (change.shouldStopAudio) {
           audioEngine.noteOff(event.note);
         }
-        setActiveNotes([...heldByNote.keys()].sort((left, right) => left - right));
+        setActiveNotes(change.activeNotes);
       }
     };
 
