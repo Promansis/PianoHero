@@ -205,50 +205,87 @@ function isPathContainedInRoot(root, candidatePath) {
   }
   return resolvedCandidate.startsWith(`${resolvedRoot}${sep}`);
 }
+function restoreSong(db2, song) {
+  db2.updateSong(song.id, {
+    artist: song.artist,
+    bpm: song.bpm,
+    difficulty: song.difficulty,
+    durationSec: song.durationSec,
+    filePath: song.filePath,
+    genre: song.genre,
+    isFavorite: song.isFavorite,
+    noteCount: song.noteCount,
+    tags: song.tags,
+    title: song.title,
+    folderId: song.folderId,
+    trackAssignments: song.trackAssignments
+  });
+}
+async function discardStagedFile(stagedFile) {
+  await stagedFile.discard().catch(() => void 0);
+}
 async function importSongFromBuffer(buffer, title, { db: db2, midiStorage: midiStorage2 }) {
   const fileData = Uint8Array.from(buffer);
   const songId = await createSongId(fileData);
   const existingSong = db2.getSong(songId);
-  const metadata = computeSongMetadata(fileData, title, existingSong?.trackAssignments);
-  const destPath = await midiStorage2.write(songId, fileData);
-  if (existingSong) {
-    const shouldRefreshDescriptiveMetadata = existingSong.filePath.trim() === "" && existingSong.noteCount === 0;
-    db2.updateSong(songId, {
-      artist: shouldRefreshDescriptiveMetadata ? metadata.artist : existingSong.artist,
-      bpm: metadata.bpm,
-      difficulty: metadata.difficulty,
-      durationSec: metadata.durationSec,
-      filePath: destPath,
-      noteCount: metadata.noteCount,
-      title: shouldRefreshDescriptiveMetadata ? metadata.title : existingSong.title,
-      trackAssignments: metadata.trackAssignments
-    });
-  } else {
-    db2.addSong({
-      id: songId,
-      title: metadata.title,
-      artist: metadata.artist,
-      genre: "",
-      filePath: destPath,
-      difficulty: metadata.difficulty,
-      durationSec: metadata.durationSec,
-      bpm: metadata.bpm,
-      noteCount: metadata.noteCount,
-      tags: [],
-      trackAssignments: metadata.trackAssignments
-    });
+  const stagedFile = await midiStorage2.stage(songId, fileData);
+  const destPath = stagedFile.finalPath;
+  try {
+    const metadata = computeSongMetadata(fileData, title, existingSong?.trackAssignments);
+    if (existingSong) {
+      const shouldRefreshDescriptiveMetadata = existingSong.filePath.trim() === "" && existingSong.noteCount === 0;
+      db2.updateSong(songId, {
+        artist: shouldRefreshDescriptiveMetadata ? metadata.artist : existingSong.artist,
+        bpm: metadata.bpm,
+        difficulty: metadata.difficulty,
+        durationSec: metadata.durationSec,
+        filePath: destPath,
+        noteCount: metadata.noteCount,
+        title: shouldRefreshDescriptiveMetadata ? metadata.title : existingSong.title,
+        trackAssignments: metadata.trackAssignments
+      });
+    } else {
+      db2.addSong({
+        id: songId,
+        title: metadata.title,
+        artist: metadata.artist,
+        genre: "",
+        filePath: destPath,
+        difficulty: metadata.difficulty,
+        durationSec: metadata.durationSec,
+        bpm: metadata.bpm,
+        noteCount: metadata.noteCount,
+        tags: [],
+        trackAssignments: metadata.trackAssignments
+      });
+    }
+    try {
+      await stagedFile.commit();
+    } catch (error) {
+      try {
+        if (existingSong) {
+          restoreSong(db2, existingSong);
+        } else {
+          db2.deleteSong(songId);
+        }
+      } catch {
+      }
+      throw error;
+    }
+    const row = db2.getSong(songId);
+    return {
+      songId,
+      destPath,
+      fileData,
+      title: row.title,
+      durationSec: row.durationSec,
+      bpm: row.bpm,
+      noteCount: row.noteCount,
+      difficulty: row.difficulty
+    };
+  } finally {
+    await discardStagedFile(stagedFile);
   }
-  const row = db2.getSong(songId);
-  return {
-    songId,
-    destPath,
-    fileData,
-    title: row.title,
-    durationSec: row.durationSec,
-    bpm: row.bpm,
-    noteCount: row.noteCount,
-    difficulty: row.difficulty
-  };
 }
 async function reattachSongFromBuffer(songId, buffer, title, { db: db2, midiStorage: midiStorage2 }) {
   const existingSong = db2.getSong(songId);
@@ -261,29 +298,43 @@ async function reattachSongFromBuffer(songId, buffer, title, { db: db2, midiStor
     throw new Error("Selected MIDI does not match this song.");
   }
   const shouldRefreshDescriptiveMetadata = existingSong.filePath.trim() === "" && existingSong.noteCount === 0;
-  const metadata = computeSongMetadata(fileData, title, existingSong.trackAssignments);
-  const destPath = await midiStorage2.write(songId, fileData);
-  db2.updateSong(songId, {
-    artist: shouldRefreshDescriptiveMetadata ? metadata.artist : existingSong.artist,
-    bpm: metadata.bpm,
-    difficulty: metadata.difficulty,
-    durationSec: metadata.durationSec,
-    filePath: destPath,
-    noteCount: metadata.noteCount,
-    title: shouldRefreshDescriptiveMetadata ? metadata.title : existingSong.title,
-    trackAssignments: metadata.trackAssignments
-  });
-  const row = db2.getSong(songId);
-  return {
-    songId,
-    destPath,
-    fileData,
-    title: row.title,
-    durationSec: row.durationSec,
-    bpm: row.bpm,
-    noteCount: row.noteCount,
-    difficulty: row.difficulty
-  };
+  const stagedFile = await midiStorage2.stage(songId, fileData);
+  const destPath = stagedFile.finalPath;
+  try {
+    const metadata = computeSongMetadata(fileData, title, existingSong.trackAssignments);
+    db2.updateSong(songId, {
+      artist: shouldRefreshDescriptiveMetadata ? metadata.artist : existingSong.artist,
+      bpm: metadata.bpm,
+      difficulty: metadata.difficulty,
+      durationSec: metadata.durationSec,
+      filePath: destPath,
+      noteCount: metadata.noteCount,
+      title: shouldRefreshDescriptiveMetadata ? metadata.title : existingSong.title,
+      trackAssignments: metadata.trackAssignments
+    });
+    try {
+      await stagedFile.commit();
+    } catch (error) {
+      try {
+        restoreSong(db2, existingSong);
+      } catch {
+      }
+      throw error;
+    }
+    const row = db2.getSong(songId);
+    return {
+      songId,
+      destPath,
+      fileData,
+      title: row.title,
+      durationSec: row.durationSec,
+      bpm: row.bpm,
+      noteCount: row.noteCount,
+      difficulty: row.difficulty
+    };
+  } finally {
+    await discardStagedFile(stagedFile);
+  }
 }
 async function recomputeAllSongDifficulties({ db: db2, midiStorage: midiStorage2, readSongBytes }) {
   const songs = db2.getAllSongs();
@@ -2438,9 +2489,9 @@ class FileSystemMidiStorageAdapter {
     const stagingPath = this.getStagingPath(stagingDir, songId);
     await writeFile(stagingPath, data);
     return {
+      finalPath,
       commit: async () => {
         await rename(stagingPath, finalPath);
-        await rm(stagingDir, { recursive: true, force: true });
       },
       discard: async () => {
         await rm(stagingDir, { recursive: true, force: true });
@@ -2592,6 +2643,10 @@ function removeDesktopInstrumentSamplePack(db2, userDataPath, instrumentId) {
 let mainWindow = null;
 let db;
 let midiStorage;
+function withoutBridgeFilePath(updates) {
+  const { filePath, ...safeUpdates } = updates;
+  return safeUpdates;
+}
 function readDesktopSongMidiBytes(song) {
   return midiStorage.read(song.id).catch(async () => new Uint8Array(await readFile(song.filePath)));
 }
@@ -2659,10 +2714,16 @@ app.whenReady().then(async () => {
   });
   ipcMain.handle("songs:get-all", () => db.getAllSongs());
   ipcMain.handle("songs:get", (_event, songId) => db.getSong(songId));
-  ipcMain.handle("songs:add", (_event, payload) => db.addSong(payload));
+  ipcMain.handle(
+    "songs:add",
+    (_event, payload) => db.addSong({
+      ...payload,
+      filePath: midiStorage.getPathForSong(payload.id)
+    })
+  );
   ipcMain.handle(
     "songs:update",
-    (_event, songId, updates) => db.updateSong(songId, updates)
+    (_event, songId, updates) => db.updateSong(songId, withoutBridgeFilePath(updates))
   );
   ipcMain.handle("songs:delete", (_event, songId) => {
     db.deleteSong(songId);

@@ -180,6 +180,10 @@ export interface UpdateSongPayload {
   trackAssignments?: Record<string, TrackAssignment>;
 }
 
+export type BridgeAddSongPayload = Omit<AddSongPayload, 'filePath'> & { filePath?: never };
+
+export type BridgeUpdateSongPayload = Omit<UpdateSongPayload, 'filePath'> & { filePath?: never };
+
 export interface SaveGameResultPayload {
   songId: string;
   score: number;

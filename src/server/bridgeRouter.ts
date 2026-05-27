@@ -5,8 +5,9 @@ import { RPC_BRIDGE_METHODS, RPC_BRIDGE_METHOD_SET, type RpcBridgeMethod } from 
 import { bridgeRpcBodyLimit } from './webSecurity';
 import type {
   AddSongPayload,
+  BridgeAddSongPayload,
+  BridgeUpdateSongPayload,
   PersistedGameResultMode,
-  UpdateSongPayload,
   UpdateTroubleSpotPayload,
 } from '../shared/dbTypes';
 import type { ServerDependencies } from './types';
@@ -15,8 +16,19 @@ type JsonBody = {
   args?: unknown[];
 };
 
-type WebAddSongPayload = Omit<AddSongPayload, 'filePath'> & { filePath?: undefined };
-type WebUpdateSongPayload = Omit<UpdateSongPayload, 'filePath'> & { filePath?: undefined };
+const WEB_SONG_ADD_KEYS = [
+  'id',
+  'title',
+  'artist',
+  'genre',
+  'difficulty',
+  'durationSec',
+  'bpm',
+  'noteCount',
+  'tags',
+  'folderId',
+  'trackAssignments',
+] as const satisfies ReadonlyArray<keyof BridgeAddSongPayload>;
 
 const WEB_SONG_UPDATE_KEYS = [
   'title',
@@ -30,7 +42,7 @@ const WEB_SONG_UPDATE_KEYS = [
   'isFavorite',
   'folderId',
   'trackAssignments',
-] as const satisfies ReadonlyArray<keyof WebUpdateSongPayload>;
+] as const satisfies ReadonlyArray<keyof BridgeUpdateSongPayload>;
 
 const TROUBLE_SPOT_UPDATE_KEYS = [
   'measureStart',
@@ -97,14 +109,14 @@ function hasOnlyKeys(value: Record<string, unknown>, allowedKeys: readonly strin
   return Object.keys(value).every((key) => allowed.has(key));
 }
 
-function isSongPayload(value: unknown): value is WebAddSongPayload {
+function isSongPayload(value: unknown): value is BridgeAddSongPayload {
   return isRecord(value) &&
+    hasOnlyKeys(value, WEB_SONG_ADD_KEYS) &&
     isString(value.id) &&
     isSafeSongStorageId(value.id) &&
     isString(value.title) &&
     typeof value.artist === 'string' &&
     typeof value.genre === 'string' &&
-    value.filePath === undefined &&
     isNumber(value.difficulty) &&
     isNumber(value.durationSec) &&
     isNumber(value.bpm) &&
@@ -114,7 +126,7 @@ function isSongPayload(value: unknown): value is WebAddSongPayload {
     isTrackAssignmentRecord(value.trackAssignments);
 }
 
-function isSongUpdate(value: unknown): value is WebUpdateSongPayload {
+function isSongUpdate(value: unknown): value is BridgeUpdateSongPayload {
   if (!isRecord(value)) {
     return false;
   }

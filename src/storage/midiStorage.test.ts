@@ -60,6 +60,7 @@ describe('FileSystemMidiStorageAdapter', () => {
     await writeFile(path, new Uint8Array([9, 9, 9]));
     const staged = await storage.stage(songId, new Uint8Array([1, 2, 3]));
 
+    expect(staged.finalPath).toBe(path);
     await expect(readFile(path)).resolves.toEqual(Buffer.from([9, 9, 9]));
 
     await staged.commit();
