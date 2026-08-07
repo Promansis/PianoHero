@@ -3,10 +3,10 @@
 - Lane: operations
 - Severity: P1
 - Confidence: high
-- Status: accepted
-- Owner: remediation owner TBD
+- Status: verified
+- Owner: Codex (acting)
 - Challenger: Codex, disposable Docker build-context challenge
-- Verifier: independent verifier required
+- Verifier: independent fresh-context verification agent
 - Affected runtime: web
 - Coverage rows: OP-014, MOD-012
 - Related/duplicate findings: none
@@ -105,8 +105,7 @@ do not test it with real user files.
 
 - Accepted/rejected rationale: a no-cache Docker build demonstrably embeds both
   sentinel classes under the current delivery rules.
-- Fix branch/commit/issue: not authorized during discovery.
-- Verification evidence: pending remediation and independent P1 verifier.
-- Residual risk: local data or secrets can leak through a built image or source
-  history until build-context and ignore policy are hardened.
+- Fix branch/commit/issue: `d5839aa`, verified against `d4ba395`.
+- Verification evidence: [Phase 10 verification](../phase-10-verification-2026-08-07.md) records the synthetic no-cache context/image check, isolated container startup, and `/data` restart read-back.
+- Residual risk: previously published images or caches were not inspected; no known current-image exposure remains.
 - Revisit trigger, if accepted-risk: not applicable.

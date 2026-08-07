@@ -3,10 +3,10 @@
 - Lane: security
 - Severity: P0
 - Confidence: high
-- Status: accepted
-- Owner: remediation owner TBD
+- Status: fixed
+- Owner: Codex (acting)
 - Challenger: Codex, fresh isolated-fixture challenge
-- Verifier: independent verifier required
+- Verifier: independent fresh-context verification agent; Electron bridge proof pending
 - Affected runtime: Electron
 - Coverage rows: DATA-014, OP-003, OP-006, OP-013, MOD-008
 - Related/duplicate findings: none
@@ -105,8 +105,7 @@ path, but do not broaden the fix into unrelated renderer work.
 
 - Accepted rationale: direct isolated reproduction deleted a directory outside the
   stated storage root through the production removal function.
-- Fix branch/commit/issue: not authorized during discovery.
-- Verification evidence: pending remediation.
-- Residual risk: arbitrary recursive deletion remains possible from a compromised
-  Electron renderer.
-- Revisit trigger: immediate remediation before release or desktop distribution.
+- Fix branch/commit/issue: `d5839aa`, verified implementation in `d4ba395`.
+- Verification evidence: source review and focused traversal/absolute/unknown-ID tests pass; the required disposable Electron bridge sentinel and web IndexedDB runtime checks remain in [Phase 10](../phase-10-verification-2026-08-07.md).
+- Residual risk: the implementation is constrained, but the required packaged bridge invocation has not been run on this host.
+- Revisit trigger: before desktop release sign-off or after Electron/browser runtime access is available.

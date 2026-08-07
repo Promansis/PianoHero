@@ -3,10 +3,10 @@
 - Lane: persistence
 - Severity: P1
 - Confidence: high
-- Status: accepted
-- Owner: remediation owner TBD
+- Status: fixed
+- Owner: Codex (acting)
 - Challenger: Codex, fresh isolated-fixture challenge
-- Verifier: independent verifier required
+- Verifier: independent fresh-context verification agent; full runtime workflow proof pending
 - Affected runtime: both
 - Coverage rows: DATA-001, DATA-002, DATA-013, OP-002, OP-005, OP-007, OP-009, OP-015
 - Related/duplicate findings: none
@@ -121,8 +121,7 @@ with broad best-effort error handling.
 
 - Accepted rationale: direct fault injection shows an error response with committed,
   inconsistent durable state.
-- Fix branch/commit/issue: not authorized during discovery.
-- Verification evidence: pending remediation.
-- Residual risk: a disk, permission, or interruption failure can leave library data
-  incomplete after an operation reports failure.
+- Fix branch/commit/issue: `d5839aa`, verified implementation in `d4ba395`.
+- Verification evidence: fault-injection tests, independent source review, and real SIGKILL delete/reset/restore recovery pass; complete Electron/web UI retry and full library integrity matrices remain in [Phase 10](../phase-10-verification-2026-08-07.md).
+- Residual risk: host-level filesystem failure messaging and full user-driven backup/reset recovery are not yet verified.
 - Revisit trigger: before backup/restore or destructive-data release sign-off.

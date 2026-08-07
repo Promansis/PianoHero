@@ -3,10 +3,10 @@
 - Lane: music correctness
 - Severity: P1
 - Confidence: high
-- Status: accepted
-- Owner: remediation owner TBD
+- Status: fixed
+- Owner: Codex (acting)
 - Challenger: Codex, fresh isolated-fixture challenge
-- Verifier: independent verifier TBD
+- Verifier: independent fresh-context verification agent; mixed-meter runtime proof pending
 - Affected runtime: both
 - Coverage rows: WF-004, WF-008, WF-009, DATA-004, DATA-012, MOD-011
 - Related/duplicate findings: none
@@ -117,7 +117,7 @@ the affected bridge DTO only if persisted measure numbers require a migration.
 ## Resolution
 
 - Accepted rationale: common supported MIDI metadata produces wrong user-visible practice sections and persisted measure guidance.
-- Fix branch/commit/issue: not authorized during discovery.
-- Verification evidence: pending remediation.
-- Residual risk: learners can be scored and directed against the wrong bar, or select a zero-length loop.
-- Revisit trigger: before the next MIDI/gameplay remediation or release readiness review.
+- Fix branch/commit/issue: `d5839aa`, verified implementation in `d4ba395`.
+- Verification evidence: parser/loop fixture tests and independent source review pass; 6/8, changing-meter, cross-runtime import, persistence, and musician proof remain in [Phase 10](../phase-10-verification-2026-08-07.md).
+- Residual risk: uncommon meter changes are not yet manually confirmed in both supported runtimes.
+- Revisit trigger: before the next MIDI/gameplay release-readiness review.

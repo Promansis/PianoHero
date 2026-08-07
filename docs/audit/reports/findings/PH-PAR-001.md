@@ -3,10 +3,10 @@
 - Lane: runtime parity
 - Severity: P1
 - Confidence: high
-- Status: accepted
-- Owner: remediation owner TBD
+- Status: fixed
+- Owner: Codex (acting)
 - Challenger: Codex, fresh build plus isolated Electron/web runtime challenge
-- Verifier: independent verifier required
+- Verifier: independent fresh-context verification agent; complete packaged workflow proof pending
 - Affected runtime: Electron
 - Coverage rows: WF-011, WF-016, WF-019, BR-060, BR-067, OP-006, MOD-012
 - Related/duplicate findings: none
@@ -75,7 +75,7 @@ Make `public/` a declared Electron renderer/package input, with one canonical as
 ## Resolution
 
 - Accepted/rejected rationale: a fresh build and real Electron bridge call reproduce a blocked capstone while web succeeds.
-- Fix branch/commit/issue: not authorized during discovery.
-- Verification evidence: pending remediation.
-- Residual risk: every Electron release built from the current configuration omits required static content.
-- Revisit trigger, if accepted-risk: not applicable.
+- Fix branch/commit/issue: `d5839aa`, verified implementation in `d4ba395`.
+- Verification evidence: clean Linux build/package, 646-file asset assertion, AppImage/unpacked launch, and independent package inspection pass; capstone/managed-pack workflow and visible missing-asset recovery proof remain in [Phase 10](../phase-10-verification-2026-08-07.md).
+- Residual risk: Windows and complete user-driven Electron asset workflows remain unverified.
+- Revisit trigger: before packaged desktop release sign-off.

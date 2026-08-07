@@ -21,5 +21,7 @@ music/practice correctness, Phase 4 runtime parity, Phase 5 UI/accessibility/
 performance, Phase 6 architecture/operations, and the
 [Phase 7 consolidation](consolidation-2026-07-30.md) are present. The
 [Phase 8 remediation plan](phase-8-remediation-plan-2026-07-30.md) maps all accepted
-findings to vertical implementation slices. Raw runtime artifacts remain outside git
-and are described in their reports.
+findings to vertical implementation slices. The
+[Phase 10 verification report](phase-10-verification-2026-08-07.md) records current
+commit identities, automated/runtime proof, verified disposition, and remaining
+blockers. Raw runtime artifacts remain outside git and are described in their reports.

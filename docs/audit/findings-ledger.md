@@ -40,7 +40,7 @@ IDs are never reused. A duplicate row remains and links to the canonical ID.
 | PH-UI-004 | Escape exits Settings while cancelling a destructive confirmation | UI | P2 | high | both | fixed | WF-018, WF-021, WF-022, WF-024, RT-008, MOD-002, MOD-005 | [PH-UI-004](reports/findings/PH-UI-004.md) | Codex (acting) |
 | PH-ARCH-001 | Practice-session prerequisite failures leave the session loading | ARCH | P2 | high | both | fixed | WF-008, WF-009, BR-015, BR-032, BR-053, MOD-003 | [PH-ARCH-001](reports/findings/PH-ARCH-001.md) | Codex (acting) |
 | PH-ARCH-002 | Keyboard mapping reports success before its durable write settles | ARCH | P2 | high | both | fixed | WF-003, WF-018, BR-054, MOD-002, MOD-005 | [PH-ARCH-002](reports/findings/PH-ARCH-002.md) | Codex (acting) |
-| PH-OPS-001 | Docker build context can embed default user data and environment files | OPS | P1 | high | web | fixed | OP-014, MOD-012 | [PH-OPS-001](reports/findings/PH-OPS-001.md) | Codex (acting) |
+| PH-OPS-001 | Docker build context can embed default user data and environment files | OPS | P1 | high | web | verified | OP-014, MOD-012 | [PH-OPS-001](reports/findings/PH-OPS-001.md) | Codex (acting) |
 
 ## Status Notes
 
@@ -63,13 +63,19 @@ in the detailed report.
   Independent P0/P1 verification by another reviewer remains mandatory and is not
   satisfied by this implementation pass. See
   [the Stage 9 report](reports/phase-9-remediation-2026-07-30.md).
+- Phase 10 froze the refactor at `d5839aa`, closed verification defects at
+  `d4ba395`, restored a clean 318-test baseline, resolved BASE-SEC-001, and added
+  package, Docker, browser/API, and real SIGKILL recovery evidence. Independent
+  review keeps six P0/P1 findings at `fixed` because required runtime/manual proof
+  remains; PH-OPS-001 reached `verified`. See
+  [the Phase 10 report](reports/phase-10-verification-2026-08-07.md).
 
 - PH-DATA-001 is the canonical cross-store atomicity finding for backup restore,
   song deletion, and full reset. Do not create separate findings for the same
   database-before-filesystem ordering without a distinct recovery root cause.
-- BASE-SEC-001 remains a supply-chain/exposure lead rather than a product finding.
-  Phase 2 narrowed it to direct Hono 4.6.14 body-limit behavior; see the Phase 2
-  report for the tested non-mutation result and required upgrade proof.
+- BASE-SEC-001 is resolved by Hono 4.13.0, @hono/node-server 2.1.0, a passing
+  unknown-length streaming-body 413/non-mutation regression, and
+  `npm audit --omit=dev` reporting zero vulnerabilities.
 - PH-MUS-002 is the canonical measure-map finding for non-4/4, tempo-change, and
   exact-bar-boundary loop behavior. Do not create separate findings for individual
   symptoms unless a distinct measure-map consumer has an independent root cause.

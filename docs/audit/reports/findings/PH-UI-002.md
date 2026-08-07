@@ -3,10 +3,10 @@
 - Lane: UI/accessibility
 - Severity: P1
 - Confidence: high
-- Status: accepted
-- Owner: remediation owner TBD
+- Status: fixed
+- Owner: Codex (acting)
 - Challenger: Codex, fresh Chrome and Electron zoom challenge
-- Verifier: independent verifier required for remediation
+- Verifier: independent fresh-context verification agent; zoom matrix proof pending
 - Affected runtime: both
 - Coverage rows: WF-003, WF-018, WF-019, WF-021, WF-022, RT-006, RT-008, MOD-005, MOD-007
 - Related/duplicate findings: none
@@ -117,8 +117,7 @@ has a hit-testable center at 125-200% zoom in both runtimes.
 
 - Accepted/rejected rationale: live hit testing demonstrates that required zoom
   hides the actual Settings navigation controls in both runtimes.
-- Fix branch/commit/issue: not authorized during discovery.
-- Verification evidence: pending remediation.
-- Residual risk: users at high desktop zoom cannot safely configure input/audio
-  or reach reset actions through the tab UI.
-- Revisit trigger, if accepted-risk: not applicable.
+- Fix branch/commit/issue: `d5839aa`, verified implementation in `d4ba395`.
+- Verification evidence: Settings tests, independent CSS/source review, and Linux package launch pass; actual 125-200% Electron/Chrome/Edge/Firefox hit-testing remains in [Phase 10](../phase-10-verification-2026-08-07.md).
+- Residual risk: cross-browser zoom and pointer hit-testing are not yet release-verified.
+- Revisit trigger: before accessibility sign-off or release readiness.

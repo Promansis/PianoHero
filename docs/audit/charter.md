@@ -1,10 +1,10 @@
 # Audit Charter
 
 - Charter status: active
-- Audit status: phase 9 remediation complete; all 18 accepted findings implemented with targeted regression proof; independent P0/P1 verification by another reviewer remains mandatory; 3 pre-existing SettingsScreen tests remain blocked by concurrent dirty CSS/redesign work; 30 coverage rows retain explicit evidence gaps from phase 7
+- Audit status: phase 10 verification in progress; immutable refactor baseline `d5839aa` plus verification fix `d4ba395`; 63 files/318 tests and both builds pass; BASE-SEC-001 resolved; PH-OPS-001 independently verified; six P0/P1 findings remain fixed pending named runtime/manual proof; Windows, Edge, physical MIDI/audio, zoom, and workflow matrices remain blockers
 - Audit lead: Codex (acting; repository owner requested continuation)
 - Source branch/worktree: `docs/audit-workflow` at `/media/storage/PianoHero`
-- Source commit or patch identity: `808e6739e55b5186e8a9565f2c4e9267c4894a6c` plus tracked working-tree diff SHA-256 `1bc69ee417613bde56d64630e7cfd4b30ad976d3b80d363a166fb8bcef9c57ae`, captured before this refreshed baseline and Phase 1 planning update. The non-audit untracked source inventory is recorded in [the baseline report](reports/baseline-2026-07-11.md).
+- Source commit or patch identity: refactor baseline `d5839aa55a6c9d4796b24d42b23ab12dde06b854`; verification fixes `d4ba395eee6c5adcdecdce5226df79aa8ae79a93`; original discovery baseline retained in [the baseline report](reports/baseline-2026-07-11.md).
 - Start date: 2026-07-11
 - Target consolidation date: completed 2026-07-30
 
@@ -53,17 +53,18 @@ it does not authorize product changes.
 
 | Lane | Owner | Shared owner/reviewer | Status |
 |---|---|---|---|
-| Product workflows | Codex (acting) | Audit lead | consolidated with 24 explicit workflow evidence gaps; final readiness proof pending |
+| Product workflows | Codex (acting) | Audit lead | 24 explicit workflow evidence gaps; Phase 10 package/Docker/recovery proof added; final readiness pending |
 | Music correctness | Codex (acting) | Practice-engine review | phase 3 complete; accepted findings PH-MUS-001 through PH-MUS-004; hardware/audio proof gaps remain |
 | Persistence | Codex (acting) | Runtime-data review | phase 2 complete; accepted findings PH-DATA-001 through PH-DATA-003 |
 | Runtime parity | Codex (acting) | Persistence and security review | phase 4 complete; accepted findings PH-PAR-001 through PH-PAR-003; platform/package proof gaps remain |
-| Security | Codex (acting) | Runtime-data review | phase 2 complete; accepted P0 finding PH-SEC-001 and BASE-SEC-001 dependency gap |
+| Security | Codex (acting) | Runtime-data review | PH-SEC-001 fixed pending Electron bridge proof; BASE-SEC-001 resolved with dependency update and stream regression |
 | UI and accessibility | Codex (acting) | Product-workflow review | phase 5 complete; accepted findings PH-UI-001 through PH-UI-004; browser/color/hardware proof gaps remain |
 | Performance | Codex (acting) | Practice/UI review | phase 5 complete; no standalone performance finding; active-GPU/soak proof remains a gap |
 | Architecture | Codex (acting) | Audit lead | phase 6 complete; PH-ARCH-001 and PH-ARCH-002 accepted |
-| Operations | Codex (acting) | Runtime-data review | phase 6 complete; PH-OPS-001 accepted; package/platform proof gaps remain |
+| Operations | Codex (acting) | Runtime-data review | PH-OPS-001 verified; Linux package and Docker restart pass; Windows runtime remains blocked |
 | Challenge/consolidation | Codex (acting) | Lane owners | phase 7 complete; all 18 findings challenged and dispositioned; no accepted risks |
 | Remediation planning | Codex (acting) | Finding owners and verifiers TBD | phase 8 complete; all 18 accepted findings mapped to vertical slices in the Phase 8 plan |
+| Final verification | Codex (acting) | independent fresh-context verifier | phase 10 active; PH-OPS-001 verified; six P0/P1 runtime/manual proof gaps remain |
 
 ## Preconditions
 

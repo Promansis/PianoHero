@@ -3,10 +3,10 @@
 - Lane: music correctness
 - Severity: P1
 - Confidence: high
-- Status: accepted
-- Owner: remediation owner TBD
+- Status: fixed
+- Owner: Codex (acting)
 - Challenger: Codex, fresh isolated-fixture challenge
-- Verifier: independent verifier TBD
+- Verifier: independent fresh-context verification agent; runtime proof pending
 - Affected runtime: both
 - Coverage rows: WF-009, WF-010, MOD-003, MOD-011
 - Related/duplicate findings: none
@@ -108,7 +108,7 @@ GameScreen orchestration, and focused tests.
 ## Resolution
 
 - Accepted rationale: a normal live tempo adjustment destroys core practice data and can reopen an already played note.
-- Fix branch/commit/issue: not authorized during discovery.
-- Verification evidence: pending remediation.
-- Residual risk: users receive invalid score, accuracy, combo, and trouble-spot data after live control changes.
+- Fix branch/commit/issue: `d5839aa`, completed by `d4ba395`.
+- Verification evidence: deterministic tempo/config tests and independent source review pass; [Phase 10](../phase-10-verification-2026-08-07.md) records remaining real-input/runtime proof.
+- Residual risk: physical MIDI/computer-keyboard completion and persisted history are not yet manually verified.
 - Revisit trigger: before the next practice-engine remediation or release readiness review.
