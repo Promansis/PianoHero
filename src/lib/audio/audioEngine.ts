@@ -12,6 +12,7 @@ import {
   type InstrumentReverbPreset,
   type InstrumentVoice,
 } from './instrumentCatalog';
+import { resolvePublicAssetUrl } from './publicAssetUrl';
 import { audioBufferToWav } from './wavEncoder';
 
 type ToneModule = typeof import('tone');
@@ -479,7 +480,7 @@ export class AudioEngine {
         const samplerOpts = definition.options as { release?: number };
         instrument = new tone.Sampler({
           urls: definition.sampleUrls,
-          baseUrl: definition.sampleBaseUrl,
+          baseUrl: resolvePublicAssetUrl(definition.sampleBaseUrl),
           release: samplerOpts.release,
         }).toDestination();
         await tone.loaded();
@@ -596,7 +597,7 @@ export class AudioEngine {
         const samplerOptions = definition.options as { release?: number };
         this.sampler = new tone.Sampler({
           urls: definition.sampleUrls,
-          baseUrl: definition.sampleBaseUrl,
+          baseUrl: resolvePublicAssetUrl(definition.sampleBaseUrl),
           release: samplerOptions.release,
           onload: () => {
             console.log('[AudioEngine] Sampler onload callback fired');

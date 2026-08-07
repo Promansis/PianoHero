@@ -73,21 +73,25 @@ describe('SettingsScreen', () => {
     });
   });
 
-  it('keeps tab and action button accessible names after adding decorative icons', async () => {
+  it('keeps all five settings tabs and action button names after adding decorative icons', async () => {
     const { container } = renderSettingsScreen();
 
-    for (const tabName of ['Audio', 'Visual', 'Gameplay', 'Input', 'Practice']) {
+    const tabNames = ['Audio', 'Visual', 'Gameplay', 'Input', 'Practice'];
+    for (const tabName of tabNames) {
       expect(await screen.findByRole('tab', { name: tabName })).toBeInTheDocument();
     }
+    expect(screen.getAllByRole('tab')).toHaveLength(tabNames.length);
 
     expect(container.querySelector('.settings-panel')).toContainElement(screen.getByRole('tablist', { name: 'Settings sections' }));
     expect(container.querySelector('#settings-panel-audio')).toHaveClass('settings-content-grid-audio');
     expect(screen.getByRole('button', { name: 'Calibrate…' })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Input' }));
-    expect(screen.getByRole('button', { name: 'Edit Key Layout' })).toBeInTheDocument();
+    for (const tabName of tabNames) {
+      fireEvent.click(screen.getByRole('tab', { name: tabName }));
+      expect(screen.getByRole('tabpanel', { name: tabName })).toBeInTheDocument();
+    }
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Practice' }));
+    expect(screen.getByRole('button', { name: 'Edit Key Layout' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Clear Learning Progress' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Clear Learning Progress' }));
     expect(screen.getAllByRole('button', { name: 'Clear Learning Progress' })).toHaveLength(2);
@@ -278,6 +282,25 @@ describe('SettingsScreen', () => {
       expect(onSettingChange).toHaveBeenCalledWith('audio', 'masterVolume', '44');
       expect(screen.getByText('Save failed. The change is active for this session only.')).toBeInTheDocument();
     });
+  });
+
+  it('does not report a debounced setting saved before its write resolves', async () => {
+    let resolveWrite!: () => void;
+    const setSetting = vi.fn(() => new Promise<void>((resolve) => {
+      resolveWrite = resolve;
+    }));
+    window.appBridge = {
+      ...window.appBridge!,
+      setSetting,
+    } as typeof window.appBridge;
+
+    renderSettingsScreen();
+    fireEvent.change(await screen.findByRole('slider', { name: 'Master Volume' }), { target: { value: '46' } });
+
+    await waitFor(() => expect(setSetting).toHaveBeenCalledWith('audio', 'masterVolume', '46'));
+    expect(screen.queryByText('Changes saved.')).not.toBeInTheDocument();
+    resolveWrite();
+    await waitFor(() => expect(screen.getByText('Changes saved.')).toBeInTheDocument());
   });
 
   it('clamps numeric settings before saving', async () => {

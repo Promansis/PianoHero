@@ -4,3 +4,17 @@ out
 .git
 .claude
 npm-debug.log
+.pianohero-data
+**/.pianohero-data
+.env*
+**/.env*
+*.db
+*.sqlite
+*.sqlite3
+**/midi-files
+**/instrument-sample-packs
+.playwright
+.playwright-*
+playwright-report
+test-results
+.codex-audits

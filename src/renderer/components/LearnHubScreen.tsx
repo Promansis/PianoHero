@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { LearningProgress, LearningTier, Lesson } from '../../lib/learning/types';
 import { isLessonCompleted, isLessonUnlocked, isTierCapstoneCleared } from '../../lib/learning/learningProgress';
+import { DeckBackdrop } from './DeckBackdrop';
 
 interface LearnHubScreenProps {
   tiers: LearningTier[];
@@ -42,7 +43,9 @@ export function LearnHubScreen({ tiers, progress, onOpenLesson, onToggleGating, 
 
   return (
     <main className="app-shell learn-hub-screen">
-      <section className="panel theory-hub-hero">
+      <DeckBackdrop />
+      <div className="deck-layout-shell">
+      <section className="panel theory-hub-hero deck-card">
         <div>
           <p className="eyebrow">Learn Hub</p>
           <h1>Progressive piano curriculum</h1>
@@ -56,7 +59,7 @@ export function LearnHubScreen({ tiers, progress, onOpenLesson, onToggleGating, 
         </div>
       </section>
 
-      <section className="panel learn-hub-controls">
+      <section className="panel learn-hub-controls deck-card">
         <label className="learn-hub-toggle">
           <span>Sequential unlock</span>
           <input
@@ -84,7 +87,7 @@ export function LearnHubScreen({ tiers, progress, onOpenLesson, onToggleGating, 
           const capstoneBestAccuracy = progress.capstoneResults[tier.id] ?? 0;
 
           return (
-            <article className="panel learn-tier" key={tier.id}>
+            <article className="panel learn-tier deck-card" key={tier.id}>
               <button
                 className="learn-tier-header"
                 onClick={() => setOpenTierIds((current) => ({ ...current, [tier.id]: !isOpen }))}
@@ -132,7 +135,7 @@ export function LearnHubScreen({ tiers, progress, onOpenLesson, onToggleGating, 
                       return (
                         <button
                           key={lesson.id}
-                          className={`learn-lesson-card ${completed ? 'completed' : ''} ${disabled ? 'disabled' : ''}`}
+                          className={`learn-lesson-card deck-card ${completed ? 'completed' : ''} ${disabled ? 'disabled' : ''}`}
                           disabled={disabled}
                           onClick={() => onOpenLesson(lesson.id)}
                         >
@@ -162,7 +165,7 @@ export function LearnHubScreen({ tiers, progress, onOpenLesson, onToggleGating, 
                     })}
 
                   {capstone ? (
-                    <div className={`learn-capstone-card ${capstoneCleared ? 'cleared' : ''} ${!allLessonsComplete ? 'locked' : ''}`}>
+                    <div className={`learn-capstone-card deck-card ${capstoneCleared ? 'cleared' : ''} ${!allLessonsComplete ? 'locked' : ''}`}>
                       <div className="learn-capstone-badge">{capstoneCleared ? '\u2605' : allLessonsComplete ? '\u266a' : '\u{1f512}'}</div>
                       <div className="learn-capstone-info">
                         <p className="eyebrow">Tier Capstone</p>
@@ -190,6 +193,7 @@ export function LearnHubScreen({ tiers, progress, onOpenLesson, onToggleGating, 
           );
         })}
       </section>
+      </div>
     </main>
   );
 }

@@ -595,7 +595,8 @@ select:focus {
 .lesson-screen,
 .library-screen,
 .theory-hub-screen,
-.theory-practice-screen {
+.theory-practice-screen,
+.settings-screen {
   --product-deck-gap-xs: 6px;
   --product-deck-gap-sm: 8px;
   --product-deck-gap-md: 12px;
@@ -615,6 +616,8 @@ select:focus {
   --product-neon-orange: oklch(76% 0.2 48);
   --product-neon-magenta: oklch(73% 0.25 331);
   --product-neon-coral: oklch(73% 0.2 29);
+  --product-neon-blue: oklch(72% 0.2 247);
+  --product-neon-hot-pink: oklch(76% 0.23 351);
   --product-success: oklch(75% 0.16 154);
   --product-danger: oklch(73% 0.2 29);
   --product-warning: oklch(83% 0.18 76);
@@ -635,6 +638,14 @@ select:focus {
     0 22px 58px rgba(0, 0, 0, 0.28),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
   --product-deck-glow: 0 0 30px color-mix(in oklch, var(--product-deck-accent) 20%, transparent);
+}
+
+.progress-dashboard-screen,
+.learn-hub-screen,
+.lesson-screen,
+.library-screen,
+.theory-hub-screen,
+.theory-practice-screen {
   position: relative;
   color: var(--product-deck-ink);
   background:
@@ -936,10 +947,184 @@ select:focus {
     .theory-practice-screen,
     .theory-practice-screen *,
     .theory-practice-screen *::before,
-    .theory-practice-screen *::after {
+    .theory-practice-screen *::after,
+    .settings-screen,
+    .settings-screen *,
+    .settings-screen *::before,
+    .settings-screen *::after {
       animation: none !important;
       transition-duration: 0.01ms !important;
     }
+}
+
+/* ==========================================================================
+   Deck Visual Effects — shared backdrop, shell, and card treatment
+   ========================================================================== */
+
+@keyframes deckGroupReveal {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Deck layout shell — centered max-width container */
+.deck-layout-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 0;
+  align-items: stretch;
+}
+
+main > .deck-layout-shell {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 1360px);
+  height: 100%;
+  margin: 0 auto;
+}
+
+/* Deck backdrop — animated lights and facets */
+.deck-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 1;
+}
+
+.deck-light,
+.deck-facet {
+  position: absolute;
+  display: block;
+  pointer-events: none;
+}
+
+.deck-light {
+  top: -28%;
+  width: 36%;
+  height: 130%;
+  filter: blur(20px);
+  mix-blend-mode: screen;
+  opacity: 0.14;
+}
+
+.deck-light-a {
+  left: 50%;
+  background: linear-gradient(102deg, transparent 0 20%, rgba(24, 221, 255, 0.52) 48%, transparent 76%);
+  transform: rotate(-18deg);
+}
+
+.deck-light-b {
+  right: -6%;
+  background: linear-gradient(72deg, transparent 0 24%, color-mix(in oklch, var(--product-neon-gold) 42%, transparent) 54%, transparent 78%);
+  transform: rotate(17deg);
+}
+
+.deck-light-c {
+  left: -8%;
+  top: -18%;
+  background: linear-gradient(76deg, transparent 0 26%, color-mix(in oklch, var(--product-neon-orange) 46%, transparent) 52%, transparent 78%);
+  transform: rotate(24deg);
+}
+
+.deck-facet {
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: linear-gradient(135deg, color-mix(in oklch, var(--product-neon-cyan) 18%, transparent), transparent 58%);
+  clip-path: polygon(50% 0, 100% 36%, 80% 100%, 12% 82%, 0 22%);
+  filter: blur(0.2px);
+  opacity: 0.22;
+}
+
+.deck-facet-a {
+  right: 4%;
+  top: 13%;
+  width: 150px;
+  height: 184px;
+  transform: rotate(18deg);
+}
+
+.deck-facet-b {
+  left: 37%;
+  bottom: 2%;
+  width: 226px;
+  height: 144px;
+  transform: rotate(-14deg);
+}
+
+.deck-facet-c {
+  left: 8%;
+  top: 23%;
+  width: 118px;
+  height: 92px;
+  background: linear-gradient(135deg, color-mix(in oklch, var(--product-neon-blue) 18%, transparent), transparent 62%);
+  opacity: 0.4;
+  transform: rotate(31deg);
+}
+
+.deck-facet-d {
+  right: 27%;
+  bottom: 10%;
+  width: 96px;
+  height: 136px;
+  background: linear-gradient(135deg, color-mix(in oklch, var(--product-neon-hot-pink) 18%, transparent), transparent 60%);
+  opacity: 0.48;
+  transform: rotate(-28deg);
+}
+
+/* Deck card — conic ring border + entrance animation + accent wash */
+.deck-card {
+  position: relative;
+  animation: deckGroupReveal 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.deck-card::before,
+.deck-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.deck-card::before {
+  padding: 1px;
+  background: conic-gradient(
+    from var(--glow-angle),
+    transparent 0deg,
+    color-mix(in oklch, var(--product-deck-accent) 78%, var(--product-deck-ink)) 76deg,
+    oklch(95% 0.014 88 / 0.28) 118deg,
+    transparent 174deg,
+    transparent 360deg
+  );
+  opacity: 0.16;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  animation: none;
+}
+
+.deck-card::after {
+  background:
+    linear-gradient(135deg, color-mix(in oklch, var(--product-deck-accent) 14%, transparent), transparent 34%),
+    radial-gradient(circle at top right, color-mix(in oklch, var(--product-deck-accent) 12%, transparent), transparent 46%);
+  opacity: 0.34;
+}
+
+.deck-card > * {
+  position: relative;
+  z-index: 1;
 }
 
 /* ==========================================================================
@@ -2467,10 +2652,7 @@ select:focus {
   padding: 76px clamp(18px, 4vw, 64px) 24px clamp(28px, 4.4vw, 72px);
   color: #fbf8ff;
   background:
-    image-set(
-      url('/assets/main-menu/mainmenu-neonbackground.webp') type('image/webp'),
-      url('/assets/main-menu/mainmenu-neonbackground.png') type('image/png')
-    ) center / cover no-repeat,
+    var(--main-menu-background-image) center / cover no-repeat,
     #010819;
   animation: fadeIn 0.28s ease-out;
 }
@@ -3718,10 +3900,7 @@ select:focus {
       background:
         linear-gradient(180deg, rgba(1, 6, 20, 0.42) 0%, rgba(1, 6, 20, 0.7) 48%, rgba(1, 4, 13, 0.96) 100%),
         linear-gradient(90deg, rgba(0, 8, 25, 0.94) 0%, rgba(0, 8, 25, 0.8) 62%, rgba(0, 8, 25, 0.48) 100%),
-        image-set(
-          url('/assets/main-menu/mainmenu-neonbackground.webp') type('image/webp'),
-          url('/assets/main-menu/mainmenu-neonbackground.png') type('image/png')
-        ) 32% center / cover no-repeat,
+        var(--main-menu-background-image) 32% center / cover no-repeat,
         #010819;
     }
 
@@ -7595,10 +7774,7 @@ select:focus {
     radial-gradient(circle at 82% 16%, color-mix(in oklch, var(--settings-neon-orange) 20%, transparent), transparent 26%),
     linear-gradient(180deg, rgba(1, 6, 20, 0.22) 0%, rgba(1, 6, 20, 0.349) 50%, rgba(1, 4, 13, 0.96) 100%),
     linear-gradient(90deg, rgba(0, 8, 25, 0.384) 0%, rgba(0, 8, 25, 0.137) 44%, rgba(0, 8, 25, 0.38) 72%, rgba(0, 8, 25, 0.377) 100%),
-    image-set(
-      url('/assets/main-menu/mainmenu-neonbackground.webp') type('image/webp'),
-      url('/assets/main-menu/mainmenu-neonbackground.png') type('image/png')
-    ) center / cover no-repeat,
+    var(--main-menu-background-image) center / cover no-repeat,
     var(--settings-base);
 }
 
@@ -7843,7 +8019,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 6px;
-  min-height: 0;
+  min-height: 46px;
   overflow: visible;
   padding: 0;
   scrollbar-width: none;
@@ -8051,7 +8227,7 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
   clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
 }
 
-.settings-panel > :not(.settings-neon-backdrop) {
+.settings-panel > :not(.settings-neon-backdrop):not(.deck-backdrop) {
   position: relative;
   z-index: 1;
 }
@@ -9272,7 +9448,9 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
       top: auto;
       display: flex;
       gap: 10px;
+      min-height: 50px;
       overflow-x: auto;
+      overflow-y: hidden;
       max-height: none;
       padding-bottom: 4px;
     }
@@ -9324,14 +9502,12 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
       background:
         linear-gradient(180deg, rgba(1, 6, 20, 0.42) 0%, rgba(1, 6, 20, 0.76) 48%, rgba(1, 4, 13, 0.98) 100%),
         linear-gradient(90deg, rgba(0, 8, 25, 0.96) 0%, rgba(0, 8, 25, 0.84) 64%, rgba(0, 8, 25, 0.54) 100%),
-        image-set(
-          url('/assets/main-menu/mainmenu-neonbackground.webp') type('image/webp'),
-          url('/assets/main-menu/mainmenu-neonbackground.png') type('image/png')
-        ) 32% center / cover no-repeat,
+        var(--main-menu-background-image) 32% center / cover no-repeat,
         var(--settings-base);
     }
 
-  .settings-light {
+  .settings-light,
+    .deck-light {
       width: 70vw;
       opacity: 0.12;
     }
@@ -9339,7 +9515,11 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
     .settings-facet-a,
     .settings-facet-b,
     .settings-facet-c,
-    .settings-facet-d {
+    .settings-facet-d,
+    .deck-facet-a,
+    .deck-facet-b,
+    .deck-facet-c,
+    .deck-facet-d {
       display: none;
     }
 
@@ -9347,6 +9527,10 @@ body:has(.settings-screen) .immersive-hud-nav-btn.active {
       flex-basis: 164px;
       grid-template-columns: 36px minmax(0, 1fr);
       min-height: 58px;
+    }
+
+  .settings-tab-row {
+      min-height: 62px;
     }
 
   .settings-tab-icon {

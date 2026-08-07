@@ -1,4 +1,4 @@
-import { act, cleanup, render, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AudioEngine } from '../../lib/audio/audioEngine';
 import type { ComputerKeyboardInputService } from '../../lib/input/computerKeyboardInputService';
@@ -191,6 +191,7 @@ describe('GameScreen', () => {
   beforeEach(() => {
     window.appBridge = {
       getSetting: vi.fn().mockResolvedValue(null),
+      setSetting: vi.fn().mockRejectedValue(new Error('write failed')),
     } as unknown as typeof window.appBridge;
   });
 
@@ -266,6 +267,19 @@ describe('GameScreen', () => {
 
     await waitFor(() => {
       expect(audioEngine.noteOff).toHaveBeenCalledWith(60);
+    });
+  });
+
+  it('keeps rejected in-session fingering settings session-only', async () => {
+    renderGameScreen();
+
+    await waitFor(() => expect(window.appBridge?.getSetting).toHaveBeenCalled());
+    fireEvent.click(screen.getByText('Menu'));
+    fireEvent.change(screen.getByLabelText('Hand Size'), { target: { value: 'large' } });
+    fireEvent.change(screen.getByLabelText('Fingering'), { target: { value: 'always' } });
+
+    await waitFor(() => {
+      expect(screen.getByText(/active for this session only/)).toBeInTheDocument();
     });
   });
 });

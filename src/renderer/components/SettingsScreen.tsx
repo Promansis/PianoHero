@@ -14,9 +14,11 @@ import {
   getSettingDefault,
 } from '../../lib/settings/registry';
 import type { InstrumentSamplePackStatus } from '../../shared/ipc';
+import { DeckBackdrop } from './DeckBackdrop';
 import { LatencyWizard } from './LatencyWizard';
 import { LoadingPanel } from './LoadingPanel';
 import { toastBus } from './Toast';
+import { saveSetting } from '../saveSetting';
 import type { InputMode } from '../../lib/input/types';
 import type { MidiInputDevice } from '../../lib/midi/types';
 
@@ -291,19 +293,7 @@ function SettingsTabIcon({ tab }: { tab: SettingsTab }) {
   }
 }
 
-function SettingsNeonBackdrop() {
-  return (
-    <div className="settings-neon-backdrop" aria-hidden="true">
-      <span className="settings-light settings-light-a" />
-      <span className="settings-light settings-light-b" />
-      <span className="settings-light settings-light-c" />
-      <span className="settings-facet settings-facet-a" />
-      <span className="settings-facet settings-facet-b" />
-      <span className="settings-facet settings-facet-c" />
-      <span className="settings-facet settings-facet-d" />
-    </div>
-  );
-}
+// SettingsNeonBackdrop replaced by shared DeckBackdrop
 
 const DEFAULT_SETTINGS: SettingsValues = {
   'audio.instrumentId': DEFAULT_INSTRUMENT_ID,
@@ -492,10 +482,10 @@ function ConfirmActionModal({
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keydown', handleKeyDown, true);
 
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('keydown', handleKeyDown, true);
       previousActiveElement?.focus();
     };
   }, [busy, onCancel]);
@@ -644,7 +634,7 @@ export function SettingsScreen({
       }
       pendingDebouncedSaveRef.current.forEach((pendingSave) => {
         window.clearTimeout(pendingSave.timeoutId);
-        void window.appBridge?.setSetting(pendingSave.category, pendingSave.key, pendingSave.value).catch(() => undefined);
+        void saveSetting(pendingSave.category, pendingSave.key, pendingSave.value);
       });
       pendingDebouncedSaveRef.current.clear();
     };
@@ -837,8 +827,8 @@ export function SettingsScreen({
     setIsSaving(true);
     setStatusMessage('Saving changes...');
 
-    try {
-      await window.appBridge.setSetting(category, key, value);
+    const result = await saveSetting(category, key, value);
+    if (result.saved) {
       setStatusMessage('Changes saved.');
       setSettingsSavePulse((current) => current + 1);
       if (savePulseTimerRef.current !== null) {
@@ -848,18 +838,17 @@ export function SettingsScreen({
         setSettingsSavePulse(0);
         savePulseTimerRef.current = null;
       }, 360);
-    } catch {
+    } else {
       setStatusMessage('Save failed. The change is active for this session only.');
       toastBus.push({
         variant: 'error',
         title: 'Setting not saved',
         message: 'The change is active for this session, but could not be written to storage.',
       });
-    } finally {
-      pendingSaveCountRef.current = Math.max(0, pendingSaveCountRef.current - 1);
-      if (pendingSaveCountRef.current === 0) {
-        setIsSaving(false);
-      }
+    }
+    pendingSaveCountRef.current = Math.max(0, pendingSaveCountRef.current - 1);
+    if (pendingSaveCountRef.current === 0) {
+      setIsSaving(false);
     }
   };
 
@@ -969,7 +958,10 @@ export function SettingsScreen({
       const files = await window.appBridge.listAudioFiles(dir);
       setSamplePackPath(dir);
       setSamplePackFileCount(files.length);
-      await window.appBridge.setSetting('audio', 'customSamplePackPath', dir);
+      const saveResult = await saveSetting('audio', 'customSamplePackPath', dir);
+      if (!saveResult.saved) {
+        throw new Error('Setting was not saved.');
+      }
       onSettingChange('audio', 'customSamplePackPath', dir);
       setStatusMessage(`Sample pack set: ${files.length} audio file(s) found.`);
       toastBus.push({
@@ -998,7 +990,10 @@ export function SettingsScreen({
     try {
       setSamplePackPath(null);
       setSamplePackFileCount(0);
-      await window.appBridge?.setSetting('audio', 'customSamplePackPath', '');
+      const saveResult = await saveSetting('audio', 'customSamplePackPath', '');
+      if (!saveResult.saved) {
+        throw new Error('Setting was not saved.');
+      }
       onSettingChange('audio', 'customSamplePackPath', '');
       setStatusMessage('Custom sample folder cleared. Built-in instruments are active.');
       toastBus.push({
@@ -1130,7 +1125,7 @@ export function SettingsScreen({
     >
       <div className="settings-layout-shell">
         <section className="panel settings-panel">
-          <SettingsNeonBackdrop />
+          <DeckBackdrop />
 
           <div className="settings-panel-status" aria-live="polite">
             <div>

@@ -140,12 +140,19 @@ export function filterSongByHand(song: ParsedSong, handFilter: HandFilter): Pars
 }
 
 export function getMeasureIndexForTime(song: ParsedSong, startSec: number): number {
+  if (song.measureBoundaries?.length) {
+    const index = song.measureBoundaries.findIndex((boundary) => startSec < boundary.endSec);
+    return index === -1 ? Math.max(0, song.measureBoundaries.length - 1) : index;
+  }
   const secPerBeat = 60 / Math.max(song.bpm, 1);
   const secPerMeasure = secPerBeat * 4;
   return Math.floor(startSec / secPerMeasure);
 }
 
 export function getMeasureCount(song: ParsedSong): number {
+  if (song.measureBoundaries?.length) {
+    return song.measureBoundaries.length;
+  }
   if (song.durationSec <= 0) {
     return 1;
   }
@@ -159,6 +166,16 @@ export function getLoopRangeSeconds(song: ParsedSong, loopRange: LoopRange | nul
 } {
   if (!loopRange) {
     return { startSec: 0, endSec: song.durationSec };
+  }
+
+  if (song.measureBoundaries?.length) {
+    const measureCount = song.measureBoundaries.length;
+    const startMeasure = Math.max(0, Math.min(loopRange.startMeasure, measureCount - 1));
+    const endMeasure = Math.max(startMeasure, Math.min(loopRange.endMeasure, measureCount - 1));
+    return {
+      startSec: song.measureBoundaries[startMeasure].startSec,
+      endSec: song.measureBoundaries[endMeasure].endSec,
+    };
   }
 
   const secPerBeat = 60 / Math.max(song.bpm, 1);

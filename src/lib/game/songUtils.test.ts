@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { assignmentFromTrackName, defaultAssignmentForNotes } from './songUtils';
+import {
+  assignmentFromTrackName,
+  defaultAssignmentForNotes,
+  getLoopRangeSeconds,
+  getMeasureCount,
+  getMeasureIndexForTime,
+} from './songUtils';
+import type { ParsedSong } from './types';
 
 describe('songUtils hand assignment fallback', () => {
   it('prefers explicit left/right hints from track names', () => {
@@ -15,5 +22,28 @@ describe('songUtils hand assignment fallback', () => {
 
   it('uses per-note C4 splitting only when a track cannot be classified', () => {
     expect(defaultAssignmentForNotes([], 'Untitled')).toBe('both');
+  });
+
+  it('uses parsed measure boundaries for scoring and loops', () => {
+    const song = {
+      id: 'metered',
+      title: 'Metered',
+      ppq: 480,
+      bpm: 120,
+      durationSec: 3,
+      tracks: [],
+      notes: [],
+      measureBoundaries: [
+        { startTick: 0, endTick: 1440, startSec: 0, endSec: 1.5 },
+        { startTick: 1440, endTick: 2880, startSec: 1.5, endSec: 3 },
+      ],
+    } satisfies ParsedSong;
+
+    expect(getMeasureIndexForTime(song, 1.5)).toBe(1);
+    expect(getMeasureCount(song)).toBe(2);
+    expect(getLoopRangeSeconds(song, { startMeasure: 1, endMeasure: 1 })).toEqual({
+      startSec: 1.5,
+      endSec: 3,
+    });
   });
 });

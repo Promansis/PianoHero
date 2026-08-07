@@ -515,6 +515,19 @@ describe('AppDatabase mutation payloads and resets', () => {
     db.close();
   });
 
+  it('stores stable fingering identities alongside ambiguous legacy rows', async () => {
+    const db = new AppDatabase(await makeDbPath());
+    addSong(db);
+    db.saveCustomFingering(songId, 0, 3, 'right');
+    db.saveCustomFingering(songId, -1, 5, 'right', 'source-note-2');
+
+    expect(db.getCustomFingerings(songId)).toEqual([
+      { songId, noteIndex: -1, noteId: 'source-note-2', finger: 5, hand: 'right' },
+      { songId, noteIndex: 0, finger: 3, hand: 'right' },
+    ]);
+    db.close();
+  });
+
   it('resets all user data and reseeds locked achievements', async () => {
     const db = new AppDatabase(await makeDbPath());
     addSong(db);

@@ -9,6 +9,8 @@ import { AppDatabase } from '../persistence/database';
 import { FileSystemMidiStorageAdapter } from '../storage/midiStorage';
 import { createLibraryRouter } from './libraryRouter';
 import { LIBRARY_IMPORT_BODY_LIMIT_BYTES } from './webSecurity';
+import { createSongId } from '../lib/midi/importMetadata';
+import { Midi } from '@tonejs/midi';
 
 const tempDirs: string[] = [];
 const songId = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
@@ -32,10 +34,14 @@ describe('libraryRouter', () => {
 
   it('exports and imports self-contained library JSON', async () => {
     const { app, db, midiFilesDir } = await makeServer();
-    const midiPath = join(midiFilesDir, `${songId}.mid`);
-    await writeFile(midiPath, new Uint8Array([77, 84, 104, 100]));
+    const midi = new Midi();
+    midi.addTrack().addNote({ midi: 60, time: 0, duration: 0.5, velocity: 0.8 });
+    const midiBytes = midi.toArray();
+    const contentSongId = await createSongId(midiBytes);
+    const midiPath = join(midiFilesDir, `${contentSongId}.mid`);
+    await writeFile(midiPath, midiBytes);
     db.addSong({
-      id: songId,
+      id: contentSongId,
       title: 'Song A',
       artist: '',
       genre: '',

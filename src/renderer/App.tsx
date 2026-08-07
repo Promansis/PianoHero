@@ -61,6 +61,7 @@ import { SettingsScreen } from './components/SettingsScreen';
 import { SetupGuideScreen } from './components/SetupGuideScreen';
 import { TheoryHubScreen } from './components/TheoryHubScreen';
 import { TheoryQuizScreen } from './components/TheoryQuizScreen';
+import { saveSetting } from './saveSetting';
 
 type LessonReturnTarget = { lessonId: string; stepIndex: number };
 type KeyboardSetupReturnTarget =
@@ -366,6 +367,15 @@ export function App() {
     await audioEngineRef.current.clearCustomSampler();
   };
 
+  const saveAppSetting = async (category: string, key: string, value: string) => {
+    const result = await saveSetting(category, key, value);
+    if (!result.saved) {
+      const label = category === INPUT_SETTINGS_CATEGORY && key === INPUT_MODE_SETTING_KEY ? 'Input mode' : key;
+      setStartupError(`${label} is active for this session only. Save failed; try again.`);
+    }
+    return result;
+  };
+
   useEffect(() => {
     let disposed = false;
     const service = new MidiInputService();
@@ -548,7 +558,7 @@ export function App() {
             : DEFAULT_THEME;
         applyTheme(theme);
         if (!rawTheme) {
-          void window.appBridge.setSetting('visual', 'theme', theme);
+          void saveAppSetting('visual', 'theme', theme);
         }
 
         setColorBlindMode(rawColorBlind === 'true');
@@ -587,13 +597,13 @@ export function App() {
         const nextInputMode = parseInputMode(rawInputMode);
         setInputMode(nextInputMode);
         if (!rawInputMode) {
-          void window.appBridge.setSetting(INPUT_SETTINGS_CATEGORY, INPUT_MODE_SETTING_KEY, nextInputMode);
+          void saveAppSetting(INPUT_SETTINGS_CATEGORY, INPUT_MODE_SETTING_KEY, nextInputMode);
         }
 
         const parsedMapping = parseKeyboardMapping(rawKeyboardMapping);
         keyboardServiceRef.current.setMapping(parsedMapping);
         if (!rawKeyboardMapping) {
-          void window.appBridge.setSetting(
+          void saveAppSetting(
             INPUT_SETTINGS_CATEGORY,
             INPUT_KEYBOARD_MAPPING_SETTING_KEY,
             stringifyKeyboardMapping(parsedMapping),
@@ -621,7 +631,7 @@ export function App() {
         );
 
         if (!rawInstrumentId) {
-          void window.appBridge.setSetting('audio', 'instrumentId', initialInstrumentId);
+          void saveAppSetting('audio', 'instrumentId', initialInstrumentId);
         }
 
         const parsedHitWindow = Number(rawHitWindow);
@@ -713,7 +723,7 @@ export function App() {
 
   const persistInputMode = (nextMode: InputMode) => {
     setInputMode(nextMode);
-    void window.appBridge?.setSetting(INPUT_SETTINGS_CATEGORY, INPUT_MODE_SETTING_KEY, nextMode);
+    void saveAppSetting(INPUT_SETTINGS_CATEGORY, INPUT_MODE_SETTING_KEY, nextMode);
   };
 
   const persistInstrumentId = (nextInstrumentId: string) => {
@@ -730,7 +740,7 @@ export function App() {
         getInstrumentEffectiveReverbPreset(safeInstrumentId, instrumentReverbPresets),
       );
     })();
-    void window.appBridge?.setSetting('audio', 'instrumentId', safeInstrumentId);
+    void saveAppSetting('audio', 'instrumentId', safeInstrumentId);
   };
 
   const installInstrumentSamplePack = async (targetInstrumentId: string) => {
@@ -761,7 +771,7 @@ export function App() {
       : DEFAULT_INSTRUMENT_ID;
     if (nextSelectedInstrumentId !== instrumentId) {
       setInstrumentId(nextSelectedInstrumentId);
-      void window.appBridge.setSetting('audio', 'instrumentId', nextSelectedInstrumentId);
+      void saveAppSetting('audio', 'instrumentId', nextSelectedInstrumentId);
     }
 
     await audioEngineRef.current.setInstrument(nextSelectedInstrumentId);
@@ -982,7 +992,7 @@ export function App() {
   const persistStagePalette = (value: StagePalette) => {
     setStagePalette(value);
     applyStagePalette(value);
-    void window.appBridge?.setSetting('visual', 'stagePalette', value);
+    void saveAppSetting('visual', 'stagePalette', value);
   };
 
   const persistSetupState = async (setupComplete: boolean) => {
@@ -990,11 +1000,12 @@ export function App() {
       return;
     }
 
-    await Promise.all([
-      window.appBridge.setSetting('onboarding', 'setupComplete', setupComplete ? 'true' : 'false'),
-      window.appBridge.setSetting('practice', 'postureReminderMinutes', postureReminderMinutes !== null ? String(postureReminderMinutes) : 'off'),
-      window.appBridge.setSetting('fingering', 'handSize', handSize),
+    const results = await Promise.all([
+      saveAppSetting('onboarding', 'setupComplete', setupComplete ? 'true' : 'false'),
+      saveAppSetting('practice', 'postureReminderMinutes', postureReminderMinutes !== null ? String(postureReminderMinutes) : 'off'),
+      saveAppSetting('fingering', 'handSize', handSize),
     ]);
+    return results.every(({ saved }) => saved);
   };
 
   const enqueueAchievementToasts = (achievementIds: string[]) => {
@@ -1240,6 +1251,9 @@ export function App() {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) {
+        return;
+      }
       const key = event.key.toLowerCase();
       const target = event.target as HTMLElement | null;
       const isTypingTarget = Boolean(
@@ -1385,12 +1399,12 @@ export function App() {
             setPostureReminderMinutes(Number.isFinite(parsed) && parsed > 0 ? parsed : null);
           }}
           onOpenKeyboardSetup={() => setCurrentScreen({ screen: 'keyboard-setup', returnTo: 'setup' })}
-          onSkip={() => {
-            void persistSetupState(true);
+          onSkip={async () => {
+            await persistSetupState(true);
             setCurrentScreen({ screen: 'main-menu' });
           }}
-          onStartPractice={() => {
-            void persistSetupState(true);
+          onStartPractice={async () => {
+            await persistSetupState(true);
             setCurrentScreen({ screen: 'main-menu' });
           }}
         />

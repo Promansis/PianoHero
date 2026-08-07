@@ -1,7 +1,8 @@
 import Database from 'better-sqlite3';
 import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync, renameSync } from 'node:fs';
-import { join } from 'node:path';
+import { readFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 import { getUnlockableAchievementIds, type AchievementMetrics } from '../lib/achievements/achievementChecker';
 import { ACHIEVEMENTS } from '../lib/achievements/achievementDefinitions';
 import type { Hand, TrackAssignment } from '../lib/game/types';
@@ -37,8 +38,19 @@ import type {
   UserStatsRow,
 } from '../shared/dbTypes';
 import { SettingsRepository } from './settingsRepository';
+import type { MidiStorageAdapter, MidiStorageStagedFile } from '../storage/midiStorage';
+import { computeSongMetadata } from '../lib/midi/importMetadata';
+import { createSongId } from '../lib/midi/importMetadata';
+import { isPathContainedInRoot, isSafeSongStorageId } from '../lib/storage/storageSafety';
 
 type DbRow = Record<string, unknown>;
+
+export interface DurableOperation {
+  id: string;
+  type: 'delete-songs' | 'reset-user-data' | 'restore-library';
+  state: 'prepared' | 'db-committed';
+  payload: { songIds?: string[] };
+}
 
 export class AppDatabase {
   private db: Database.Database;
@@ -115,11 +127,12 @@ export class AppDatabase {
       );
 
       CREATE TABLE IF NOT EXISTS fingerings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
         song_id TEXT NOT NULL REFERENCES songs(id) ON DELETE CASCADE,
         note_index INTEGER NOT NULL,
+        note_id TEXT,
         finger INTEGER NOT NULL CHECK(finger BETWEEN 1 AND 5),
-        hand TEXT NOT NULL CHECK(hand IN ('left', 'right')),
-        PRIMARY KEY (song_id, note_index)
+        hand TEXT NOT NULL CHECK(hand IN ('left', 'right'))
       );
 
       CREATE TABLE IF NOT EXISTS folders (
@@ -173,9 +186,19 @@ export class AppDatabase {
         measure INTEGER NOT NULL,
         accuracy REAL NOT NULL
       );
+
+      CREATE TABLE IF NOT EXISTS durable_operations (
+        id TEXT PRIMARY KEY,
+        type TEXT NOT NULL CHECK(type IN ('delete-songs', 'reset-user-data', 'restore-library')),
+        state TEXT NOT NULL CHECK(state IN ('prepared', 'db-committed')),
+        payload TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
     `);
 
+    this.ensureDurableOperationsTable();
     this.ensureSongFolderColumn();
+    this.ensureFingeringIdentityColumn();
 
     this.db.exec(`
       CREATE INDEX IF NOT EXISTS idx_game_results_song_id ON game_results(song_id);
@@ -204,12 +227,63 @@ export class AppDatabase {
     this.seedAchievements();
   }
 
+  private ensureDurableOperationsTable(): void {
+    const table = this.db
+      .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'durable_operations'")
+      .get() as { sql: string } | undefined;
+    if (!table || table.sql.includes("'restore-library'")) {
+      return;
+    }
+
+    this.db.transaction(() => {
+      this.db.prepare('ALTER TABLE durable_operations RENAME TO durable_operations_legacy').run();
+      this.db.exec(`
+        CREATE TABLE durable_operations (
+          id TEXT PRIMARY KEY,
+          type TEXT NOT NULL CHECK(type IN ('delete-songs', 'reset-user-data', 'restore-library')),
+          state TEXT NOT NULL CHECK(state IN ('prepared', 'db-committed')),
+          payload TEXT NOT NULL,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        INSERT INTO durable_operations (id, type, state, payload, created_at)
+        SELECT id, type, state, payload, created_at FROM durable_operations_legacy;
+        DROP TABLE durable_operations_legacy;
+      `);
+    })();
+  }
+
   private ensureSongFolderColumn(): void {
     const columns = this.db.prepare(`PRAGMA table_info(songs)`).all() as Array<{ name: string }>;
     const hasFolderId = columns.some((column) => column.name === 'folder_id');
     if (!hasFolderId) {
       this.db.prepare(`ALTER TABLE songs ADD COLUMN folder_id TEXT`).run();
     }
+  }
+
+  private ensureFingeringIdentityColumn(): void {
+    const columns = this.db.prepare('PRAGMA table_info(fingerings)').all() as Array<{ name: string }>;
+    if (!columns.some((column) => column.name === 'note_id')) {
+      this.db.exec(`
+        ALTER TABLE fingerings RENAME TO fingerings_legacy;
+        CREATE TABLE fingerings (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          song_id TEXT NOT NULL REFERENCES songs(id) ON DELETE CASCADE,
+          note_index INTEGER NOT NULL,
+          note_id TEXT,
+          finger INTEGER NOT NULL CHECK(finger BETWEEN 1 AND 5),
+          hand TEXT NOT NULL CHECK(hand IN ('left', 'right'))
+        );
+        INSERT INTO fingerings (song_id, note_index, finger, hand)
+        SELECT song_id, note_index, finger, hand FROM fingerings_legacy;
+        DROP TABLE fingerings_legacy;
+      `);
+    }
+    this.db.exec(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_fingerings_source_note
+        ON fingerings(song_id, note_id) WHERE note_id IS NOT NULL;
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_fingerings_legacy_index
+        ON fingerings(song_id, note_index) WHERE note_id IS NULL;
+    `);
   }
 
   private seedAchievements(): void {
@@ -219,14 +293,16 @@ export class AppDatabase {
     }
   }
 
-  migrateFromJson(userDataPath: string): void {
+  async migrateFromJson(userDataPath: string, midiStorage?: MidiStorageAdapter): Promise<void> {
     const jsonPath = join(userDataPath, 'song-metadata.json');
-    if (!existsSync(jsonPath)) {
+    const migratedJsonPath = existsSync(jsonPath) ? jsonPath : existsSync(jsonPath + '.migrated') ? jsonPath + '.migrated' : null;
+    if (!migratedJsonPath) {
       return;
     }
 
     const count = (this.db.prepare('SELECT COUNT(*) as n FROM songs').get() as { n: number }).n;
     if (count > 0) {
+      await this.repairLegacyMidiReferences(migratedJsonPath, midiStorage);
       return;
     }
 
@@ -237,38 +313,101 @@ export class AppDatabase {
           { title: string; sourcePath?: string; trackAssignments: Record<string, string>; updatedAt: string }
         >;
       };
-      const insert = this.db.prepare(`
-        INSERT OR IGNORE INTO songs (id, title, file_path, track_assignments, date_added, tags)
-        VALUES (@id, @title, @filePath, @trackAssignments, @dateAdded, '[]')
-      `);
-      const insertMany = this.db.transaction(
-        (
-          entries: Array<{
-            id: string;
-            title: string;
-            filePath: string;
-            trackAssignments: string;
-            dateAdded: string;
-          }>,
-        ) => {
-          for (const entry of entries) {
-            insert.run(entry);
+      const stagedFiles: Array<{ id: string; stagedFile: MidiStorageStagedFile }> = [];
+      try {
+        for (const [id, meta] of Object.entries(raw.songs)) {
+          if (!midiStorage || !meta.sourcePath) {
+            continue;
           }
-        },
-      );
+          try {
+            const bytes = new Uint8Array(await readFile(meta.sourcePath));
+            if (isSafeSongStorageId(id) && await createSongId(bytes) !== id) {
+              continue;
+            }
+            computeSongMetadata(bytes, meta.title, meta.trackAssignments as unknown as Record<string, TrackAssignment>);
+            stagedFiles.push({ id, stagedFile: await midiStorage.stage(id, bytes) });
+          } catch {
+            // Keep the migrated row recoverable without claiming unavailable bytes are playable.
+          }
+        }
 
-      const entries = Object.entries(raw.songs).map(([id, meta]) => ({
-        id,
-        title: meta.title,
-        filePath: meta.sourcePath ?? '',
-        trackAssignments: JSON.stringify(meta.trackAssignments),
-        dateAdded: meta.updatedAt,
-      }));
+        const insert = this.db.prepare(`
+          INSERT OR IGNORE INTO songs (id, title, file_path, track_assignments, date_added, tags)
+          VALUES (@id, @title, @filePath, @trackAssignments, @dateAdded, '[]')
+        `);
+        const entries = Object.entries(raw.songs).map(([id, meta]) => ({
+          id,
+          title: meta.title,
+          filePath: stagedFiles.find((entry) => entry.id === id)?.stagedFile.finalPath ?? '',
+          trackAssignments: JSON.stringify(meta.trackAssignments),
+          dateAdded: meta.updatedAt,
+        }));
+        const insertMany = this.db.transaction(() => entries.forEach((entry) => insert.run(entry)));
+        insertMany();
 
-      insertMany(entries);
+        try {
+          for (const { stagedFile } of stagedFiles) {
+            await stagedFile.commit();
+          }
+        } catch (error) {
+          await Promise.allSettled(stagedFiles.map(({ stagedFile }) => stagedFile.rollback?.()));
+          for (const entry of entries) {
+            this.db.prepare('DELETE FROM songs WHERE id = ?').run(entry.id);
+          }
+          throw error;
+        }
+      } finally {
+        await Promise.allSettled(stagedFiles.map(({ stagedFile }) => stagedFile.discard()));
+      }
       renameSync(jsonPath, jsonPath + '.migrated');
     } catch {
       // Migration failure is non-fatal.
+    }
+  }
+
+  private async repairLegacyMidiReferences(
+    migratedJsonPath: string,
+    midiStorage?: MidiStorageAdapter,
+  ): Promise<void> {
+    if (!midiStorage) {
+      return;
+    }
+
+    let metadata: Record<string, { sourcePath?: string }>;
+    try {
+      metadata = JSON.parse(readFileSync(migratedJsonPath, 'utf8')).songs as Record<string, { sourcePath?: string }>;
+    } catch {
+      return;
+    }
+
+    const appOwnedRoot = dirname(midiStorage.getPathForSong('0'.repeat(64)));
+
+    const rows = (this.db.prepare("SELECT id, file_path FROM songs WHERE file_path != ''").all() as Array<{ id: string; file_path: string }>)
+      .filter((row) => !isPathContainedInRoot(appOwnedRoot, row.file_path));
+
+    for (const row of rows) {
+      const meta = metadata[row.id];
+      if (!meta?.sourcePath) {
+        if (row.file_path) {
+          this.db.prepare('UPDATE songs SET file_path = ? WHERE id = ?').run('', row.id);
+        }
+        continue;
+      }
+
+      try {
+        const bytes = new Uint8Array(await readFile(meta.sourcePath));
+        if (isSafeSongStorageId(row.id) && (await createSongId(bytes)) !== row.id) {
+          this.db.prepare('UPDATE songs SET file_path = ? WHERE id = ?').run('', row.id);
+          continue;
+        }
+
+        const stagedFile = await midiStorage.stage(row.id, bytes);
+        await stagedFile.commit();
+        this.db.prepare('UPDATE songs SET file_path = ? WHERE id = ?').run(stagedFile.finalPath, row.id);
+        await stagedFile.discard();
+      } catch {
+        this.db.prepare('UPDATE songs SET file_path = ? WHERE id = ?').run('', row.id);
+      }
     }
   }
 
@@ -387,6 +526,34 @@ export class AppDatabase {
     removeMany(ids);
   }
 
+  prepareDurableOperation(type: DurableOperation['type'], payload: DurableOperation['payload']): string {
+    const id = randomUUID();
+    this.db
+      .prepare('INSERT INTO durable_operations (id, type, state, payload) VALUES (?, ?, ?, ?)')
+      .run(id, type, 'prepared', JSON.stringify(payload));
+    return id;
+  }
+
+  getDurableOperations(): DurableOperation[] {
+    const rows = this.db
+      .prepare('SELECT id, type, state, payload FROM durable_operations ORDER BY created_at, id')
+      .all() as Array<{ id: string; type: DurableOperation['type']; state: DurableOperation['state']; payload: string }>;
+    return rows.map((row) => ({ ...row, payload: JSON.parse(row.payload) as DurableOperation['payload'] }));
+  }
+
+  completeDurableOperation(id: string): void {
+    this.db.prepare('DELETE FROM durable_operations WHERE id = ?').run(id);
+  }
+
+  commitSongDeletion(operationId: string, songIds: string[]): void {
+    const ids = dedupeIds(songIds);
+    this.db.transaction(() => {
+      const stmt = this.db.prepare('DELETE FROM songs WHERE id = ?');
+      ids.forEach((songId) => stmt.run(songId));
+      this.db.prepare("UPDATE durable_operations SET state = 'db-committed' WHERE id = ?").run(operationId);
+    })();
+  }
+
   toggleFavorite(id: string): void {
     this.db.prepare('UPDATE songs SET is_favorite = 1 - is_favorite WHERE id = ?').run(id);
   }
@@ -449,17 +616,32 @@ export class AppDatabase {
 
   getCustomFingerings(songId: string): FingeringRow[] {
     const rows = this.db
-      .prepare('SELECT * FROM fingerings WHERE song_id = ? ORDER BY note_index ASC')
+      .prepare('SELECT * FROM fingerings WHERE song_id = ? ORDER BY note_id IS NULL ASC, note_index ASC')
       .all(songId) as DbRow[];
     return rows.map(rowToFingering);
   }
 
-  saveCustomFingering(songId: string, noteIndex: number, finger: number, hand: Hand): void {
+  saveCustomFingering(songId: string, noteIndex: number, finger: number, hand: Hand, noteId?: string): void {
+    if (noteId) {
+      this.db
+        .prepare(`
+          INSERT INTO fingerings (song_id, note_index, note_id, finger, hand)
+          VALUES (?, ?, ?, ?, ?)
+          ON CONFLICT DO UPDATE SET finger = excluded.finger, hand = excluded.hand
+            WHERE fingerings.song_id = excluded.song_id AND fingerings.note_id = excluded.note_id
+        `)
+        .run(songId, noteIndex, noteId, finger, hand);
+      return;
+    }
+
     this.db
       .prepare(`
         INSERT INTO fingerings (song_id, note_index, finger, hand)
         VALUES (?, ?, ?, ?)
-        ON CONFLICT(song_id, note_index) DO UPDATE SET finger = excluded.finger, hand = excluded.hand
+        ON CONFLICT DO UPDATE SET finger = excluded.finger, hand = excluded.hand
+          WHERE fingerings.song_id = excluded.song_id
+            AND fingerings.note_id IS NULL
+            AND fingerings.note_index = excluded.note_index
       `)
       .run(songId, noteIndex, finger, hand);
   }
@@ -1394,21 +1576,61 @@ export class AppDatabase {
 
   resetUserData(): void {
     this.db.transaction(() => {
-      this.db.prepare('DELETE FROM measure_accuracy_history').run();
-      this.db.prepare('DELETE FROM trouble_spots').run();
-      this.db.prepare('DELETE FROM game_results').run();
-      this.db.prepare('DELETE FROM theory_results').run();
-      this.db.prepare('DELETE FROM user_stats').run();
-      this.db.prepare('DELETE FROM practice_days').run();
-      this.db.prepare('DELETE FROM fingerings').run();
-      this.db.prepare('DELETE FROM playlist_songs').run();
-      this.db.prepare('DELETE FROM playlists').run();
-      this.db.prepare('DELETE FROM folders').run();
-      this.db.prepare('DELETE FROM songs').run();
-      this.settings.deleteAll();
-      this.db.prepare('DELETE FROM achievements').run();
-      this.seedAchievements();
+      this.resetUserDataRows();
     })();
+  }
+
+  commitUserDataReset(operationId: string): void {
+    this.db.transaction(() => {
+      this.resetUserDataRows();
+      this.db.prepare("UPDATE durable_operations SET state = 'db-committed' WHERE id = ?").run(operationId);
+    })();
+  }
+
+  async recoverDurableOperations(
+    midiStorage: MidiStorageAdapter,
+    recoverReset?: (operationId: string, state: DurableOperation['state']) => Promise<void>,
+  ): Promise<void> {
+    for (const operation of this.getDurableOperations()) {
+      if (operation.type === 'delete-songs') {
+        if (operation.state === 'prepared') {
+          await midiStorage.rollbackDelete?.(operation.id);
+        } else {
+          await midiStorage.commitDelete?.(operation.id);
+        }
+      } else if (operation.type === 'restore-library') {
+        if (operation.state === 'prepared') {
+          await midiStorage.rollbackRestore?.(operation.id);
+        } else {
+          await midiStorage.commitRestore?.(operation.id);
+        }
+      } else if (operation.state === 'prepared') {
+        await midiStorage.rollbackReset?.(operation.id);
+      } else {
+        await midiStorage.commitReset?.(operation.id);
+      }
+      if (operation.type === 'reset-user-data') {
+        await recoverReset?.(operation.id, operation.state);
+      }
+      this.completeDurableOperation(operation.id);
+    }
+  }
+
+  private resetUserDataRows(): void {
+    this.db.prepare('DELETE FROM measure_accuracy_history').run();
+    this.db.prepare('DELETE FROM trouble_spots').run();
+    this.db.prepare('DELETE FROM game_results').run();
+    this.db.prepare('DELETE FROM theory_results').run();
+    this.db.prepare('DELETE FROM user_stats').run();
+    this.db.prepare('DELETE FROM practice_days').run();
+    this.db.prepare('DELETE FROM fingerings').run();
+    this.db.prepare('DELETE FROM playlist_songs').run();
+    this.db.prepare('DELETE FROM playlists').run();
+    this.db.prepare('DELETE FROM folders').run();
+    this.db.prepare('DELETE FROM songs').run();
+    this.settings.deleteAll();
+    this.db.prepare('DELETE FROM achievements').run();
+    this.seedAchievements();
   }
 
   exportLibraryData(): LibraryBackupV1 {
@@ -1433,7 +1655,7 @@ export class AppDatabase {
     };
   }
 
-  importLibraryData(backup: LibraryBackup): LibraryImportResult {
+  importLibraryData(backup: LibraryBackup, operationId?: string): LibraryImportResult {
     const importTransaction = this.db.transaction((nextBackup: LibraryBackup) => {
       const folderIdMap = new Map<string, string | null>();
       let foldersImported = 0;
@@ -1513,7 +1735,7 @@ export class AppDatabase {
         if (!songExists) {
           continue;
         }
-        this.saveCustomFingering(fingering.songId, fingering.noteIndex, fingering.finger, fingering.hand);
+        this.saveCustomFingering(fingering.songId, fingering.noteIndex, fingering.finger, fingering.hand, fingering.noteId);
       }
 
       for (const setting of nextBackup.settings) {
@@ -1555,6 +1777,10 @@ export class AppDatabase {
         });
         this.touchPlaylist(targetId, playlist.updatedAt);
         playlistsImported += 1;
+      }
+
+      if (operationId) {
+        this.db.prepare("UPDATE durable_operations SET state = 'db-committed' WHERE id = ?").run(operationId);
       }
 
       return {
@@ -1715,6 +1941,7 @@ function rowToFingering(row: DbRow): FingeringRow {
   return {
     songId: row.song_id as string,
     noteIndex: row.note_index as number,
+    ...(typeof row.note_id === 'string' ? { noteId: row.note_id } : {}),
     finger: row.finger as number,
     hand: row.hand as Hand,
   };

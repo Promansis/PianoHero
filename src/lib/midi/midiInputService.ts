@@ -19,6 +19,12 @@ export class MidiInputService {
 
   private filterDeviceId: string | null = null;
 
+  private heldNotesByDevice = new Map<string, {
+    physical: Set<number>;
+    active: Set<number>;
+    sustain: boolean;
+  }>();
+
   async init(): Promise<void> {
     if (!navigator.requestMIDIAccess) {
       throw new Error('Web MIDI API is not available in this environment.');
@@ -69,12 +75,39 @@ export class MidiInputService {
     for (const input of this.access.inputs.values()) {
       input.onmidimessage = null;
     }
+    this.heldNotesByDevice.clear();
     this.midiListeners.clear();
     this.deviceListeners.clear();
     this.access = null;
   }
 
   private handleStateChange = (): void => {
+    const connectedIds = new Set(this.access ? Array.from(this.access.inputs.keys()) : []);
+    for (const [sourceId, notes] of this.heldNotesByDevice) {
+      if (connectedIds.has(sourceId)) {
+        continue;
+      }
+      if (notes.sustain) {
+        this.emit({
+          type: 'sustain',
+          sustainValue: 0,
+          timestamp: performance.now(),
+          sourceId,
+          source: 'midi',
+        });
+      }
+      for (const note of notes.active) {
+        this.emit({
+          type: 'noteoff',
+          note,
+          velocity: 0,
+          timestamp: performance.now(),
+          sourceId,
+          source: 'midi',
+        });
+      }
+      this.heldNotesByDevice.delete(sourceId);
+    }
     this.refreshDevices();
     this.bindInputs();
     const devices = this.getDevices();
@@ -109,9 +142,47 @@ export class MidiInputService {
           return;
         }
 
-        this.midiListeners.forEach((listener) => listener(message));
+        if (message.type === 'noteon' && typeof message.note === 'number') {
+          const state = this.heldNotesByDevice.get(input.id) ?? {
+            physical: new Set<number>(),
+            active: new Set<number>(),
+            sustain: false,
+          };
+          state.physical.add(message.note);
+          state.active.add(message.note);
+          this.heldNotesByDevice.set(input.id, state);
+        } else if (message.type === 'noteoff' && typeof message.note === 'number') {
+          const state = this.heldNotesByDevice.get(input.id);
+          state?.physical.delete(message.note);
+          if (state && !state.sustain) {
+            state.active.delete(message.note);
+          }
+          if (state && state.active.size === 0) {
+            this.heldNotesByDevice.delete(input.id);
+          }
+        } else if (message.type === 'sustain') {
+          const state = this.heldNotesByDevice.get(input.id);
+          if (state) {
+            state.sustain = (message.sustainValue ?? 0) >= 64;
+            if (!state.sustain) {
+              for (const note of state.active) {
+                if (!state.physical.has(note)) {
+                  state.active.delete(note);
+                }
+              }
+              if (state.active.size === 0) {
+                this.heldNotesByDevice.delete(input.id);
+              }
+            }
+          }
+        }
+        this.emit(message);
       };
     }
+  }
+
+  private emit(event: InputEvent): void {
+    this.midiListeners.forEach((listener) => listener(event));
   }
 
   private normalizeMessage(sourceId: string, event: MIDIMessageEvent): InputEvent | null {

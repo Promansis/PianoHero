@@ -48,7 +48,16 @@ export interface ParsedNote {
   velocity: number;
   startSec: number;
   durationSec: number;
+  ticks?: number;
+  durationTicks?: number;
   hand: Hand;
+}
+
+export interface MeasureBoundary {
+  startTick: number;
+  endTick: number;
+  startSec: number;
+  endSec: number;
 }
 
 export interface ParsedSong {
@@ -59,6 +68,7 @@ export interface ParsedSong {
   durationSec: number;
   tracks: ParsedTrack[];
   notes: ParsedNote[];
+  measureBoundaries?: MeasureBoundary[];
 }
 
 export interface ScheduledNote extends ParsedNote {

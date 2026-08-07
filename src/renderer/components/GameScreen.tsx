@@ -35,6 +35,8 @@ import { ImmersiveHud, type ImmersiveHudDestination, type ImmersiveHudNavigation
 import { ImmersiveInstrumentControl } from './ImmersiveInstrumentControl';
 import { PianoKeyboard } from './PianoKeyboard';
 import { TrackAssignmentPanel } from './TrackAssignmentPanel';
+import { useModalFocusTrap } from '../useModalFocusTrap';
+import { saveSetting } from '../saveSetting';
 
 const EMPTY_SNAPSHOT: PlaybackSnapshot = {
   isPlaying: false,
@@ -392,6 +394,8 @@ export function GameScreen({
   const [snapshot, setSnapshot] = useState<PlaybackSnapshot>(EMPTY_SNAPSHOT);
   const [devices, setDevices] = useState<MidiInputDevice[]>([]);
   const [statusMessage, setStatusMessage] = useState('Loading song from the library.');
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [reminderFrequencyMinutes, setReminderFrequencyMinutes] = useState<number | null>(null);
   const [showReminder, setShowReminder] = useState(false);
   const [showBreakReminder, setShowBreakReminder] = useState(false);
@@ -411,6 +415,15 @@ export function GameScreen({
     finger?: number;
     anchorPoint: { x: number; y: number };
   } | null>(null);
+  const menuButtonRef = useRef<HTMLButtonElement | null>(null);
+  const overlayRef = useRef<HTMLDivElement | null>(null);
+
+  useModalFocusTrap({
+    open: overlayVisible,
+    dialogRef: overlayRef,
+    triggerRef: menuButtonRef,
+    onEscape: () => setOverlayVisible(false),
+  });
 
   useEffect(() => {
     setSessionConfig(initialSessionConfig);
@@ -615,50 +628,51 @@ export function GameScreen({
   useEffect(() => {
     const loadSelectedSong = async () => {
       const bridge = window.appBridge;
-      if (!bridge) {
-        setStatusMessage('The app bridge is unavailable.');
-        return;
-      }
-
-      currentSongRef.current = initialSong;
-      const [reminderValue, handSizeValue, displayModeValue] = await Promise.all([
-        bridge.getSetting('practice', 'postureReminderMinutes'),
-        bridge.getSetting('fingering', 'handSize'),
-        bridge.getSetting('fingering', 'displayMode'),
-      ]);
-
-      let baselineStats: UserStatsRow | null = null;
-      let fingerings: FingeringRow[] = [];
-      if (source.kind === 'library-song') {
-        [baselineStats, fingerings] = await Promise.all([
-          bridge.getUserStats(initialSong.id),
-          bridge.getCustomFingerings(initialSong.id),
-        ]);
-      }
-
-      baselineStatsRef.current = baselineStats;
-      setReminderFrequencyMinutes(reminderValue && reminderValue !== 'off' ? Number(reminderValue) || null : null);
-      setCustomFingerings(fingerings);
-      setIsEditingFingering(false);
-      setFingeringEditorState(null);
-      setSelectedFingeringNoteId(null);
-
-      const nextSessionConfig: SessionConfig = {
-        ...initialSessionConfig,
-        handSize:
-          handSizeValue === 'small' || handSizeValue === 'medium' || handSizeValue === 'large'
-            ? handSizeValue
-            : initialSessionConfig.handSize,
-        fingeringDisplayMode:
-          displayModeValue === 'always' ||
-          displayModeValue === 'learning-only' ||
-          displayModeValue === 'never'
-            ? displayModeValue
-            : initialSessionConfig.fingeringDisplayMode,
-      };
-      setSessionConfig(nextSessionConfig);
-
       try {
+        if (!bridge) {
+          throw new Error('The app bridge is unavailable.');
+        }
+
+        setLoadError(null);
+        setStatusMessage('Loading song from the library.');
+        currentSongRef.current = initialSong;
+        const [reminderValue, handSizeValue, displayModeValue] = await Promise.all([
+          bridge.getSetting('practice', 'postureReminderMinutes'),
+          bridge.getSetting('fingering', 'handSize'),
+          bridge.getSetting('fingering', 'displayMode'),
+        ]);
+
+        let baselineStats: UserStatsRow | null = null;
+        let fingerings: FingeringRow[] = [];
+        if (source.kind === 'library-song') {
+          [baselineStats, fingerings] = await Promise.all([
+            bridge.getUserStats(initialSong.id),
+            bridge.getCustomFingerings(initialSong.id),
+          ]);
+        }
+
+        baselineStatsRef.current = baselineStats;
+        setReminderFrequencyMinutes(reminderValue && reminderValue !== 'off' ? Number(reminderValue) || null : null);
+        setCustomFingerings(fingerings);
+        setIsEditingFingering(false);
+        setFingeringEditorState(null);
+        setSelectedFingeringNoteId(null);
+
+        const nextSessionConfig: SessionConfig = {
+          ...initialSessionConfig,
+          handSize:
+            handSizeValue === 'small' || handSizeValue === 'medium' || handSizeValue === 'large'
+              ? handSizeValue
+              : initialSessionConfig.handSize,
+          fingeringDisplayMode:
+            displayModeValue === 'always' ||
+            displayModeValue === 'learning-only' ||
+            displayModeValue === 'never'
+              ? displayModeValue
+              : initialSessionConfig.fingeringDisplayMode,
+        };
+        setSessionConfig(nextSessionConfig);
+
         if (source.kind === 'lesson-drill') {
           setDetectedKey(detectKey(source.parsedSong.notes));
           await mountSession(source.parsedSong, nextSessionConfig, []);
@@ -669,12 +683,17 @@ export function GameScreen({
         const bytes = await bridge.loadMidiFileData(initialSong.id);
         await loadSongFromBytes(toArrayBuffer(bytes), initialSong, nextSessionConfig, fingerings);
       } catch (error) {
-        setStatusMessage(`Unable to load song: ${(error as Error).message}`);
+        const message = `Unable to load song: ${(error as Error).message}`;
+        gameSessionRef.current = null;
+        setSessionSong(null);
+        setSourceSong(null);
+        setLoadError(message);
+        setStatusMessage(message);
       }
     };
 
     void loadSelectedSong();
-  }, [initialSessionConfig, initialSong, source]);
+  }, [initialSessionConfig, initialSong, loadAttempt, source]);
 
   useEffect(() => {
     if (!fingeringEditorState) {
@@ -729,14 +748,13 @@ export function GameScreen({
 
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
-      event.stopPropagation();
+      if (event.key !== 'Escape' || event.defaultPrevented) return;
       event.preventDefault();
       setOverlayVisible((prev) => !prev);
     };
-    window.addEventListener('keydown', handleEscape, true);
+    window.addEventListener('keydown', handleEscape);
     return () => {
-      window.removeEventListener('keydown', handleEscape, true);
+      window.removeEventListener('keydown', handleEscape);
     };
   }, []);
 
@@ -986,7 +1004,6 @@ export function GameScreen({
     const now = performance.now();
     const currentTime = game.getCurrentTimeSec(now);
     const shouldResume = game.isTransportPlaying() && shouldAutoplayMode(nextSessionConfig.mode);
-    game.updateSessionConfig(nextSessionConfig, now);
     game.setTempo(value, now);
     await audioEngine.setTempo(
       currentSessionSong,
@@ -1147,17 +1164,24 @@ export function GameScreen({
     }
 
     const nextFingerings = [
-      ...customFingerings.filter((row) => row.noteIndex !== fingeringEditorState.scheduledIndex),
+      ...customFingerings.filter((row) => row.noteId !== fingeringEditorState.noteId),
       {
         songId: currentSongRef.current.id,
-        noteIndex: fingeringEditorState.scheduledIndex,
+        noteIndex: -1,
+        noteId: fingeringEditorState.noteId,
         finger,
         hand: fingeringEditorState.hand,
       },
     ];
     setCustomFingerings(nextFingerings);
     gameSessionRef.current?.setCustomFingerings(nextFingerings);
-    await window.appBridge.saveCustomFingering(currentSongRef.current.id, fingeringEditorState.scheduledIndex, finger, fingeringEditorState.hand);
+    await window.appBridge.saveCustomFingering(
+      currentSongRef.current.id,
+      -1,
+      finger,
+      fingeringEditorState.hand,
+      fingeringEditorState.noteId,
+    );
     setFingeringEditorState((current) => current ? { ...current, finger } : null);
   };
 
@@ -1191,14 +1215,22 @@ export function GameScreen({
       onHandSizeChange={(handSize) => {
         const nextConfig = { ...sessionConfig, handSize };
         setSessionConfig(nextConfig);
-        void window.appBridge?.setSetting('fingering', 'handSize', handSize);
-        void rebuildForSessionConfig(nextConfig);
+        gameSessionRef.current?.updateSessionConfig(nextConfig, performance.now());
+        void saveSetting('fingering', 'handSize', handSize).then(({ saved }) => {
+          if (!saved) {
+            setStatusMessage('Hand size is active for this session only. Save failed; try again.');
+          }
+        });
       }}
       onFingeringDisplayModeChange={(fingeringDisplayMode) => {
         const nextConfig = { ...sessionConfig, fingeringDisplayMode };
         setSessionConfig(nextConfig);
-        void window.appBridge?.setSetting('fingering', 'displayMode', fingeringDisplayMode);
-        void rebuildForSessionConfig(nextConfig);
+        gameSessionRef.current?.updateSessionConfig(nextConfig, performance.now());
+        void saveSetting('fingering', 'displayMode', fingeringDisplayMode).then(({ saved }) => {
+          if (!saved) {
+            setStatusMessage('Fingering display is active for this session only. Save failed; try again.');
+          }
+        });
       }}
       onToggleFingeringEditor={() => {
         if (!canPersistCurrentSong) {
@@ -1316,7 +1348,7 @@ export function GameScreen({
             unlockedRewardIds={unlockedRewardIds}
             onInstrumentChange={onInstrumentChange}
           />
-          <button className="immersive-menu-btn" onClick={() => setOverlayVisible(true)}>
+          <button className="immersive-menu-btn" ref={menuButtonRef} onClick={() => setOverlayVisible(true)}>
             Menu
           </button>
         </div>
@@ -1332,6 +1364,21 @@ export function GameScreen({
 
       {/* Main canvas area — fills all available space */}
       <div className="immersive-canvas-area">
+        {loadError && (
+          <section className="panel game-load-error" role="alert">
+            <p className="eyebrow">Practice unavailable</p>
+            <h2>Could not start this session.</h2>
+            <p className="panel-copy">{loadError}</p>
+            <div className="immersive-overlay-actions">
+              <button className="primary-button" onClick={() => setLoadAttempt((attempt) => attempt + 1)}>
+                Retry
+              </button>
+              <button className="secondary-button" onClick={onExit}>
+                {exitLabel ?? (source.kind === 'lesson-drill' ? 'Back to Lesson' : 'Main Menu')}
+              </button>
+            </div>
+          </section>
+        )}
         {fallingNotesCanvas}
         {countdownValue !== null && (
           <div className="countdown-overlay" aria-live="assertive">
@@ -1376,6 +1423,7 @@ export function GameScreen({
       {overlayVisible && (
         <div className="immersive-overlay" onClick={(e) => { if (e.target === e.currentTarget) setOverlayVisible(false); }}>
           <div
+            ref={overlayRef}
             className="immersive-overlay-panel game-overlay-panel"
             role="dialog"
             aria-modal="true"

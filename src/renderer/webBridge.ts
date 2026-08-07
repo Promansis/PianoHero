@@ -4,6 +4,7 @@ import {
   getInstrumentSamplePackDefinition,
   isValidPackManifest,
 } from '../lib/audio/instrumentSamplePacks';
+import { resolvePublicAssetUrl } from '../lib/audio/publicAssetUrl';
 import type {
   AppBridge,
   ImportProgressEvent,
@@ -79,34 +80,63 @@ function downloadJson(filename: string, value: unknown): void {
   URL.revokeObjectURL(url);
 }
 
-function pickJsonFile(): Promise<File | null> {
-  return new Promise((resolve) => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'application/json,.json';
-    input.style.display = 'none';
-    input.onchange = () => {
-      resolve(input.files?.[0] ?? null);
-      input.remove();
-    };
-    document.body.append(input);
-    input.click();
-  });
-}
+const PICKER_FALLBACK_DELAY_MS = 100;
 
-function pickMidiFiles(options: { multiple: boolean } = { multiple: true }): Promise<File[]> {
-  return new Promise((resolve) => {
+function pickFiles(options: { accept: string; multiple: boolean }): Promise<File[]> {
+  return new Promise((resolve, reject) => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.mid,.midi';
+    input.accept = options.accept;
     input.multiple = options.multiple;
     input.style.display = 'none';
-    input.onchange = () => {
-      resolve(Array.from(input.files ?? []));
+
+    let settled = false;
+    let fallbackTimer: number | undefined;
+    const cleanup = () => {
+      if (fallbackTimer !== undefined) {
+        window.clearTimeout(fallbackTimer);
+      }
+      input.removeEventListener('change', onChange);
+      input.removeEventListener('cancel', onCancel);
+      window.removeEventListener('focus', onWindowFocus);
       input.remove();
     };
-    document.body.append(input);
-    input.click();
+
+    const settle = (files: File[] | null, error?: unknown) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      cleanup();
+      if (error !== undefined) {
+        reject(error);
+      } else {
+        resolve(files ?? []);
+      }
+    };
+    const onChange = () => settle(Array.from(input.files ?? []));
+    const onCancel = () => settle([]);
+    const onWindowFocus = () => {
+      if (fallbackTimer !== undefined) {
+        return;
+      }
+      fallbackTimer = window.setTimeout(() => {
+        fallbackTimer = undefined;
+        if (!input.files?.length) {
+          settle([]);
+        }
+      }, PICKER_FALLBACK_DELAY_MS);
+    };
+
+    input.addEventListener('change', onChange);
+    input.addEventListener('cancel', onCancel);
+    window.addEventListener('focus', onWindowFocus);
+    try {
+      document.body.append(input);
+      input.click();
+    } catch (error) {
+      settle(null, error);
+    }
   });
 }
 
@@ -217,6 +247,21 @@ async function deleteStoredWebInstrumentPack(instrumentId: string): Promise<void
   });
 }
 
+function clearWebInstrumentPackDatabase(): Promise<void> {
+  for (const instrumentId of objectUrlCache.keys()) {
+    revokeObjectUrls(instrumentId);
+  }
+  if (!window.indexedDB) {
+    return Promise.resolve();
+  }
+  return new Promise((resolve, reject) => {
+    const request = window.indexedDB.deleteDatabase(WEB_PACK_DB_NAME);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error ?? new Error('Unable to clear instrument sample packs.'));
+    request.onblocked = () => reject(new Error('Unable to clear instrument sample packs because the store is busy.'));
+  });
+}
+
 function toInstalledRecordMap(
   packs: Record<string, StoredWebInstrumentPack>,
 ): Record<string, InstalledInstrumentSamplePackRecord> {
@@ -241,7 +286,7 @@ async function fetchPackManifest(instrumentId: string): Promise<InstrumentSample
     throw new Error('This pack can only be installed from the desktop app.');
   }
 
-  const response = await fetch(definition.manifestPath);
+  const response = await fetch(resolvePublicAssetUrl(definition.manifestPath));
   if (!response.ok) {
     throw new Error(`Unable to load the ${definition.packLabel} manifest.`);
   }
@@ -258,7 +303,7 @@ async function installManagedWebInstrumentPack(instrumentId: string): Promise<Re
   const manifest = await fetchPackManifest(instrumentId);
   const assets = await Promise.all(
     manifest.assets.map(async (asset) => {
-      const response = await fetch(asset.url);
+      const response = await fetch(resolvePublicAssetUrl(asset.url));
       if (!response.ok) {
         throw new Error(`Unable to download ${asset.fileName} for ${manifest.packLabel}.`);
       }
@@ -330,7 +375,7 @@ export const webBridge = new Proxy({} as AppBridge, {
 
     if (property === 'loadCurriculumMidi') {
       return async (filename: string): Promise<Uint8Array> => {
-        const response = await fetch(`/curriculum-midis/${encodeURIComponent(filename)}`);
+        const response = await fetch(resolvePublicAssetUrl(`/curriculum-midis/${encodeURIComponent(filename)}`));
         if (!response.ok) {
           throw new Error(`Unable to load curriculum MIDI: ${response.status}`);
         }
@@ -340,7 +385,7 @@ export const webBridge = new Proxy({} as AppBridge, {
 
     if (property === 'importMidiFiles') {
       return async (): Promise<ImportResult> => {
-        const files = await pickMidiFiles({ multiple: true });
+        const files = await pickFiles({ accept: '.mid,.midi', multiple: true });
         if (files.length === 0) {
           return { songs: [], errors: [], skipped: 0 };
         }
@@ -350,7 +395,7 @@ export const webBridge = new Proxy({} as AppBridge, {
 
     if (property === 'reattachMidiFile') {
       return async (songId: string): Promise<ReattachMidiResult> => {
-        const files = await pickMidiFiles({ multiple: false });
+        const files = await pickFiles({ accept: '.mid,.midi', multiple: false });
         if (files.length === 0) {
           return { reattached: [], errors: [], skipped: 0 };
         }
@@ -388,7 +433,7 @@ export const webBridge = new Proxy({} as AppBridge, {
 
     if (property === 'importLibrary') {
       return async (): Promise<LibraryImportResult | null> => {
-        const file = await pickJsonFile();
+        const [file] = await pickFiles({ accept: 'application/json,.json', multiple: false });
         if (!file) {
           return null;
         }
@@ -400,6 +445,15 @@ export const webBridge = new Proxy({} as AppBridge, {
           body: JSON.stringify(backup),
         });
         return parseRpcResponse<LibraryImportResult>(response);
+      };
+    }
+
+    if (property === 'resetUserData') {
+      return async (): Promise<null> => {
+        const result = await callRpc('resetUserData', []) as null;
+        window.localStorage.clear();
+        await clearWebInstrumentPackDatabase();
+        return result;
       };
     }
 

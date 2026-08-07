@@ -8,6 +8,8 @@ import { buildLibraryBackup, importLibraryBackup } from './libraryBackup';
 import { FileSystemMidiStorageAdapter } from '../storage/midiStorage';
 import type { LibraryBackupV1, LibraryBackupV2 } from '../shared/dbTypes';
 import { isLibraryBackup } from '../shared/libraryBackup';
+import { createSongId } from '../lib/midi/importMetadata';
+import { Midi } from '@tonejs/midi';
 
 const tempDirs: string[] = [];
 const songId = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
@@ -45,9 +47,13 @@ describe('library backups', () => {
     const sourceMidiDir = join(sourceDir, 'midi-files');
     await mkdir(sourceMidiDir, { recursive: true });
     const sourceDb = new AppDatabase(join(sourceDir, 'source.db'));
-    const midiPath = join(sourceMidiDir, `${songId}.mid`);
-    await writeFile(midiPath, new Uint8Array([77, 84, 104, 100]));
-    addSong(sourceDb, songId, midiPath);
+    const midi = new Midi();
+    midi.addTrack().addNote({ midi: 60, time: 0, duration: 0.5, velocity: 0.8 });
+    const midiBytes = midi.toArray();
+    const contentSongId = await createSongId(midiBytes);
+    const midiPath = join(sourceMidiDir, `${contentSongId}.mid`);
+    await writeFile(midiPath, midiBytes);
+    addSong(sourceDb, contentSongId, midiPath);
 
     const { backup, exportResult } = await buildLibraryBackup(sourceDb, new FileSystemMidiStorageAdapter(sourceMidiDir));
     sourceDb.close();
@@ -61,12 +67,12 @@ describe('library backups', () => {
     const targetMidiDir = join(targetDir, 'midi-files');
     const targetDb = new AppDatabase(join(targetDir, 'target.db'));
     const importResult = await importLibraryBackup(targetDb, backup, new FileSystemMidiStorageAdapter(targetMidiDir));
-    const restoredSong = targetDb.getSong(songId);
+    const restoredSong = targetDb.getSong(contentSongId);
     targetDb.close();
 
     expect(importResult.midiFilesRestored).toBe(1);
-    expect(restoredSong?.filePath).toBe(join(targetMidiDir, `${songId}.mid`));
-    await expect(readFile(join(targetMidiDir, `${songId}.mid`))).resolves.toEqual(Buffer.from([77, 84, 104, 100]));
+    expect(restoredSong?.filePath).toBe(join(targetMidiDir, `${contentSongId}.mid`));
+    await expect(readFile(join(targetMidiDir, `${contentSongId}.mid`))).resolves.toEqual(Buffer.from(midiBytes));
   });
 
   it('exports only app-owned MIDI files under the configured storage root', async () => {
@@ -124,11 +130,15 @@ describe('library backups', () => {
     const existingPath = join(targetMidiDir, `${songId}.mid`);
     await writeFile(existingPath, new Uint8Array([9, 9, 9]));
     const targetDb = new AppDatabase(join(targetDir, 'target.db'));
+    const validMidi = new Midi();
+    validMidi.addTrack().addNote({ midi: 60, time: 0, duration: 0.5, velocity: 0.8 });
+    const validBytes = validMidi.toArray();
+    const validSongId = await createSongId(validBytes);
     const backup: LibraryBackupV2 = {
       version: 2,
       exportedAt: new Date().toISOString(),
       songs: [{
-        id: songId,
+        id: validSongId,
         title: 'Bad Playlist Song',
         artist: '',
         genre: '',
@@ -156,9 +166,9 @@ describe('library backups', () => {
       fingerings: [],
       settings: [],
       midiFiles: [{
-        songId,
-        filename: `${songId}.mid`,
-        dataBase64: Buffer.from([1, 2, 3]).toString('base64'),
+        songId: validSongId,
+        filename: `${validSongId}.mid`,
+        dataBase64: Buffer.from(validBytes).toString('base64'),
         byteLength: 3,
       }],
     };
@@ -169,6 +179,57 @@ describe('library backups', () => {
 
     await expect(readFile(existingPath)).resolves.toEqual(Buffer.from([9, 9, 9]));
     expect(remainingEntries).toEqual([`${songId}.mid`]);
+  });
+
+  it('rejects same-length MIDI bytes whose content id differs', async () => {
+    const targetDir = await makeTempDir();
+    const targetMidiDir = join(targetDir, 'midi-files');
+    const targetDb = new AppDatabase(join(targetDir, 'target.db'));
+    const originalMidi = new Midi();
+    originalMidi.addTrack().addNote({ midi: 60, time: 0, duration: 0.5, velocity: 0.8 });
+    const substitutedMidi = new Midi();
+    substitutedMidi.addTrack().addNote({ midi: 67, time: 0, duration: 0.5, velocity: 0.8 });
+    const original = originalMidi.toArray();
+    const substituted = substitutedMidi.toArray();
+    const id = await createSongId(original);
+    const backup: LibraryBackupV2 = {
+      version: 2,
+      exportedAt: new Date().toISOString(),
+      songs: [{
+        id,
+        title: 'Tampered',
+        artist: '',
+        genre: '',
+        filePath: '',
+        difficulty: 1,
+        durationSec: 1,
+        bpm: 120,
+        noteCount: 1,
+        dateAdded: new Date().toISOString(),
+        timesPlayed: 0,
+        tags: [],
+        isFavorite: false,
+        folderId: null,
+        trackAssignments: {},
+      }],
+      folders: [],
+      playlists: [],
+      fingerings: [],
+      settings: [],
+      midiFiles: [{
+        songId: id,
+        filename: `${id}.mid`,
+        dataBase64: Buffer.from(substituted).toString('base64'),
+        byteLength: substituted.byteLength,
+      }],
+    };
+
+    await expect(importLibraryBackup(targetDb, backup, new FileSystemMidiStorageAdapter(targetMidiDir))).rejects.toThrow(
+      /content does not match/,
+    );
+    expect(targetDb.getAllSongs()).toEqual([]);
+    expect(existsSync(targetMidiDir)).toBe(false);
+    targetDb.close();
   });
 
   it('keeps v1 backup support while reporting missing MIDI files', async () => {

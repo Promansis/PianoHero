@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { usePrefersReducedMotion } from '../usePrefersReducedMotion';
 import type { FreePlayVisualMode, FreePlayVisualNote, VisualPreset } from './FreePlayVisualTypes';
 import {
   applyNoteToHeatmap,
@@ -2905,6 +2906,8 @@ export function FreePlayCanvasScene(props: FreePlayCanvasSceneProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const latestPropsRef = useRef(props);
   const sceneStateRef = useRef<SceneState>(createSceneState());
+  const drawFrameRef = useRef<(() => void) | null>(null);
+  const reducedMotion = usePrefersReducedMotion();
 
   latestPropsRef.current = props;
 
@@ -3021,14 +3024,24 @@ export function FreePlayCanvasScene(props: FreePlayCanvasSceneProps) {
       drawMetronomePulse(context, width, height, state.metronomePulses, now);
       drawBadges(context, palette, nextProps.activeNotes, width, height);
 
-      frameHandle = window.requestAnimationFrame(drawFrame);
+      if (!reducedMotion) {
+        frameHandle = window.requestAnimationFrame(drawFrame);
+      }
     };
 
-    frameHandle = window.requestAnimationFrame(drawFrame);
+    drawFrameRef.current = drawFrame;
+    drawFrame();
     return () => {
       window.cancelAnimationFrame(frameHandle);
+      drawFrameRef.current = null;
     };
-  }, []);
+  }, [reducedMotion]);
+
+  useEffect(() => {
+    if (reducedMotion) {
+      drawFrameRef.current?.();
+    }
+  }, [props.activeNotes, props.metronomeBeat, props.mode, props.recentNotes, props.resetToken, props.sustainOn, reducedMotion]);
 
   return (
     <div className="free-play-visualizer-scene" ref={containerRef} aria-hidden="true">

@@ -1,6 +1,7 @@
 import { Info, KeyboardMusic } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AudioEngine } from '../../lib/audio/audioEngine';
+import { resolvePublicAssetUrl } from '../../lib/audio/publicAssetUrl';
 import {
   DEFAULT_SOUNDBOARD_MODE_ID,
   SOUNDBOARD_MAX_MIDI,
@@ -19,6 +20,7 @@ import { useTimeoutRegistry } from '../useTimeoutRegistry';
 import { AnimalSoundboardCanvas, type AnimalSoundboardBurst } from './AnimalSoundboardCanvas';
 import { ImmersiveHud, type ImmersiveHudDestination, type ImmersiveHudNavigationItem } from './ImmersiveHud';
 import { PianoKeyboard, type KeyboardKeyLabel, type KeyboardOverlayEffect } from './PianoKeyboard';
+import { useModalFocusTrap } from '../useModalFocusTrap';
 
 interface NoveltySoundboardScreenProps {
   audioEngine: AudioEngine;
@@ -78,6 +80,14 @@ export function NoveltySoundboardScreen({
   const menuButtonRef = useRef<HTMLButtonElement | null>(null);
   const oneShotPlaybackLockedRef = useRef(false);
   const oneShotUnlockTimeoutRef = useRef<number | null>(null);
+  const overlayRef = useRef<HTMLDivElement | null>(null);
+
+  useModalFocusTrap({
+    open: overlayVisible,
+    dialogRef: overlayRef,
+    triggerRef: menuButtonRef,
+    onEscape: () => setOverlayVisible(false),
+  });
 
   const mode = useMemo(() => getSoundboardMode(modeId), [modeId]);
   const highlightedNotes = useMemo(() => mode.clips.map((clip) => clip.midi), [mode]);
@@ -126,21 +136,17 @@ export function NoveltySoundboardScreen({
 
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') {
+      if (event.key !== 'Escape' || event.defaultPrevented) {
         return;
       }
       event.stopPropagation();
       event.preventDefault();
-      if (overlayVisible) {
-        closeOverlay(true);
-        return;
-      }
-      setOverlayVisible(true);
+      setOverlayVisible((prev) => !prev);
     };
 
-    window.addEventListener('keydown', handleEscape, true);
+    window.addEventListener('keydown', handleEscape);
     return () => {
-      window.removeEventListener('keydown', handleEscape, true);
+      window.removeEventListener('keydown', handleEscape);
     };
   }, [overlayVisible]);
 
@@ -173,7 +179,7 @@ export function NoveltySoundboardScreen({
       return;
     }
 
-    const visualSrc = clip.visualSrc;
+    const visualSrc = resolvePublicAssetUrl(clip.visualSrc);
     const effectId = `${clip.id}-${effectCounterRef.current}`;
     effectCounterRef.current += 1;
     setFloatingEffects((current) => [
@@ -234,7 +240,8 @@ export function NoveltySoundboardScreen({
 
     oneShotPlaybackLockedRef.current = true;
     try {
-      const durationMs = Math.max(100, (await audioEngine.getOneShotDurationSec(clip.src)) * 1000);
+      const src = resolvePublicAssetUrl(clip.src);
+      const durationMs = Math.max(100, (await audioEngine.getOneShotDurationSec(src)) * 1000);
       if (oneShotUnlockTimeoutRef.current !== null) {
         clearTrackedTimeout(oneShotUnlockTimeoutRef.current);
       }
@@ -242,7 +249,7 @@ export function NoveltySoundboardScreen({
         oneShotPlaybackLockedRef.current = false;
         oneShotUnlockTimeoutRef.current = null;
       }, durationMs);
-      await audioEngine.playOneShot(clip.src, clip.gainDb);
+      await audioEngine.playOneShot(src, clip.gainDb);
     } catch {
       oneShotPlaybackLockedRef.current = false;
       if (oneShotUnlockTimeoutRef.current !== null) {
@@ -641,6 +648,7 @@ export function NoveltySoundboardScreen({
           }}
         >
           <div
+            ref={overlayRef}
             className="immersive-overlay-panel soundboard-overlay-panel"
             id="soundboard-overlay-panel"
             role="dialog"

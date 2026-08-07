@@ -24,6 +24,7 @@ export default defineConfig({
   },
   renderer: {
     plugins: [react()],
+    publicDir: '../../public',
     define: {
       IS_WEB: 'false',
     },

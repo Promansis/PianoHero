@@ -76,6 +76,44 @@ describe('GameSession', () => {
     expect(snapshot.visibleNotes.some((note) => note.judgement === 'perfect')).toBe(true);
   });
 
+  it('preserves judged state when tempo or display configuration changes', () => {
+    const session = new GameSession(SONG, DEFAULT_SESSION);
+    session.play(0);
+    session.ingestMidiEvent({
+      type: 'noteon',
+      note: 60,
+      velocity: 0.9,
+      timestamp: 1000,
+      sourceId: 'device-1',
+      source: 'midi',
+    });
+
+    const before = session.getSnapshot(1000);
+    session.updateSessionConfig({ ...DEFAULT_SESSION, tempoMultiplier: 0.8, fingeringDisplayMode: 'never' }, 1000);
+    const after = session.getSnapshot(1000);
+
+    expect(after.score).toEqual(before.score);
+    expect(after.visibleNotes.find((note) => note.id === 'note-0')?.judgement).toBe('perfect');
+  });
+
+  it('applies stable fingering overrides after a loop filters the schedule', () => {
+    const song: ParsedSong = {
+      ...SONG,
+      measureBoundaries: [
+        { startTick: 0, endTick: 600, startSec: 0, endSec: 1.25 },
+        { startTick: 600, endTick: 1200, startSec: 1.25, endSec: 2.5 },
+      ],
+    };
+    const session = new GameSession(
+      song,
+      { ...DEFAULT_SESSION, loopRange: { startMeasure: 1, endMeasure: 1 } },
+      [{ songId: song.id, noteIndex: -1, noteId: 'note-1', finger: 5, hand: 'right' }],
+    );
+
+    expect(session.getSnapshot(0).visibleNotes.find((note) => note.id === 'note-1')?.finger).toBe(5);
+    expect(session.getSnapshot(0).visibleNotes.some((note) => note.id === 'note-0')).toBe(false);
+  });
+
   it('marks overdue notes as misses', () => {
     const session = new GameSession(SONG, DEFAULT_SESSION);
     session.play(0);
@@ -177,6 +215,24 @@ describe('GameSession', () => {
     });
 
     expect(session.getSnapshot(1010).activeInputNotes).toEqual([]);
+  });
+
+  it('releases a sustained note when only its source disconnects', () => {
+    const session = new GameSession(SONG, DEFAULT_SESSION);
+    session.ingestInputEvent({
+      type: 'noteon', note: 60, timestamp: 900, sourceId: 'midi-1', source: 'midi',
+    });
+    session.ingestInputEvent({
+      type: 'sustain', sustainValue: 127, timestamp: 910, sourceId: 'midi-1', source: 'midi',
+    });
+    session.ingestInputEvent({
+      type: 'noteoff', note: 60, timestamp: 920, sourceId: 'midi-1', source: 'midi',
+    });
+    session.ingestInputEvent({
+      type: 'sustain', sustainValue: 0, timestamp: 930, sourceId: 'midi-1', source: 'midi',
+    });
+
+    expect(session.getSnapshot(930).activeInputNotes).toEqual([]);
   });
 
   it('shows fingering numbers when display mode is always', () => {

@@ -8,6 +8,8 @@ interface MidiTrackNote {
   velocity: number;
   time: number;
   duration: number;
+  ticks: number;
+  durationTicks: number;
 }
 
 interface MidiTrack {
@@ -24,7 +26,9 @@ interface MetaEvent {
 interface MidiInstance {
   header: {
     ppq: number;
-    tempos: Array<{ bpm: number }>;
+    tempos: Array<{ bpm: number; ticks: number }>;
+    timeSignatures: Array<{ ticks: number; timeSignature: number[] }>;
+    ticksToSeconds: (ticks: number) => number;
     name?: string;
     meta?: MetaEvent[];
   };
@@ -106,6 +110,8 @@ export function parseMidiFile(arrayBuffer: ArrayBuffer, meta: MidiSourceMeta): P
       velocity: note.velocity,
       startSec: note.time,
       durationSec: note.duration,
+      ticks: note.ticks,
+      durationTicks: note.durationTicks,
       hand: defaultHandForMidi(note.midi),
     })),
   );
@@ -118,5 +124,48 @@ export function parseMidiFile(arrayBuffer: ArrayBuffer, meta: MidiSourceMeta): P
     durationSec: midi.duration,
     tracks,
     notes: notes.sort((left, right) => left.startSec - right.startSec || left.midi - right.midi),
+    measureBoundaries: buildMeasureBoundaries(midi),
   };
+}
+
+function buildMeasureBoundaries(midi: MidiInstance) {
+  const endTick = Math.max(
+    0,
+    ...midi.tracks.flatMap((track) => track.notes.map((note) => note.ticks + note.durationTicks)),
+  );
+  if (endTick === 0) {
+    return [{ startTick: 0, endTick: 0, startSec: 0, endSec: 0 }];
+  }
+
+  const signatures = midi.header.timeSignatures.length > 0
+    ? [...midi.header.timeSignatures].sort((left, right) => left.ticks - right.ticks)
+    : [{ ticks: 0, timeSignature: [4, 4] }];
+  if (signatures[0].ticks > 0) {
+    signatures.unshift({ ticks: 0, timeSignature: [4, 4] });
+  }
+
+  const boundaries: Array<{ startTick: number; endTick: number; startSec: number; endSec: number }> = [];
+  let tick = 0;
+  let signatureIndex = 0;
+  while (tick < endTick) {
+    while (signatureIndex + 1 < signatures.length && signatures[signatureIndex + 1].ticks <= tick) {
+      signatureIndex += 1;
+    }
+    const [numerator = 4, denominator = 4] = signatures[signatureIndex].timeSignature;
+    const measureTicks = midi.header.ppq * numerator * 4 / denominator;
+    const nextSignatureTick = signatures[signatureIndex + 1]?.ticks;
+    const end = Math.min(
+      endTick,
+      tick + measureTicks,
+      nextSignatureTick !== undefined && nextSignatureTick > tick ? nextSignatureTick : endTick,
+    );
+    boundaries.push({
+      startTick: tick,
+      endTick: end,
+      startSec: midi.header.ticksToSeconds(tick),
+      endSec: midi.header.ticksToSeconds(end),
+    });
+    tick = end;
+  }
+  return boundaries;
 }

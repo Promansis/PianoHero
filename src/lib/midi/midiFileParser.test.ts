@@ -45,4 +45,17 @@ describe('parseMidiFile', () => {
       hand: 'right',
     });
   });
+
+  it('preserves MIDI meter and does not create a terminal phantom measure', () => {
+    const midi = new Midi();
+    midi.header.timeSignatures = [{ ticks: 0, timeSignature: [3, 4] }];
+    midi.header.setTempo(120);
+    const track = midi.addTrack();
+    track.addNote({ midi: 60, ticks: 1440, durationTicks: 240, velocity: 0.8 });
+
+    const parsed = parseMidiFile(midi.toArray().slice().buffer, { songId: 'metered', title: 'Metered' });
+
+    expect(parsed.measureBoundaries).toHaveLength(2);
+    expect(parsed.measureBoundaries?.[1]).toMatchObject({ startTick: 1440 });
+  });
 });

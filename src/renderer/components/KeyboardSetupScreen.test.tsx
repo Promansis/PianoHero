@@ -128,4 +128,52 @@ describe('KeyboardSetupScreen', () => {
       'midi',
     );
   });
+
+  it('does not claim a rejected binding was saved and preserves restart read-back', async () => {
+    const getSetting = vi.fn().mockResolvedValue('{"note-c3":"Z"}');
+    const setSetting = vi.fn().mockRejectedValue(new Error('write failed'));
+    window.appBridge = { getSetting, setSetting } as unknown as typeof window.appBridge;
+
+    render(
+      <KeyboardSetupScreen
+        keyboardInputService={new MockKeyboardInputService() as unknown as ComputerKeyboardInputService}
+        inputMode="both"
+        onInputModeChange={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Bind C3 to Z' }));
+    fireEvent.keyDown(window, { code: 'KeyA' });
+
+    await waitFor(() => {
+      expect(screen.getByText(/Mapping active for this session only/)).toBeInTheDocument();
+    });
+    expect(screen.queryByText('C3 set to A.')).not.toBeInTheDocument();
+    await expect(getSetting(INPUT_SETTINGS_CATEGORY, 'keyboardMapping')).resolves.toBe('{"note-c3":"Z"}');
+  });
+
+  it('catches rejected clear and reset writes', async () => {
+    const setSetting = vi.fn().mockRejectedValue(new Error('write failed'));
+    window.appBridge = {
+      getSetting: vi.fn().mockResolvedValue(null),
+      setSetting,
+    } as unknown as typeof window.appBridge;
+    const service = new MockKeyboardInputService();
+
+    render(
+      <KeyboardSetupScreen
+        keyboardInputService={service as unknown as ComputerKeyboardInputService}
+        inputMode="both"
+        onInputModeChange={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Bind C3 to Z' }));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Clear' })[0]);
+    await waitFor(() => expect(screen.getByText(/Mapping active for this session only/)).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reset Mapping' }));
+    await waitFor(() => expect(setSetting).toHaveBeenCalledTimes(2));
+    expect(screen.getByText(/Mapping active for this session only/)).toBeInTheDocument();
+  });
 });

@@ -1,6 +1,8 @@
-import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import { isAbsolute, join, relative, resolve } from 'node:path';
 import type { AppDatabase } from '../persistence/database';
+import type { ResetOperation } from '../persistence/crossStoreMutations';
 import type {
   InstalledInstrumentSamplePackRecord,
   InstrumentSamplePackManifest,
@@ -41,30 +43,31 @@ function saveInstalledPacks(
   db.setSetting('audio', INSTALLED_INSTRUMENT_SAMPLE_PACKS_SETTING_KEY, JSON.stringify(installedPacks));
 }
 
-function getAppStaticRootCandidates(appPath: string): string[] {
-  return [
-    resolve(appPath, 'public'),
-    resolve(appPath, 'out', 'renderer'),
-    resolve(appPath, 'dist', 'web'),
-    resolve(process.cwd(), 'public'),
-    resolve(process.cwd(), 'out', 'renderer'),
-    resolve(process.cwd(), 'dist', 'web'),
-  ];
+function getInstrumentSamplePackDir(userDataPath: string, instrumentId: string): string {
+  if (!getInstrumentSamplePackDefinition(instrumentId)) {
+    throw new Error(`No sample pack is configured for instrument: ${instrumentId}`);
+  }
+
+  const root = resolve(userDataPath, 'instrument-sample-packs');
+  const destination = resolve(root, instrumentId);
+  const relativePath = relative(root, destination);
+  if (!relativePath || relativePath.startsWith('..') || isAbsolute(relativePath)) {
+    throw new Error(`Invalid sample pack path for instrument: ${instrumentId}`);
+  }
+  return destination;
 }
 
-function resolveBundledFilePath(appPath: string, assetPath: string): string {
+function resolveBundledFilePath(assetRoot: string, assetPath: string): string {
   const relativePath = assetPath.replace(/^\//, '');
-  for (const candidate of getAppStaticRootCandidates(appPath)) {
-    const absolutePath = join(candidate, relativePath);
-    if (existsSync(absolutePath)) {
-      return absolutePath;
-    }
+  const absolutePath = join(assetRoot, relativePath);
+  if (existsSync(absolutePath)) {
+    return absolutePath;
   }
   throw new Error(`Bundled asset not found: ${assetPath}`);
 }
 
-function loadBundledManifest(appPath: string, manifestPath: string): InstrumentSamplePackManifest {
-  const manifestFile = resolveBundledFilePath(appPath, manifestPath);
+function loadBundledManifest(assetRoot: string, manifestPath: string): InstrumentSamplePackManifest {
+  const manifestFile = resolveBundledFilePath(assetRoot, manifestPath);
   const manifest = JSON.parse(readFileSync(manifestFile, 'utf8')) as unknown;
   if (!isValidPackManifest(manifest)) {
     throw new Error(`Invalid bundled sample pack manifest: ${manifestPath}`);
@@ -75,17 +78,17 @@ function loadBundledManifest(appPath: string, manifestPath: string): InstrumentS
 function installManagedDesktopInstrumentSamplePack(
   db: AppDatabase,
   userDataPath: string,
-  appPath: string,
+  assetRoot: string,
   instrumentId: string,
   manifestPath: string,
 ): InstrumentSamplePackStatus[] {
-  const manifest = loadBundledManifest(appPath, manifestPath);
-  const destinationDir = join(userDataPath, 'instrument-sample-packs', instrumentId);
+  const manifest = loadBundledManifest(assetRoot, manifestPath);
+  const destinationDir = getInstrumentSamplePackDir(userDataPath, instrumentId);
   rmSync(destinationDir, { recursive: true, force: true });
   mkdirSync(destinationDir, { recursive: true });
 
   for (const asset of manifest.assets) {
-    const sourceFile = resolveBundledFilePath(appPath, asset.url);
+    const sourceFile = resolveBundledFilePath(assetRoot, asset.url);
     copyFileSync(sourceFile, join(destinationDir, asset.fileName));
   }
 
@@ -119,7 +122,7 @@ function installManualDesktopInstrumentSamplePack(
     throw new Error('No compatible audio files were found in the selected directory.');
   }
 
-  const destinationDir = join(userDataPath, 'instrument-sample-packs', instrumentId);
+  const destinationDir = getInstrumentSamplePackDir(userDataPath, instrumentId);
   rmSync(destinationDir, { recursive: true, force: true });
   mkdirSync(destinationDir, { recursive: true });
 
@@ -154,7 +157,7 @@ export function resolveDesktopInstrumentSampleSource(
 export function installDesktopInstrumentSamplePack(
   db: AppDatabase,
   userDataPath: string,
-  appPath: string,
+  assetRoot: string,
   instrumentId: string,
   sourceDir?: string,
 ): InstrumentSamplePackStatus[] {
@@ -167,7 +170,7 @@ export function installDesktopInstrumentSamplePack(
     if (!definition.manifestPath) {
       throw new Error(`Managed pack manifest missing for ${instrumentId}.`);
     }
-    return installManagedDesktopInstrumentSamplePack(db, userDataPath, appPath, instrumentId, definition.manifestPath);
+    return installManagedDesktopInstrumentSamplePack(db, userDataPath, assetRoot, instrumentId, definition.manifestPath);
   }
 
   if (!sourceDir) {
@@ -182,9 +185,87 @@ export function removeDesktopInstrumentSamplePack(
   userDataPath: string,
   instrumentId: string,
 ): InstrumentSamplePackStatus[] {
+  const destinationDir = getInstrumentSamplePackDir(userDataPath, instrumentId);
   const installedPacks = getInstalledPacks(db);
+  const previousRecord = installedPacks[instrumentId];
+  const removalDir = resolve(userDataPath, `.remove-${instrumentId}-${randomUUID()}`);
+  if (!removalDir.startsWith(resolve(userDataPath))) {
+    throw new Error(`Invalid sample pack removal path for instrument: ${instrumentId}`);
+  }
+
+  const hadPack = existsSync(destinationDir);
+  if (hadPack) {
+    renameSync(destinationDir, removalDir);
+  }
+
   delete installedPacks[instrumentId];
-  saveInstalledPacks(db, installedPacks);
-  rmSync(join(userDataPath, 'instrument-sample-packs', instrumentId), { recursive: true, force: true });
+  try {
+    saveInstalledPacks(db, installedPacks);
+  } catch (error) {
+    if (hadPack && !existsSync(destinationDir) && existsSync(removalDir)) {
+      renameSync(removalDir, destinationDir);
+    }
+    installedPacks[instrumentId] = previousRecord;
+    try {
+      saveInstalledPacks(db, installedPacks);
+    } catch {
+      // ponytail: metadata rollback already reported; last-known state is best-effort
+    }
+    throw error;
+  }
+
+  try {
+    rmSync(removalDir, { recursive: true, force: true });
+  } catch (error) {
+    installedPacks[instrumentId] = previousRecord;
+    try {
+      if (hadPack && !existsSync(destinationDir) && existsSync(removalDir)) {
+        renameSync(removalDir, destinationDir);
+      }
+      saveInstalledPacks(db, installedPacks);
+    } catch {
+      // ponytail: filesystem/metadata rollback failure; owner may need manual recovery
+    }
+    throw new Error(`Failed to remove sample pack files: ${(error as Error).message}`);
+  }
+
   return buildInstrumentSamplePackStatuses('desktop', installedPacks);
+}
+
+function getPackResetBackupPath(userDataPath: string, operationId: string): string {
+  return resolve(userDataPath, `.instrument-sample-packs-reset-${operationId}`);
+}
+
+export function prepareDesktopInstrumentSamplePackReset(userDataPath: string, operationId: string): ResetOperation {
+  const packRoot = resolve(userDataPath, 'instrument-sample-packs');
+  if (!existsSync(packRoot)) {
+    return { commit: () => undefined, rollback: () => undefined };
+  }
+
+  const backupRoot = getPackResetBackupPath(userDataPath, operationId || randomUUID());
+  renameSync(packRoot, backupRoot);
+  return {
+    commit: () => rmSync(backupRoot, { recursive: true, force: true }),
+    rollback: () => {
+      rmSync(packRoot, { recursive: true, force: true });
+      renameSync(backupRoot, packRoot);
+    },
+  };
+}
+
+export async function recoverDesktopInstrumentSamplePackReset(
+  userDataPath: string,
+  operationId: string,
+  state: 'prepared' | 'db-committed',
+): Promise<void> {
+  const packRoot = resolve(userDataPath, 'instrument-sample-packs');
+  const backupRoot = getPackResetBackupPath(userDataPath, operationId);
+  if (state === 'prepared') {
+    if (existsSync(backupRoot)) {
+      rmSync(packRoot, { recursive: true, force: true });
+      renameSync(backupRoot, packRoot);
+    }
+    return;
+  }
+  rmSync(backupRoot, { recursive: true, force: true });
 }

@@ -31,6 +31,7 @@ export class GameSession {
   private playbackAnchorSec = 0;
   private scoringEngine: ScoringEngine;
   private sustainDown = false;
+  private sustainSources = new Set<string>();
   private physicalInputNotes = new Map<number, Set<string>>();
   private activeInputNotes = new Map<number, Set<string>>();
   private sessionConfig: SessionConfig;
@@ -57,16 +58,33 @@ export class GameSession {
 
   updateSessionConfig(sessionConfig: SessionConfig, nowMs: number): void {
     const currentTime = this.getCurrentTimeSec(nowMs);
+    const scheduleChanged =
+      sessionConfig.handFilter !== this.sessionConfig.handFilter ||
+      sessionConfig.loopRange?.startMeasure !== this.sessionConfig.loopRange?.startMeasure ||
+      sessionConfig.loopRange?.endMeasure !== this.sessionConfig.loopRange?.endMeasure;
+    const handSizeChanged = sessionConfig.handSize !== this.sessionConfig.handSize;
     this.sessionConfig = sessionConfig;
     this.currentTimeSec = Math.max(this.getLoopStartSec(), Math.min(currentTime, this.getLoopEndSec()));
     this.playbackAnchorSec = this.currentTimeSec;
     this.playbackAnchorMs = nowMs;
-    this.resetScheduledNotes();
+    if (scheduleChanged) {
+      this.resetScheduledNotes();
+    } else if (handSizeChanged) {
+      this.setCustomFingerings(this.customFingerings);
+    }
   }
 
   setCustomFingerings(customFingerings: FingeringRow[]): void {
     this.customFingerings = customFingerings;
-    this.resetScheduledNotes();
+    const computedFingerings = computeFingering(this.scheduledNotes, this.sessionConfig.handSize);
+    const overrides = new Map(this.customFingerings.flatMap((row) => row.noteId ? [[row.noteId, row] as const] : []));
+    this.scheduledNotes = this.scheduledNotes.map((note, noteIndex) => {
+      const override = overrides.get(note.id);
+      return {
+        ...note,
+        finger: override?.hand === note.effectiveHand ? override.finger : computedFingerings.get(noteIndex),
+      };
+    });
   }
 
   play(nowMs: number): void {
@@ -89,6 +107,7 @@ export class GameSession {
     this.playbackAnchorSec = this.currentTimeSec;
     this.playbackAnchorMs = nowMs;
     this.sustainDown = false;
+    this.sustainSources.clear();
     this.physicalInputNotes.clear();
     this.activeInputNotes.clear();
     this.resetScheduledNotes();
@@ -161,7 +180,7 @@ export class GameSession {
     const eventSongTime = this.getCurrentTimeSec(adjustedTimestamp);
 
     if (event.type === 'sustain') {
-      this.handleSustain(event.sustainValue ?? 0);
+      this.handleSustain(event.sustainValue ?? 0, event.sourceId);
       return;
     }
 
@@ -177,7 +196,7 @@ export class GameSession {
     }
 
     this.removeSourceFromMap(this.physicalInputNotes, event.note, event.sourceId);
-    if (!this.sustainDown) {
+    if (!this.sustainSources.has(event.sourceId)) {
       this.removeSourceFromMap(this.activeInputNotes, event.note, event.sourceId);
     }
   }
@@ -249,10 +268,10 @@ export class GameSession {
         judgement: 'pending' as NoteJudgement,
       }));
     const computedFingerings = computeFingering(scheduledNotes, this.sessionConfig.handSize);
-    const overrides = new Map(this.customFingerings.map((row) => [row.noteIndex, row]));
+    const overrides = new Map(this.customFingerings.flatMap((row) => row.noteId ? [[row.noteId, row] as const] : []));
 
     this.scheduledNotes = scheduledNotes.map((note, noteIndex) => {
-      const override = overrides.get(noteIndex);
+      const override = overrides.get(note.id);
       return {
         ...note,
         finger:
@@ -264,8 +283,13 @@ export class GameSession {
     this.scoringEngine.reset(this.scheduledNotes.length);
   }
 
-  private handleSustain(value: number): void {
-    this.sustainDown = value >= 64;
+  private handleSustain(value: number, sourceId: string): void {
+    if (value >= 64) {
+      this.sustainSources.add(sourceId);
+    } else {
+      this.sustainSources.delete(sourceId);
+    }
+    this.sustainDown = this.sustainSources.size > 0;
     if (this.sustainDown) {
       return;
     }

@@ -165,6 +165,7 @@ export interface AppBridge {
     noteIndex: number,
     finger: number,
     hand: FingeringRow['hand'],
+    noteId?: string,
   ) => Promise<void>;
   clearCustomFingerings: (songId: string) => Promise<void>;
 

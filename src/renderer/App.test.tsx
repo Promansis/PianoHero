@@ -154,16 +154,19 @@ vi.mock('./components/ProgressDashboardScreen', () => ({
 vi.mock('./components/SettingsScreen', () => ({
   SettingsScreen: ({
     onSettingChange,
+    onInputModeChange,
     onDeveloperUnlockAll,
     onUserDataReset,
   }: {
     onSettingChange: (category: string, key: string, value: string) => void;
+    onInputModeChange: (mode: 'both' | 'midi' | 'computer-keyboard') => void;
     onDeveloperUnlockAll: () => Promise<void>;
     onUserDataReset: () => void;
   }) => (
     <>
       <div>Settings</div>
       <button onClick={() => onSettingChange('visual', 'theme', 'neon')}>Select Neon</button>
+      <button onClick={() => onInputModeChange('midi')}>Select MIDI Input</button>
       <button onClick={() => void onDeveloperUnlockAll()}>Unlock All Developer Content</button>
       <button onClick={onUserDataReset}>Trigger User Data Reset</button>
     </>
@@ -257,7 +260,8 @@ describe('App', () => {
     setInstrumentReverbPresetSpy.mockClear();
     clearCustomSamplerSpy.mockClear();
     unlockAchievementSpy.mockClear();
-    setSettingSpy.mockClear();
+    setSettingSpy.mockReset();
+    setSettingSpy.mockResolvedValue(undefined);
     const achievements: AchievementRow[] = ACHIEVEMENTS.map((achievement) => ({
       id: achievement.id,
       unlockedAt: null,
@@ -441,6 +445,22 @@ describe('App', () => {
       expect(setInstrumentSpy).toHaveBeenCalledWith('organ');
       expect(setSettingSpy).toHaveBeenCalledWith('audio', 'instrumentId', 'organ');
       expect(screen.getByTestId('free-play-instrument')).toHaveTextContent('organ');
+    });
+  });
+
+  it('shows a session-only notice when an input-mode write rejects', async () => {
+    setSettingSpy.mockImplementation(async (category: string, key: string) => {
+      if (category === 'input' && key === 'mode') {
+        throw new Error('write failed');
+      }
+    });
+    render(<App />);
+
+    fireEvent.click(await screen.findByText('Open Settings'));
+    fireEvent.click(screen.getByText('Select MIDI Input'));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Input mode is active for this session only/)).toBeInTheDocument();
     });
   });
 

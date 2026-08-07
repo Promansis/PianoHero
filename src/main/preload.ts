@@ -46,8 +46,8 @@ const appBridge: AppBridge = {
   getLibrarySnapshot: () => ipcRenderer.invoke('library:get-snapshot'),
 
   getCustomFingerings: (songId) => ipcRenderer.invoke('fingerings:get', songId),
-  saveCustomFingering: (songId, noteIndex, finger, hand) =>
-    ipcRenderer.invoke('fingerings:save', songId, noteIndex, finger, hand),
+  saveCustomFingering: (songId, noteIndex, finger, hand, noteId) =>
+    ipcRenderer.invoke('fingerings:save', songId, noteIndex, finger, hand, noteId),
   clearCustomFingerings: (songId) => ipcRenderer.invoke('fingerings:clear', songId),
 
   getAllFolders: () => ipcRenderer.invoke('folders:get-all'),

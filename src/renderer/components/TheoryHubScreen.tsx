@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { TheoryResultType, TheoryStatsRow } from '../../shared/dbTypes';
+import { DeckBackdrop } from './DeckBackdrop';
 
 interface TheoryHubScreenProps {
   onStartScalePractice: (preset?: { root: number; scaleName: string }) => void;
@@ -57,7 +58,9 @@ export function TheoryHubScreen(props: TheoryHubScreenProps) {
 
   return (
     <main className="app-shell theory-hub-screen">
-      <section className="panel theory-hub-hero">
+      <DeckBackdrop />
+      <div className="deck-layout-shell">
+      <section className="panel theory-hub-hero deck-card">
         <div>
           <p className="eyebrow">Theory Hub</p>
           <h1>Music theory practice</h1>
@@ -69,7 +72,7 @@ export function TheoryHubScreen(props: TheoryHubScreenProps) {
         {CARD_CONFIG.map((card) => {
           const stats = statsByType[card.type];
           return (
-            <article className="panel theory-card" key={card.type}>
+            <article className="panel theory-card deck-card" key={card.type}>
               <p className="eyebrow">{card.title}</p>
               <h2>{card.title}</h2>
               <p className="panel-copy">{card.description}</p>
@@ -94,6 +97,7 @@ export function TheoryHubScreen(props: TheoryHubScreenProps) {
           );
         })}
       </section>
+      </div>
     </main>
   );
 }

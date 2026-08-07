@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { isSafeSongStorageId } from '../lib/storage/storageSafety';
 import { recomputeAllSongDifficulties } from '../persistence/importSong';
+import { deleteSongsAcrossStores, resetUserDataAcrossStores } from '../persistence/crossStoreMutations';
 import { RPC_BRIDGE_METHODS, RPC_BRIDGE_METHOD_SET, type RpcBridgeMethod } from '../shared/bridgeMethods';
 import { bridgeRpcBodyLimit } from './webSecurity';
 import type {
@@ -256,9 +257,9 @@ const bridgeArgValidators = {
   getLibrarySnapshot: noArgs('getLibrarySnapshot'),
   getCustomFingerings: stringArg('getCustomFingerings', 'song id'),
   saveCustomFingering: (args) =>
-    args.length === 4 && isString(args[0]) && isNonNegativeInteger(args[1]) && isInteger(args[2]) && args[2] >= 1 && args[2] <= 5 && isHand(args[3])
+    (args.length === 4 || args.length === 5) && isString(args[0]) && isInteger(args[1]) && isInteger(args[2]) && args[2] >= 1 && args[2] <= 5 && isHand(args[3]) && (args[4] === undefined || isString(args[4]))
       ? null
-      : 'saveCustomFingering requires song id, note index, finger, and hand.',
+      : 'saveCustomFingering requires song id, note index, finger, hand, and optional source note id.',
   clearCustomFingerings: stringArg('clearCustomFingerings', 'song id'),
   getAllFolders: noArgs('getAllFolders'),
   createFolder: stringArg('createFolder', 'name'),
@@ -352,8 +353,7 @@ export function createBridgeRouter(dependencies: ServerDependencies) {
 
     try {
       if (method === 'resetUserData') {
-        db.resetUserData();
-        await midiStorage.reset();
+        await resetUserDataAcrossStores(db, midiStorage);
         return c.json({ result: null });
       }
 
@@ -369,17 +369,13 @@ export function createBridgeRouter(dependencies: ServerDependencies) {
 
       if (method === 'deleteSong') {
         const [songId] = args as [string];
-        db.deleteSong(songId);
-        await midiStorage.delete(songId);
+        await deleteSongsAcrossStores(db, midiStorage, [songId], () => db.deleteSong(songId));
         return c.json({ result: null });
       }
 
       if (method === 'bulkDeleteSongs') {
         const [songIds] = args as [string[]];
-        db.bulkDeleteSongs(songIds);
-        for (const songId of songIds) {
-          await midiStorage.delete(songId);
-        }
+        await deleteSongsAcrossStores(db, midiStorage, songIds, () => db.bulkDeleteSongs(songIds));
         return c.json({ result: null });
       }
 

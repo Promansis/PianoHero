@@ -39,6 +39,7 @@ export interface PlaylistRow {
 export interface FingeringRow {
   songId: string;
   noteIndex: number;
+  noteId?: string;
   finger: number;
   hand: 'left' | 'right';
 }

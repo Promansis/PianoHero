@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AudioEngine } from '../../lib/audio/audioEngine';
 import type { ComputerKeyboardInputService } from '../../lib/input/computerKeyboardInputService';
@@ -622,5 +622,38 @@ describe('FreePlayScreen', () => {
     const popout = screen.getByTestId('free-play-visual-popout');
     expect(within(popout).getByRole('button', { name: 'Particle Galaxy' })).toBeEnabled();
     expect(within(popout).getByRole('button', { name: 'Sacred Geometry' })).toBeEnabled();
+  });
+
+  it('keeps backing-track volume session-only when persistence rejects', async () => {
+    const setSetting = vi.fn().mockRejectedValue(new Error('write failed'));
+    window.appBridge = {
+      getSetting: vi.fn().mockResolvedValue('70'),
+      setSetting,
+    } as unknown as typeof window.appBridge;
+
+    render(
+      <FreePlayScreen
+        audioEngine={buildAudioEngineStub()}
+        midiInputService={new MockMidiInputService() as unknown as MidiInputService}
+        keyboardInputService={new MockKeyboardInputService() as unknown as ComputerKeyboardInputService}
+        inputMode="both"
+        keyboardOverlaySize="medium"
+        postureReminderMinutes={null}
+        breakReminderMinutes={null}
+        pitchBendEnabled
+        stagePalette="default"
+        instrumentId="acoustic-piano"
+        onBackToMainMenu={vi.fn()}
+        onInstrumentChange={vi.fn()}
+        onStagePaletteChange={vi.fn()}
+        onOpenKeyboardSetup={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByText('Menu'));
+    fireEvent.change(screen.getAllByRole('slider')[1], { target: { value: '42' } });
+
+    await waitFor(() => expect(screen.getByText(/Backing track volume is active for this session only/)).toBeInTheDocument());
+    expect(setSetting).toHaveBeenCalledWith('audio', 'backingTrackVolume', '42');
   });
 });

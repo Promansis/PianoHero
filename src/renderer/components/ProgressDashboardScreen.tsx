@@ -6,6 +6,7 @@ import type { AchievementRow, GlobalTroubleSpot, PracticeStreak, ProgressStatsRe
 import { BarChart } from './charts/BarChart';
 import { LineChart } from './charts/LineChart';
 import { LoadingPanel } from './LoadingPanel';
+import { DeckBackdrop } from './DeckBackdrop';
 
 function formatDuration(totalSeconds: number): string {
   const totalMinutes = Math.round(totalSeconds / 60);
@@ -162,6 +163,8 @@ export function ProgressDashboardScreen({
   if (!stats || !streak) {
     return (
       <main className="app-shell progress-dashboard-screen">
+        <DeckBackdrop />
+        <div className="deck-layout-shell">
         <section className="panel progress-hero-card progress-empty-state-card">
           <div>
             <p className="eyebrow">Progress Dashboard</p>
@@ -169,6 +172,7 @@ export function ProgressDashboardScreen({
             <p className="song-title">{errorMessage ?? 'No progress data is available yet.'}</p>
           </div>
         </section>
+        </div>
       </main>
     );
   }
@@ -176,6 +180,8 @@ export function ProgressDashboardScreen({
   if (!hasMeaningfulProgress) {
     return (
       <main className="app-shell progress-dashboard-screen">
+        <DeckBackdrop />
+        <div className="deck-layout-shell">
         <section className="panel progress-hero-card progress-empty-state-card">
           <div>
             <p className="eyebrow">Progress Dashboard</p>
@@ -191,13 +197,16 @@ export function ProgressDashboardScreen({
             {errorMessage ? <p className="panel-copy">{errorMessage}</p> : null}
           </div>
         </section>
+        </div>
       </main>
     );
   }
 
   return (
     <main className="app-shell progress-dashboard-screen">
-      <section className="panel progress-hero-card">
+      <DeckBackdrop />
+      <div className="deck-layout-shell">
+      <section className="panel progress-hero-card deck-card">
         <div className="progress-hero-copy">
           <p className="eyebrow">Progress Dashboard</p>
           <h1>
@@ -213,24 +222,24 @@ export function ProgressDashboardScreen({
           <span>{streak.currentStreak === 1 ? 'day in a row' : 'days in a row'}</span>
         </div>
         <div className="progress-hero-stats">
-          <article className="progress-hero-stat">
+          <article className="progress-hero-stat deck-card">
             <span>Total Practice</span>
             <strong>{formatDuration(stats.totalStats.totalPracticeTimeSec)}</strong>
           </article>
-          <article className="progress-hero-stat">
+          <article className="progress-hero-stat deck-card">
             <span>Songs Played</span>
             <strong>{songsPlayedTotal}</strong>
           </article>
-          <article className="progress-hero-stat">
+          <article className="progress-hero-stat deck-card">
             <span>Accuracy Avg</span>
             <strong>{averageAccuracy !== null ? `${averageAccuracy}%` : 'No scored runs'}</strong>
           </article>
-          <article className="progress-hero-stat">
+          <article className="progress-hero-stat deck-card">
             <span>Longest Streak</span>
             <strong>{streak.longestStreak} days</strong>
           </article>
           {dailyGoalMinutes !== null ? (
-            <article className="progress-hero-stat progress-hero-stat-goal">
+            <article className="progress-hero-stat progress-hero-stat-goal deck-card">
               <span>Today&apos;s Goal</span>
               <strong>
                 {todayMinutes}m / {dailyGoalMinutes}m
@@ -244,7 +253,7 @@ export function ProgressDashboardScreen({
       </section>
 
       <section className="dashboard-chart-grid progress-primary-chart-grid">
-        <article className="panel chart-panel">
+        <article className="panel chart-panel deck-card">
           {practiceTimeHasData ? (
             <LineChart
               title="Practice Time"
@@ -263,7 +272,7 @@ export function ProgressDashboardScreen({
             </div>
           )}
         </article>
-        <article className="panel chart-panel">
+        <article className="panel chart-panel deck-card">
           {accuracyHasData ? (
             <LineChart
               title="Accuracy Trend"
@@ -283,7 +292,7 @@ export function ProgressDashboardScreen({
             </div>
           )}
         </article>
-        <article className="panel chart-panel">
+        <article className="panel chart-panel deck-card">
           {songsPlayedHasData ? (
             <BarChart
               title="Songs Played"
@@ -305,7 +314,7 @@ export function ProgressDashboardScreen({
       </section>
 
       <section className="progress-secondary-grid">
-        <article className="panel top-songs-panel">
+        <article className="panel top-songs-panel deck-card">
           <div className="panel-heading">
             <div>
               <p className="eyebrow">Most Played</p>
@@ -336,7 +345,7 @@ export function ProgressDashboardScreen({
           )}
         </article>
 
-        <article className="panel trouble-spots-global-panel">
+        <article className="panel trouble-spots-global-panel deck-card">
           <div className="panel-heading">
             <div>
               <p className="eyebrow">Needs Work</p>
@@ -384,7 +393,7 @@ export function ProgressDashboardScreen({
           )}
         </article>
 
-        <article className="panel achievements-panel">
+        <article className="panel achievements-panel deck-card">
           <div className="panel-heading">
             <div>
               <p className="eyebrow">Achievements</p>
@@ -398,7 +407,7 @@ export function ProgressDashboardScreen({
               {ACHIEVEMENTS.filter((achievement) =>
                 unlockedAchievements.some((row) => row.id === achievement.id),
               ).map((achievement) => (
-                <article className="achievement-card unlocked" key={achievement.id}>
+                <article className="achievement-card unlocked deck-card" key={achievement.id}>
                   <span className="achievement-card-icon">{achievement.icon}</span>
                   <strong>{achievement.name}</strong>
                   <p className="panel-copy">{achievement.description}</p>
@@ -408,6 +417,7 @@ export function ProgressDashboardScreen({
           )}
         </article>
       </section>
+      </div>
     </main>
   );
 }

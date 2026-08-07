@@ -14,6 +14,8 @@ import {
 } from '../../lib/input/settings';
 import type { InputMode, KeyboardAction, KeyboardMapping, KeyboardNoteAction } from '../../lib/input/types';
 import { BLACK_KEY_WIDTH, buildKeyRangeLayout, midiToLabel } from '../../lib/piano/pianoLayout';
+import { saveSetting } from '../saveSetting';
+import { toastBus } from './Toast';
 
 interface KeyboardSetupScreenProps {
   keyboardInputService: ComputerKeyboardInputService;
@@ -110,14 +112,8 @@ export function KeyboardSetupScreen({
       }
 
       const nextMapping = assignKeyboardCode(mapping, captureAction, event.code);
-      keyboardInputService.setMapping(nextMapping);
-      void window.appBridge?.setSetting(
-        INPUT_SETTINGS_CATEGORY,
-        INPUT_KEYBOARD_MAPPING_SETTING_KEY,
-        stringifyKeyboardMapping(nextMapping),
-      );
+      void persistMapping(nextMapping, `${describeAction(captureAction)} set to ${formatKeyboardCode(event.code)}.`);
       setCaptureAction(null);
-      setStatusMessage(`${describeAction(captureAction)} set to ${formatKeyboardCode(event.code)}.`);
     };
 
     window.addEventListener('keydown', onKeyDown, true);
@@ -186,27 +182,37 @@ export function KeyboardSetupScreen({
     setStatusMessage(`Press a key to bind ${describeAction(action)}. Press Escape to cancel.`);
   };
 
-  const handleClear = (action: KeyboardAction) => {
-    const next = assignKeyboardCode(mapping, action, null);
+  const persistMapping = async (next: KeyboardMapping, successMessage: string) => {
     keyboardInputService.setMapping(next);
-    void window.appBridge?.setSetting(
+    setStatusMessage('Saving keyboard mapping...');
+    const result = await saveSetting(
       INPUT_SETTINGS_CATEGORY,
       INPUT_KEYBOARD_MAPPING_SETTING_KEY,
       stringifyKeyboardMapping(next),
     );
-    setStatusMessage(`${describeAction(action)} was cleared.`);
+    if (result.saved) {
+      setStatusMessage(successMessage);
+      return;
+    }
+
+    setStatusMessage('Mapping active for this session only. Save failed; try again.');
+    toastBus.push({
+      variant: 'error',
+      title: 'Keyboard mapping not saved',
+      message: 'The mapping works now, but could not be written to storage.',
+      durationMs: 3000,
+    });
+  };
+
+  const handleClear = (action: KeyboardAction) => {
+    const next = assignKeyboardCode(mapping, action, null);
+    void persistMapping(next, `${describeAction(action)} was cleared.`);
   };
 
   const handleReset = () => {
     const next = createDefaultKeyboardMapping();
-    keyboardInputService.setMapping(next);
-    void window.appBridge?.setSetting(
-      INPUT_SETTINGS_CATEGORY,
-      INPUT_KEYBOARD_MAPPING_SETTING_KEY,
-      stringifyKeyboardMapping(next),
-    );
+    void persistMapping(next, 'Keyboard mapping reset to defaults.');
     setCaptureAction(null);
-    setStatusMessage('Keyboard mapping reset to defaults.');
   };
 
   return (

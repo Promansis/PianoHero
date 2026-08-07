@@ -16,25 +16,35 @@ function mockFetch(response: Response): FetchMock {
   return fetchMock;
 }
 
-function mockPickedFile(file: { text: () => Promise<string> }): void {
+function mockPicker(actions: Array<{ event: 'change' | 'cancel' | 'focus'; files?: unknown[] }>): void {
   const originalCreateElement = document.createElement.bind(document);
   vi.spyOn(document, 'createElement').mockImplementation(((tagName: string, options?: ElementCreationOptions) => {
     const element = originalCreateElement(tagName, options);
     if (tagName.toLowerCase() === 'input') {
+      const action = actions.shift() ?? { event: 'cancel' };
       Object.defineProperty(element, 'files', {
         configurable: true,
-        value: [file],
+        value: action.files ?? [],
       });
       vi.spyOn(element, 'click').mockImplementation(() => {
-        element.dispatchEvent(new Event('change'));
+        if (action.event === 'focus') {
+          window.dispatchEvent(new Event('focus'));
+        } else {
+          element.dispatchEvent(new Event(action.event));
+        }
       });
     }
     return element;
   }) as typeof document.createElement);
 }
 
+function mockPickedFile(file: { text: () => Promise<string> }): void {
+  mockPicker([{ event: 'change', files: [file] }]);
+}
+
 describe('webBridge', () => {
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
     document.body.innerHTML = '';
@@ -112,6 +122,58 @@ describe('webBridge', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(backup),
+    });
+  });
+
+  it('settles MIDI picker cancellation, cleans up, and allows retry', async () => {
+    const file = new File(['midi'], 'retry.mid', { type: 'audio/midi' });
+    const fetchMock = mockFetch(jsonResponse({ songs: [], errors: [], skipped: 0 }));
+    mockPicker([
+      { event: 'cancel' },
+      { event: 'change', files: [file] },
+    ]);
+
+    await expect(webBridge.importMidiFiles()).resolves.toEqual({ songs: [], errors: [], skipped: 0 });
+    expect(document.querySelectorAll('input')).toHaveLength(0);
+
+    await expect(webBridge.importMidiFiles()).resolves.toEqual({ songs: [], errors: [], skipped: 0 });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(document.querySelectorAll('input')).toHaveLength(0);
+  });
+
+  it('settles JSON picker cancellation without importing or leaving input state', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    mockPicker([{ event: 'cancel' }]);
+
+    await expect(webBridge.importLibrary()).resolves.toBeNull();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(document.querySelectorAll('input')).toHaveLength(0);
+  });
+
+  it('uses window focus as the cancellation fallback', async () => {
+    vi.useFakeTimers();
+    mockPicker([{ event: 'focus' }]);
+
+    const result = webBridge.importMidiFiles();
+    await vi.advanceTimersByTimeAsync(100);
+
+    await expect(result).resolves.toEqual({ songs: [], errors: [], skipped: 0 });
+    expect(document.querySelectorAll('input')).toHaveLength(0);
+  });
+
+  it('clears browser-local settings after the server reset succeeds', async () => {
+    window.localStorage.setItem('pianohero-test', 'present');
+    const fetchMock = mockFetch(jsonResponse({ result: null }));
+
+    await expect(webBridge.resetUserData()).resolves.toBeNull();
+
+    expect(window.localStorage.getItem('pianohero-test')).toBeNull();
+    expect(fetchMock).toHaveBeenCalledWith('/api/bridge/resetUserData', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ args: [] }),
     });
   });
 });

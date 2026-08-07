@@ -1,0 +1,114 @@
+# PH-MUS-004: MIDI Device Disconnect Leaves Held Notes Active
+
+- Lane: music correctness
+- Severity: P2
+- Confidence: high
+- Status: accepted
+- Owner: remediation owner TBD
+- Challenger: Codex, fresh isolated-fixture challenge
+- Verifier: verifier TBD
+- Affected runtime: both
+- Coverage rows: WF-002, WF-009, RT-011, MOD-003, MOD-011
+- Related/duplicate findings: none
+- First observed against: `808e6739e55b5186e8a9565f2c4e9267c4894a6c` plus the chartered audit patch identity
+
+## User Impact
+
+If a MIDI keyboard disconnects while a key is held, PianoHero removes the device from
+the picker but never sends a release for that device's active notes. The falling-note
+session and live instrument can retain a stuck key/highlight and audio can continue
+until the user exits or another path clears all notes. This breaks an explicit MIDI
+disconnect/reconnect practice workflow.
+
+## Expected Behavior Or Oracle
+
+An input source that disappears must release its held notes before or while the
+device lifecycle changes. The app already models input ownership by source ID and
+only stops audio when the last source releases a note, so a removed source needs an
+equivalent synthetic release path.
+
+## Evidence
+
+### Environment
+
+- Commit/patch identity: charter baseline above.
+- OS/runtime: Linux x86_64, Node v24.15.0.
+- Data profile/fixture: fake Web MIDI access and input in memory; no user data.
+- Hardware: no physical device available.
+
+### Reproduction
+
+1. Provide the production MidiInputService with a fake access object containing one
+   input named `keyboard-1`.
+2. Subscribe, initialize, and emit MIDI Note On for C4.
+3. Remove the input from the access map and dispatch the production `statechange`
+   listener.
+4. Record emitted input events and reported devices.
+
+The fresh probe printed:
+
+```text
+{"events":["noteon:60"],"deviceCountAfterDisconnect":0}
+```
+
+No Note Off was emitted for C4.
+
+### Artifacts
+
+- MidiInputService refreshes/binds device inputs on state change but maintains no
+  held-note inventory and emits no releases: `src/lib/midi/midiInputService.ts:77-115`.
+- GameSession retains a note in its source-keyed active map until it receives a
+  Note Off: `src/lib/game/GameSession.ts:172-182`.
+- GameScreen's HeldNoteTracker likewise stops audio only after a source release:
+  `src/renderer/components/GameScreen.tsx:437-502`.
+- Existing `heldNotes.test.ts` proves correct last-source behavior when release
+  events exist; it does not cover source disappearance.
+
+## Root Cause
+
+The device lifecycle and note lifecycle are independent. MidiInputService reports a
+new device list but does not track notes by input ID or synthesize releases when an
+input is removed.
+
+## Recommended Remediation Boundary
+
+Track active MIDI notes per input in MidiInputService, or maintain an equivalent
+source-release registry at the GameScreen boundary. On disconnect, emit deterministic
+Note Off events for every held note from the removed source before notifying device
+subscribers. Preserve multi-source semantics so a computer-keyboard or another MIDI
+source holding the same pitch remains active.
+
+## Required Regression Proof
+
+- Deterministic unit/integration proof: Note On then source disconnect emits exactly
+  one Note Off per active MIDI pitch; duplicate inputs and sustain behavior preserve
+  other active sources.
+- Electron proof: unplug/reconnect a named MIDI keyboard during a disposable
+  session; no stuck visual/audio note remains and the device list recovers.
+- Web proof: repeat in supported desktop browser(s) using Web MIDI permission and
+  a named device.
+- Data/recovery proof: no false game result, combo, or active input remains after
+  disconnect/reconnect.
+- Manual hardware/UI proof: record device, OS, browser/Electron, connection type,
+  repeated disconnects, and observed recovery.
+- Broader regression command: `npm test`, `npm run build`, and `npm run build:web`.
+
+## Challenge Record
+
+- Independent reproduction attempt: a fresh fake MIDIAccess fixture reproduced the
+  missing release without audio, database, or test-environment timing.
+- Alternative explanations tested: device list correctly changed to zero, proving
+  the statechange handler ran; only note cleanup is absent.
+- Scope/severity changes: hardware availability is an evidence gap, but the
+  deterministic service behavior is runtime-independent and reproducible.
+- Deduplication decision: separate from PH-MUS-001 because it is source lifecycle,
+  not score-state configuration.
+- Challenger conclusion and date: accepted by Codex, 2026-07-11.
+
+## Resolution
+
+- Accepted rationale: a normal device-removal event can leave the practice instrument and key state stuck.
+- Fix branch/commit/issue: not authorized during discovery.
+- Verification evidence: pending remediation.
+- Residual risk: users may need to leave the practice screen to recover audio/input state after disconnect.
+- Revisit trigger: before MIDI-device workflow or release readiness sign-off.

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { SoundboardClip } from '../../lib/audio/soundboardCatalog';
+import { usePrefersReducedMotion } from '../usePrefersReducedMotion';
 
 export interface AnimalSoundboardBurst {
   id: string;
@@ -187,6 +188,8 @@ export function AnimalSoundboardCanvas({
   const pointerRef = useRef({ x: 0.5, y: 0.45, engaged: false });
   const ripplesRef = useRef<Ripple[]>([]);
   const bubblesRef = useRef<FloatBubble[]>(buildBubbles(clips));
+  const drawFrameRef = useRef<(() => void) | null>(null);
+  const reducedMotion = usePrefersReducedMotion();
 
   latestActiveNotesRef.current = activeNotes;
   latestBurstsRef.current = recentBursts;
@@ -390,14 +393,24 @@ export function AnimalSoundboardCanvas({
         drawEmojiBubble(context, width, height, burst, now);
       }
 
-      frameHandle = window.requestAnimationFrame(drawFrame);
+      if (!reducedMotion) {
+        frameHandle = window.requestAnimationFrame(drawFrame);
+      }
     };
 
-    frameHandle = window.requestAnimationFrame(drawFrame);
+    drawFrameRef.current = drawFrame;
+    drawFrame();
     return () => {
       window.cancelAnimationFrame(frameHandle);
+      drawFrameRef.current = null;
     };
-  }, []);
+  }, [reducedMotion]);
+
+  useEffect(() => {
+    if (reducedMotion) {
+      drawFrameRef.current?.();
+    }
+  }, [activeNotes, recentBursts, reducedMotion]);
 
   return (
     <div className="animal-soundboard-canvas-shell" ref={containerRef} aria-hidden="true">

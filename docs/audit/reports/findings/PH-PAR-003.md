@@ -1,0 +1,80 @@
+# PH-PAR-003: Supported Legacy MIDI Migration Loads Only in Electron
+
+- Lane: runtime parity
+- Severity: P2
+- Confidence: high
+- Status: accepted
+- Owner: remediation owner TBD
+- Challenger: Codex, fresh migration fixture and cross-runtime challenge
+- Verifier: independent verifier recommended
+- Affected runtime: both
+- Coverage rows: DATA-002, WF-004, WF-006, WF-008, WF-009, BR-011, BR-059, OP-002, MOD-008, MOD-009
+- Related/duplicate findings: none
+- First observed against: `808e6739e55b5186e8a9565f2c4e9267c4894a6c` plus the chartered audit patch identity
+
+## User Impact
+
+An existing user migrated from `song-metadata.json` can see the same song row in both runtimes, but Electron plays and recomputes it from its legacy external source path while web reports that the app-owned MIDI file is missing. The user can reattach MIDI in web, but the row gives no explicit migrated/unavailable state and the behavior differs by host. This is a recoverable P2 runtime/data compatibility defect.
+
+## Expected Behavior Or Oracle
+
+The supported legacy migration must produce a canonical storage state usable in both supported runtimes, or an explicit, user-visible recovery state with the same outcome in both. A `Song` is imported MIDI metadata plus an app-owned reference to MIDI bytes under `CONTEXT.md`; host-specific arbitrary-file fallback must not silently alter whether an existing song can be practiced.
+
+## Evidence
+
+### Environment
+
+- Commit/patch identity: charter baseline above.
+- OS/runtime/browser: Linux x86_64, Electron 30.5.1, Node web server, Chrome-compatible web bridge.
+- Data profile/fixture: fresh `/tmp/pianohero-audit-p4-migration-ljNQo5` with one valid external MIDI file and only `song-metadata.json` before Electron startup.
+- Hardware: none.
+
+### Reproduction
+
+1. Put one valid external MIDI and one `song-metadata.json` entry with `sourcePath` into a fresh Electron user-data root.
+2. Start Electron against that root. It runs the production JSON migration.
+3. Read the song and invoke `loadMidiFileData` and `recomputeAllSongDifficulties` through `window.appBridge`.
+4. Stop Electron, start the web server against the same root, and make the equivalent bridge/route calls.
+
+Electron migrated one row, loaded 614 MIDI bytes, and recomputed one song with no errors. Web listed the same row but `GET /api/midi/legacy-migrated-song` returned 404 for `midi-files/legacy-migrated-song.mid`; web recompute returned zero updates and one missing-file error. Repeated with a fresh legacy profile and the same result.
+
+### Artifacts
+
+- The supported migration persists `meta.sourcePath` as `songs.file_path` without copying bytes: `src/persistence/database.ts:222`.
+- Electron explicitly falls back from app-owned MIDI storage to that external `filePath`: `src/main/index.ts:42`.
+- Electron gives the fallback to difficulty recompute: `src/main/index.ts:244`.
+- Web MIDI reads only its app-owned `midiStorage`: `src/server/midiRouter.ts:127`; web recompute omits the Electron fallback: `src/server/bridgeRouter.ts:360`.
+- The complete command/result summary is recorded in [Phase 4](../phase-4-runtime-parity-2026-07-12.md#p4-par-003-supported-legacy-json-migration).
+
+## Root Cause
+
+Legacy migration creates a noncanonical song record that references an external file but does not stage/copy it into app-owned MIDI storage. Electron masks that state with a host-only filesystem fallback; web adheres to app-owned storage only. The adapters therefore apply different storage rules to the same migrated `Song`.
+
+## Recommended Remediation Boundary
+
+Choose one canonical legacy policy: migrate verified source bytes into app-owned storage atomically, or persist an explicit missing-MIDI state and require a reattach flow before the song is playable in either runtime. Keep arbitrary legacy paths out of the shared playable state and cover load/recompute/recovery together.
+
+## Required Regression Proof
+
+- Deterministic unit/integration proof: a JSON-migrated row has a canonical app-owned byte record or explicit unavailable state.
+- Electron proof: migrated row load and recompute match the chosen policy without relying on an external path fallback.
+- Web proof: the same data root gives the same load/recompute/recovery outcome.
+- Data/recovery proof: external source missing, unreadable, hash-mismatched, and valid cases leave no ambiguous playable row.
+- Manual hardware/UI proof: missing migrated MIDI exposes a clear reattach action and retry result.
+- Broader regression command: focused persistence/bridge tests, `npm test`, `npm run build`, and `npm run build:web`.
+
+## Challenge Record
+
+- Independent reproduction attempt: [PH-PAR-003 challenge](../challenges/PH-PAR-003.md).
+- Alternative explanations tested: a fresh real migration, not an injected database row, produced the state; web saw the row, proving this is not a database visibility issue.
+- Scope/severity changes: includes both byte load and recompute because the same Electron-only fallback owns both outcomes.
+- Deduplication decision: distinct host compatibility root cause; not a duplicate of PH-DATA-001 or PH-DATA-003 atomicity/content-identity findings.
+- Challenger conclusion and date: accepted as P2, 2026-07-12.
+
+## Resolution
+
+- Accepted/rejected rationale: the same supported migrated row has opposite Electron/web load and recompute outcomes.
+- Fix branch/commit/issue: not authorized during discovery.
+- Verification evidence: pending remediation.
+- Residual risk: migrated users can mistake an Electron-playable library row for a web-playable one and encounter an unlabelled missing-MIDI failure.
+- Revisit trigger, if accepted-risk: not applicable.

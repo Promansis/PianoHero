@@ -12,6 +12,8 @@ import { ImmersiveHud, type ImmersiveHudDestination, type ImmersiveHudNavigation
 import { ImmersiveInstrumentControl } from './ImmersiveInstrumentControl';
 import type { InstrumentSamplePackStatus } from '../../shared/ipc';
 import { PianoKeyboard } from './PianoKeyboard';
+import { useModalFocusTrap } from '../useModalFocusTrap';
+import { saveSetting } from '../saveSetting';
 import {
   FREE_PLAY_VISUAL_MODE_OPTIONS,
   FreePlayVisualizer,
@@ -154,6 +156,14 @@ export function FreePlayScreen({
   const visualStageRef = useRef<HTMLDivElement | null>(null);
   const menuButtonRef = useRef<HTMLButtonElement | null>(null);
   const visualToggleRef = useRef<HTMLButtonElement | null>(null);
+  const overlayRef = useRef<HTMLDivElement | null>(null);
+
+  useModalFocusTrap({
+    open: overlayVisible,
+    dialogRef: overlayRef,
+    triggerRef: menuButtonRef,
+    onEscape: () => setOverlayVisible(false),
+  });
 
   useEffect(() => {
     const heldByNote = new Map<number, Set<string>>();
@@ -376,23 +386,17 @@ export function FreePlayScreen({
 
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') {
+      if (event.key !== 'Escape' || event.defaultPrevented) {
         return;
       }
       event.stopPropagation();
       event.preventDefault();
-      if (overlayVisible) {
-        closeOverlay(true);
-        return;
-      }
-      setOverlayVisible(true);
+      setOverlayVisible((prev) => !prev);
     };
 
-    window.addEventListener('keydown', handleEscape, true);
-    return () => {
-      window.removeEventListener('keydown', handleEscape, true);
-    };
-  }, [overlayVisible]);
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, []);
 
   useEffect(() => {
     if (!isVisualControlsPinned) {
@@ -590,7 +594,11 @@ export function FreePlayScreen({
   const handleBackingTrackVolumeChange = (value: number) => {
     setBackingTrackVolume(value);
     audioEngine.setBackingTrackVolume(value);
-    void window.appBridge?.setSetting('audio', 'backingTrackVolume', String(value));
+    void saveSetting('audio', 'backingTrackVolume', String(value)).then(({ saved }) => {
+      if (!saved) {
+        setStatusMessage('Backing track volume is active for this session only. Save failed; try again.');
+      }
+    });
   };
 
   const exportWav = async () => {
@@ -947,6 +955,7 @@ export function FreePlayScreen({
           }}
         >
           <div
+            ref={overlayRef}
             className="immersive-overlay-panel free-play-overlay-panel"
             id="free-play-overlay-panel"
             role="dialog"

@@ -10,34 +10,37 @@ import { createLibraryRouter } from './libraryRouter';
 import { createMidiRouter } from './midiRouter';
 import { createApiAccessGate } from './webSecurity';
 
-const port = Number(process.env.PORT ?? 3100);
-const dataDir = resolve(process.env.PIANOHERO_DATA_DIR ?? join(process.cwd(), '.pianohero-data'));
-const midiFilesDir = join(dataDir, 'midi-files');
-const dbPath = join(dataDir, 'pianohero.db');
-const webRoot = resolve(process.cwd(), 'dist', 'web');
+async function startServer(): Promise<void> {
+  const port = Number(process.env.PORT ?? 3100);
+  const dataDir = resolve(process.env.PIANOHERO_DATA_DIR ?? join(process.cwd(), '.pianohero-data'));
+  const midiFilesDir = join(dataDir, 'midi-files');
+  const dbPath = join(dataDir, 'pianohero.db');
+  const webRoot = resolve(process.cwd(), 'dist', 'web');
 
-mkdirSync(dataDir, { recursive: true });
-mkdirSync(midiFilesDir, { recursive: true });
+  mkdirSync(dataDir, { recursive: true });
+  mkdirSync(midiFilesDir, { recursive: true });
 
-const db = new AppDatabase(dbPath);
-const midiStorage = new FileSystemMidiStorageAdapter(midiFilesDir);
-const app = new Hono();
+  const db = new AppDatabase(dbPath);
+  const midiStorage = new FileSystemMidiStorageAdapter(midiFilesDir);
+  await db.migrateFromJson(dataDir, midiStorage);
+  await db.recoverDurableOperations(midiStorage);
+  const app = new Hono();
 
-app.onError((error, c) => c.json({ error: error.message }, 500));
+  app.onError((error, c) => c.json({ error: error.message }, 500));
 
-app.use('*', async (c, next) => {
-  c.header('Permissions-Policy', 'midi=(self)');
-  await next();
-});
+  app.use('*', async (c, next) => {
+    c.header('Permissions-Policy', 'midi=(self)');
+    await next();
+  });
 
-app.use('/api/*', createApiAccessGate(process.env.PIANOHERO_WEB_ACCESS_TOKEN));
-app.get('/api/access', (c) => c.json({ ok: true }));
+  app.use('/api/*', createApiAccessGate(process.env.PIANOHERO_WEB_ACCESS_TOKEN));
+  app.get('/api/access', (c) => c.json({ ok: true }));
 
-app.route('/api/bridge', createBridgeRouter({ db, midiFilesDir, midiStorage }));
-app.route('/api/library', createLibraryRouter({ db, midiFilesDir, midiStorage }));
-app.route('/api/midi', createMidiRouter({ db, midiFilesDir, midiStorage }));
+  app.route('/api/bridge', createBridgeRouter({ db, midiFilesDir, midiStorage }));
+  app.route('/api/library', createLibraryRouter({ db, midiFilesDir, midiStorage }));
+  app.route('/api/midi', createMidiRouter({ db, midiFilesDir, midiStorage }));
 
-const CONTENT_TYPES: Record<string, string> = {
+  const CONTENT_TYPES: Record<string, string> = {
   '.css': 'text/css; charset=utf-8',
   '.html': 'text/html; charset=utf-8',
   '.ico': 'image/x-icon',
@@ -53,11 +56,11 @@ const CONTENT_TYPES: Record<string, string> = {
   '.txt': 'text/plain; charset=utf-8',
   '.woff': 'font/woff',
   '.woff2': 'font/woff2',
-};
+  };
 
-const IMMUTABLE_ASSET_PATH_PATTERN = /^\/assets\/.+-[A-Za-z0-9_-]+\.(?:css|js)$/;
+  const IMMUTABLE_ASSET_PATH_PATTERN = /^\/assets\/.+-[A-Za-z0-9_-]+\.(?:css|js)$/;
 
-function setStaticCacheHeaders(pathname: string, absolutePath: string, setHeader: (name: string, value: string) => void): void {
+  function setStaticCacheHeaders(pathname: string, absolutePath: string, setHeader: (name: string, value: string) => void): void {
   const extension = extname(absolutePath);
 
   if (extension === '.html' || pathname === '/') {
@@ -78,15 +81,15 @@ function setStaticCacheHeaders(pathname: string, absolutePath: string, setHeader
   }
 
   setHeader('Cache-Control', 'public, max-age=3600');
-}
+  }
 
-function resolveStaticPath(pathname: string): string {
+  function resolveStaticPath(pathname: string): string {
   const trimmedPath = pathname === '/' ? '/index.html' : pathname;
   const normalizedPath = normalize(trimmedPath).replace(/^([.][.][/\\])+/, '');
   return resolve(webRoot, `.${normalizedPath}`);
-}
+  }
 
-app.get('*', async (c) => {
+  app.get('*', async (c) => {
   const requestedPath = c.req.path;
   const absolutePath = resolveStaticPath(requestedPath);
 
@@ -117,19 +120,25 @@ app.get('*', async (c) => {
   } catch {
     return c.text('Web build not found. Run npm run build:web first.', 404);
   }
-});
+  });
 
-const server = serve({
-  fetch: app.fetch,
-  port,
-});
+  const server = serve({
+    fetch: app.fetch,
+    port,
+  });
 
-process.on('SIGINT', () => {
-  db.close();
-  server.close();
-});
+  process.on('SIGINT', () => {
+    db.close();
+    server.close();
+  });
 
-process.on('SIGTERM', () => {
-  db.close();
-  server.close();
+  process.on('SIGTERM', () => {
+    db.close();
+    server.close();
+  });
+}
+
+startServer().catch((error: unknown) => {
+  console.error(error);
+  process.exitCode = 1;
 });

@@ -20,10 +20,13 @@ import { isLibraryBackup } from '../shared/libraryBackup';
 import { getInstrumentSamplePackDefinition } from '../lib/audio/instrumentSamplePacks';
 import { AppDatabase } from '../persistence/database';
 import { FileSystemMidiStorageAdapter } from '../storage/midiStorage';
+import { deleteSongsAcrossStores, resetUserDataAcrossStores } from '../persistence/crossStoreMutations';
 import {
   getDesktopInstrumentSamplePackStatuses,
   installDesktopInstrumentSamplePack,
   removeDesktopInstrumentSamplePack,
+  prepareDesktopInstrumentSamplePackReset,
+  recoverDesktopInstrumentSamplePackReset,
   resolveDesktopInstrumentSampleSource,
 } from './instrumentSamplePackStore';
 
@@ -40,7 +43,11 @@ function withoutBridgeFilePath(
 }
 
 function readDesktopSongMidiBytes(song: SongRow): Promise<Uint8Array> {
-  return midiStorage.read(song.id).catch(async () => new Uint8Array(await readFile(song.filePath)));
+  return midiStorage.read(song.id);
+}
+
+function getDesktopAssetRoot(): string {
+  return app.isPackaged ? join(app.getAppPath(), 'out', 'renderer') : join(app.getAppPath(), 'public');
 }
 
 function collectMidiFiles(dir: string): string[] {
@@ -93,7 +100,10 @@ app.whenReady().then(async () => {
   midiStorage = new FileSystemMidiStorageAdapter(midiFilesDir);
 
   db = new AppDatabase(join(userDataPath, 'pianohero.db'));
-  db.migrateFromJson(userDataPath);
+  await db.migrateFromJson(userDataPath, midiStorage);
+  await db.recoverDurableOperations(midiStorage, (operationId, state) =>
+    recoverDesktopInstrumentSamplePackReset(userDataPath, operationId, state),
+  );
 
   ipcMain.handle('dialog:pick-midi-file', async () => {
     const options: OpenDialogOptions = {
@@ -131,8 +141,7 @@ app.whenReady().then(async () => {
       db.updateSong(songId, withoutBridgeFilePath(updates)),
   );
   ipcMain.handle('songs:delete', (_event, songId: string) => {
-    db.deleteSong(songId);
-    return midiStorage.delete(songId);
+    return deleteSongsAcrossStores(db, midiStorage, [songId], () => db.deleteSong(songId));
   });
   ipcMain.handle('songs:toggle-favorite', (_event, songId: string) => db.toggleFavorite(songId));
 
@@ -282,8 +291,8 @@ app.whenReady().then(async () => {
   ipcMain.handle('fingerings:get', (_event, songId: string) => db.getCustomFingerings(songId));
   ipcMain.handle(
     'fingerings:save',
-    (_event, songId: string, noteIndex: number, finger: number, hand: FingeringRow['hand']) =>
-      db.saveCustomFingering(songId, noteIndex, finger, hand),
+    (_event, songId: string, noteIndex: number, finger: number, hand: FingeringRow['hand'], noteId?: string) =>
+      db.saveCustomFingering(songId, noteIndex, finger, hand, noteId),
   );
   ipcMain.handle('fingerings:clear', (_event, songId: string) => db.clearCustomFingerings(songId));
 
@@ -315,8 +324,7 @@ app.whenReady().then(async () => {
   );
 
   ipcMain.handle('bulk:delete-songs', (_event, songIds: string[]) => {
-    db.bulkDeleteSongs(songIds);
-    return Promise.all(songIds.map((songId) => midiStorage.delete(songId))).then(() => undefined);
+    return deleteSongsAcrossStores(db, midiStorage, songIds, () => db.bulkDeleteSongs(songIds));
   });
   ipcMain.handle('bulk:move-songs-to-folder', (_event, songIds: string[], folderId: string | null) =>
     db.bulkMoveSongsToFolder(songIds, folderId),
@@ -337,8 +345,9 @@ app.whenReady().then(async () => {
     db.resetLearningProgress();
   });
   ipcMain.handle('settings:reset-user-data', () => {
-    db.resetUserData();
-    return midiStorage.reset();
+    return resetUserDataAcrossStores(db, midiStorage, (operationId) =>
+      prepareDesktopInstrumentSamplePackReset(userDataPath, operationId),
+    );
   });
 
   ipcMain.handle('library:export', async () => {
@@ -397,7 +406,7 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('file:load-curriculum-midi', async (_event, filename: string) => {
     const safe = filename.replace(/[^a-zA-Z0-9._-]/g, '');
-    const midiPath = join(__dirname, '../renderer/curriculum-midis', safe);
+    const midiPath = join(getDesktopAssetRoot(), 'curriculum-midis', safe);
     const data = await readFile(midiPath);
     return new Uint8Array(data);
   });
@@ -490,7 +499,7 @@ app.whenReady().then(async () => {
     }
 
     if (definition.installMode === 'managed') {
-      return installDesktopInstrumentSamplePack(db, userDataPath, app.getAppPath(), instrumentId);
+      return installDesktopInstrumentSamplePack(db, userDataPath, getDesktopAssetRoot(), instrumentId);
     }
 
     const options: OpenDialogOptions = {
@@ -504,7 +513,7 @@ app.whenReady().then(async () => {
       return getDesktopInstrumentSamplePackStatuses(db);
     }
 
-    return installDesktopInstrumentSamplePack(db, userDataPath, app.getAppPath(), instrumentId, result.filePaths[0]);
+    return installDesktopInstrumentSamplePack(db, userDataPath, getDesktopAssetRoot(), instrumentId, result.filePaths[0]);
   });
 
   ipcMain.handle('samples:remove-pack', (_event, instrumentId: string) =>
