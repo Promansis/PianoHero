@@ -56,26 +56,26 @@ line 79, so the rejected write is not a documented session-only choice.
 ## Docker Build Context
 
 A disposable Docker context copied the repository's six-line `.dockerignore`
-unchanged, contained only a fake `.pianohero-data/sentinel` and fake `.env`, and
+unchanged, contained only a fake `.lumakeys-data/sentinel` and fake `.env`, and
 used the same `COPY . .` form as the production Dockerfile. Its final build step
 was:
 
 ```dockerfile
-RUN test -f .pianohero-data/sentinel && test -f .env
+RUN test -f .lumakeys-data/sentinel && test -f .env
 ```
 
 The isolated command passed:
 
 ```text
-docker build --no-cache --tag pianohero-phase6-docker-probe:latest /tmp/pianohero-phase6-docker-context
+docker build --no-cache --tag lumakeys-phase6-docker-probe:latest /tmp/lumakeys-phase6-docker-context
 ...
-RUN test -f .pianohero-data/sentinel && test -f .env
+RUN test -f .lumakeys-data/sentinel && test -f .env
 DONE
 ```
 
 The image was removed immediately after the check. `git check-ignore -v` exited
-1 with no matching rule for both `.pianohero-data/audit-sentinel` and `.env`.
-The production server defaults to `.pianohero-data` at
+1 with no matching rule for both `.lumakeys-data/audit-sentinel` and `.env`.
+The production server defaults to `.lumakeys-data` at
 `src/server/index.ts:14`, while `Dockerfile:11` copies the full context and
 `.dockerignore` contains neither exclusion.
 
@@ -84,8 +84,8 @@ The production server defaults to `.pianohero-data` at
 | Check | Result | Summary |
 |---|---|---|
 | `npm run typecheck` | pass | Strict TypeScript completed with no diagnostics. |
-| `PIANOHERO_DATA_DIR=/tmp/pianohero-audit-20260712-phase6 npm test` | pass | 57 files and 285 tests passed. |
+| `LUMAKEYS_DATA_DIR=/tmp/lumakeys-audit-20260712-phase6 npm test` | pass | 57 files and 285 tests passed. |
 | `npm run build` | pass with known warning | Electron output still leaves the two known public main-menu references unresolved; PH-PAR-001 remains canonical. |
-| `PIANOHERO_DATA_DIR=/tmp/pianohero-audit-20260712-phase6 npm run build:web` | pass with known warning | Web server/client built; one 685.71 kB minified chunk warning remains. |
-| `docker compose config` | pass | Resolved the documented `/media/storage/pianohero:/data` bind mount and port 3001. |
+| `LUMAKEYS_DATA_DIR=/tmp/lumakeys-audit-20260712-phase6 npm run build:web` | pass with known warning | Web server/client built; one 685.71 kB minified chunk warning remains. |
+| `docker compose config` | pass | Resolved the documented `/media/storage/lumakeys:/data` bind mount and port 3001. |
 | `npm audit --omit=dev` | exit 1 | One direct high-severity Hono advisory remains BASE-SEC-001. |

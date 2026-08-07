@@ -26,7 +26,7 @@ The supported legacy migration must produce a canonical storage state usable in 
 
 - Commit/patch identity: charter baseline above.
 - OS/runtime/browser: Linux x86_64, Electron 30.5.1, Node web server, Chrome-compatible web bridge.
-- Data profile/fixture: fresh `/tmp/pianohero-audit-p4-migration-ljNQo5` with one valid external MIDI file and only `song-metadata.json` before Electron startup.
+- Data profile/fixture: fresh `/tmp/lumakeys-audit-p4-migration-ljNQo5` with one valid external MIDI file and only `song-metadata.json` before Electron startup.
 - Hardware: none.
 
 ### Reproduction

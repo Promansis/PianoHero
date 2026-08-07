@@ -25,7 +25,7 @@ corruption is silent until use.
 New imports derive song IDs from MIDI bytes and hash-ID reattach rejects nonmatching
 bytes. V2 backup restore should preserve that content-addressed invariant before
 committing files. See src/persistence/importSong.ts and the backup safety rules in
-docs/agents/pianohero-runtime-data-audit.md.
+docs/agents/lumakeys-runtime-data-audit.md.
 
 ## Evidence
 

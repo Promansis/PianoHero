@@ -1,4 +1,4 @@
-# PianoHero Audit Workflow
+# LumaKeys Audit Workflow
 
 This directory is the operating system for a staged, evidence-led audit. It contains
 live audit conclusions as lanes complete. Discovery remains read-only; remediation
@@ -135,7 +135,7 @@ Exit gate: every AppBridge method and runtime-special path is covered.
 
 ### 5. UI, Accessibility, And Performance
 
-Use `PRODUCT.md`, `DESIGN.md`, ADR 0001, and the PianoHero UI profile. Check all
+Use `PRODUCT.md`, `DESIGN.md`, ADR 0001, and the LumaKeys UI profile. Check all
 interaction states, hands-busy use, navigation/back behavior, desktop zoom, high-DPI
 canvas pixels, keyboard-only operation, reduced motion, color-independent states,
 device lifecycle, cleanup, frame time, rendering, memory, startup, queries, and

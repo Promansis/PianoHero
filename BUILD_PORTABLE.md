@@ -22,37 +22,37 @@ npm run package:win
 ```
 
 This will create a portable .exe file in the `dist/` directory:
-- `PianoHero-0.1.0-portable.exe` (~150-200MB)
+- `LumaKeys-0.1.0-portable.exe` (~150-200MB)
 
 ## Testing on Restricted UAC PC
 
 ### Installation (No UAC Required)
-1. Copy `PianoHero-0.1.0-portable.exe` to the restricted PC via:
+1. Copy `LumaKeys-0.1.0-portable.exe` to the restricted PC via:
    - USB drive
    - Network share
    - Email/cloud download
 
 2. Place the .exe in any user-writable location:
    - Desktop: `C:\Users\<username>\Desktop\`
-   - Documents: `C:\Users\<username>\Documents\PianoHero\`
-   - USB drive: `E:\PianoHero\`
+   - Documents: `C:\Users\<username>\Documents\LumaKeys\`
+   - USB drive: `E:\LumaKeys\`
 
 3. Double-click to run - **no installation or UAC prompt required**
 
 ### Data Storage Locations
 All application data is stored in user-writable directories:
-- Database: `%APPDATA%\PianoHero\pianohero.db`
-- MIDI files: `%APPDATA%\PianoHero\midi-files\`
+- Database: `%APPDATA%\LumaKeys\lumakeys.db`
+- MIDI files: `%APPDATA%\LumaKeys\midi-files\`
 - Settings: Stored in database
 
 To view data directory:
 1. Press `Win + R`
-2. Type `%APPDATA%\PianoHero`
+2. Type `%APPDATA%\LumaKeys`
 3. Press Enter
 
 ### Verification Checklist
 - [ ] Application launches without UAC prompt
-- [ ] Database is created in `%APPDATA%\PianoHero\`
+- [ ] Database is created in `%APPDATA%\LumaKeys\`
 - [ ] Can import MIDI files
 - [ ] Can export MIDI files
 - [ ] MIDI hardware input works (if keyboard connected)

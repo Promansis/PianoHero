@@ -228,7 +228,7 @@
   ],
   "narrative": {
     "northStar": "The Playable Practice Stage",
-    "overview": "LumaKeys is the visible app identity for the PianoHero product brief: a focused practice stage where beginners and intermediate players can import songs, follow lessons, drill theory, and play freely without feeling like they are inside a school portal. The interface should feel like an instrument surface first and a software dashboard second. Musical action, feedback, timing, and progress sit closest to the user.\n\nThe system is dark-first for performance and free play, with light and warm themes available for calmer practice contexts. It earns its spectacle through musical feedback: falling notes, piano keys, HUD stats, menu cards, audio controls, and reward moments. Dense controls are allowed, but they must feel like a cockpit for practice, not an administrative form.",
+    "overview": "LumaKeys is the visible app identity for the LumaKeys product brief: a focused practice stage where beginners and intermediate players can import songs, follow lessons, drill theory, and play freely without feeling like they are inside a school portal. The interface should feel like an instrument surface first and a software dashboard second. Musical action, feedback, timing, and progress sit closest to the user.\n\nThe system is dark-first for performance and free play, with light and warm themes available for calmer practice contexts. It earns its spectacle through musical feedback: falling notes, piano keys, HUD stats, menu cards, audio controls, and reward moments. Dense controls are allowed, but they must feel like a cockpit for practice, not an administrative form.",
     "keyCharacteristics": [
       "Dark stage shells with illuminated controls, not ordinary web sections.",
       "A restrained core UI vocabulary with vivid accents reserved for state, hand color, route identity, and rewards.",
@@ -282,7 +282,7 @@
       "Do support reduced motion by removing entrance animations and hover choreography where the stylesheet already provides a reduced-motion path."
     ],
     "donts": [
-      "Don't make PianoHero feel like a generic website.",
+      "Don't make LumaKeys feel like a generic website.",
       "Don't make it feel like a school portal, worksheet app, or classroom software.",
       "Don't make dense screens feel like an enterprise dashboard or administrative form.",
       "Don't bury the player in configuration before they can play.",

@@ -13,7 +13,7 @@ export function createLibraryRouter({ db, midiStorage }: ServerDependencies) {
       backup,
       result: {
         ...exportResult,
-        filename: `pianohero-library-${new Date().toISOString().slice(0, 10)}.json`,
+        filename: `lumakeys-library-${new Date().toISOString().slice(0, 10)}.json`,
         target: 'download',
       },
     });

@@ -1,4 +1,4 @@
-# PianoHero Practice Engine Audit
+# LumaKeys Practice Engine Audit
 
 Use for MIDI parsing, audio scheduling, latency, input, scoring, wait/learning mode,
 looping, tempo, fingering, theory correctness, curriculum progression, and the result

@@ -21,7 +21,7 @@ function addSong(db: AppDatabase): void {
 
 describe('cross-store mutations', () => {
   it('keeps the database row and MIDI bytes when deletion fails', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'pianohero-cross-store-delete-'));
+    const root = await mkdtemp(join(tmpdir(), 'lumakeys-cross-store-delete-'));
     roots.push(root);
     const db = new AppDatabase(join(root, 'db'));
     addSong(db);
@@ -36,7 +36,7 @@ describe('cross-store mutations', () => {
   });
 
   it('restores MIDI data when reset fails before database commit', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'pianohero-cross-store-reset-'));
+    const root = await mkdtemp(join(tmpdir(), 'lumakeys-cross-store-reset-'));
     roots.push(root);
     const db = new AppDatabase(join(root, 'db'));
     addSong(db);
@@ -50,7 +50,7 @@ describe('cross-store mutations', () => {
   });
 
   it('recovers a prepared delete after reopening the database', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'pianohero-cross-store-recovery-'));
+    const root = await mkdtemp(join(tmpdir(), 'lumakeys-cross-store-recovery-'));
     roots.push(root);
     const dbPath = join(root, 'db');
     const storage = new FileSystemMidiStorageAdapter(join(root, 'midi'));

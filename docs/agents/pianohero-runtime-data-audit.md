@@ -1,4 +1,4 @@
-# PianoHero Runtime And Data Audit
+# LumaKeys Runtime And Data Audit
 
 Use for persistence, storage, AppBridge parity, runtime adapters, security,
 backup/restore, destructive operations, and operational recovery. These concerns
@@ -45,7 +45,7 @@ For every assigned entity, bridge method, or privileged operation record:
 | Regression | Targeted test plus required runtime/build proof |
 
 Use fresh isolated data roots per destructive scenario. Never reuse production or the
-owner's normal `.pianohero-data`.
+owner's normal `.lumakeys-data`.
 
 ## High-Risk Sequences
 

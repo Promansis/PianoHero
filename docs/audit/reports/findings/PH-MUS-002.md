@@ -15,7 +15,7 @@
 ## User Impact
 
 For imported MIDI containing 3/4 or other non-4/4 meter, tempo changes, or a song
-ending exactly at a bar boundary, PianoHero assigns note accuracy to the wrong
+ending exactly at a bar boundary, LumaKeys assigns note accuracy to the wrong
 measure and offers incorrect loop ranges. A one-bar 4/4 song exposes a selectable
 second bar with a zero-second loop. Results and trouble-spot recommendations can
 therefore direct a learner to the wrong musical section.
@@ -24,7 +24,7 @@ therefore direct a learner to the wrong musical section.
 
 Standard MIDI header meter and tempo events determine musical bars. The installed
 `@tonejs/midi` parser exposes `header.timeSignatures`, `header.tempos`, ticks, and
-`ticksToMeasures`; its parsed notes already use that tempo map for seconds. PianoHero
+`ticksToMeasures`; its parsed notes already use that tempo map for seconds. LumaKeys
 must preserve or derive an equivalent measure map before presenting bar numbers,
 looping by measure, or persisting measure accuracy.
 
@@ -41,9 +41,9 @@ looping by measure, or persisting measure accuracy.
 
 1. Create and parse a 120 BPM, 3/4 MIDI file with a note at tick 1440, the first
    beat of measure two.
-2. Compare the parser's `ticksToMeasures(1440)` with PianoHero's
+2. Compare the parser's `ticksToMeasures(1440)` with LumaKeys's
    `getMeasureIndexForTime` on the parsed note time.
-3. Request loop measure two from PianoHero.
+3. Request loop measure two from LumaKeys.
 4. Create a 4/4 fixture with 120 BPM at tick zero and 60 BPM from tick 1920, then
    compare the measure of a note at tick 3840.
 5. Create one 4/4 bar ending at tick 1920 and request the last selectable loop.
@@ -106,7 +106,7 @@ the affected bridge DTO only if persisted measure numbers require a migration.
   mismatch without storage, renderer timing, or audio involvement.
 - Alternative explanations tested: `@tonejs/midi` retained the source tempo and
   time-signature maps, and its own tick conversion produced the expected bar numbers.
-  PianoHero's simple MIDI baseline test remains valid for its narrow fixture.
+  LumaKeys's simple MIDI baseline test remains valid for its narrow fixture.
 - Scope/severity changes: 3/4, tempo change, and phantom-bar symptoms were merged
   because they share the lost measure-map boundary.
 - Deduplication decision: not PH-DATA-003; this is a musical interpretation defect,

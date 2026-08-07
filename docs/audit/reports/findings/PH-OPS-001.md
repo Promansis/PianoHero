@@ -14,8 +14,8 @@
 
 ## User Impact
 
-Running web mode from a checkout creates the default `.pianohero-data` root
-unless `PIANOHERO_DATA_DIR` is supplied. A later Docker build copies that root,
+Running web mode from a checkout creates the default `.lumakeys-data` root
+unless `LUMAKEYS_DATA_DIR` is supplied. A later Docker build copies that root,
 including SQLite and MIDI data, into an image layer. The same build context also
 accepts `.env` files. Cached, shared, or registry-pushed images can therefore
 disclose personal practice data or deployment secrets. The exposure requires a
@@ -41,11 +41,11 @@ excluded from source control and image build contexts.
 ### Reproduction
 
 1. Copy the production `.dockerignore` contents into a disposable Docker context.
-2. Add only `.pianohero-data/sentinel` and `.env` with synthetic values.
+2. Add only `.lumakeys-data/sentinel` and `.env` with synthetic values.
 3. Build a minimal image that uses `COPY . .` and asserts both files are present.
 4. Observe a successful no-cache Docker build.
 
-`git check-ignore -v` exited 1 for both `.pianohero-data/audit-sentinel` and
+`git check-ignore -v` exited 1 for both `.lumakeys-data/audit-sentinel` and
 `.env`, confirming the repository also provides no matching ignore rule.
 
 ### Artifacts
@@ -56,7 +56,7 @@ excluded from source control and image build contexts.
 - `.dockerignore` lists only node_modules, build output, `.git`, `.claude`, and
   npm debug logs at `.dockerignore:1` through `:6`.
 - `docker compose config` confirms the production mount is `/data`, which does
-  not erase copied `/app/.pianohero-data` image content.
+  not erase copied `/app/.lumakeys-data` image content.
 - Full synthetic-fixture command/result:
   [Phase 6 evidence](../../evidence/phase-6-probes-2026-07-12.md#docker-build-context).
 
@@ -70,7 +70,7 @@ layers.
 
 ## Recommended Remediation Boundary
 
-Exclude `.pianohero-data`, SQLite/MIDI data roots, `.env*`, audit/browser
+Exclude `.lumakeys-data`, SQLite/MIDI data roots, `.env*`, audit/browser
 profiles, and other local state in `.dockerignore` and `.gitignore`. Prefer a
 narrow Docker `COPY` allow list or multi-stage build input policy. Add an
 automated build-context/image assertion with synthetic data and secret sentinels;
@@ -78,7 +78,7 @@ do not test it with real user files.
 
 ## Required Regression Proof
 
-- Deterministic unit/integration proof: a synthetic `.pianohero-data` and
+- Deterministic unit/integration proof: a synthetic `.lumakeys-data` and
   `.env` are absent from the Docker build context and final image.
 - Electron proof: not applicable.
 - Web proof: a built container starts with only its `/data` mount as persistent

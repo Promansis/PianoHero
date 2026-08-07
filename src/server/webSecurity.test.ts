@@ -34,7 +34,7 @@ describe('webSecurity', () => {
     const app = makeApp('secret-token');
 
     const response = await app.request('/api/ping', {
-      headers: { 'x-pianohero-access-token': 'secret-token' },
+      headers: { 'x-lumakeys-access-token': 'secret-token' },
     });
 
     expect(response.status).toBe(200);
@@ -45,7 +45,7 @@ describe('webSecurity', () => {
     const app = makeApp('secret-token');
 
     const response = await app.request('/api/ping', {
-      headers: { cookie: 'pianohero_web_access=secret-token' },
+      headers: { cookie: 'lumakeys_web_access=secret-token' },
     });
 
     expect(response.status).toBe(200);

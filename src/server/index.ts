@@ -12,9 +12,9 @@ import { createApiAccessGate } from './webSecurity';
 
 async function startServer(): Promise<void> {
   const port = Number(process.env.PORT ?? 3100);
-  const dataDir = resolve(process.env.PIANOHERO_DATA_DIR ?? join(process.cwd(), '.pianohero-data'));
+  const dataDir = resolve(process.env.LUMAKEYS_DATA_DIR ?? join(process.cwd(), '.lumakeys-data'));
   const midiFilesDir = join(dataDir, 'midi-files');
-  const dbPath = join(dataDir, 'pianohero.db');
+  const dbPath = join(dataDir, 'lumakeys.db');
   const webRoot = resolve(process.cwd(), 'dist', 'web');
 
   mkdirSync(dataDir, { recursive: true });
@@ -33,7 +33,7 @@ async function startServer(): Promise<void> {
     await next();
   });
 
-  app.use('/api/*', createApiAccessGate(process.env.PIANOHERO_WEB_ACCESS_TOKEN));
+  app.use('/api/*', createApiAccessGate(process.env.LUMAKEYS_WEB_ACCESS_TOKEN));
   app.get('/api/access', (c) => c.json({ ok: true }));
 
   app.route('/api/bridge', createBridgeRouter({ db, midiFilesDir, midiStorage }));

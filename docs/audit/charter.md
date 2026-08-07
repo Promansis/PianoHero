@@ -3,14 +3,14 @@
 - Charter status: active
 - Audit status: phase 10 verification in progress; immutable refactor baseline `d5839aa` plus verification fix `d4ba395`; 63 files/318 tests and both builds pass; BASE-SEC-001 resolved; PH-OPS-001 independently verified; six P0/P1 findings remain fixed pending named runtime/manual proof; Windows, Edge, physical MIDI/audio, zoom, and workflow matrices remain blockers
 - Audit lead: Codex (acting; repository owner requested continuation)
-- Source branch/worktree: `docs/audit-workflow` at `/media/storage/PianoHero`
+- Source branch/worktree: `docs/audit-workflow` at `/media/storage/LumaKeys`
 - Source commit or patch identity: refactor baseline `d5839aa55a6c9d4796b24d42b23ab12dde06b854`; verification fixes `d4ba395eee6c5adcdecdce5226df79aa8ae79a93`; original discovery baseline retained in [the baseline report](reports/baseline-2026-07-11.md).
 - Start date: 2026-07-11
 - Target consolidation date: completed 2026-07-30
 
 ## Mission
 
-Establish evidence-backed confidence in PianoHero's user workflows, music
+Establish evidence-backed confidence in LumaKeys's user workflows, music
 correctness, data safety, supported runtime behavior, desktop UI, accessibility,
 performance, architecture, and operations. Discovery identifies and disposes risks;
 it does not authorize product changes.
@@ -71,7 +71,7 @@ it does not authorize product changes.
 | Gate | Evidence required | Status |
 |---|---|---|
 | Architecture-fix UI work stabilized | Dirty patch hashes in [baseline report](reports/baseline-2026-07-11.md) preserve the existing UI work without modifying it | complete |
-| Dedicated audit branch/worktree | Existing `docs/audit-workflow` worktree at `/media/storage/PianoHero`; discovery is read-only outside `docs/audit/*` | complete |
+| Dedicated audit branch/worktree | Existing `docs/audit-workflow` worktree at `/media/storage/LumaKeys`; discovery is read-only outside `docs/audit/*` | complete |
 | Dependency installation repaired | Lockfile-preserving `npm ci` restored executable launchers and esbuild; runtime-aware native-module guards now select the active ABI | complete |
 | Typecheck baseline | `npm run typecheck` passes; evidence in [baseline report](reports/baseline-2026-07-11.md) | complete |
 | Full test baseline | `npm test` passes 57 files and 285 tests against isolated data; evidence in [baseline report](reports/baseline-2026-07-11.md) | complete |
@@ -80,7 +80,7 @@ it does not authorize product changes.
 | Package/security baseline | `npm audit` completed; 48 dependency advisories are recorded as leads, not findings, in the [baseline report](reports/baseline-2026-07-11.md) | complete |
 | Electron startup smoke | Isolated Xvfb smoke rendered a `1480x960` LumaKeys window and exited cleanly after SIGTERM; see [baseline report](reports/baseline-2026-07-11.md) | complete |
 | Web startup smoke | Isolated server and Chrome smoke completed first-run setup, main-menu navigation, and clean shutdown; see [baseline report](reports/baseline-2026-07-11.md) | complete |
-| Isolated data profile | `/tmp/pianohero-audit-20260711-phase0`; retain only for the audit and remove after final consolidation | complete |
+| Isolated data profile | `/tmp/lumakeys-audit-20260711-phase0`; retain only for the audit and remove after final consolidation | complete |
 | Test conditions confirmed | Repository owner confirmed the desktop window, Electron platform, and browser matrix on 2026-07-11 | complete |
 
 No audit lane moves to evidence collection while a precondition is blocked unless the

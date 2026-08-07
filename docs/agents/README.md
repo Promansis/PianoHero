@@ -1,4 +1,4 @@
-# PianoHero Agent Playbooks
+# LumaKeys Agent Playbooks
 
 These repository playbooks specialize existing agent workflows without duplicating
 general-purpose skills. They are instructions for future audit sessions, not evidence
@@ -8,11 +8,11 @@ that an audit has occurred.
 
 | Request | Load |
 |---|---|
-| Start, coordinate, resume, or consolidate the full audit | `pianohero-full-audit.md` |
-| Persistence, bridge, storage, security, backup, reset, or parity | `pianohero-runtime-data-audit.md` |
-| MIDI, audio, timing, scoring, looping, fingering, theory, curriculum | `pianohero-practice-engine-audit.md` |
-| UI/accessibility audit | `pianohero-ui-audit-profile.md` plus the full-audit playbook |
-| Choose or report verification | `pianohero-validation-profile.md` |
+| Start, coordinate, resume, or consolidate the full audit | `lumakeys-full-audit.md` |
+| Persistence, bridge, storage, security, backup, reset, or parity | `lumakeys-runtime-data-audit.md` |
+| MIDI, audio, timing, scoring, looping, fingering, theory, curriculum | `lumakeys-practice-engine-audit.md` |
+| UI/accessibility audit | `lumakeys-ui-audit-profile.md` plus the full-audit playbook |
+| Choose or report verification | `lumakeys-validation-profile.md` |
 
 For a reproduced hard failure, use the repository's diagnosis workflow. During
 approved remediation, use test-driven development for observable regressions. Use

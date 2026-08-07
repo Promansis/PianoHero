@@ -50,7 +50,7 @@
 ## MIDI Parsing And Measure Oracles
 
 `@tonejs/midi` preserves `header.tempos`, `header.timeSignatures`, ticks, and a
-`ticksToMeasures` conversion for parsed standard MIDI data. PianoHero's
+`ticksToMeasures` conversion for parsed standard MIDI data. LumaKeys's
 `ParsedSong` retains only one BPM and seconds-only notes, then derives every bar
 from a fixed 4/4 first-tempo grid.
 

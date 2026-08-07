@@ -60,13 +60,13 @@ restart explicitly at zero when accepted.
 
 ### Docker
 
-- No-cache image: `pianohero-audit:verification`, image
+- No-cache image: `lumakeys-audit:verification`, image
   `sha256:e6ae10195b61b59416186d342bf7a4c3c334bdf4fa879aa57544fa82ae621a2c`.
 - Synthetic `.env.audit-sentinel` was excluded from the build context and final
-  image. `.pianohero-data`, SQLite, MIDI, and checkout data were absent under
+  image. `.lumakeys-data`, SQLite, MIDI, and checkout data were absent under
   `/app`.
-- Container `pianohero-audit-run` served `/api/access` at 200 with only
-  `/tmp/pianohero-docker-data:/data` mounted.
+- Container `lumakeys-audit-run` served `/api/access` at 200 with only
+  `/tmp/lumakeys-docker-data:/data` mounted.
 - Setting `audit/dockerRestart=persisted` survived `docker restart` and read back
   through the API.
 

@@ -16,7 +16,7 @@ const songId = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
 const otherSongId = 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789';
 
 async function makeTempDir(): Promise<string> {
-  const dir = await mkdtemp(join(tmpdir(), 'pianohero-library-backup-'));
+  const dir = await mkdtemp(join(tmpdir(), 'lumakeys-library-backup-'));
   tempDirs.push(dir);
   return dir;
 }

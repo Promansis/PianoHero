@@ -7,7 +7,7 @@
 
 ## Context
 
-PianoHero ships as an Electron desktop application and as a self-hosted web
+LumaKeys ships as an Electron desktop application and as a self-hosted web
 application used from desktop browsers. Its practice workflows assume a piano or
 computer keyboard, a landscape display, and desktop input capabilities. Mobile is
 not a plausible deployment or product target.
@@ -19,7 +19,7 @@ reduced motion, and legibility from a playing posture.
 
 ## Decision
 
-PianoHero supports two runtimes:
+LumaKeys supports two runtimes:
 
 - Electron desktop.
 - Self-hosted web in supported desktop browsers.
@@ -63,7 +63,7 @@ assumptions and would dilute higher-risk desktop evidence.
 
 ## Verification
 
-- UI audit plans cite `docs/agents/pianohero-ui-audit-profile.md`.
+- UI audit plans cite `docs/agents/lumakeys-ui-audit-profile.md`.
 - Coverage reports list desktop window, zoom, DPI, keyboard, motion, canvas, and MIDI
   conditions instead of phone breakpoints.
 - Findings based only on unsupported mobile behavior are rejected during challenge.

@@ -15,7 +15,7 @@ afterEach(async () => {
 
 describe('removeDesktopInstrumentSamplePack', () => {
   it('rejects unregistered IDs without mutation and removes a registered pack', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'pianohero-sample-pack-remove-'));
+    const root = await mkdtemp(join(tmpdir(), 'lumakeys-sample-pack-remove-'));
     roots.push(root);
     const userDataPath = join(root, 'user-data');
     const victimPath = join(root, 'victim');
@@ -25,7 +25,7 @@ describe('removeDesktopInstrumentSamplePack', () => {
     await mkdir(packPath, { recursive: true });
     await writeFile(join(packPath, 'sample.wav'), 'sample');
 
-    const db = new AppDatabase(join(userDataPath, 'pianohero.db'));
+    const db = new AppDatabase(join(userDataPath, 'lumakeys.db'));
     const installed = JSON.stringify({
       flute: {
         instrumentId: 'flute',
@@ -52,14 +52,14 @@ describe('removeDesktopInstrumentSamplePack', () => {
   });
 
   it('restores the pack when setting the metadata fails', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'pianohero-sample-pack-remove-fail-'));
+    const root = await mkdtemp(join(tmpdir(), 'lumakeys-sample-pack-remove-fail-'));
     roots.push(root);
     const userDataPath = join(root, 'user-data');
     const packPath = join(userDataPath, 'instrument-sample-packs', 'flute');
     await mkdir(packPath, { recursive: true });
     await writeFile(join(packPath, 'sample.wav'), 'sample');
 
-    const db = new AppDatabase(join(userDataPath, 'pianohero.db'));
+    const db = new AppDatabase(join(userDataPath, 'lumakeys.db'));
     db.setSetting('audio', INSTALLED_INSTRUMENT_SAMPLE_PACKS_SETTING_KEY, JSON.stringify({
       flute: {
         instrumentId: 'flute',
@@ -92,7 +92,7 @@ describe('removeDesktopInstrumentSamplePack', () => {
 
 describe('prepareDesktopInstrumentSamplePackReset', () => {
   it('restores the pack directory when the reset is rolled back', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'pianohero-sample-pack-reset-'));
+    const root = await mkdtemp(join(tmpdir(), 'lumakeys-sample-pack-reset-'));
     roots.push(root);
     const packPath = join(root, 'instrument-sample-packs', 'flute');
     await mkdir(packPath, { recursive: true });

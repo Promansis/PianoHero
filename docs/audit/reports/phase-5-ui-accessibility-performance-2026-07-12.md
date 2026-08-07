@@ -60,8 +60,8 @@ tabs have 46 px heights. Its overflow clips the labels and hit areas. The
 center of the Visual tab resolves to an Audio content card instead of the tab.
 This is PH-UI-002.
 
-`/tmp/pianohero-audit-p5-main-1180x780.png` was captured at the required
-minimum condition. `/tmp/pianohero-audit-p5-settings-150zoom-effective.png`
+`/tmp/lumakeys-audit-p5-main-1180x780.png` was captured at the required
+minimum condition. `/tmp/lumakeys-audit-p5-settings-150zoom-effective.png`
 has SHA-256
 `c7600ffc930a0b3572e95e7a162e9d31c8936a28ce41404d70762fc142c60284`;
 the Electron equivalent has SHA-256
@@ -79,7 +79,7 @@ Gameplay: css 1478x732, buffer 2956x1464, 69 non-background sampled pixels
 
 The gameplay screenshot contains framed falling notes, labels, hit line, and
 piano keyboard. Its raw artifact is
-`/tmp/pianohero-audit-p5-gameplay-1480x960-dpr2.png`, SHA-256
+`/tmp/lumakeys-audit-p5-gameplay-1480x960-dpr2.png`, SHA-256
 `3c7d189ad56c919d9ab953e183ab2286210dd93f883f59d3979e37e7d6c4cd49`.
 Electron free play also rendered a nonblank `1480x706` 1x canvas in its
 isolated Xvfb profile; screenshot SHA-256
@@ -116,7 +116,7 @@ Electron Free Play: 3882716736 -> 1593986054
 ```
 
 This is PH-UI-003. The reduced-motion screenshot is retained outside Git at
-`/tmp/pianohero-audit-p5-freeplay-reduced-motion.png`, SHA-256
+`/tmp/lumakeys-audit-p5-freeplay-reduced-motion.png`, SHA-256
 `ba3798aabffc3b4b17081f34f00f9886440dee7f4e79410391d00d62db4bd072`.
 
 ### P5-UI-004: Confirmation Escape
@@ -124,7 +124,7 @@ This is PH-UI-003. The reduced-motion screenshot is retained outside Git at
 At normal desktop size, `Delete User Data` opens a correctly labelled dialog
 and focuses Cancel. Pressing `Escape` then lands at Main Menu in both Chrome
 and Electron. The Chrome pre-Escape screenshot is retained at
-`/tmp/pianohero-audit-p5-settings-escape-before.png`, SHA-256
+`/tmp/lumakeys-audit-p5-settings-escape-before.png`, SHA-256
 `635554b2fab12f9d4e9a9fc97ad51635c4940590b8e2a6621b2b75d2375c2407`.
 No reset call was confirmed in the isolated profile.
 
@@ -171,7 +171,7 @@ No reset call was confirmed in the isolated profile.
   reduced motion, and confirmation Escape were observed. `--no-sandbox` was
   necessary for this container's Electron helper configuration and is not a
   product finding.
-- Web: a built server used `/tmp/pianohero-audit-phase5-data`; Chrome covered
+- Web: a built server used `/tmp/lumakeys-audit-phase5-data`; Chrome covered
   first run, menu, library fixture upload, gameplay, free play, soundboard,
   settings, desktop geometry, high DPI, keyboard behavior, motion, and idle
   performance.

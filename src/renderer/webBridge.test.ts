@@ -82,7 +82,7 @@ describe('webBridge', () => {
 
   it('downloads exported libraries from the browser export endpoint', async () => {
     const result = {
-      filename: 'pianohero-library.json',
+      filename: 'lumakeys-library.json',
       target: 'download',
       songsExported: 0,
       midiFilesIncluded: 0,
@@ -164,12 +164,12 @@ describe('webBridge', () => {
   });
 
   it('clears browser-local settings after the server reset succeeds', async () => {
-    window.localStorage.setItem('pianohero-test', 'present');
+    window.localStorage.setItem('lumakeys-test', 'present');
     const fetchMock = mockFetch(jsonResponse({ result: null }));
 
     await expect(webBridge.resetUserData()).resolves.toBeNull();
 
-    expect(window.localStorage.getItem('pianohero-test')).toBeNull();
+    expect(window.localStorage.getItem('lumakeys-test')).toBeNull();
     expect(fetchMock).toHaveBeenCalledWith('/api/bridge/resetUserData', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

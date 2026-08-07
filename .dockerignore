@@ -4,8 +4,8 @@ out
 .git
 .claude
 npm-debug.log
-.pianohero-data
-**/.pianohero-data
+.lumakeys-data
+**/.lumakeys-data
 .env*
 **/.env*
 *.db

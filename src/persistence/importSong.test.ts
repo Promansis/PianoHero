@@ -12,7 +12,7 @@ import type { MidiStorageAdapter, MidiStorageStagedFile } from '../storage/midiS
 const tempDirs: string[] = [];
 
 async function makeDb(): Promise<AppDatabase> {
-  const dir = await mkdtemp(join(tmpdir(), 'pianohero-import-song-'));
+  const dir = await mkdtemp(join(tmpdir(), 'lumakeys-import-song-'));
   tempDirs.push(dir);
   return new AppDatabase(join(dir, 'test.db'));
 }

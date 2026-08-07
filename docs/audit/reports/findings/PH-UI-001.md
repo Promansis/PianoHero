@@ -65,7 +65,7 @@ Free Play Electron: Escape -> Tab -> .immersive-hud-tab (HUD)
   pattern.
 - The settings confirmation demonstrates the required contrasting behavior:
   `src/renderer/components/SettingsScreen.tsx:444` focuses Cancel and traps Tab.
-- Screenshot artifact: `/tmp/pianohero-audit-p5-freeplay-dialog-focus-escape.png`,
+- Screenshot artifact: `/tmp/lumakeys-audit-p5-freeplay-dialog-focus-escape.png`,
   SHA-256 `5d16809f2518e797149f553cea30c49b4db790617f4a23df3ae651262724c1d7`.
 - Full evidence: [Phase 5](../phase-5-ui-accessibility-performance-2026-07-12.md#p5-ui-001-modal-focus).
 

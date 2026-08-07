@@ -19,7 +19,7 @@ window.appBridge.removeInstrumentSamplePack. The main process passes that value 
 recursive rmSync without validating the ID or proving that the derived path remains
 under the app-owned sample-pack root. A renderer compromise, such as an XSS or a
 tampered renderer asset, can therefore delete directories writable by the desktop
-user outside PianoHero's data directory. This is an exploitable privileged boundary
+user outside LumaKeys's data directory. This is an exploitable privileged boundary
 with irreversible user-data impact, so it is P0.
 
 ## Expected Behavior Or Oracle
@@ -27,7 +27,7 @@ with irreversible user-data impact, so it is P0.
 The runtime-data audit invariant requires renderer input to be unable to select
 arbitrary desktop filesystem paths. Desktop sample-pack removal must be limited to
 known pack IDs and to a path demonstrably contained in the app-owned pack root.
-See docs/agents/pianohero-runtime-data-audit.md and CONTEXT.md.
+See docs/agents/lumakeys-runtime-data-audit.md and CONTEXT.md.
 
 ## Evidence
 
@@ -48,7 +48,7 @@ See docs/agents/pianohero-runtime-data-audit.md and CONTEXT.md.
 
 The isolated probe printed:
 
-    {"root":"/tmp/pianohero-phase2-sample-remove-hrqkbI","victimExistsAfterRemoval":false}
+    {"root":"/tmp/lumakeys-phase2-sample-remove-hrqkbI","victimExistsAfterRemoval":false}
 
 The probe removed its temporary root afterward. The same path composition was checked
 separately: a user-data root followed by instrument-sample-packs and ../../victim

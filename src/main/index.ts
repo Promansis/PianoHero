@@ -92,14 +92,14 @@ async function createMainWindow(): Promise<void> {
 }
 
 app.whenReady().then(async () => {
-  app.setAppUserModelId('com.pianohero.app');
+  app.setAppUserModelId('com.lumakeys.app');
 
   const userDataPath = app.getPath('userData');
   const midiFilesDir = join(userDataPath, 'midi-files');
   mkdirSync(midiFilesDir, { recursive: true });
   midiStorage = new FileSystemMidiStorageAdapter(midiFilesDir);
 
-  db = new AppDatabase(join(userDataPath, 'pianohero.db'));
+  db = new AppDatabase(join(userDataPath, 'lumakeys.db'));
   await db.migrateFromJson(userDataPath, midiStorage);
   await db.recoverDurableOperations(midiStorage, (operationId, state) =>
     recoverDesktopInstrumentSamplePackReset(userDataPath, operationId, state),
@@ -352,7 +352,7 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('library:export', async () => {
     const options: SaveDialogOptions = {
-      defaultPath: `pianohero-library-${new Date().toISOString().slice(0, 10)}.json`,
+      defaultPath: `lumakeys-library-${new Date().toISOString().slice(0, 10)}.json`,
       filters: [{ name: 'JSON Files', extensions: ['json'] }],
     };
     const result = mainWindow
@@ -367,7 +367,7 @@ app.whenReady().then(async () => {
     writeFileSync(result.filePath, JSON.stringify(backup, null, 2), 'utf8');
     return {
       ...exportResult,
-      filename: result.filePath.split(/[\\/]/).pop() ?? 'pianohero-library.json',
+      filename: result.filePath.split(/[\\/]/).pop() ?? 'lumakeys-library.json',
       target: 'file',
       location: result.filePath,
     };

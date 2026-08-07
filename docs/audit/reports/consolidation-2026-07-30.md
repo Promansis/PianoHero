@@ -1,4 +1,4 @@
-# PianoHero Audit Consolidation
+# LumaKeys Audit Consolidation
 
 - Baseline identity: `808e6739e55b5186e8a9565f2c4e9267c4894a6c` plus tracked working-tree diff SHA-256 `1bc69ee417613bde56d64630e7cfd4b30ad976d3b80d363a166fb8bcef9c57ae` and the chartered untracked-source inventory
 - Audit period: 2026-07-11 through 2026-07-30

@@ -1,13 +1,13 @@
-# PianoHero Linux Server Deployment
+# LumaKeys Linux Server Deployment
 
 This project can run as a normal web app on your Linux server.
 
 The app will:
 
 - serve the web UI on port `3001`
-- store the database and uploaded MIDI files in `/media/storage/pianohero`
+- store the database and uploaded MIDI files in `/media/storage/lumakeys`
 - work behind your existing Cloudflare Tunnel
-- protect API routes with Cloudflare Access or `PIANOHERO_WEB_ACCESS_TOKEN`
+- protect API routes with Cloudflare Access or `LUMAKEYS_WEB_ACCESS_TOKEN`
 
 ## What This Setup Uses
 
@@ -37,18 +37,18 @@ Example:
 
 ```bash
 cd /media/storage
-git clone <your-repo-url> pianohero-app
-cd pianohero-app
+git clone <your-repo-url> lumakeys-app
+cd lumakeys-app
 ```
 
 If you already copied the project there manually, just `cd` into the project folder.
 
 ## 2. Create the Data Folder
 
-This is where PianoHero will store its database and uploaded MIDI files.
+This is where LumaKeys will store its database and uploaded MIDI files.
 
 ```bash
-mkdir -p /media/storage/pianohero
+mkdir -p /media/storage/lumakeys
 ```
 
 ## 3. Build and Start the Container
@@ -62,7 +62,7 @@ docker compose up -d --build
 To check logs:
 
 ```bash
-docker compose logs -f pianohero
+docker compose logs -f lumakeys
 ```
 
 ## 4. Test It Locally First
@@ -79,7 +79,7 @@ Or open:
 http://YOUR_SERVER_IP:3001
 ```
 
-If it is working, you should see the PianoHero web app.
+If it is working, you should see the LumaKeys web app.
 
 ## 5. Add It to Cloudflare Tunnel
 
@@ -89,7 +89,7 @@ Edit your Cloudflare Tunnel config:
 sudo nano /etc/cloudflared/config.yml
 ```
 
-Add a new ingress rule for PianoHero.
+Add a new ingress rule for LumaKeys.
 
 Example:
 
@@ -113,7 +113,7 @@ sudo systemctl restart cloudflared
 
 ## 5a. Protect the Web APIs
 
-PianoHero web is a single-user deployment. Anyone who can reach `/api/*` can import songs, reset data, and mutate the shared library. Put the hostname behind Cloudflare Access before exposing it publicly.
+LumaKeys web is a single-user deployment. Anyone who can reach `/api/*` can import songs, reset data, and mutate the shared library. Put the hostname behind Cloudflare Access before exposing it publicly.
 
 Minimum Cloudflare Access smoke checklist:
 
@@ -124,7 +124,7 @@ Minimum Cloudflare Access smoke checklist:
 
 Optional app-level gate:
 
-Set `PIANOHERO_WEB_ACCESS_TOKEN` in `docker-compose.yml`. API requests must include `x-pianohero-access-token: <token>` once; successful token requests set an HttpOnly cookie scoped to `/api`.
+Set `LUMAKEYS_WEB_ACCESS_TOKEN` in `docker-compose.yml`. API requests must include `x-lumakeys-access-token: <token>` once; successful token requests set an HttpOnly cookie scoped to `/api`.
 
 Browser login check:
 
@@ -139,8 +139,8 @@ Example:
 ```yml
 environment:
   PORT: 3001
-  PIANOHERO_DATA_DIR: /data
-  PIANOHERO_WEB_ACCESS_TOKEN: "change-this-long-random-token"
+  LUMAKEYS_DATA_DIR: /data
+  LUMAKEYS_WEB_ACCESS_TOKEN: "change-this-long-random-token"
 ```
 
 ## 6. Open the Site
@@ -174,7 +174,7 @@ docker compose up -d --build
 View logs:
 
 ```bash
-docker compose logs -f pianohero
+docker compose logs -f lumakeys
 ```
 
 Check running containers:
@@ -188,7 +188,7 @@ docker ps
 All persistent app data is stored here on the host:
 
 ```text
-/media/storage/pianohero
+/media/storage/lumakeys
 ```
 
 Inside the container that path is mounted as:
@@ -204,7 +204,7 @@ That folder contains:
 
 ## Important Notes
 
-- This is the web version of PianoHero, not the full Electron desktop version.
+- This is the web version of LumaKeys, not the full Electron desktop version.
 - Browser upload of MIDI files works.
 - Some desktop-only actions are not available in web mode, such as native file picker features and some export/save helpers.
 - Cloudflare Tunnel gives you HTTPS, which is useful for browser device APIs.
@@ -244,7 +244,7 @@ Current default port:
 Check logs:
 
 ```bash
-docker compose logs -f pianohero
+docker compose logs -f lumakeys
 ```
 
 ### Cloudflare works but the site does not load
@@ -269,11 +269,11 @@ docker compose up -d --build
 Change this line in `docker-compose.yml`:
 
 ```yml
-- /media/storage/pianohero:/data
+- /media/storage/lumakeys:/data
 ```
 
 For example:
 
 ```yml
-- /some/other/path/pianohero:/data
+- /some/other/path/lumakeys:/data
 ```

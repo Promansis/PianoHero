@@ -16,7 +16,7 @@ const tempDirs: string[] = [];
 const songId = 'song-1';
 
 async function makeDbPath(): Promise<string> {
-  const dir = await mkdtemp(join(tmpdir(), 'pianohero-db-'));
+  const dir = await mkdtemp(join(tmpdir(), 'lumakeys-db-'));
   tempDirs.push(dir);
   return join(dir, 'test.db');
 }

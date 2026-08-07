@@ -10,7 +10,7 @@ const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(SCRIPT_DIR, '..');
 const OUTPUT_DIR = join(REPO_ROOT, 'public/soundboard/classic');
 const MANIFEST_PATH = join(REPO_ROOT, 'src/lib/audio/classicSoundboardManifest.json');
-const WORK_DIR = join(tmpdir(), 'pianohero-classic-soundboard');
+const WORK_DIR = join(tmpdir(), 'lumakeys-classic-soundboard');
 
 const SOURCE = {
   title: 'Mixkit Sound Effects',

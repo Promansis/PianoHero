@@ -14,7 +14,7 @@
 
 ## User Impact
 
-If a MIDI keyboard disconnects while a key is held, PianoHero removes the device from
+If a MIDI keyboard disconnects while a key is held, LumaKeys removes the device from
 the picker but never sends a release for that device's active notes. The falling-note
 session and live instrument can retain a stuck key/highlight and audio can continue
 until the user exits or another path clears all notes. This breaks an explicit MIDI

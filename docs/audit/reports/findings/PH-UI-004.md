@@ -54,7 +54,7 @@ dialog dismissed and focus restored to `Delete User Data`.
 - The confirmation's focus trap otherwise works at
   `src/renderer/components/SettingsScreen.tsx:464`.
 - Screenshot artifact before Escape:
-  `/tmp/pianohero-audit-p5-settings-escape-before.png`, SHA-256
+  `/tmp/lumakeys-audit-p5-settings-escape-before.png`, SHA-256
   `635554b2fab12f9d4e9a9fc97ad51635c4940590b8e2a6621b2b75d2375c2407`.
 - Full evidence: [Phase 5](../phase-5-ui-accessibility-performance-2026-07-12.md#p5-ui-004-confirmation-escape).
 

@@ -61,7 +61,7 @@ active.
   `src/renderer/components/AnimalSoundboardCanvas.tsx:264` and `:393`.
 - The stylesheet's reduced-motion rules affect DOM transitions but do not pass a
   motion preference into either canvas scene.
-- Screenshot artifact: `/tmp/pianohero-audit-p5-freeplay-reduced-motion.png`,
+- Screenshot artifact: `/tmp/lumakeys-audit-p5-freeplay-reduced-motion.png`,
   SHA-256 `ba3798aabffc3b4b17081f34f00f9886440dee7f4e79410391d00d62db4bd072`.
 - Full evidence: [Phase 5](../phase-5-ui-accessibility-performance-2026-07-12.md#p5-ui-003-reduced-motion).
 

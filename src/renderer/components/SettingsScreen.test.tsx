@@ -54,7 +54,7 @@ describe('SettingsScreen', () => {
   });
 
   it('does not reset learning progress when modal confirmation is cancelled', async () => {
-    localStorage.setItem('pianohero-filter-presets', '{"demo":true}');
+    localStorage.setItem('lumakeys-filter-presets', '{"demo":true}');
 
     renderSettingsScreen();
 
@@ -69,7 +69,7 @@ describe('SettingsScreen', () => {
     await waitFor(() => {
       expect(resetLearningProgress).not.toHaveBeenCalled();
       expect(resetUserData).not.toHaveBeenCalled();
-      expect(localStorage.getItem('pianohero-filter-presets')).toBe('{"demo":true}');
+      expect(localStorage.getItem('lumakeys-filter-presets')).toBe('{"demo":true}');
     });
   });
 

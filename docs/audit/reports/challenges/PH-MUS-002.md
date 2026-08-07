@@ -17,7 +17,7 @@ exact-bar-ending songs.
   renderer state.
 - Exact steps: parse a 3/4 note at measure two, a 120-to-60 BPM 4/4 note at measure
   three, and a one-bar exact-boundary score; compare the parser's tick measure map
-  with PianoHero's public measure functions.
+  with LumaKeys's public measure functions.
 - Result and repeat count: each fresh fixture produced a disagreement; the exact-bar
   fixture exposed a loop `{ startSec: 2, endSec: 2 }`.
 - Artifacts: PH-MUS-002 and P3-MUS-002 in the Phase 3 report.

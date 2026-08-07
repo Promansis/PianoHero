@@ -1,16 +1,16 @@
 services:
-  pianohero:
+  lumakeys:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: pianohero
+    container_name: lumakeys
     restart: unless-stopped
     environment:
       PORT: 3001
-      PIANOHERO_DATA_DIR: /data
+      LUMAKEYS_DATA_DIR: /data
       # Optional: require this token for /api/* until browser receives a scoped access cookie.
-      # PIANOHERO_WEB_ACCESS_TOKEN: "change-this-long-random-token"
+      # LUMAKEYS_WEB_ACCESS_TOKEN: "change-this-long-random-token"
     volumes:
-      - /media/storage/pianohero:/data
+      - /media/storage/lumakeys:/data
     ports:
       - "3001:3001"

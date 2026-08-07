@@ -13,10 +13,10 @@ files from a developer checkout into an image layer.
 ## Independent Reproduction
 
 - Fresh setup/fixture: a `/tmp` Docker context with only a fake
-  `.pianohero-data/sentinel`, a fake `.env`, and the production
+  `.lumakeys-data/sentinel`, a fake `.env`, and the production
   `.dockerignore` contents.
 - Exact steps: use `COPY . .` followed by `RUN test -f
-  .pianohero-data/sentinel && test -f .env`, then run a no-cache Docker build.
+  .lumakeys-data/sentinel && test -f .env`, then run a no-cache Docker build.
 - Result and repeat count: one disposable build passed; the temporary image and
   context were removed immediately.
 - Artifacts: [Phase 6 probe evidence](../../evidence/phase-6-probes-2026-07-12.md#docker-build-context).
@@ -27,7 +27,7 @@ files from a developer checkout into an image layer.
 |---|---|---|
 | Environment/dependency failure | Docker completed the isolated build successfully. | Rejected. |
 | Fixture or stale-data artifact | The fixture contains only synthetic sentinel files. | Rejected. |
-| Compose data mount prevents exposure | Compose mounts `/data`; copied default data remains under `/app/.pianohero-data` in the image layer. | Rejected. |
+| Compose data mount prevents exposure | Compose mounts `/data`; copied default data remains under `/app/.lumakeys-data` in the image layer. | Rejected. |
 | Duplicate root cause | Compared with PH-DATA-001/002 and PH-PAR-001. | Rejected; this is build-context confidentiality. |
 | Unsupported product condition | Docker deployment is explicitly documented and in scope. | Rejected. |
 

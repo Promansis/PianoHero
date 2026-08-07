@@ -33,7 +33,7 @@ function toBlob(bytes: Uint8Array): Blob {
 }
 
 async function makeServer() {
-  const dir = await mkdtemp(join(tmpdir(), 'pianohero-midi-router-'));
+  const dir = await mkdtemp(join(tmpdir(), 'lumakeys-midi-router-'));
   tempDirs.push(dir);
   const midiFilesDir = join(dir, 'midi-files');
   await mkdir(midiFilesDir, { recursive: true });

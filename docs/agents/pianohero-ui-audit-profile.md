@@ -1,6 +1,6 @@
-# PianoHero UI Audit Profile
+# LumaKeys UI Audit Profile
 
-Apply this profile whenever a general UI/a11y audit workflow is used for PianoHero.
+Apply this profile whenever a general UI/a11y audit workflow is used for LumaKeys.
 `PRODUCT.md` and `DESIGN.md` are acceptance criteria. ADR 0001 overrides generic
 mobile guidance.
 

@@ -1,5 +1,4 @@
 node_modules
-packaging
 .claude
 CLAUDE.md
 AGENTS.md
@@ -12,6 +11,8 @@ plan.md
 /.agents
 /.codex-audits
 /.
+.lumakeys-data
+**/.lumakeys-data
 .pianohero-data
 **/.pianohero-data
 .env*

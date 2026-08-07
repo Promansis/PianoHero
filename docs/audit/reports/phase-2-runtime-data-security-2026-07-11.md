@@ -57,7 +57,7 @@
 | OP-011 | Route tests enforce declared-size limits. A live 263,208-byte chunked RPC did not mutate data, but returned 400 rather than the configured 413. | Hono 4.6.14 has a direct audit advisory for unknown-length/chunked body-limit behavior. | gap; BASE-SEC-001 needs dependency remediation and regression proof |
 | OP-012 | Isolated live server returned 404 for literal, percent-encoded, and encoded-backslash static traversal attempts; encoded MIDI path became a nonmatching song ID and returned 404. | Tests used no personal data. | covered |
 | OP-013 | BrowserWindow uses contextIsolation and disables nodeIntegration; preload exposes a typed object. The sample-pack removal handler still trusts an unvalidated exposed argument. | Context isolation does not attenuate exposed capabilities. | covered; PH-SEC-001 |
-| OP-014 | Live server binds all interfaces by default. With no token, export and reset returned 200; with PIANOHERO_WEB_ACCESS_TOKEN, unauthenticated export returned 401 and a header-authenticated request returned 200. README explicitly requires Cloudflare Access before public exposure. | This is an intentional single-user deployment contract, not a new product finding. | covered; accepted deployment risk |
+| OP-014 | Live server binds all interfaces by default. With no token, export and reset returned 200; with LUMAKEYS_WEB_ACCESS_TOKEN, unauthenticated export returned 401 and a header-authenticated request returned 200. README explicitly requires Cloudflare Access before public exposure. | This is an intentional single-user deployment contract, not a new product finding. | covered; accepted deployment risk |
 | OP-015 | Database construction enables WAL/foreign keys; tests prove legacy folder migration and multiple SQLite transactions. | Cross-store rollback/recovery is not solved by the SQLite transaction boundary. | covered; PH-DATA-001 |
 
 ## Durable Entity Disposition
@@ -119,7 +119,7 @@ PH-SEC-001.
 
 An isolated server at port 3312 listened on all interfaces. With no token,
 GET /api/library/export and POST /api/bridge/resetUserData both returned 200. A
-separate isolated server with PIANOHERO_WEB_ACCESS_TOKEN rejected the same export
+separate isolated server with LUMAKEYS_WEB_ACCESS_TOKEN rejected the same export
 without credentials (401) and accepted it with the documented request header (200).
 
 The documented deployment contract in README.md requires Cloudflare Access before

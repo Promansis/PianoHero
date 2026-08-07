@@ -381,7 +381,7 @@ supported desktop window and 100-200% zoom range in both runtimes.
 ### User-Visible Outcome
 
 Docker build context, image layers, and final application image contain application
-inputs only, never checkout-local PianoHero data, browser/audit profiles, or `.env`
+inputs only, never checkout-local LumaKeys data, browser/audit profiles, or `.env`
 secrets. Runtime persistence remains under mounted `/data`.
 
 ### Boundaries Touched

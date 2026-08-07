@@ -23,8 +23,8 @@ function ensureNativeModule(target) {
     return false;
   }
 
-  if (target === 'electron' && process.env.PIANOHERO_SKIP_ELECTRON_REBUILD === '1') {
-    console.log('Skipping Electron native-module rebuild because PIANOHERO_SKIP_ELECTRON_REBUILD=1');
+  if (target === 'electron' && process.env.LUMAKEYS_SKIP_ELECTRON_REBUILD === '1') {
+    console.log('Skipping Electron native-module rebuild because LUMAKEYS_SKIP_ELECTRON_REBUILD=1');
     return true;
   }
 

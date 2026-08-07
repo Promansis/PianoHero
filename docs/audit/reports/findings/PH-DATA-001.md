@@ -28,7 +28,7 @@ The audit requires multi-step durable mutations to be atomic or to leave an expl
 recoverable state. Backup import must validate and stage before committing, then either
 complete all durable stores or preserve/recover the prior library state. Destructive
 operations that return failure must not silently commit an unrecoverable subset.
-See docs/agents/pianohero-runtime-data-audit.md.
+See docs/agents/lumakeys-runtime-data-audit.md.
 
 ## Evidence
 

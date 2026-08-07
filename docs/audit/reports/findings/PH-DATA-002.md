@@ -24,7 +24,7 @@ assets on the device, and creates desktop/web reset divergence.
 
 The charter includes sample files and IndexedDB-backed assets in durable-state
 lifecycle and requires full user-data reset to cover files and browser-local state.
-See CONTEXT.md and docs/agents/pianohero-runtime-data-audit.md.
+See CONTEXT.md and docs/agents/lumakeys-runtime-data-audit.md.
 
 ## Evidence
 

@@ -1,4 +1,4 @@
-# PianoHero Validation Profile
+# LumaKeys Validation Profile
 
 Use this profile to choose proof for baselines, lane audits, remediation, and final
 readiness. Commands run from the repository root against isolated data.
@@ -38,7 +38,7 @@ runtime, persistence, canvas, audio, or hardware behavior.
 - `npm run build:web`
 - `npm audit`
 
-Run startup smoke tests with an absolute isolated `PIANOHERO_DATA_DIR=/tmp/...` for
+Run startup smoke tests with an absolute isolated `LUMAKEYS_DATA_DIR=/tmp/...` for
 web. Use a disposable Electron profile for destructive desktop proof. Record exact
 commands, versions, duration, result, and concise error output in the baseline report.
 
@@ -50,7 +50,7 @@ green is not a substitute for the finding's specific regression test.
 
 ## Manual Proof
 
-- Desktop UI: conditions in `pianohero-ui-audit-profile.md`.
+- Desktop UI: conditions in `lumakeys-ui-audit-profile.md`.
 - MIDI/audio: named device, OS/runtime, connection, scenario, repeat count, and
   observed latency/correctness.
 - Data/recovery: fresh fixture, state before/after interruption, restart, recovery,

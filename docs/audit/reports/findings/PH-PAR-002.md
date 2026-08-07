@@ -18,7 +18,7 @@ Cancelling the browser MIDI picker, reattach picker, or backup picker leaves its
 
 ## Expected Behavior Or Oracle
 
-The cancellation outcome for a user-initiated file selection must be explicit, settle its bridge promise, clean up temporary DOM/listener state, and let the caller leave its loading state. The web adapter must offer the same user-visible cancellation outcome as its Electron counterpart where browser capability permits it. See `docs/agents/pianohero-runtime-data-audit.md` and the AppBridge contract in `src/shared/ipc.ts`.
+The cancellation outcome for a user-initiated file selection must be explicit, settle its bridge promise, clean up temporary DOM/listener state, and let the caller leave its loading state. The web adapter must offer the same user-visible cancellation outcome as its Electron counterpart where browser capability permits it. See `docs/agents/lumakeys-runtime-data-audit.md` and the AppBridge contract in `src/shared/ipc.ts`.
 
 ## Evidence
 

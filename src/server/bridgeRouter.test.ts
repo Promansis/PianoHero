@@ -23,7 +23,7 @@ const songId = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
 const otherSongId = 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789';
 
 async function makeServer() {
-  const dir = await mkdtemp(join(tmpdir(), 'pianohero-bridge-router-'));
+  const dir = await mkdtemp(join(tmpdir(), 'lumakeys-bridge-router-'));
   tempDirs.push(dir);
   const midiFilesDir = join(dir, 'midi-files');
   await mkdir(midiFilesDir, { recursive: true });
@@ -267,7 +267,7 @@ describe('bridgeRouter', () => {
   it('deletes only app-owned MIDI files for web song deletion', async () => {
     const { app, db, midiFilesDir } = await makeServer();
     const appOwnedPath = join(midiFilesDir, `${songId}.mid`);
-    const foreignDir = await mkdtemp(join(tmpdir(), 'pianohero-foreign-midi-'));
+    const foreignDir = await mkdtemp(join(tmpdir(), 'lumakeys-foreign-midi-'));
     tempDirs.push(foreignDir);
     const foreignPath = join(foreignDir, `${otherSongId}.mid`);
 

@@ -74,7 +74,7 @@
 `npm run build` passed, but emitted unresolved public-asset warnings for the main-menu background. The newly generated `out/renderer` contained only `assets/` and `index.html`; it did not contain `curriculum-midis/`, `soundboard/`, or the public main-menu asset. A real Electron renderer invocation of `loadCurriculumMidi('ode-to-joy.mid')` returned:
 
 ```text
-{"ok":false,"message":"Error invoking remote method 'file:load-curriculum-midi': Error: ENOENT: no such file or directory, open '/media/storage/PianoHero/out/renderer/curriculum-midis/ode-to-joy.mid'"}
+{"ok":false,"message":"Error invoking remote method 'file:load-curriculum-midi': Error: ENOENT: no such file or directory, open '/media/storage/LumaKeys/out/renderer/curriculum-midis/ode-to-joy.mid'"}
 ```
 
 The same web build returned the bytes:
@@ -98,7 +98,7 @@ Both `pickMidiFiles` and `pickJsonFile` register only `onchange`; neither handle
 A fresh `/tmp` user-data root contained only a valid external MIDI file and the supported `song-metadata.json` migration input. Electron migrated the row, loaded its bytes through the desktop fallback, and recomputed its metadata:
 
 ```text
-{"ok":true,"songCount":1,"filePath":"/tmp/pianohero-audit-p4-migration-ljNQo5/legacy-source.mid","byteLength":614}
+{"ok":true,"songCount":1,"filePath":"/tmp/lumakeys-audit-p4-migration-ljNQo5/legacy-source.mid","byteLength":614}
 {"ok":true,"updated":1,"errors":0}
 ```
 
@@ -106,9 +106,9 @@ Using the same data root, web RPC listed the migrated song but its MIDI route an
 
 ```text
 HTTP/1.1 404 Not Found
-{"error":"ENOENT: no such file or directory, open '/tmp/pianohero-audit-p4-migration-ljNQo5/midi-files/legacy-migrated-song.mid'"}
+{"error":"ENOENT: no such file or directory, open '/tmp/lumakeys-audit-p4-migration-ljNQo5/midi-files/legacy-migrated-song.mid'"}
 
-{"result":{"updated":0,"errors":[{"filename":"Migrated legacy song","message":"ENOENT: no such file or directory, open '/tmp/pianohero-audit-p4-migration-ljNQo5/midi-files/legacy-migrated-song.mid'"}]}}
+{"result":{"updated":0,"errors":[{"filename":"Migrated legacy song","message":"ENOENT: no such file or directory, open '/tmp/lumakeys-audit-p4-migration-ljNQo5/midi-files/legacy-migrated-song.mid'"}]}}
 ```
 
 ## Findings

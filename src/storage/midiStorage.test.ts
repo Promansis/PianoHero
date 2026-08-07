@@ -11,7 +11,7 @@ const tempDirs: string[] = [];
 const songId = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 
 async function makeTempDir(): Promise<string> {
-  const dir = await mkdtemp(join(tmpdir(), 'pianohero-midi-storage-'));
+  const dir = await mkdtemp(join(tmpdir(), 'lumakeys-midi-storage-'));
   tempDirs.push(dir);
   return dir;
 }

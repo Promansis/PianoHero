@@ -1054,9 +1054,9 @@ export function GameScreen({
       }
     };
 
-    window.addEventListener('pianohero-shortcut', handleShortcut);
+    window.addEventListener('lumakeys-shortcut', handleShortcut);
     return () => {
-      window.removeEventListener('pianohero-shortcut', handleShortcut);
+      window.removeEventListener('lumakeys-shortcut', handleShortcut);
     };
   }, [handlePlayPause]);
 

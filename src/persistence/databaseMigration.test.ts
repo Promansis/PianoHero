@@ -17,7 +17,7 @@ afterEach(async () => {
 
 describe('legacy JSON migration', () => {
   it('copies verified source MIDI into app-owned storage', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'pianohero-migration-'));
+    const root = await mkdtemp(join(tmpdir(), 'lumakeys-migration-'));
     roots.push(root);
     const sourcePath = join(root, 'source.mid');
     const midi = new Midi();
@@ -30,7 +30,7 @@ describe('legacy JSON migration', () => {
     } }));
 
     const storage = new FileSystemMidiStorageAdapter(join(root, 'midi-files'));
-    const db = new AppDatabase(join(root, 'pianohero.db'));
+    const db = new AppDatabase(join(root, 'lumakeys.db'));
     await db.migrateFromJson(root, storage);
 
     expect(db.getSong(id)?.filePath).toBe(join(root, 'midi-files', `${id}.mid`));
@@ -39,7 +39,7 @@ describe('legacy JSON migration', () => {
   });
 
   it('keeps an unavailable legacy row explicit when the source is missing', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'pianohero-migration-missing-'));
+    const root = await mkdtemp(join(tmpdir(), 'lumakeys-migration-missing-'));
     roots.push(root);
     const id = 'legacy-song';
     await mkdir(root, { recursive: true });
@@ -47,14 +47,14 @@ describe('legacy JSON migration', () => {
       [id]: { title: 'Missing', sourcePath: join(root, 'missing.mid'), trackAssignments: {}, updatedAt: '2026-07-30T00:00:00.000Z' },
     } }));
 
-    const db = new AppDatabase(join(root, 'pianohero.db'));
+    const db = new AppDatabase(join(root, 'lumakeys.db'));
     await db.migrateFromJson(root, new FileSystemMidiStorageAdapter(join(root, 'midi-files')));
     expect(db.getSong(id)?.filePath).toBe('');
     db.close();
   });
 
   it('repairs existing legacy rows after JSON migration', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'pianohero-migration-repair-'));
+    const root = await mkdtemp(join(tmpdir(), 'lumakeys-migration-repair-'));
     roots.push(root);
     const sourcePath = join(root, 'source.mid');
     const midi = new Midi();
@@ -67,7 +67,7 @@ describe('legacy JSON migration', () => {
     } }));
 
     const storage = new FileSystemMidiStorageAdapter(join(root, 'midi-files'));
-    const db = new AppDatabase(join(root, 'pianohero.db'));
+    const db = new AppDatabase(join(root, 'lumakeys.db'));
     db.addSong({
       id,
       title: 'Repaired',
@@ -90,7 +90,7 @@ describe('legacy JSON migration', () => {
   });
 
   it('does not overwrite an already app-owned MIDI reference during repair', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'pianohero-migration-owned-'));
+    const root = await mkdtemp(join(tmpdir(), 'lumakeys-migration-owned-'));
     roots.push(root);
     const id = 'legacy-song';
     const storage = new FileSystemMidiStorageAdapter(join(root, 'midi-files'));
@@ -99,7 +99,7 @@ describe('legacy JSON migration', () => {
       [id]: { title: 'Owned', sourcePath: join(root, 'missing.mid'), trackAssignments: {}, updatedAt: '2026-07-30T00:00:00.000Z' },
     } }));
 
-    const db = new AppDatabase(join(root, 'pianohero.db'));
+    const db = new AppDatabase(join(root, 'lumakeys.db'));
     db.addSong({
       id,
       title: 'Owned',

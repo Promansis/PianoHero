@@ -156,7 +156,7 @@ components:
 
 **Creative North Star: "The Playable Practice Stage"**
 
-LumaKeys is the visible app identity for PianoHero: a focused practice stage where beginners and intermediate players can import songs, follow lessons, drill theory, and play freely without feeling like they are inside a school portal. The interface should feel like an instrument surface first and a software dashboard second. Musical action, feedback, timing, and progress sit closest to the user.
+LumaKeys is the visible app identity for LumaKeys: a focused practice stage where beginners and intermediate players can import songs, follow lessons, drill theory, and play freely without feeling like they are inside a school portal. The interface should feel like an instrument surface first and a software dashboard second. Musical action, feedback, timing, and progress sit closest to the user.
 
 The strongest current design reference is `src/renderer/components/SettingsScreen.tsx` with its companion CSS in `src/renderer/styles.css`. Settings proves the direction: dense product controls can still feel theatrical when they use clipped deck geometry, compact telemetry, neon accents, precise labels, and visible save feedback. New product screens should borrow that discipline before inventing a new surface language.
 
@@ -328,7 +328,7 @@ LumaKeys uses a hybrid of tonal layering, glow, and depth shadows. Standard pane
 
 ### Don't:
 
-- **Don't** make PianoHero feel like a generic website.
+- **Don't** make LumaKeys feel like a generic website.
 - **Don't** make it feel like a school portal, worksheet app, or classroom software.
 - **Don't** make dense screens feel like an enterprise dashboard or administrative form.
 - **Don't** bury the player in configuration before they can play.

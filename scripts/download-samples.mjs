@@ -1,5 +1,5 @@
 /**
- * Downloads nbrosowsky/tonejs-instruments sample packs used by PianoHero.
+ * Downloads nbrosowsky/tonejs-instruments sample packs used by LumaKeys.
  * Run once (or after adding new instruments) with: node scripts/download-samples.mjs
  * Skips files that already exist.
  */

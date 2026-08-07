@@ -16,7 +16,7 @@ import type {
 } from '../shared/ipc';
 import type { LibraryBackup, LibraryExportResult, LibraryImportResult } from '../shared/dbTypes';
 
-const WEB_PACK_DB_NAME = 'pianohero-instrument-sample-packs';
+const WEB_PACK_DB_NAME = 'lumakeys-instrument-sample-packs';
 const WEB_PACK_DB_VERSION = 1;
 const WEB_PACK_OBJECT_STORE = 'packs';
 

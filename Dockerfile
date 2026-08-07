@@ -4,7 +4,7 @@ WORKDIR /app
 
 COPY package*.json ./
 COPY scripts ./scripts
-ENV PIANOHERO_SKIP_ELECTRON_REBUILD=1
+ENV LUMAKEYS_SKIP_ELECTRON_REBUILD=1
 RUN npm ci
 RUN npm rebuild better-sqlite3
 
@@ -15,7 +15,7 @@ COPY public ./public
 RUN npm run build:web
 
 ENV PORT=3001
-ENV PIANOHERO_DATA_DIR=/data
+ENV LUMAKEYS_DATA_DIR=/data
 
 EXPOSE 3001
 

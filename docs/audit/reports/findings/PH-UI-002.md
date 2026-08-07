@@ -23,7 +23,7 @@ condition, making it P1.
 
 ## Expected Behavior Or Oracle
 
-ADR 0001, the audit charter, and the PianoHero UI profile require 125%, 150%,
+ADR 0001, the audit charter, and the LumaKeys UI profile require 125%, 150%,
 175%, and 200% desktop zoom with controls contained, visible, and keyboard
 operable. `DESIGN.md` additionally requires five equal Settings tabs with visible
 icons and labels. A scrollable tab row may scroll horizontally, but it may not
@@ -69,9 +69,9 @@ and the same null tab hit test. At 175% and 200%, the Chrome tablist remained
 - The <=1180 px rule turns horizontal overflow on at
   `src/renderer/styles.css:9444`; computed overflow becomes `auto/auto`,
   clipping the collapsed row.
-- Chrome screenshot: `/tmp/pianohero-audit-p5-settings-150zoom-effective.png`,
+- Chrome screenshot: `/tmp/lumakeys-audit-p5-settings-150zoom-effective.png`,
   SHA-256 `c7600ffc930a0b3572e95e7a162e9d31c8936a28ce41404d70762fc142c60284`.
-- Electron screenshot: `/tmp/pianohero-audit-p5-electron-settings-150zoom-effective.png`,
+- Electron screenshot: `/tmp/lumakeys-audit-p5-electron-settings-150zoom-effective.png`,
   SHA-256 `e43787a0f5e99829acb42afdc7c21326259f0d3acd1eefafeab0bea171985fd4`.
 - Full evidence: [Phase 5](../phase-5-ui-accessibility-performance-2026-07-12.md#p5-rt-001-layout-conditions).
 

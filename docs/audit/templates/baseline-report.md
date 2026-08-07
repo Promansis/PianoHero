@@ -50,7 +50,7 @@ dependency versions as part of baseline repair.
 ### Web
 
 - Exact server/client command:
-- `PIANOHERO_DATA_DIR`:
+- `LUMAKEYS_DATA_DIR`:
 - URL and browser:
 - Main menu interaction:
 - Clean shutdown:

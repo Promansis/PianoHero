@@ -16,7 +16,7 @@ const tempDirs: string[] = [];
 const songId = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 
 async function makeServer() {
-  const dir = await mkdtemp(join(tmpdir(), 'pianohero-library-router-'));
+  const dir = await mkdtemp(join(tmpdir(), 'lumakeys-library-router-'));
   tempDirs.push(dir);
   const midiFilesDir = join(dir, 'midi-files');
   await mkdir(midiFilesDir, { recursive: true });

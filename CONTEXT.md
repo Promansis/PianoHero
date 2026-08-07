@@ -1,15 +1,15 @@
-# PianoHero Context
+# LumaKeys Context
 
 ## Purpose
 
 This document defines the stable language and system boundaries used when planning,
-auditing, and changing PianoHero. `PRODUCT.md` defines the product intent and
+auditing, and changing LumaKeys. `PRODUCT.md` defines the product intent and
 `DESIGN.md` defines the visual system. Architecture decisions belong in
 `docs/adr/`.
 
 ## Product Boundary
 
-PianoHero is a single-user piano-learning application for beginner and
+LumaKeys is a single-user piano-learning application for beginner and
 intermediate players. It supports two host runtimes:
 
 - Electron desktop.
@@ -105,7 +105,7 @@ sample assets must be included when tracing reset, backup, restore, and parity.
 
 No audit or test may use the owner's production database or data directory. Runtime
 proof must use an isolated absolute directory under `/tmp` through
-`PIANOHERO_DATA_DIR` or the equivalent Electron test profile.
+`LUMAKEYS_DATA_DIR` or the equivalent Electron test profile.
 
 ## Quality Priorities
 
