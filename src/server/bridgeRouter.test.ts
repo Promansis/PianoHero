@@ -109,6 +109,30 @@ describe('bridgeRouter', () => {
     expect(payload.error).toMatch(/Bridge request/);
   });
 
+  it('returns 413 for oversized bridge streams without Content-Length', async () => {
+    const { app, db } = await makeServer();
+    const body = JSON.stringify({ args: ['ui', 'large', 'x'.repeat(BRIDGE_RPC_BODY_LIMIT_BYTES)] });
+    const request = new Request('http://localhost/api/bridge/setSetting', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: new ReadableStream({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode(body));
+          controller.close();
+        },
+      }),
+      duplex: 'half',
+    } as RequestInit & { duplex: 'half' });
+
+    const response = await app.fetch(request);
+    const payload = await response.json() as { error: string };
+
+    expect(response.status).toBe(413);
+    expect(payload.error).toMatch(/Bridge request/);
+    expect(db.getSetting('ui', 'large')).toBeNull();
+    db.close();
+  });
+
   it('validates payload shape before dispatching to the database', async () => {
     const { app, db } = await makeServer();
 

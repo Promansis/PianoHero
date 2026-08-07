@@ -282,4 +282,37 @@ describe('GameScreen', () => {
       expect(screen.getByText(/active for this session only/)).toBeInTheDocument();
     });
   });
+
+  it('requires confirmation before structural controls restart a judged run', async () => {
+    const midiInputService = new MockMidiInputService();
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    renderGameScreen({ midiInputService });
+
+    await waitFor(() => expect(window.appBridge?.getSetting).toHaveBeenCalled());
+    act(() => {
+      midiInputService.emit({
+        type: 'noteon',
+        source: 'midi',
+        sourceId: 'midi:1',
+        timestamp: performance.now(),
+        note: 60,
+        velocity: 0.8,
+      });
+    });
+    fireEvent.click(screen.getByText('Menu'));
+
+    const learningButton = screen.getByRole('button', { name: 'Learning' });
+    fireEvent.click(learningButton);
+
+    expect(confirm).toHaveBeenCalledOnce();
+    expect(learningButton).toHaveClass('secondary-button');
+
+    confirm.mockReturnValue(true);
+    fireEvent.click(learningButton);
+
+    await waitFor(() => {
+      expect(learningButton).toHaveClass('primary-button');
+      expect(screen.getByText('Session setup changed. This run restarted.')).toBeInTheDocument();
+    });
+  });
 });

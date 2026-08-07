@@ -127,10 +127,6 @@ function shouldAutoplayMode(mode: SessionMode): boolean {
   return mode === 'piano-hero' || mode === 'performance';
 }
 
-function isWaitingMode(mode: SessionMode): boolean {
-  return mode === 'learning';
-}
-
 function isTypingTarget(target: EventTarget | null): boolean {
   const element = target as HTMLElement | null;
   return Boolean(
@@ -820,43 +816,22 @@ export function GameScreen({
   const rebuildForSessionConfig = async (nextSessionConfig: SessionConfig) => {
     const currentSourceSong = sourceSong;
     const previousGame = gameSessionRef.current;
-    const previousSessionConfig = sessionConfig;
-    setSessionConfig(nextSessionConfig);
     if (!currentSourceSong || !previousGame) {
+      setSessionConfig(nextSessionConfig);
       return;
     }
 
     const now = performance.now();
-    const currentTime = previousGame.getCurrentTimeSec(now);
-    const wasPlaying = previousGame.isTransportPlaying();
-    await mountSession(currentSourceSong, nextSessionConfig, customFingerings, {
-      keepTime: true,
-      currentTimeSec: currentTime,
-    });
-
-    const autoplayModeSelected =
-      previousSessionConfig.mode !== nextSessionConfig.mode &&
-      shouldAutoplayMode(nextSessionConfig.mode);
-    const shouldCountIn =
-      autoplayModeSelected &&
-      (!wasPlaying || isWaitingMode(previousSessionConfig.mode));
-
-    if (shouldCountIn) {
-      audioEngine.pauseSong();
-      void runCountdown(composeSessionSong(currentSourceSong, nextSessionConfig), currentTime, nextSessionConfig);
+    const score = previousGame.getSnapshot(now).score;
+    const hasJudgedNotes = score.perfectCount + score.goodCount + score.okCount + score.missCount > 0;
+    if (hasJudgedNotes && !window.confirm('Changing the session setup restarts this run. Continue?')) {
       return;
     }
 
-    if (wasPlaying && shouldAutoplayMode(nextSessionConfig.mode)) {
-      const nextGame = gameSessionRef.current;
-      const nextSong = composeSessionSong(currentSourceSong, nextSessionConfig);
-      if (nextGame && nextSong) {
-        await playSessionAudio(nextSong, nextGame.getCurrentTimeSec(now), nextSessionConfig);
-        nextGame.play(now);
-      }
-    } else {
-      audioEngine.pauseSong();
-    }
+    setSessionConfig(nextSessionConfig);
+    audioEngine.pauseSong();
+    await mountSession(currentSourceSong, nextSessionConfig, customFingerings);
+    setStatusMessage('Session setup changed. This run restarted.');
   };
 
   const handlePickMidi = async () => {
@@ -1039,6 +1014,14 @@ export function GameScreen({
       return;
     }
 
+    const previousGame = gameSessionRef.current;
+    const now = performance.now();
+    const score = previousGame?.getSnapshot(now).score;
+    const hasJudgedNotes = score && score.perfectCount + score.goodCount + score.okCount + score.missCount > 0;
+    if (hasJudgedNotes && !window.confirm('Changing track assignments restarts this run. Continue?')) {
+      return;
+    }
+
     const updatedSourceSong = setTrackAssignment(sourceSong, trackId, assignment);
     const updatedSongRecord: SongRow = {
       ...currentSongRef.current,
@@ -1046,23 +1029,13 @@ export function GameScreen({
     };
     currentSongRef.current = updatedSongRecord;
 
-    const previousGame = gameSessionRef.current;
-    const now = performance.now();
-    const currentTime = previousGame?.getCurrentTimeSec(now) ?? 0;
-    const wasPlaying = previousGame?.isTransportPlaying() ?? false;
     setCustomFingerings([]);
     setIsEditingFingering(false);
     setFingeringEditorState(null);
     setSelectedFingeringNoteId(null);
-    await mountSession(updatedSourceSong, sessionConfig, [], {
-      keepTime: true,
-      currentTimeSec: currentTime,
-    });
-
-    if (wasPlaying && shouldAutoplayMode(sessionConfig.mode) && gameSessionRef.current) {
-      await playSessionAudio(composeSessionSong(updatedSourceSong, sessionConfig), currentTime, sessionConfig);
-      gameSessionRef.current.play(now);
-    }
+    audioEngine.pauseSong();
+    await mountSession(updatedSourceSong, sessionConfig, []);
+    setStatusMessage('Track assignments changed. This run restarted.');
 
     if (window.appBridge && canPersistCurrentSong) {
       await window.appBridge.clearCustomFingerings(updatedSongRecord.id);

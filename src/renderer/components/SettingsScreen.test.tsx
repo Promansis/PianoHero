@@ -91,7 +91,9 @@ describe('SettingsScreen', () => {
       expect(screen.getByRole('tabpanel', { name: tabName })).toBeInTheDocument();
     }
 
+    fireEvent.click(screen.getByRole('tab', { name: 'Input' }));
     expect(screen.getByRole('button', { name: 'Edit Key Layout' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('tab', { name: 'Practice' }));
     expect(screen.getByRole('button', { name: 'Clear Learning Progress' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Clear Learning Progress' }));
     expect(screen.getAllByRole('button', { name: 'Clear Learning Progress' })).toHaveLength(2);
@@ -329,7 +331,7 @@ describe('SettingsScreen', () => {
 
     fireEvent.click(await screen.findByText('Practice'));
     fireEvent.click(screen.getByRole('button', { name: 'Clear Learning Progress' }));
-    fireEvent.keyDown(window, { key: 'Escape' });
+    fireEvent.keyDown(document, { key: 'Escape' });
 
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
@@ -348,10 +350,10 @@ describe('SettingsScreen', () => {
 
     expect(cancelButton).toHaveFocus();
 
-    fireEvent.keyDown(window, { key: 'Tab' });
+    fireEvent.keyDown(document, { key: 'Tab' });
     expect(confirmButton).toHaveFocus();
 
-    fireEvent.keyDown(window, { key: 'Tab', shiftKey: true });
+    fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
     expect(cancelButton).toHaveFocus();
   });
 
