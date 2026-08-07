@@ -3,7 +3,7 @@
 This folder keeps local test packaging isolated from the app code.
 
 - `electron-builder.yml`: packaging config
-- output artifacts go to `release/`
+- output artifacts go to `dist/`
 
 Primary script for this Linux machine:
 

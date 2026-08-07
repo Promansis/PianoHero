@@ -6,6 +6,8 @@ out
 npm-debug.log
 .lumakeys-data
 **/.lumakeys-data
+.pianohero-data
+**/.pianohero-data
 .env*
 **/.env*
 *.db
