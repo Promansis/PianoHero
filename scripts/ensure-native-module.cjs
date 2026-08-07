@@ -23,7 +23,8 @@ function ensureNativeModule(target) {
     return false;
   }
 
-  if (target === 'electron' && process.env.LUMAKEYS_SKIP_ELECTRON_REBUILD === '1') {
+  if (target === 'electron' && (process.env.LUMAKEYS_SKIP_ELECTRON_REBUILD === '1' || process.env.PIANOHERO_SKIP_ELECTRON_REBUILD === '1')) {
+    // ponytail: legacy var accepted for one release; drop PIANOHERO_SKIP_ELECTRON_REBUILD after migration.
     console.log('Skipping Electron native-module rebuild because LUMAKEYS_SKIP_ELECTRON_REBUILD=1');
     return true;
   }

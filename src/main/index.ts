@@ -19,6 +19,7 @@ import { buildLibraryBackup, importLibraryBackup } from '../persistence/libraryB
 import { isLibraryBackup } from '../shared/libraryBackup';
 import { getInstrumentSamplePackDefinition } from '../lib/audio/instrumentSamplePacks';
 import { AppDatabase } from '../persistence/database';
+import { defaultLegacyProfileDir, migrateLegacyBrand } from '../persistence/legacyBrandMigration';
 import { FileSystemMidiStorageAdapter } from '../storage/midiStorage';
 import { deleteSongsAcrossStores, resetUserDataAcrossStores } from '../persistence/crossStoreMutations';
 import {
@@ -92,9 +93,15 @@ async function createMainWindow(): Promise<void> {
 }
 
 app.whenReady().then(async () => {
+  app.setName('LumaKeys');
   app.setAppUserModelId('com.lumakeys.app');
 
   const userDataPath = app.getPath('userData');
+  migrateLegacyBrand({
+    destinationDir: userDataPath,
+    legacyDir: defaultLegacyProfileDir(app.getPath('appData')),
+  });
+
   const midiFilesDir = join(userDataPath, 'midi-files');
   mkdirSync(midiFilesDir, { recursive: true });
   midiStorage = new FileSystemMidiStorageAdapter(midiFilesDir);
