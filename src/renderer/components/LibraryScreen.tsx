@@ -909,7 +909,7 @@ export function LibraryScreen({
         </div>
 
         <div className="song-card-actions">
-          <button className="primary-button" onClick={() => { stopPreview(); onStartSession(song, 'piano-hero'); }}>
+          <button className="primary-button" onClick={() => { stopPreview(); onStartSession(song, 'luma-keys'); }}>
             Play
           </button>
           <button className="secondary-button" onClick={() => { stopPreview(); onStartSession(song, 'learning'); }}>
@@ -1241,7 +1241,7 @@ export function LibraryScreen({
                                   <span>{Math.round(item.song.bpm)} BPM</span>
                                 </div>
                                 <div className="song-card-actions">
-                                  <button className="primary-button" onClick={() => onStartSession(item.song, 'piano-hero')}>
+                                  <button className="primary-button" onClick={() => onStartSession(item.song, 'luma-keys')}>
                                     Play
                                   </button>
                                   <button className="secondary-button" onClick={() => onStartSession(item.song, 'learning')}>
@@ -1312,7 +1312,7 @@ export function LibraryScreen({
                               <strong title={challengeSong.title}>Challenge: {challengeSong.title}</strong>
                               <p className="panel-copy">Push your current level with something slightly harder.</p>
                             </div>
-                            <button className="secondary-button" onClick={() => { stopPreview(); onStartSession(challengeSong, 'piano-hero'); }}>Play</button>
+                            <button className="secondary-button" onClick={() => { stopPreview(); onStartSession(challengeSong, 'luma-keys'); }}>Play</button>
                           </li>
                         ) : null}
                       </ol>
@@ -1522,7 +1522,7 @@ export function LibraryScreen({
               songs={visibleSongs}
               canReorder={!playlistFiltersActive}
               onPlayAll={() => onStartPlaylistQueue(playlistSongs)}
-              onStartSession={(song) => onStartSession(song, 'piano-hero')}
+              onStartSession={(song) => onStartSession(song, 'luma-keys')}
               onRemoveSong={(songId) =>
                 void (async () => {
                   if (!window.appBridge || activeView.type !== 'playlist') {

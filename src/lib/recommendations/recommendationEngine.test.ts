@@ -35,7 +35,7 @@ function createResult(overrides: Partial<GameResultRow>): GameResultRow {
     misses: overrides.misses ?? 0,
     timestamp: overrides.timestamp ?? '2026-04-01T12:00:00.000Z',
     tempo: overrides.tempo ?? 1,
-    mode: overrides.mode ?? 'piano-hero',
+    mode: overrides.mode ?? 'luma-keys',
     durationSec: overrides.durationSec ?? 60,
   };
 }

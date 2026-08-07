@@ -173,7 +173,7 @@ describe('bridgeRouter', () => {
       measureAccuracy: [],
     };
 
-    const pianoHero = await postBridge(app, 'saveGameResult', [{ ...basePayload, mode: 'piano-hero' }]);
+    const pianoHero = await postBridge(app, 'saveGameResult', [{ ...basePayload, mode: 'luma-keys' }]);
     const learning = await postBridge(app, 'saveGameResult', [{ ...basePayload, mode: 'learning' }]);
     const performanceMode = await postBridge(app, 'saveGameResult', [{ ...basePayload, mode: 'performance' }]);
     const freePlay = await postBridge(app, 'saveGameResult', [{ ...basePayload, mode: 'free-play' }]);
@@ -183,6 +183,45 @@ describe('bridgeRouter', () => {
     expect(learning.status).toBe(200);
     expect(performanceMode.status).toBe(200);
     expect(freePlay.status).toBe(400);
+  });
+
+  it('normalizes a legacy piano-hero mode request to luma-keys before persisting', async () => {
+    const { app, db } = await makeServer();
+    db.addSong({
+      id: songId,
+      title: 'Etude',
+      artist: '',
+      genre: '',
+      filePath: '',
+      difficulty: 1,
+      durationSec: 1,
+      bpm: 120,
+      noteCount: 1,
+      tags: [],
+      trackAssignments: {},
+    });
+    const legacyPayload = {
+      songId,
+      score: 100,
+      accuracy: 95,
+      maxCombo: 5,
+      perfectHits: 5,
+      goodHits: 0,
+      okHits: 0,
+      misses: 0,
+      tempo: 1,
+      mode: 'piano-hero',
+      durationSec: 30,
+      measureAccuracy: [],
+    };
+
+    const response = await postBridge(app, 'saveGameResult', [legacyPayload]);
+    expect(response.status).toBe(200);
+
+    const persisted = db.getGameResults(songId);
+    expect(persisted).toHaveLength(1);
+    expect(persisted[0].mode).toBe('luma-keys');
+    db.close();
   });
 
   it('rejects web song mutation payloads that try to persist file paths', async () => {

@@ -356,7 +356,7 @@ describe('App', () => {
     expect(screen.queryByRole('button', { name: 'Back to Main Menu' })).not.toBeInTheDocument();
   });
 
-  it('launches lesson drills in piano-hero mode instead of wait-for-input learning mode', async () => {
+  it('launches lesson drills in luma-keys mode instead of wait-for-input learning mode', async () => {
     render(<App />);
 
     fireEvent.click(await screen.findByText('Open Learn'));
@@ -364,7 +364,7 @@ describe('App', () => {
     fireEvent.click(await screen.findByText('Start Drill'));
 
     expect(screen.getByTestId('game-source-kind')).toHaveTextContent('lesson-drill');
-    expect(screen.getByTestId('game-session-mode')).toHaveTextContent('piano-hero');
+    expect(screen.getByTestId('game-session-mode')).toHaveTextContent('luma-keys');
     expect(screen.getByTestId('game-session-wait')).toHaveTextContent('false');
   });
 
@@ -399,7 +399,7 @@ describe('App', () => {
 
     expect(screen.getByText('Game')).toBeInTheDocument();
     expect(screen.getByTestId('game-source-kind')).toHaveTextContent('library-song');
-    expect(screen.getByTestId('game-session-mode')).toHaveTextContent('piano-hero');
+    expect(screen.getByTestId('game-session-mode')).toHaveTextContent('luma-keys');
     expect(screen.getByTestId('game-session-wait')).toHaveTextContent('false');
   });
 

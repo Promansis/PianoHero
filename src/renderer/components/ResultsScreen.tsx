@@ -339,7 +339,7 @@ export function ResultsScreen({
           </div>
           <div className="result-stat">
             <span>Mode</span>
-            <strong>{result.mode === 'piano-hero' ? 'LumaKeys' : 'Learning'}</strong>
+            <strong>{result.mode === 'luma-keys' ? 'LumaKeys' : 'Learning'}</strong>
           </div>
         </article>
       </section>

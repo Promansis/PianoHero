@@ -89,7 +89,7 @@ describe('ScoringEngine', () => {
       engine.recordHit('good', 0);
       engine.recordMiss(1);
 
-      const result = engine.getFinalResult('song-abc', 'piano-hero', 1, 120);
+      const result = engine.getFinalResult('song-abc', 'luma-keys', 1, 120);
       expect(result).toMatchObject({
         songId: 'song-abc',
         score: 175,
@@ -100,7 +100,7 @@ describe('ScoringEngine', () => {
         okHits: 0,
         misses: 1,
         tempo: 1,
-        mode: 'piano-hero',
+        mode: 'luma-keys',
         durationSec: 120,
       });
       expect(result.measureAccuracy).toEqual([

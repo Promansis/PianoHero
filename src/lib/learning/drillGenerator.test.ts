@@ -4,7 +4,7 @@ import type { SessionConfig } from '../game/types';
 import { buildLessonDrill, buildRhythmClappingDrill } from './drillGenerator';
 
 const SCORING_SESSION: SessionConfig = {
-  mode: 'piano-hero',
+  mode: 'luma-keys',
   tempoMultiplier: 1,
   handFilter: 'both',
   loopRange: null,
@@ -105,7 +105,7 @@ describe('buildLessonDrill', () => {
     const result = session.getFinalResult();
     expect(result).toMatchObject({
       songId: song.id,
-      mode: 'piano-hero',
+      mode: 'luma-keys',
       perfectHits: song.notes.length,
       misses: 0,
       accuracy: 100,

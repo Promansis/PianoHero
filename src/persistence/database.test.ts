@@ -49,7 +49,7 @@ function buildGameResult(overrides: Partial<SaveGameResultPayload> = {}): SaveGa
     okHits: 1,
     misses: 1,
     tempo: 1,
-    mode: 'piano-hero',
+    mode: 'luma-keys',
     durationSec: 45,
     measureAccuracy: [],
     ...overrides,
@@ -67,7 +67,7 @@ function saveResult(db: AppDatabase, id = songId): void {
     okHits: 1,
     misses: 1,
     tempo: 1,
-    mode: 'piano-hero',
+    mode: 'luma-keys',
     durationSec: 45,
     measureAccuracy: [],
   });
@@ -403,6 +403,65 @@ describe('AppDatabase initialization and migrations', () => {
     const columns = migratedDb.prepare('PRAGMA table_info(songs)').all() as Array<{ name: string }>;
     migratedDb.close();
     expect(columns.map((column) => column.name)).toContain('folder_id');
+  });
+
+  it('converts legacy piano-hero and normal result modes to luma-keys on init', async () => {
+    const dbPath = await makeDbPath();
+    const legacyDb = new Database(dbPath);
+    legacyDb.exec(`
+      CREATE TABLE songs (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        artist TEXT NOT NULL DEFAULT '',
+        genre TEXT NOT NULL DEFAULT '',
+        file_path TEXT NOT NULL,
+        difficulty INTEGER NOT NULL DEFAULT 0,
+        duration_sec REAL NOT NULL DEFAULT 0,
+        bpm REAL NOT NULL DEFAULT 0,
+        note_count INTEGER NOT NULL DEFAULT 0,
+        date_added TEXT NOT NULL DEFAULT (datetime('now')),
+        times_played INTEGER NOT NULL DEFAULT 0,
+        tags TEXT NOT NULL DEFAULT '[]',
+        is_favorite INTEGER NOT NULL DEFAULT 0,
+        track_assignments TEXT NOT NULL DEFAULT '{}'
+      );
+      CREATE TABLE game_results (
+        id TEXT PRIMARY KEY,
+        song_id TEXT NOT NULL REFERENCES songs(id) ON DELETE CASCADE,
+        score INTEGER NOT NULL,
+        accuracy REAL NOT NULL,
+        max_combo INTEGER NOT NULL,
+        perfect_hits INTEGER NOT NULL DEFAULT 0,
+        good_hits INTEGER NOT NULL DEFAULT 0,
+        ok_hits INTEGER NOT NULL DEFAULT 0,
+        misses INTEGER NOT NULL DEFAULT 0,
+        timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+        tempo REAL NOT NULL DEFAULT 1.0,
+        mode TEXT NOT NULL DEFAULT 'piano-hero',
+        duration_sec REAL NOT NULL DEFAULT 0
+      );
+    `);
+    legacyDb
+      .prepare(`INSERT INTO songs (id, title, file_path, difficulty, duration_sec, bpm, note_count, tags, track_assignments)
+                VALUES (?, 'Legacy Song', '', 1, 10, 120, 4, '[]', '{}')`)
+      .run(songId);
+    const insertResult = legacyDb.prepare(`
+      INSERT INTO game_results
+        (id, song_id, score, accuracy, max_combo, timestamp, tempo, mode, duration_sec)
+      VALUES (?, ?, 100, 95, 10, datetime('now'), 1.0, ?, 30)
+    `);
+    insertResult.run('r-piano-hero', songId, 'piano-hero');
+    insertResult.run('r-normal', songId, 'normal');
+    insertResult.run('r-luma-keys', songId, 'luma-keys');
+    legacyDb.close();
+
+    const db = new AppDatabase(dbPath);
+    expect(db.getGameResults(songId).map((result) => result.mode)).toEqual([
+      'luma-keys',
+      'luma-keys',
+      'luma-keys',
+    ]);
+    db.close();
   });
 });
 

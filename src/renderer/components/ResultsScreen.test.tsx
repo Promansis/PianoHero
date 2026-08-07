@@ -33,7 +33,7 @@ describe('ResultsScreen', () => {
           okHits: 0,
           misses: 0,
           tempo: 1,
-          mode: 'piano-hero',
+          mode: 'luma-keys',
           durationSec: 10,
           measureAccuracy: [],
         }}
@@ -55,7 +55,7 @@ describe('ResultsScreen', () => {
           trackAssignments: {},
         }}
         sessionConfig={{
-          mode: 'piano-hero',
+          mode: 'luma-keys',
           tempoMultiplier: 1,
           handFilter: 'both',
           loopRange: null,
@@ -97,7 +97,7 @@ describe('ResultsScreen', () => {
           okHits: 0,
           misses: 0,
           tempo: 1,
-          mode: 'piano-hero',
+          mode: 'luma-keys',
           durationSec: 10,
           measureAccuracy: [],
         }}
@@ -119,7 +119,7 @@ describe('ResultsScreen', () => {
           trackAssignments: {},
         }}
         sessionConfig={{
-          mode: 'piano-hero',
+          mode: 'luma-keys',
           tempoMultiplier: 1,
           handFilter: 'both',
           loopRange: null,
@@ -161,7 +161,7 @@ describe('ResultsScreen', () => {
           okHits: 0,
           misses: 0,
           tempo: 1,
-          mode: 'piano-hero',
+          mode: 'luma-keys',
           durationSec: 10,
           measureAccuracy: [],
         }}
@@ -183,7 +183,7 @@ describe('ResultsScreen', () => {
           trackAssignments: {},
         }}
         sessionConfig={{
-          mode: 'piano-hero',
+          mode: 'luma-keys',
           tempoMultiplier: 1,
           handFilter: 'both',
           loopRange: null,
@@ -223,7 +223,7 @@ describe('ResultsScreen', () => {
           okHits: 0,
           misses: 0,
           tempo: 1,
-          mode: 'piano-hero',
+          mode: 'luma-keys',
           durationSec: 10,
           measureAccuracy: [],
         }}
@@ -245,7 +245,7 @@ describe('ResultsScreen', () => {
           trackAssignments: {},
         }}
         sessionConfig={{
-          mode: 'piano-hero',
+          mode: 'luma-keys',
           tempoMultiplier: 1,
           handFilter: 'both',
           loopRange: null,
@@ -293,7 +293,7 @@ describe('ResultsScreen', () => {
           okHits: 0,
           misses: 0,
           tempo: 1,
-          mode: 'piano-hero',
+          mode: 'luma-keys',
           durationSec: 10,
           measureAccuracy: [],
         }}
@@ -315,7 +315,7 @@ describe('ResultsScreen', () => {
           trackAssignments: {},
         }}
         sessionConfig={{
-          mode: 'piano-hero',
+          mode: 'luma-keys',
           tempoMultiplier: 1,
           handFilter: 'both',
           loopRange: null,

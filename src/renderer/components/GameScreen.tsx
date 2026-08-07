@@ -124,7 +124,7 @@ function composeSessionSong(sourceSong: ParsedSong, sessionConfig: SessionConfig
 }
 
 function shouldAutoplayMode(mode: SessionMode): boolean {
-  return mode === 'piano-hero' || mode === 'performance';
+  return mode === 'luma-keys' || mode === 'performance';
 }
 
 function isTypingTarget(target: EventTarget | null): boolean {
@@ -227,8 +227,8 @@ function SessionToolbar({
     <section className="panel session-toolbar">
       <div className="session-chip-group">
         <button
-          className={sessionConfig.mode === 'piano-hero' ? 'primary-button' : 'secondary-button'}
-          onClick={() => onRebuild({ ...sessionConfig, mode: 'piano-hero', waitForInput: false })}
+          className={sessionConfig.mode === 'luma-keys' ? 'primary-button' : 'secondary-button'}
+          onClick={() => onRebuild({ ...sessionConfig, mode: 'luma-keys', waitForInput: false })}
         >
           LumaKeys
         </button>
@@ -1447,7 +1447,7 @@ export function GameScreen({
               <div className="status-card">
                 <span>Mode</span>
                 <strong>
-                  {sessionConfig.mode === 'piano-hero'
+                  {sessionConfig.mode === 'luma-keys'
                     ? 'LumaKeys'
                     : sessionConfig.mode === 'performance'
                       ? 'Performance'

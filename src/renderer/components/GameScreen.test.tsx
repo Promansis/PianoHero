@@ -128,7 +128,7 @@ function buildSong(): ParsedSong {
 
 function buildSessionConfig(overrides: Partial<SessionConfig> = {}): SessionConfig {
   return {
-    mode: 'piano-hero',
+    mode: 'luma-keys',
     tempoMultiplier: 1,
     handFilter: 'both',
     loopRange: null,

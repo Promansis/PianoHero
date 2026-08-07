@@ -42,7 +42,7 @@ const SONG: ParsedSong = {
 };
 
 const DEFAULT_SESSION: SessionConfig = {
-  mode: 'piano-hero',
+  mode: 'luma-keys',
   tempoMultiplier: 1,
   handFilter: 'both',
   loopRange: null,
@@ -239,7 +239,7 @@ describe('GameSession', () => {
     const session = new GameSession(SONG, {
       ...DEFAULT_SESSION,
       fingeringDisplayMode: 'always',
-      mode: 'piano-hero',
+      mode: 'luma-keys',
     });
 
     const snapshot = session.getSnapshot(0);
@@ -251,7 +251,7 @@ describe('GameSession', () => {
     const hiddenInHero = new GameSession(SONG, {
       ...DEFAULT_SESSION,
       fingeringDisplayMode: 'learning-only',
-      mode: 'piano-hero',
+      mode: 'luma-keys',
     });
     const visibleInLearning = new GameSession(SONG, {
       ...DEFAULT_SESSION,

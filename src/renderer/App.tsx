@@ -1087,7 +1087,7 @@ export function App() {
       stepIndex,
       parsedSong,
       isRhythmClapping: step.kind === 'rhythm-clapping',
-      sessionConfig: buildSessionConfig('piano-hero', false, false, pitchBendEnabled, latencyCompMs, hitWindowMs, beatsVisible, leadInBeats, {
+      sessionConfig: buildSessionConfig('luma-keys', false, false, pitchBendEnabled, latencyCompMs, hitWindowMs, beatsVisible, leadInBeats, {
         handSize,
         tempoMultiplier: step.kind === 'drill' ? step.tempoMultiplier ?? 1 : 1,
         handFilter: step.kind === 'drill' ? step.handFilter ?? 'both' : 'both',
@@ -1151,7 +1151,7 @@ export function App() {
       return;
     }
 
-    startSongSession(songs[0], 'piano-hero', null, { songs, index: 0 });
+    startSongSession(songs[0], 'luma-keys', null, { songs, index: 0 });
   };
 
   const handleNextQueuedSong = () => {
@@ -1165,7 +1165,7 @@ export function App() {
       return;
     }
 
-    startSongSession(nextSong, 'piano-hero', null, {
+    startSongSession(nextSong, 'luma-keys', null, {
       songs: currentScreen.playlistQueue.songs,
       index: nextIndex,
     });
@@ -1422,7 +1422,7 @@ export function App() {
           onOpenProgress={() => setCurrentScreen({ screen: 'progress-dashboard' })}
           onOpenSettings={() => setCurrentScreen({ screen: 'settings' })}
           onOpenSetup={() => setCurrentScreen({ screen: 'setup' })}
-          onStartSong={(song) => startSongSession(song, 'piano-hero')}
+          onStartSong={(song) => startSongSession(song, 'luma-keys')}
         />
       );
       break;
@@ -1548,7 +1548,7 @@ export function App() {
           onStartTopSong={(songId) => {
             void window.appBridge?.getSong(songId).then((song) => {
               if (song) {
-                startSongSession(song, 'piano-hero');
+                startSongSession(song, 'luma-keys');
               }
             });
           }}

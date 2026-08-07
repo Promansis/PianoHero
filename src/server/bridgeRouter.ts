@@ -91,7 +91,8 @@ function isHand(value: unknown): value is 'left' | 'right' {
 }
 
 function isPersistedGameResultMode(value: unknown): value is PersistedGameResultMode {
-  return value === 'piano-hero' || value === 'learning' || value === 'performance';
+  // ponytail: 'piano-hero' is a one-release alias for old backups/requests; normalize below.
+  return value === 'luma-keys' || value === 'piano-hero' || value === 'learning' || value === 'performance';
 }
 
 function isTheoryType(value: unknown): boolean {
@@ -382,6 +383,10 @@ export function createBridgeRouter(dependencies: ServerDependencies) {
       const fn = (db as unknown as Record<string, (...nextArgs: unknown[]) => unknown>)[method];
       if (typeof fn !== 'function') {
         return c.json({ error: `Bridge method is not callable: ${method}` }, 500);
+      }
+
+      if (method === 'saveGameResult' && (args[0] as { mode?: string }).mode === 'piano-hero') {
+        (args[0] as { mode: string }).mode = 'luma-keys';
       }
 
       const result = await Promise.resolve(fn.apply(db, args));
